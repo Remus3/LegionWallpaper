@@ -1,0 +1,7 @@
+# Legion Wallpaper - dependency manifest.
+# The tree is pure stdlib so far (product TBD); only the dev/test toolchain
+# lives here. Runtime deps get added as the product is defined. This file
+# also keys the pip cache in .github/workflows/ci.yml (setup-python
+# cache: pip requires a requirements.txt or pyproject.toml to hash).
+pytest
+ruff

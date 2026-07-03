@@ -48,11 +48,12 @@ jobs:
       - name: Install test deps
         run: |
           python -m pip install --upgrade pip
-          # LW has no requirements.txt yet - the tree is pure stdlib so far.
-          # When runtime deps appear, install them here first (mirroring the
-          # nightly/check split: the nightly installs the full runtime stack,
-          # the per-push check stays minimal).
-          pip install pytest ruff
+          # requirements.txt is dev-toolchain-only for now (pytest + ruff) -
+          # the tree is pure stdlib so far. When runtime deps appear they go
+          # in requirements.txt too (mirroring the nightly/check split: the
+          # nightly installs the full runtime stack, the per-push check stays
+          # minimal). The file also keys the setup-python pip cache.
+          pip install -r requirements.txt
       - name: py_compile sweep
         run: |
           # Same sweep as the check job - see the comment there.
@@ -109,9 +110,10 @@ jobs:
       - name: Install minimal test deps
         run: |
           python -m pip install --upgrade pip
-          # Test runner + linter only - LW has no runtime stack yet (no
-          # requirements.txt); everything in tests/ is pure stdlib.
-          pip install pytest ruff
+          # Test runner + linter only - LW has no runtime stack yet;
+          # everything in tests/ is pure stdlib. requirements.txt carries
+          # just the dev toolchain and keys the setup-python pip cache.
+          pip install -r requirements.txt
 
       - name: py_compile sweep
         run: |
