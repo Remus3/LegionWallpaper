@@ -1,0 +1,110 @@
+# Secrets - NEVER commit
+API-Key-*.txt
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+
+# Claude Desktop app data lives INSIDE this project folder on this machine
+# (C:\LegionWallpaper\Claude\). It is app data, not project content - NEVER
+# track it.
+/Claude/
+
+# Local-only Claude Code / MCP config. RC ignored the whole .claude/ tree;
+# LW tracks .claude/ itself (settings.json, commands/, agents/ are project
+# content) and ignores only the machine-local pieces, preserving RC's intent
+# that per-machine config, tokens, and worktree checkouts never get tracked.
+.claude/settings.local.json
+.claude/local/
+.claude/worktrees/
+.mcp.json
+.playwright-mcp/
+
+# Audit-cleanup quarantine (move-not-delete pattern; safe to rm after
+# stability confirmed)
+_archive/
+
+# Scratch / session-debug logs (pytest output, wakeup snapshots, iter loggings)
+_scratch/
+
+# Operator's living work list - Claude-synced, untracked one-stop tracker
+LW_WORK_TRACKER.md
+
+# Databases - never commit binary DB files.
+# Recursive on purpose - a bare `data/*.db` only catches direct children.
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.sqlite
+**/*.sqlite3
+
+# Logs (daily rotating - logs/YYYY-MM-DD.log convention)
+logs/
+
+# Runtime state (mutates constantly)
+ops/runtime/
+restart_trigger.txt
+
+# Gemini director/auditor loop runtime droppings (sentinels, controller.log,
+# directive.md, directive_history.jsonl, budget.json, _gemini_* transcripts).
+# Track only the .gitkeep placeholder so the control dir exists on checkout.
+ops/loop/control/*
+!ops/loop/control/.gitkeep
+
+# Sync staging
+tmp/
+
+# Audit/snapshot tarballs
+*.tar.gz
+*.zip
+
+# Python bytecode + caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.tox/
+.coverage
+htmlcov/
+
+# Editor / IDE
+.vscode/
+.idea/
+.obsidian/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Profiling output
+*.prof
+*.lprof
+
+# Node (if any future tooling)
+node_modules/
+package-lock.json
+
+# Ad-hoc diagnostic artefacts under data/. Leading dot keeps them sorted
+# to the top of the dir + signals "transient debug output, not persistent
+# state".
+data/.*.png
+data/.*.json
+data/.*.jsonl
+data/.*.tmp
+
+# Transient verify/test scratch dropped at repo root by item runs
+# (_verify_*.txt and friends) + ad-hoc stdout/stderr captures.
+/_*.txt
+_verify_*.txt
+/*_out.log
+/*_err.log

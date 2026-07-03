@@ -1,0 +1,155 @@
+# AUDIT 2026-07-03 (LW bring-up): CI bare-minimum guard for the young
+# Legion Wallpaper repo. py_compile every .py + ruff + the authored-source
+# hygiene tests in tests/. Catches drift before it lands on main.
+# Product test suites: TBD - product not yet defined; widen the pytest
+# surface (and the nightly job) as the LW engine grows.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+    # MINUTE SAVER (carried from RC 2026-06-30): docs-only commits (the
+    # per-session LEDGER/WAKEUP notes sync dominates a young repo's history)
+    # skip CI entirely. Any non-.md change in the same commit still triggers
+    # the full run. The ASCII-hygiene guard that scans .md is backstopped
+    # locally by the precommit_gate.py PreToolUse hook (blocks banned glyphs
+    # on staged lines), so nothing authored slips past on a docs-only push.
+    paths-ignore:
+      - '**/*.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+  schedule:
+    - cron: '0 8 * * *'  # Nightly run (paths-ignore does not apply to schedule)
+  workflow_dispatch:       # manual trigger to verify the full suite on demand
+
+# MINUTE SAVER (carried from RC 2026-06-30): cancel a superseded in-progress
+# run when a newer commit lands on the same ref, so rapid pushes do not each
+# bill to completion. event_name is in the group so a push never cancels the
+# nightly schedule run (or vice versa) - only same-event runs supersede each
+# other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  nightly-full-suite:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install test deps
+        run: |
+          python -m pip install --upgrade pip
+          # LW has no requirements.txt yet - the tree is pure stdlib so far.
+          # When runtime deps appear, install them here first (mirroring the
+          # nightly/check split: the nightly installs the full runtime stack,
+          # the per-push check stays minimal).
+          pip install pytest ruff
+      - name: py_compile sweep
+        run: |
+          # Same sweep as the check job - see the comment there.
+          python - <<'PY'
+          import py_compile, sys
+          from pathlib import Path
+          fails, count = [], 0
+          for p in Path(".").rglob("*.py"):
+              parts = p.parts
+              if "__pycache__" in parts or "_archive" in parts or ".git" in parts:
+                  continue
+              count += 1
+              try:
+                  py_compile.compile(str(p), doraise=True)
+              except Exception as exc:
+                  fails.append((p, exc))
+          if fails:
+              for p, exc in fails:
+                  print(f"FAIL: {p}: {exc}", file=sys.stderr)
+              sys.exit(1)
+          print(f"OK: {count} .py files compile clean")
+          PY
+      - name: ruff lint
+        run: ruff check .
+      - name: Full test suite
+        run: |
+          # Same surface as the check job for now - the split exists so the
+          # nightly can absorb slow/full product suites (TBD - product not
+          # yet defined) without slowing per-push CI.
+          pytest tests/ -q --tb=short
+      - name: style drift gate
+        run: |
+          # tools/strip_em_dashes.py --check is the dry-run drift gate: it
+          # exits 1 if any em/en dash or smart quote is present in tracked
+          # authored text (git ls-files enumeration = tracked files only).
+          # Pure stdlib. Nightly-only: the .md-scanning surface is excluded
+          # from per-push CI by the docs-only paths-ignore, so this catches
+          # any glyph drift that rode in on a docs-only push.
+          python tools/strip_em_dashes.py --check
+
+  check:
+    if: github.event_name != 'schedule'
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install minimal test deps
+        run: |
+          python -m pip install --upgrade pip
+          # Test runner + linter only - LW has no runtime stack yet (no
+          # requirements.txt); everything in tests/ is pure stdlib.
+          pip install pytest ruff
+
+      - name: py_compile sweep
+        run: |
+          # Every .py in the checkout. A CI checkout contains tracked files
+          # only, so gitignored dirs (_archive/, __pycache__/, ops/runtime/,
+          # Claude/) are already absent; the excludes below are defensive
+          # parity for running the same snippet locally.
+          python - <<'PY'
+          import py_compile, sys
+          from pathlib import Path
+          fails, count = [], 0
+          for p in Path(".").rglob("*.py"):
+              parts = p.parts
+              if "__pycache__" in parts or "_archive" in parts or ".git" in parts:
+                  continue
+              count += 1
+              try:
+                  py_compile.compile(str(p), doraise=True)
+              except Exception as exc:
+                  fails.append((p, exc))
+          if fails:
+              for p, exc in fails:
+                  print(f"FAIL: {p}: {exc}", file=sys.stderr)
+              sys.exit(1)
+          print(f"OK: {count} .py files compile clean")
+          PY
+
+      - name: ruff lint
+        run: ruff check .
+
+      - name: authored-source hygiene + tests
+        run: |
+          # Runs everything under tests/ so new suites are picked up
+          # automatically as the repo grows - no per-path list to forget to
+          # update. Today that is the three ASCII-hygiene guards: no smart
+          # quotes / em-en dashes / NBSP / ellipsis / mojibake / U+2500
+          # box-drawing in authored source. A test failure or a collection
+          # error fails the job - no exit-code masking. Catches authored-text
+          # drift at PR time so it is never dismissed as "pre-existing / not
+          # in CI".
+          pytest tests/ -q --tb=line

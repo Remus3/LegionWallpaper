@@ -1,0 +1,21 @@
+# GitHub Linguist hints - keep the Languages pie chart on the repo page
+# representative of human-authored code, not vendored/generated artifacts.
+#
+# Without these flags Linguist counts every tracked byte regardless of
+# provenance, which can bury the actual human-authored code under archived
+# quarantine content and generated data caches.
+# Reference: https://github.com/github-linguist/linguist/blob/master/docs/overrides.md
+# (a) Archived inert code (move-not-delete quarantine) - preserved for
+#     reversibility, not active
+_archive/**                       linguist-vendored=true
+# (b) Local data caches that occasionally get tracked - generated, not authored
+data/**                           linguist-generated=true
+# EOL policy - prevent CR-CR-LF / CRLF corruption of Python sources.
+# (Incident inherited verbatim from the Riot Commander repo - the rule is
+# carried 1:1 so the same corruption cannot recur here.)
+# core.autocrlf=true on the Windows fleet, combined with tools that
+# re-add an already-CRLF blob, produced doubled-CR line endings in 21
+# tracked .py files (2026-05-19 rc_facts.py incident). Forcing eol=lf
+# keeps .py LF in the repo AND the working tree, overriding autocrlf
+# so the corruption cannot recur fleet-wide.
+*.py text eol=lf

@@ -1,0 +1,40 @@
+#!/bin/sh
+# Legion Wallpaper pre-commit hook (ported 1:1 from Riot Commander proposal 4.1).
+#
+# Install per-clone with:
+#   git config core.hooksPath .githooks
+#
+# The hook runs the pre-commit gate, which py_compiles every staged .py
+# file. A syntax error here is a silent crash under pythonw.exe at
+# runtime (see CLAUDE.md hard rule).
+
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+PY="${PYTHON:-C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe}"
+
+# Python 3.x - prefer the pinned interpreter but fall back to `python`.
+if ! command -v "$PY" >/dev/null 2>&1; then
+    PY=python
+fi
+
+"$PY" "$ROOT/tools/precommit_gate.py" || exit 1
+
+# Ensure ARCHITECTURE.md module map is in sync with # arch: headers.
+# Guarded until tools/gen_archmap.py exists in LW - the gate activates
+# automatically the moment the tool lands (same exit-code semantics as RC).
+if [ -f "$ROOT/tools/gen_archmap.py" ]; then
+    "$PY" "$ROOT/tools/gen_archmap.py" --check || {
+        echo "Run: python tools/gen_archmap.py"
+        exit 1
+    }
+fi
+
+# RC also kept generated artifacts in lockstep with their source-of-truth
+# models via a tools/gen_state_schema.py --check gate (RC dashboard state
+# schema - product-specific). TBD - product not yet defined: when LW grows
+# a source-of-truth -> generated-artifact pair, mirror that gate here.
+# The guard below activates it automatically if/when the tool exists.
+if [ -f "$ROOT/tools/gen_state_schema.py" ]; then
+    "$PY" "$ROOT/tools/gen_state_schema.py" --check || exit 1
+fi

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Legion Wallpaper (TBD)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["main.py"],
+      "port": null
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "repo_root": "C:\\LegionWallpaper",
+  "control_dir": "C:\\LegionWallpaper\\ops\\loop\\control",
+  "ceiling_usd": 200.0,
+  "_ceiling_note": "ceiling_usd caps GEMINI spend only (director+auditor calls). Claude/executor spend is UNCAPPED per operator. Rail carried from the RC ancestor (operator set NO spend limit; 200 is a runaway backstop only).",
+  "max_cycles": 100,
+  "cycle_deadline_sec": 5400,
+  "poll_sec": 5,
+  "dry_run": false,
+  "ignore_no_progress": false,
+  "clear_each_cycle": true,
+  "session_jsonl": "",
+  "directive_suffix": "OPERATOR RUN FOCUS: TBD - product not yet defined; replace this suffix before the first live LW run. Process contract (carried 1:1 from the RC ancestor): docs/ORCHESTRATION_PLAN.md is the PRIMARY work source - pick the next OPEN session top-down. Every session row is VERIFY-PREMISE FIRST: fresh-probe the premise (grep the cited file:line on disk + any live runtime state), and if the unit is already shipped record a CLEAN no-commit with evidence in the Findings log instead of re-doing it (stale-digest guard). When the curated queue drains, apply the director_prompt.md REFILL PROTOCOL - the run does NOT stop on a drained plan: SYNTHESIZE one self-directed unit, append it as a DIRECTOR REFILL row (id R<N>, Status WIP), then work it. Refill rotation sources: TBD - product not yet defined (see director_prompt.md slots). Operator-gated forks NEVER block - auto-pick the recommended path. Commit + push origin/main + CI green + /done each cycle.",
+  "claude_window_title": "Claude",
+  "gemini_model": "gemini-3-pro-preview",
+  "gemini_cmd": "gemini",
+  "transcript_dir": "C:\\Users\\Administrator\\.claude\\projects\\C--LegionWallpaper",
+  "gemini_price_per_mtok": {"input": 2.0, "output": 12.0},
+  "price_per_mtok": {
+    "opus":   {"input": 15.0, "output": 75.0, "cache_write": 18.75, "cache_read": 1.5},
+    "sonnet": {"input": 3.0,  "output": 15.0, "cache_write": 3.75,  "cache_read": 0.3},
+    "haiku":  {"input": 1.0,  "output": 5.0,  "cache_write": 1.25,  "cache_read": 0.1},
+    "default":{"input": 15.0, "output": 75.0, "cache_write": 18.75, "cache_read": 1.5}
+  }
+}

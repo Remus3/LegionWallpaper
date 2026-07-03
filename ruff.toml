@@ -1,0 +1,60 @@
+# ruff.toml - Legion Wallpaper
+# Ported 1:1 from Riot Commander ruff.toml (RC per-file product entries dropped).
+# Conservative config: catches real errors without churn
+# py39-compatible (project targets Python 3.9+)
+
+target-version = "py39"
+line-length = 120
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (undefined names, unused imports)
+    "I",    # isort (import ordering)
+    "UP",   # pyupgrade (safe modern syntax)
+    "B",    # flake8-bugbear (common bugs)
+    "BLE",  # flake8-blind-except - ratchet: no NEW bare `except Exception`
+]
+ignore = [
+    "E501",   # line too long - not enforced
+    "E701",   # multiple statements on one line - deliberate style in this codebase
+    "E702",   # statement ends with semicolon - deliberate in one-liners
+    "E741",   # ambiguous variable names - common in short math/callbacks
+    "B008",   # function calls in default args - used intentionally
+    "B006",   # mutable default args - known pattern in project
+    "UP007",  # X | Y union syntax - requires py310, project targets py39
+    "UP035",  # deprecated typing imports - keep for py39 compat
+    "UP037",  # remove quoted annotations - frozen files carry quoted forward-refs
+    "F401",   # imported but unused - too noisy, especially in __init__.py
+    "F841",   # local variable assigned but never used - noisy in callbacks
+    "I001",   # import block unsorted - defer to a dedicated cleanup pass
+    "UP006",  # Dict/List -> dict/list - py39 supports both, cosmetic only
+    "UP045",  # Optional[X] -> X | None - requires py310, project targets py39
+    "E402",   # module import not at top - unavoidable in ops/ sys.path scripts
+    "B904",   # raise without from inside except - inherited RC style
+    "B007",   # unused loop variable - intentional in callbacks
+    "B027",   # empty method without abstract - stub pattern
+    "E731",   # lambda assignment - intentional one-liners
+]
+
+# Don't lint generated/runtime/cache dirs
+exclude = [
+    "__pycache__",
+    ".venv",
+    "Claude",
+    "ops/runtime",
+    "ops/loop/control",
+    "data",
+    "logs",
+]
+
+[lint.per-file-ignores]
+"ops/*.py" = ["B"]          # ops scripts are procedural, bugbear too strict
+"ops/loop/*.py" = ["B"]     # loop infrastructure - same procedural style
+"scripts/*.py" = ["B", "I"] # one-off scripts, ignore import order
+"*/__init__.py" = ["F401"]  # __init__.py re-exports are expected
+
+[lint.isort]
+known-first-party = [
+    "tools", "ops",
+]

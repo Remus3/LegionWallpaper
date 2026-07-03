@@ -1,0 +1,117 @@
+{
+  "env": {
+    "PYTHONUTF8": "1",
+    "PYTHONIOENCODING": "utf-8",
+    "CLAUDE_CODE_NO_FLICKER": "1",
+    "CLAUDE_CODE_USE_POWERSHELL_TOOL": "1"
+  },
+  "permissions": {
+    "allow": [
+      ".*",
+      "Bash(taskkill:*)",
+      "Bash(schtasks:*)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit:*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe\" \"C:\\LegionWallpaper\\tools\\precommit_gate.py\"",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe\" \"C:\\LegionWallpaper\\tools\\precommit_gate.py\"",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__Windows-MCP__Scrape|mcp__computer-use__read_clipboard",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe\" \"C:\\LegionWallpaper\\tools\\text_first_guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe\" \"C:\\LegionWallpaper\\tools\\pytest_guard.py\""
+          },
+          {
+            "type": "command",
+            "command": "\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe\" \"C:\\LegionWallpaper\\tools\\edit_lint_check.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe\" \"C:\\LegionWallpaper\\tools\\lw_facts.py\"",
+            "timeout": 8
+          },
+          {
+            "type": "command",
+            "command": "\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python314\\pythonw.exe\" \"C:\\LegionWallpaper\\tools\\caveman_default.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "powershell.exe -NoProfile -Command \"$esc = [char]27; $d = $input | ConvertFrom-Json; $base = Split-Path $d.cwd -Leaf; $model = $d.model.display_name; $used = if ($d.context_window.used_percentage -ne $null) { [int]$d.context_window.used_percentage } else { $null }; $ctx = if ($used -ne $null) { \\\" ctx:$used%\\\" } else { '' }; Write-Host -NoNewline \\\"$esc[Legion]$esc\\\"; Write-Host -NoNewline \\\" $model - $base$ctx\\\"\""
+  },
+  "enabledPlugins": {
+    "github@claude-plugins-official": true,
+    "nimble@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "firecrawl@claude-plugins-official": true
+  },
+  "model": "claude-fable-5[1m]",
+  "effortLevel": "xhigh",
+  "spinnerTipsEnabled": false,
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark",
+  "agentPushNotifEnabled": true,
+  "autoUpdates": true,
+  "dangerouslySkipPermissions": true,
+  "bypassPermissions": true,
+  "defaultMode": "bypassPermissions"
+}

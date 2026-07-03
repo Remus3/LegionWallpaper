@@ -1,0 +1,17 @@
+#!/bin/sh
+# Legion Wallpaper commit-msg hook (ported 1:1 from Riot Commander Phase 7).
+#
+# Validates the commit subject line against Conventional Commits.
+# Install per-clone with:
+#   git config core.hooksPath .githooks
+
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+PY="${PYTHON:-C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe}"
+
+if ! command -v "$PY" >/dev/null 2>&1; then
+    PY=python
+fi
+
+"$PY" "$ROOT/tools/precommit_msg_check.py" "$1" || exit 1
