@@ -83,6 +83,22 @@ Upscale stage, computed at source scale per 1.2:
 - DISTS advisory only: log it, alert if DISTS and LPIPS disagree by a large margin
   (LPIPS bad + DISTS fine often = re-synthesized texture, send to vision audit).
 
+**Calibrated seeds (QA Session 1, 2026-07-04, n=10 real source->finished-ref
+pairs, upscaler=realesrgan-x4plus-anime, USM70, LoL splash corpus).** Observed
+ranges: MS-SSIM self 0.984-0.993 (median 0.991); LPIPS self 0.047-0.144 (median
+0.077); GT LPIPS vs finished ref 0.048-0.097; laplacian ratio 1.81-4.43. The
+starting gates above are far too loose for this corpus. Recommended tighter:
+- MS-SSIM >= 0.98 pass; 0.96-0.98 flag; < 0.96 hard fail.
+- LPIPS (alex) <= 0.12 pass; 0.12-0.20 flag; > 0.20 hard fail.
+- GT LPIPS <= 0.10 sanity band (how close the upscale lands to the finished ref).
+- Laplacian ratio: keep the >= 1.0 softness floor, but do NOT set an absolute
+  ceiling - the 1.81-4.43 spread at fixed USM tracks SOURCE softness, not
+  over-sharpen. Over-sharpen must be caught by a real overshoot detector (3.1),
+  not a laplacian ceiling; or by source-adaptive USM. The crude edge-diff halo
+  proxy used this session (0.41-0.73) is not a gate - build the 3.1 detector.
+These are still seeds - widen the n before freezing, and re-calibrate for the
+IllustrationJaNai primary path (this run used the ncnn fallback).
+
 Inpaint stage:
 - Outside dilated mask: SSIM >= 0.995 hard gate, else FAIL (pipeline bug).
 - Inside mask: no FR pass gate; run section 3.4 residual checks instead.

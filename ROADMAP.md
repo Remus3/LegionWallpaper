@@ -8,16 +8,22 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **QA Session 1 - first image end-to-end (NOW).** The product is defined
-  (ADR-002: staged self-auditing image restoration pipeline; plan:
-  `docs/RESTORATION_PLAN.md`). Next session: (1) create the ML environments
-  per the plan's install checklist (section 7) - `.venv-upscale` (torch cu128
-  + spandrel + IllustrationJaNai models) and the `lw-clean` venv (ultralytics
-  + easyocr + simple-lama-inpainting + YOLO11x watermark weights); (2) run ONE
-  image end-to-end through the first pass manually via `/first-pass`
-  (recovery -> single upscale -> Lanczos -> USM); (3) calibrate the G1 gate
-  thresholds (MS-SSIM/LPIPS at common scale, laplacian ratio, halo, banding
-  delta) on that image's real numbers. No batch runs before this calibration.
+- **QA Session 2 - primary upscaler + firm the G1 gate (NOW).** QA Session 1
+  shipped (LEDGER item 2): first-pass stack installed, 10 images through
+  intake -> first-pass -> approved, G1 calibrated n=10 on the ncnn fallback
+  (seeds in `docs/research/AUDIT_GATES.md` 1.4). Next: (1) download the
+  IllustrationJaNai DAT2 weights to `tools/models/` (RESTORATION_PLAN.md
+  section 3) and re-run first-pass on the 10 via the PRIMARY path, comparing
+  G1 vs the fallback baseline; (2) build the real overshoot/halo detector
+  (AUDIT_GATES 3.1) + source-adaptive USM - the laplacian ratio proved
+  source-dependent, not a usable over-sharpen ceiling; (3) freeze the G1
+  thresholds once n and the primary path agree.
+
+- **Manifest provenance/metrics writer (NOW, blocks audit trail).** `lw_pipeline`
+  has no verb to record source-recovery provenance or G1 metrics into
+  `manifest.json` (source_url stays null; metrics only reach `logs/`). Add an
+  atomic `annotate`/`--metrics` writer (spawned as a background task this
+  session). Mandated by PIPELINE_STATE_MACHINE section 4 + AUDIT_GATES.
 
 - **Golden set selection (NEXT).** Pick the frozen 10-15 (input,
   approved-output) pairs spanning the defect classes (soft upscale, watermark
@@ -28,7 +34,12 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   SauceNAO API key and the DeviantArt OAuth app (`API-Key-*.txt` convention),
   then run the Tier 0/1 source-recovery campaign EARLY - DeviantArt's
   2026-03-09 download clampdown signals more anti-scraping moves coming
-  (`docs/RESTORATION_PLAN.md` section 8). Cache everything.
+  (`docs/RESTORATION_PLAN.md` section 8). Cache everything. Backlog is real
+  now: 149 pending intake incl a ~75-file `niphrimit` `-pre` batch dropped
+  2026-07-04, all previews needing Tier-1 fullview recovery; plus the parked
+  `dark-cosmic-ahri-...-pre` (Tier0 -> 288.png 1440p, Tier1 -> deviation
+  1309974594). The Found corpus (Desktop\Found, 121 folders) already supplies
+  21 real originals - 97 entries there are still `-pre` and need true originals.
 
 - **Monitor polish (NEXT).** lw_monitor (127.0.0.1:8901) tracks the pipeline
   via `ops/runtime/pipeline_state.json`; polish pass once real pipeline runs

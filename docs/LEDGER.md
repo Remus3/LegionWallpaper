@@ -27,6 +27,35 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+2. DONE **2026-07-04 (QA Session 1 - first-pass stack + G1 calibration;
+   docs-and-ops, ML state gitignored).** First real end-to-end pipeline runs.
+   **Shipped:** ML tooling stack installed clean - py3.12 side-install,
+   `.venv-upscale` (torch 2.11.0+cu128 + spandrel 0.4.2, CUDA verified on the
+   RTX 5070), `.venv-metrics` (pyiqa 0.1.15, 99 metrics); gallery-dl + imagehash
+   on 3.14. Ran 10 images through intake -> first-pass -> operator-approved into
+   `2.First Pass Done` (1 hand-driven fiora2 + a 9-image Found-original batch),
+   each with a full manifest audit trail (INTAKE/SAVE_WORKING/SUBMIT/APPROVE,
+   sha-tracked). **G1 calibrated n=10** on real source->finished-ref pairs
+   (upscaler = realesrgan-x4plus-anime fallback, USM70): MS-SSIM self 0.984-0.993,
+   LPIPS self 0.047-0.144, GT LPIPS 0.048-0.097, laplacian 1.81-4.43. Tighter
+   seed thresholds written to `docs/research/AUDIT_GATES.md` 1.4. **Premise
+   CORRECTED twice:** (a) the first-chosen `-pre` source failed the G0 gate
+   (sub-720p preview) - re-picked G0-valid mid-res originals; (b) `reference_pictures`
+   is a FR ground-truth goldmine - `fiora2` <-> `87_cleanup.png` matched at
+   pHash dP=0. **How verified:** live scans (first_done=10, anomalies=0), 10
+   `_firstdone` pairs on disk, pyiqa metrics computed this run, manifests read
+   back. **Gaps found:** (1) `lw_pipeline` has no verb to write provenance/G1
+   metrics into `manifest.json` (source_url null; metrics only in `logs/`) -
+   spawned as a background task, now a ROADMAP NOW item; (2) `save-working
+   --params` needs argv (not PowerShell) JSON passing. **Findings:** laplacian
+   ratio is source-dependent, NOT a usable over-sharpen ceiling - needs a real
+   overshoot detector (AUDIT_GATES 3.1) or source-adaptive USM. **Future /
+   do-not-redo:** venvs are installed + gitignored (`.venv-*/`); DO NOT re-run
+   the installs. IllustrationJaNai primary weights still TODO (this run used the
+   ncnn fallback) - recalibrate on the primary path next. Doc syncs: AUDIT_GATES
+   1.4 (calibration), ROADMAP (QA Session 2 + manifest-writer NOW items),
+   `.gitignore` (`.venv-*/`).
+
 1. DONE **2026-07-03 (restoration pipeline designed + built; commit 1d3631b,
    docs-and-code).** The LW product is now defined and scaffolded: a
    staged, self-auditing image restoration pipeline (drop image ->

@@ -86,6 +86,12 @@ dist/
 .coverage
 htmlcov/
 
+# Python virtual environments - ML side-venvs (torch cu128 / pyiqa stacks,
+# multi-GB; one venv per tool family per RESTORATION_PLAN.md). Never commit.
+.venv/
+.venv-*/
+venv/
+
 # Editor / IDE
 .vscode/
 .idea/
