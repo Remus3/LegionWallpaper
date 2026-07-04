@@ -1124,6 +1124,56 @@ def cmd_finalize(ctx, slug, deliver_dir, sequential, audit_json):
     return 0
 
 
+# ---------------------------------------------------------------- annotate
+
+def cmd_annotate(ctx, slug, source_url, metrics_obj, tool):
+    """Record provenance (source_url) and/or G1 metrics into manifest.json.
+
+    Locates the slug in scratch, then Done, then 9.Image Backup. Sets the
+    top-level man["source_url"] when --source-url is given, and appends an
+    ANNOTATE transition carrying the metrics in its `audit` slot (the same
+    field cmd_finalize uses) when --metrics is given.
+
+    Behavior choice: an ANNOTATE transition is ALWAYS appended whenever the
+    command mutates - so a source_url-only call still records one ANNOTATE
+    transition, and that transition's `audit` is None. Metrics ride in `audit`
+    only when --metrics is supplied; no new top-level field is invented.
+    """
+    if source_url is None and metrics_obj is None:
+        raise PipelineError(
+            "annotate: nothing to do (give --source-url and/or --metrics)",
+            code=2)
+    stage, folder = find_scratch(ctx, slug)
+    if folder is None:
+        stage, folder = find_done(ctx, slug)
+    if folder is None:
+        backup = ctx.root / BACKUP / slug
+        if backup.is_dir():
+            folder = backup
+    if folder is None:
+        raise PipelineError(
+            f"annotate: {slug} not found in any stage/backup", code=2)
+    man = load_manifest(folder)
+    if man is None:
+        raise PipelineError(f"annotate: {slug} has no manifest.json", code=2)
+    actor = f"tool:{tool}" if tool else "operator"
+    ops = Ops(ctx.dry)
+    lock = acquire_lock(folder, ctx.dry)
+    try:
+        if source_url is not None:
+            man["source_url"] = source_url
+        add_transition(man, "ANNOTATE", actor=actor, tool=tool,
+                       audit=metrics_obj, note="provenance/metrics annotation")
+        ops.write_json(folder / "manifest.json", man)
+        ctx.log(slug, "ANNOTATE", folder.parent.name, folder.parent.name,
+                "0" * 12, actor=actor)
+    finally:
+        release_lock(lock)
+    _emit(ctx, ops, f"annotate {slug}")
+    refresh_state(ctx)
+    return 0
+
+
 # ---------------------------------------------------------------- scan/status/verify
 
 def cmd_scan(ctx, verify, fix_resumable, as_json):
@@ -1290,6 +1340,15 @@ def build_parser():
     s.add_argument("--audit-json")
     s.add_argument("--dry-run", action="store_true")
 
+    s = sub.add_parser(
+        "annotate",
+        help="record provenance (source_url) and/or G1 metrics into manifest.json")
+    s.add_argument("slug")
+    s.add_argument("--source-url")
+    s.add_argument("--metrics", help="inline JSON, or @path to a JSON file")
+    s.add_argument("--tool")
+    s.add_argument("--dry-run", action="store_true")
+
     s = sub.add_parser("verify", help="re-hash and diff vs manifests (read-only)")
     s.add_argument("slug", nargs="?")
     s.add_argument("--all", action="store_true")
@@ -1326,6 +1385,20 @@ def main(argv=None):
         if args.cmd == "finalize":
             return cmd_finalize(ctx, args.slug, args.deliver,
                                 args.rename_sequential, args.audit_json)
+        if args.cmd == "annotate":
+            metrics_obj = None
+            if args.metrics is not None:
+                raw = args.metrics
+                try:
+                    if raw.startswith("@"):
+                        raw = Path(raw[1:]).read_text(encoding="utf-8")
+                    metrics_obj = json.loads(raw)
+                except (OSError, ValueError):
+                    raise PipelineError(
+                        "annotate: --metrics is not valid JSON (or file unreadable)",
+                        code=2)
+            return cmd_annotate(ctx, args.slug, args.source_url, metrics_obj,
+                                args.tool)
         if args.cmd == "verify":
             return cmd_verify(ctx, args.slug)
         raise PipelineError("unknown command", code=2)

@@ -92,6 +92,13 @@ htmlcov/
 .venv-*/
 venv/
 
+# Downloaded upscaler model weights (IllustrationJaNai DAT2/ESRGAN etc.,
+# 100s of MB each; fetched per RESTORATION_PLAN.md section 3, licensing
+# re-check queued). The pipeline downloads them; they are never committed.
+# Keep the folder on checkout via .gitkeep.
+tools/models/*
+!tools/models/.gitkeep
+
 # Editor / IDE
 .vscode/
 .idea/

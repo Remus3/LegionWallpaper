@@ -1,7 +1,13 @@
-# Legion Wallpaper - dependency manifest.
-# The tree is pure stdlib so far (product TBD); only the dev/test toolchain
-# lives here. Runtime deps get added as the product is defined. This file
-# also keys the pip cache in .github/workflows/ci.yml (setup-python
-# cache: pip requires a requirements.txt or pyproject.toml to hash).
+# Legion Wallpaper - dependency manifest (CI + dev toolchain).
+# CI (python 3.12) installs this and runs `pytest tests/`. The pipeline core
+# (lw_pipeline.py) is pure stdlib. The cheap image-gate checks (lw_g1_gate.py
+# laplacian/overshoot/banding) and the upscale finish step (lw_upscale.py) use
+# numpy + Pillow only, so those two are CI deps and their unit tests run in CI.
+# Heavy ML deps (torch, spandrel, pyiqa, opencv) live in the gitignored side
+# venvs (.venv-upscale / .venv-metrics) and are NEVER added here; tests that
+# need them use pytest.importorskip and SKIP in CI.
+# This file also keys the pip cache in .github/workflows/ci.yml.
 pytest
 ruff
+numpy
+Pillow

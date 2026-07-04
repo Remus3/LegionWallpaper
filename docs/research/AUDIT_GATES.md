@@ -91,6 +91,9 @@ starting gates above are far too loose for this corpus. Recommended tighter:
 - MS-SSIM >= 0.98 pass; 0.96-0.98 flag; < 0.96 hard fail.
 - LPIPS (alex) <= 0.12 pass; 0.12-0.20 flag; > 0.20 hard fail.
 - GT LPIPS <= 0.10 sanity band (how close the upscale lands to the finished ref).
+  [VOIDED QA Session 2, 2026-07-04 - no finished ground-truth exists for this
+  corpus; the `_cleanup` files are operator "original-not-found" markers, not
+  finished references. See the FROZEN block below.]
 - Laplacian ratio: keep the >= 1.0 softness floor, but do NOT set an absolute
   ceiling - the 1.81-4.43 spread at fixed USM tracks SOURCE softness, not
   over-sharpen. Over-sharpen must be caught by a real overshoot detector (3.1),
@@ -98,6 +101,54 @@ starting gates above are far too loose for this corpus. Recommended tighter:
   proxy used this session (0.41-0.73) is not a gate - build the 3.1 detector.
 These are still seeds - widen the n before freezing, and re-calibrate for the
 IllustrationJaNai primary path (this run used the ncnn fallback).
+
+**FROZEN (QA Session 2, 2026-07-04, n=10, IllustrationJaNai V1 DAT2 via
+spandrel/torch = PRIMARY, vs realesrgan-x4plus-anime = fallback; same 10
+images, same USM70 finish so the delta isolates the upscaler).** Implemented in
+`tools/lw_g1_gate.py` (`DEFAULT_G1_THRESHOLDS`, `verdict`, `overshoot_halo`);
+scored by `tools/lw_upscale.py` outputs. Two structural corrections to the
+Session 1 seeds:
+
+1. NO FINISHED GROUND-TRUTH. The `reference_pictures/*_cleanup.png` files are
+   operator "original-not-found" markers, NOT finished references (operator
+   ruling, 2026-07-04). The Session 1 "GT LPIPS vs finished ref" band is VOID.
+   G1 scores SELF-metrics ONLY - output downscaled to source scale vs the
+   source ("did we degrade content") - plus the overshoot detector and the
+   laplacian floor. Every corpus image still needs work; nothing is a spec.
+2. REAL OVERSHOOT DETECTOR replaces the crude edge-diff halo proxy
+   (`overshoot_halo`, per 3.1/3.2): fraction of near-edge pixels whose value
+   falls OUTSIDE the source local min/max range by > 8/255 (USM ringing). It
+   ranks IJN below the fallback on ALL 10 images.
+
+Observed n=10 (self-metrics, output-at-common-scale vs source) [min - max (median)]:
+
+| metric       | IJN V1 DAT2 (PRIMARY)      | realesrgan-anime (fallback) |
+|--------------|----------------------------|-----------------------------|
+| MS-SSIM      | 0.994 - 0.999 (0.999)      | 0.984 - 0.993 (0.991)       |
+| LPIPS (alex) | 0.008 - 0.080 (0.016)      | 0.047 - 0.144 (0.077)       |
+| lap_ratio    | 1.26 - 3.22 (1.49)         | 1.81 - 4.48 (2.25)          |
+| halo_pct     | 0.018 - 0.075 (0.036)      | 0.049 - 0.145 (0.087)       |
+| band_delta   | -0.010 - 0.029 (0.004)     | -0.032 - 0.079 (0.001)      |
+
+IJN wins EVERY image on MS-SSIM, LPIPS, and halo_pct (10/10 each). The
+fallback's higher lap_ratio is RINGING (higher halo_pct), not clean detail -
+confirming laplacian is not an over-sharpen ceiling; the overshoot detector is.
+
+Frozen G1 thresholds (`DEFAULT_G1_THRESHOLDS`):
+- MS-SSIM: pass >= 0.98, flag 0.96-0.98, fail < 0.96.
+- LPIPS (alex): pass <= 0.12, flag 0.12-0.20, fail > 0.20.
+- laplacian ratio: fail < 1.0 (softness floor), NO upper ceiling.
+- halo_pct: FLAG > 0.05 (over-flag is the safe direction), never a hard fail.
+- band_delta: ADVISORY FLAG > 0.05, NOT a hard fail - at n=10 the band metric
+  noise (up to 0.079) overlaps real-banding signal, so a >0 hard fail wrongly
+  rejected the BETTER upscaler 8/10 on ~0.004 noise. Revisit with a proper
+  banding metric (BBAND, 3.3) before ever hard-gating on banding.
+
+Resulting verdicts n=10: IJN 8 PASS / 2 FLAG (its 2 sharpest images,
+halo-flagged for vision audit); fallback 1 PASS / 9 FLAG; ZERO hard fails on
+either path. Still n=10 - widen n before treating these as final - but the
+primary path and the real overshoot detector now agree, and the gate no longer
+hard-fails clean primary-path output.
 
 Inpaint stage:
 - Outside dilated mask: SSIM >= 0.995 hard gate, else FAIL (pipeline bug).
