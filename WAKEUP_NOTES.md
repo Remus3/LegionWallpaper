@@ -4,6 +4,30 @@
 > older sessions verbatim to `docs/history_notes.md` (append a pointer line to
 > this banner when you prune). Per-item completion records live in
 > `docs/LEDGER.md`; open work lives in `ROADMAP.md` + `BACKLOG.md`.
+> Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
+> product-defined) - pruned 2026-07-04 to keep the last 3.
+
+---
+
+# 2026-07-04 (golden set - first-pass drift-regression harness shipped)
+
+Commits 8e8b9a0 + 936d99b + e0a1250. Built `tools/lw_golden.py` (freeze +
+regress) - the drift-detection harness, adapted for no-ground-truth (operator
+ruling: no finished refs; reference of record = the current blessed IJN
+first-pass output, not perfection). Flow: brainstorm -> spec
+(`docs/research/GOLDEN_SET.md`) -> plan
+(`docs/superpowers/plans/2026-07-04-golden-set.md`) -> TDD build; heavy deps
+INJECTED so the tool is CI-testable. Operator blessed all 10, froze
+`data/golden/golden_set.json` (TRACKED, pv d9ec8125, 10 cases; image bytes
+gitignored + sha-pinned). Regress self-check PASSED 10/10 within epsilon (also
+proves IJN upscale determinism). Suite 190 passed / 3 skipped; CI green.
+
+Do NOT redo: the golden freeze (done); the 10 baselines. Two process scars in
+LEDGER item 4: a stray `&` spawned a duplicate torch job -> pagefile OOM
+(WinError 1455); nearly taskkill'd dwm/explorer/claude by trusting `nvidia-smi`
+compute-apps blindly - ALWAYS verify a PID name before taskkill. Next: widen n
+past 10; trial V3 DAT2 via `lw_golden regress`; add banding/JPEG-artifact
+defect-class cases to the golden set.
 
 ---
 
@@ -62,80 +86,3 @@ run used the ncnn fallback). **Next:** QA Session 2 - IJN primary path +
 recalibrate; then the recovery campaign (149 pending, 75 `niphrimit` `-pre`).
 **Queued:** artist-signature policy (watermarks on all Found originals);
 LongPathsEnabled (deferred).
-
----
-
-# 2026-07-03 (session 2 - PRODUCT DEFINED: restoration pipeline v1 shipped)
-
-Commit `1d3631b` (44 files, +7946): the staged self-auditing image restoration
-pipeline. Operator's 10-folder / 4-phase scheme adopted VERBATIM (ADR-003)
-plus 13 additive safety fixes; product recorded in ADR-002; operational plan
-is `docs/RESTORATION_PLAN.md` (v2 - v1 archived as RESTORATION_PLAN_v1.md).
-
-**Shipped:** `tools/lw_pipeline.py` (state machine, SAFE-MOVE, slug grammar,
-manifests, 49 tests) - `tools/lw_monitor.py` + `web/monitor.html` (:8901,
-Desktop "LW Monitor" shortcut, UI fixture audit PASSED, 26 tests) - 7 stage
-commands (/intake /first-pass /cleaning-pass /final-pass /last-pass
-/end-review /pipeline-status) - 5 research docs + state-machine spec +
-monitor spec - migration: 76 intake sources + 302 reference PNGs copied+
-SHA256-verified into `images/` (Desktop `need up` untouched, MIGRATED.md
-marker left; operator deletes at leisure). First real scan green:
-pending_intake=76, anomalies=0. Suite 147/0; verifier CONFIRM.
-
-**Do NOT redo:** migration (done, verified); the design research (docs/
-research/ is the source of truth); the DeviantArt token base36 decode is
-VERIFIED working. **Next:** QA Session 1 - install .venv-upscale + lw-clean
-venvs per RESTORATION_PLAN.md install checklist, run ONE image end-to-end
-through /intake + /first-pass, calibrate G1 thresholds. **Queued operator
-decisions:** artist-signature keep/remove policy; LongPathsEnabled (deferred).
-
----
-
-# 2026-07-03 (GENESIS - operating system inherited from Riot Commander; docs-only, no product code)
-
-Legion Wallpaper bootstrapped by cloning HOW the Riot Commander (RC) project
-operates - 1:1 process port, ZERO product content. The product (some kind of
-wallpaper app for the Legion machine) is deliberately NOT defined yet; the
-first real work item is the scope decision (ROADMAP.md, top item).
-
-**What was ported (process, not product):**
-- `CLAUDE.md` operating rules + `.claude/` (settings, hooks, agents, commands)
-  - the tier system, gates, TDD/RED-first discipline, subagent-first
-  delegation, verification rituals, ASCII-only hard rule, CLAUDE.md size
-  budget (under 60KB, never append ledger entries to it).
-- Living-doc skeletons: `ROADMAP.md` (highest priority at TOP), `BACKLOG.md`
-  (aspirational lanes), this file (newest-first hand-off), `docs/LEDGER.md`
-  (append-only newest-first per-item ledger, numbering starts at 1),
-  `docs/history_notes.md` (deep archive), `docs/adr/` (TEMPLATE + ADR-001).
-- Runtime conventions (documented, not yet running): supervisor pattern,
-  `restart_trigger.txt`, `ops/runtime/health.json`, `logs/YYYY-MM-DD.log`,
-  atomic writes, py_compile-before-restart, taskkill-not-Stop-Process.
-- `docs/OPERATIONS.md`: restart workflow + the LW-* scheduled-task convention
-  with the standard roster (LW-Supervisor / LW-GeminiAudit / LW-WeeklyHygiene /
-  LW-CIWatchdog) - example commands only, NOT YET REGISTERED.
-- `docs/AGENTS.md`: the two-supervisor + 8-agent-roster PATTERN as a role
-  template (gatekeeper/scheduler/ingest/testing/analyzer/ui-fallback/auditor/
-  nl-parser), gate policy pattern, `agents/state/` file conventions - wiring TBD.
-- `docs/DEEP_AUDIT_CHARTER.md`: RC's three-lens audit charter as a DORMANT
-  template, authorization slots UNSET.
-
-**Where things live:** repo root `C:\LegionWallpaper\`; rules in `CLAUDE.md`;
-docs in `docs/`; harness in `.claude/`; canonical Python
-`C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe`
-(`pythonw.exe` for hooks/daemons; bare `py` is BANNED - pytest-less launcher
-runtime). Do NOT touch `C:\LegionWallpaper\Claude\` - that is Claude Desktop
-app data, not project content.
-
-**What is TBD (do not invent):** the product itself (engine, rendering,
-architecture, endpoints, ports); the module map; the test suite; every
-scheduled task (none registered); the agent-framework wiring; the deep-audit
-program (arms only by explicit operator directive once code exists).
-
-**Decision record:** `docs/adr/ADR-001-inherit-rc-operating-system.md`
-(Accepted, 2026-07-03).
-
-**Process notes:** (1) RC product references (Daemon Slayer, dashboards,
-Riot API, match DB, tailnet topology, etc.) were dropped or replaced with
-explicit "TBD - product not yet defined" placeholders - if a ported rule reads
-oddly abstract, that is why; the rule itself is intact. (2) The frozen-file
-list starts EMPTY; files earn freeze status as the product stabilizes.
