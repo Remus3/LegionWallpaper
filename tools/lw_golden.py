@@ -215,4 +215,8 @@ def main(argv=None):
 
 if __name__ == "__main__":
     import sys
+    # Running as a script puts tools/ on sys.path[0], not the repo root, so the
+    # lazy `from tools import lw_g1_gate` in the real adapters would fail. Put the
+    # repo root (parent of tools/) on the path first.
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.exit(main())
