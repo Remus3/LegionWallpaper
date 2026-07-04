@@ -27,8 +27,8 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
-1. DONE **2026-07-03 (restoration pipeline designed + built; multi-commit build
-   wave, docs-and-code).** The LW product is now defined and scaffolded: a
+1. DONE **2026-07-03 (restoration pipeline designed + built; commit 1d3631b,
+   docs-and-code).** The LW product is now defined and scaffolded: a
    staged, self-auditing image restoration pipeline (drop image ->
    recover source -> single upscale -> masked cleaning -> face/eye polish ->
    gate ladder audit -> approved 2560x1440 PNG to Pictures). Premise VERIFIED

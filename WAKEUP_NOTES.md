@@ -7,6 +7,32 @@
 
 ---
 
+# 2026-07-03 (session 2 - PRODUCT DEFINED: restoration pipeline v1 shipped)
+
+Commit `1d3631b` (44 files, +7946): the staged self-auditing image restoration
+pipeline. Operator's 10-folder / 4-phase scheme adopted VERBATIM (ADR-003)
+plus 13 additive safety fixes; product recorded in ADR-002; operational plan
+is `docs/RESTORATION_PLAN.md` (v2 - v1 archived as RESTORATION_PLAN_v1.md).
+
+**Shipped:** `tools/lw_pipeline.py` (state machine, SAFE-MOVE, slug grammar,
+manifests, 49 tests) - `tools/lw_monitor.py` + `web/monitor.html` (:8901,
+Desktop "LW Monitor" shortcut, UI fixture audit PASSED, 26 tests) - 7 stage
+commands (/intake /first-pass /cleaning-pass /final-pass /last-pass
+/end-review /pipeline-status) - 5 research docs + state-machine spec +
+monitor spec - migration: 76 intake sources + 302 reference PNGs copied+
+SHA256-verified into `images/` (Desktop `need up` untouched, MIGRATED.md
+marker left; operator deletes at leisure). First real scan green:
+pending_intake=76, anomalies=0. Suite 147/0; verifier CONFIRM.
+
+**Do NOT redo:** migration (done, verified); the design research (docs/
+research/ is the source of truth); the DeviantArt token base36 decode is
+VERIFIED working. **Next:** QA Session 1 - install .venv-upscale + lw-clean
+venvs per RESTORATION_PLAN.md install checklist, run ONE image end-to-end
+through /intake + /first-pass, calibrate G1 thresholds. **Queued operator
+decisions:** artist-signature keep/remove policy; LongPathsEnabled (deferred).
+
+---
+
 # 2026-07-03 (GENESIS - operating system inherited from Riot Commander; docs-only, no product code)
 
 Legion Wallpaper bootstrapped by cloning HOW the Riot Commander (RC) project
