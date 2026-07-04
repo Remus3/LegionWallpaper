@@ -7,6 +7,38 @@
 
 ---
 
+# 2026-07-04 (QA Session 2 - IJN primary path live + G1 gate frozen n=10)
+
+Commit dca6071. IllustrationJaNai V1 DAT2 (spandrel/torch) is now the PRIMARY
+first-pass upscaler and the G1 gate is frozen on it. Downloaded + extracted the
+V1 DAT2 weights to `tools/models/` (gitignored; OpenModelDB -> Google-Drive zip
+bundle, confirm-token dance), spandrel loads DAT/4x on the RTX 5070. Built 3
+committed modules (TDD, subagent slices, CI-safe via importorskip):
+`lw_upscale.py` (spandrel + ncnn backends, seam-exact tiling), `lw_g1_gate.py`
+(the REAL overshoot detector replacing the crude edge-diff proxy, plus
+laplacian/banding/common-scale-FR/verdict), and a `lw_pipeline annotate` verb
+(provenance + G1 metrics into manifests; closes task_fb503c0a). Ran the 10
+approved images through IJN and G1-scored IJN vs the realesrgan-anime fallback
+with identical code: **IJN wins 10/10 on MS-SSIM, LPIPS, AND halo_pct.** Froze
+AUDIT_GATES 1.4; fixed a band_delta hard-fail bug (was fail>0 - it wrongly
+hard-failed the BETTER upscaler 8/10 on ~0.004 noise; demoted to advisory
+flag). Suite 183 passed / 2 skipped, ruff clean, pushed.
+
+**Premise CORRECTED (operator ruling):** `reference_pictures/*_cleanup.png` are
+"original-not-found" MARKERS, NOT finished ground-truth. The Session 1 "GT vs
+finished ref" band is VOID - G1 scores self-metrics only; every image still
+needs work. Saved to memory (`project-no-finished-ground-truth`).
+
+**Do NOT redo:** venvs + V1 DAT2 weights (downloaded, gitignored under
+`tools/models/` + `.venv-*/`); the 10 first-pass images. **Next:** golden set of
+approved (input, output) pairs - the prereq for any GT-vs-approved regression,
+since none exists yet; widen n past 10; trial V3detail DAT2 (its OpenModelDB
+gdrive link was unresolved this session). **Queued (unchanged):** recovery
+campaign (149 pending, 75 `niphrimit` `-pre`); artist-signature policy; API
+keys (SauceNAO + DeviantArt).
+
+---
+
 # 2026-07-04 (QA Session 1 - first-pass stack live + G1 calibrated n=10)
 
 First real pipeline runs. Installed the first-pass ML stack (py3.12,

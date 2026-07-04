@@ -8,27 +8,21 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **QA Session 2 - primary upscaler + firm the G1 gate (NOW).** QA Session 1
-  shipped (LEDGER item 2): first-pass stack installed, 10 images through
-  intake -> first-pass -> approved, G1 calibrated n=10 on the ncnn fallback
-  (seeds in `docs/research/AUDIT_GATES.md` 1.4). Next: (1) download the
-  IllustrationJaNai DAT2 weights to `tools/models/` (RESTORATION_PLAN.md
-  section 3) and re-run first-pass on the 10 via the PRIMARY path, comparing
-  G1 vs the fallback baseline; (2) build the real overshoot/halo detector
-  (AUDIT_GATES 3.1) + source-adaptive USM - the laplacian ratio proved
-  source-dependent, not a usable over-sharpen ceiling; (3) freeze the G1
-  thresholds once n and the primary path agree.
-
-- **Manifest provenance/metrics writer (NOW, blocks audit trail).** `lw_pipeline`
-  has no verb to record source-recovery provenance or G1 metrics into
-  `manifest.json` (source_url stays null; metrics only reach `logs/`). Add an
-  atomic `annotate`/`--metrics` writer (spawned as a background task this
-  session). Mandated by PIPELINE_STATE_MACHINE section 4 + AUDIT_GATES.
-
-- **Golden set selection (NEXT).** Pick the frozen 10-15 (input,
-  approved-output) pairs spanning the defect classes (soft upscale, watermark
-  strip, bad eyes, banding-heavy glow) per `docs/RESTORATION_PLAN.md`
-  section 4. Every future pipeline change regresses against this set.
+- **Golden set + widen G1 calibration (NOW).** QA Session 2 shipped (LEDGER
+  item 3, commit dca6071): the IllustrationJaNai V1 DAT2 spandrel path is the
+  PRIMARY upscaler, the real overshoot detector is built (`lw_g1_gate`), the G1
+  gate is frozen at n=10 (IJN beats the ncnn fallback 10/10 on
+  MS-SSIM/LPIPS/halo; `docs/research/AUDIT_GATES.md` 1.4), and
+  `lw_pipeline annotate` records provenance/metrics into manifests. Next:
+  (1) pick the frozen GOLDEN SET of approved (input, output) pairs spanning the
+  defect classes (soft upscale, watermark strip, bad eyes, banding-heavy glow;
+  `docs/RESTORATION_PLAN.md` section 4). There is NO finished ground-truth yet -
+  the `reference_pictures/*_cleanup.png` files are "original-not-found" markers
+  (operator ruling, 2026-07-04), so building a real approved-output set is the
+  PREREQUISITE for any GT-vs-approved regression; (2) widen n beyond 10 before
+  treating the G1 freeze as final; (3) trial the V3detail DAT2 model (nicer
+  quality than V1; its OpenModelDB Google-Drive link was not resolved in
+  Session 2) and A/B it against V1 DAT2 through the same gate.
 
 - **API keys + recovery campaign (NEXT, time-sensitive).** Register the
   SauceNAO API key and the DeviantArt OAuth app (`API-Key-*.txt` convention),

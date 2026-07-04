@@ -27,6 +27,48 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+3. DONE **2026-07-04 (QA Session 2 - IllustrationJaNai primary path + frozen G1
+   gate + manifest annotate verb; commit dca6071).** Established the IJN
+   (4x_IllustrationJaNai_V1_DAT2_190k, spandrel/torch) first-pass upscaler as the
+   PRIMARY path and froze the G1 gate on it. **Derisked live before building:**
+   downloaded the V1 DAT2 weights from OpenModelDB (Google-Drive large-file
+   confirm-token dance; the file is a zip bundle - extracted the .pth + an ESRGAN
+   cross-check model to `tools/models/`, gitignored), spandrel loads it as
+   arch=DAT scale=4, CUDA forward pass on the RTX 5070 green. **Built (TDD,
+   subagent slices, CI-safe: numpy/Pillow/stdlib tests run in CI, torch/pyiqa/
+   spandrel use pytest.importorskip):** `tools/lw_upscale.py` (spandrel + ncnn
+   backends, mandatory tiling - seam validated exact on real torch, maxdiff 0.0
+   incl odd sizes; one 4x + one Lanczos to 2560x1440 + one capped USM; atomic PNG
+   + audit dict); `tools/lw_g1_gate.py` (pure-numpy laplacian ratio, the REAL
+   overshoot detector - near-edge pixels outside the source local min/max range =
+   USM ringing, replacing the crude edge-diff proxy - banding delta, lazy pyiqa
+   common-scale FR, pure-stdlib verdict); `tools/lw_pipeline.py` `annotate` verb
+   (records source_url + G1 metrics into manifest.json atomically; closes the
+   spawned task_fb503c0a gap). **Ran the 10 approved first-pass images through IJN
+   and G1-scored IJN vs the realesrgan-anime fallback with identical code:** IJN
+   wins EVERY image on MS-SSIM, LPIPS, and halo_pct (10/10 each); the fallback's
+   higher laplacian ratio is RINGING (higher halo_pct), not clean detail -
+   confirming the Session 1 finding that laplacian is not an over-sharpen ceiling;
+   the new overshoot detector is. **Frozen thresholds (AUDIT_GATES 1.4):** msssim
+   pass>=0.98, lpips pass<=0.12, lap floor>=1.0 (no ceiling), halo FLAG>0.05, and
+   band_delta demoted from a fail>0 HARD FAIL to an ADVISORY FLAG>0.05 - the >0
+   rule was a bug that hard-failed the BETTER upscaler 8/10 on ~0.004 noise.
+   Verdicts n=10: IJN 8 PASS / 2 FLAG, fallback 1 PASS / 9 FLAG, zero hard fails.
+   **Premise CORRECTED (operator ruling 2026-07-04):** the `reference_pictures/
+   *_cleanup.png` files are "original-not-found" markers, NOT finished
+   ground-truth - so the Session 1 "GT LPIPS vs finished ref" band is VOID
+   (removed from AUDIT_GATES 1.4); G1 scores SELF-metrics only (output-vs-source),
+   every corpus image still needs work. **Verified:** full suite 183 passed / 2
+   skipped (147 baseline + 24 new + 12 annotate), ruff clean on all touched files,
+   verifier gate re-run fresh, no weights staged (git check-ignore confirmed).
+   requirements.txt gained numpy + Pillow (cheap-check + finish tests run in CI);
+   .gitignore ignores `tools/models/`. **Future / do-not-redo:** venvs + the V1
+   DAT2 weights are installed/downloaded + gitignored - DO NOT refetch; the 10
+   images are done. NEXT: V3detail DAT2 (nicer quality; its OpenModelDB gdrive
+   link was not resolved this session), widen n before treating the freeze as
+   final, and a real GOLDEN SET of approved outputs (there is no ground-truth
+   yet). GT-vs-approved comparison only returns once such a golden set exists.
+
 2. DONE **2026-07-04 (QA Session 1 - first-pass stack + G1 calibration;
    docs-and-ops, ML state gitignored).** First real end-to-end pipeline runs.
    **Shipped:** ML tooling stack installed clean - py3.12 side-install,
