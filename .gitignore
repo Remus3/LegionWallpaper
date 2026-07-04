@@ -128,6 +128,12 @@ data/.*.json
 data/.*.jsonl
 data/.*.tmp
 
+# Golden-set image bytes (privacy). The manifest data/golden/*.json IS tracked
+# (the shareable proof-of-process); the input + baseline image bytes are not -
+# they are sha-pinned in the manifest. See docs/research/GOLDEN_SET.md.
+data/golden/inputs/
+data/golden/baseline/
+
 # Transient verify/test scratch dropped at repo root by item runs
 # (_verify_*.txt and friends) + ad-hoc stdout/stderr captures.
 /_*.txt
