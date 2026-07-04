@@ -8,45 +8,63 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **Define the product - wallpaper engine scope decision (NOW, operator-gated).**
-  Legion Wallpaper has NO defined product yet. First real work item: decide what
-  the wallpaper app IS (static rotation? live/animated engine? system-state-aware
-  rendering? scheduling?), what it renders with, and what "done v1" means. Output
-  is an ADR (`docs/adr/ADR-002-...`), not code. Do NOT build blind - no code
-  before the scope ADR is accepted.
+- **QA Session 1 - first image end-to-end (NOW).** The product is defined
+  (ADR-002: staged self-auditing image restoration pipeline; plan:
+  `docs/RESTORATION_PLAN.md`). Next session: (1) create the ML environments
+  per the plan's install checklist (section 7) - `.venv-upscale` (torch cu128
+  + spandrel + IllustrationJaNai models) and the `lw-clean` venv (ultralytics
+  + easyocr + simple-lama-inpainting + YOLO11x watermark weights); (2) run ONE
+  image end-to-end through the first pass manually via `/first-pass`
+  (recovery -> single upscale -> Lanczos -> USM); (3) calibrate the G1 gate
+  thresholds (MS-SSIM/LPIPS at common scale, laplacian ratio, halo, banding
+  delta) on that image's real numbers. No batch runs before this calibration.
 
-- **First ADRs (NOW, follows the scope decision).** ADR-001 (inherit the RC
-  operating system) is DONE - `docs/adr/ADR-001-inherit-rc-operating-system.md`.
-  Next: ADR-002 product scope (above), then one ADR per load-bearing early
-  choice (rendering approach, process model, config format) as each is made.
-  Use `docs/adr/TEMPLATE.md`.
+- **Golden set selection (NEXT).** Pick the frozen 10-15 (input,
+  approved-output) pairs spanning the defect classes (soft upscale, watermark
+  strip, bad eyes, banding-heavy glow) per `docs/RESTORATION_PLAN.md`
+  section 4. Every future pipeline change regresses against this set.
 
-- **Arm the audit/hygiene scheduled tasks once code exists (NEXT, operator-gated).**
-  The standard roster (`LW-Supervisor`, `LW-GeminiAudit`, `LW-WeeklyHygiene`,
-  `LW-CIWatchdog`) is documented in `docs/OPERATIONS.md` with example
-  registration commands, all marked NOT YET REGISTERED. Do not register any of
-  them until (a) the product has code + a test suite for the watchdogs to
-  defend, and (b) the operator explicitly directs it. Same gate applies to the
-  deep-audit program (`docs/DEEP_AUDIT_CHARTER.md` - DORMANT).
+- **API keys + recovery campaign (NEXT, time-sensitive).** Register the
+  SauceNAO API key and the DeviantArt OAuth app (`API-Key-*.txt` convention),
+  then run the Tier 0/1 source-recovery campaign EARLY - DeviantArt's
+  2026-03-09 download clampdown signals more anti-scraping moves coming
+  (`docs/RESTORATION_PLAN.md` section 8). Cache everything.
+
+- **Monitor polish (NEXT).** lw_monitor (127.0.0.1:8901) tracks the pipeline
+  via `ops/runtime/pipeline_state.json`; polish pass once real pipeline runs
+  produce state: thumbs roots, stuck thresholds, Desktop shortcut per
+  `docs/research/LW_MONITOR_SPEC.md` section 8.
 
 ## Open items - Medium priority
 
-- **Seed the test suite skeleton (LATER, unblocks CI + watchdogs).** Once
-  ADR-002 lands: `tests/` gets the first RED-first tests, CI goes green on the
-  empty-but-real suite, and only then do the watchdog tasks above have anything
-  to defend.
+- **Autonomy phases B/C (LATER).** After the Phase A shadow window
+  accumulates >= 50 operator-reviewed images: promote per the calibration
+  ladder (`docs/RESTORATION_PLAN.md` section 5). Never skip the ladder.
 
-- **First `ops/runtime/health.json` producer (LATER).** The supervisor pattern
-  (`docs/ARCHITECTURE.md`) needs a main process that heartbeats health.json and
-  honors `restart_trigger.txt`. TBD - product not yet defined; build it as part
-  of the first runnable slice, not before.
+- **Shareability packaging (LATER).** The process is the public deliverable
+  (pipeline code, gate ladder, rubric, golden-set protocol, manifests) -
+  never the cleaned third-party images. Prereq: licensing re-check on
+  detector/LaMa weights (queued in `docs/RESTORATION_PLAN.md` section 9).
+
+- **Artist-signature keep/remove policy (operator decision, queued).** Until
+  ruled, signature-flagged files route to the human QA queue - never
+  auto-inpainted.
+
+- **Arm the audit/hygiene scheduled tasks (operator-gated).** The standard
+  roster (`LW-Supervisor`, `LW-GeminiAudit`, `LW-WeeklyHygiene`,
+  `LW-CIWatchdog`) stays documented in `docs/OPERATIONS.md`, NOT YET
+  REGISTERED, until the operator explicitly directs it. Same gate for the
+  deep-audit program (`docs/DEEP_AUDIT_CHARTER.md` - DORMANT).
 
 ## Status at a glance
 
 Live status is intentionally NOT duplicated here - a static table goes stale.
-Sources of truth (all TBD until the product runs):
+Sources of truth:
 
-- Process, pid, alive flag: `ops/runtime/health.json`
+- Pipeline state: `ops/runtime/pipeline_state.json` (written by
+  `tools/lw_pipeline.py`; viewed via lw_monitor at `127.0.0.1:8901`)
+- Transition history: `PIPELINE_LOG.md` (project root, append-only, gitignored)
+- Process, pid, alive flag: `ops/runtime/health.json` (producer still TBD)
 - Daily log: `logs/YYYY-MM-DD.log`
 - Scheduled tasks: `Get-ScheduledTask -TaskName "LW-*" | Select TaskName, State`
   (expected result today: none - nothing is registered yet)
@@ -65,3 +83,7 @@ Sources of truth (all TBD until the product runs):
 - **7-bit ASCII only** in authored content - no em/en dashes, no smart quotes.
 - **Do not build blind** - product-shaping choices need an ADR or an explicit
   operator directive first.
+- **Never double-resample** - one AI upscale, one Lanczos down, one light USM
+  (the v1 softness bug, structurally banned by ADR-002).
+- **Never touch `images/` content in tests or git** - tests use tmp_path;
+  `images/**` gitignored except the .gitkeep skeleton.

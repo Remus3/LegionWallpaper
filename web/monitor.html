@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LW Monitor</title>
+<style>
+:root{
+  --bg:#0a1428;--panel:#0f1c2e;--line:#1e2d44;--gold:#c8aa6e;--teal:#0ac8b9;
+  --tx:#cdd2e0;--mut:#7c869c;--red:#c8455a;--grn:#3fb950;--org:#d29922
+}
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:1400px;background:var(--bg);color:var(--tx);
+  padding:16px;font:16px/1.5 'Segoe UI',system-ui,sans-serif}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+header h1{font-size:22px;color:var(--gold);margin:0;letter-spacing:1px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:12px 14px;margin-bottom:12px}
+h2{font-size:15px;text-transform:uppercase;letter-spacing:.6px;color:var(--teal);
+  margin:0 0 8px 0}
+.meta{color:var(--mut);font-size:14px;white-space:nowrap}
+.chip{display:inline-block;padding:6px 14px;border:1px solid var(--line);
+  border-radius:8px;margin:0 6px 6px 0;text-align:center;vertical-align:top}
+.chip .n{font-size:24px;font-weight:700;display:block}
+.chip .lbl{font-size:13px;color:var(--mut);text-transform:uppercase;display:block}
+.badge{display:inline-block;padding:4px 14px;border-radius:12px;font-size:16px;
+  font-weight:700;white-space:nowrap}
+.b-initial{background:rgba(124,134,156,.18);color:var(--mut)}
+.b-working{background:rgba(10,200,185,.15);color:var(--teal);
+  animation:lwpulse 1.6s ease-in-out infinite}
+.b-needauth{background:rgba(210,153,34,.22);color:var(--org)}
+.b-done{background:rgba(63,185,80,.15);color:var(--grn)}
+.b-err{background:rgba(200,69,90,.2);color:var(--red)}
+.b-unknown{background:rgba(124,134,156,.12);color:var(--tx)}
+@keyframes lwpulse{0%,100%{opacity:1}50%{opacity:.55}}
+#attention{border-color:var(--red)}
+#attention h2{color:var(--red)}
+#attention .arow{display:flex;align-items:center;gap:12px;font-size:18px;
+  padding:8px 0;border-bottom:1px solid rgba(30,45,68,.5);flex-wrap:wrap}
+#attention .arow:last-child{border-bottom:none}
+#attention .ok{color:var(--grn);font-size:18px;font-weight:700}
+.irow{display:flex;align-items:center;gap:12px;padding:6px 0;
+  border-bottom:1px solid rgba(30,45,68,.5);flex-wrap:nowrap}
+.irow:last-child{border-bottom:none}
+.irow img{width:72px;height:40px;object-fit:cover;border-radius:4px;
+  background:#000;flex:0 0 auto}
+.iid{font-family:ui-monospace,Consolas,monospace;font-size:15px;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:120px}
+.note{color:var(--mut);font-size:14px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;max-width:340px}
+.stuck{outline:1px solid var(--org);outline-offset:2px;border-radius:4px}
+.more{color:var(--mut);font-size:14px;padding:6px 0}
+#logpanel pre{font:14px/1.45 ui-monospace,Consolas,monospace;color:var(--mut);
+  white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;margin:0}
+.stale{background:rgba(210,153,34,.25);color:var(--org);padding:6px 12px;
+  border-radius:8px;font-weight:700;display:none;font-size:14px}
+.waiting{background:rgba(124,134,156,.15);color:var(--mut);padding:10px 14px;
+  border-radius:8px;font-weight:700;display:none;font-size:18px;margin-bottom:12px}
+.down{background:rgba(200,69,90,.2);color:var(--red);padding:6px 12px;
+  border-radius:8px;font-weight:700;display:none;font-size:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>LW MONITOR</h1>
+  <span id="runid" class="meta"></span>
+  <span id="stalebanner" class="stale">STALE - showing last good data</span>
+  <span id="downbanner" class="down">MONITOR ENDPOINT DOWN - retrying</span>
+  <span id="updated" class="meta"></span>
+</header>
+<div id="waiting" class="waiting">Waiting for pipeline state - no pipeline_state.json yet.
+  Run a pipeline scan to populate this page.</div>
+<div class="card" id="counts"><h2>Stage Counts</h2><div id="countbody"></div></div>
+<div class="card" id="attention"><h2>Needs Attention</h2><div id="attbody"></div></div>
+<div id="stages"></div>
+<div class="card" id="logpanel"><h2>Pipeline Log</h2><pre id="logbody"></pre></div>
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+
+function esc(t) {
+  return (t == null ? "" : String(t)).replace(/[&<>"]/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c];
+  });
+}
+function tm(s) { return esc((s || "").slice(11, 19)); }
+function ageTxt(s) {
+  if (s == null) return "";
+  if (s < 90) return Math.round(s) + "s";
+  if (s < 5400) return Math.round(s / 60) + "m";
+  return (s / 3600).toFixed(1) + "h";
+}
+function badge(item) {
+  var cls = "b-unknown", label = item.phase || "?";
+  if (item.error) { cls = "b-err"; label = "ERROR"; }
+  else if (item.phase_class === "_initial") cls = "b-initial";
+  else if (item.phase_class === "_working") cls = "b-working";
+  else if (item.phase_class === "_needauth") cls = "b-needauth";
+  else if (item.phase_class === "_done") cls = "b-done";
+  label = String(label).replace(/^_/, "").toUpperCase();
+  return '<span class="badge ' + cls + '">' + esc(label) + "</span>";
+}
+function kindBadge(kind) {
+  var map = { needauth: "b-needauth", error: "b-err", stuck: "b-needauth" };
+  return '<span class="badge ' + (map[kind] || "b-unknown") + '">' +
+    esc(String(kind || "?").toUpperCase()) + "</span>";
+}
+function thumbHtml(item) {
+  var p = item.thumb || item.file;
+  if (!p) return "";
+  return '<img loading="lazy" alt="" src="/api/thumb?path=' +
+    encodeURIComponent(p) + '" onerror="this.style.display=\'none\'">';
+}
+async function jget(u) {
+  try {
+    var r = await fetch(u, { cache: "no-store" });
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; }
+}
+
+function rHeader(p) {
+  $("runid").textContent = p.run_id ? "run " + p.run_id : "";
+  var ts = p.state_updated_at || p.state_mtime_iso || p.updated_at || "";
+  $("updated").textContent = ts ? "state updated " + ts.slice(11, 19) + " UTC" : "";
+  $("waiting").style.display = p.state_present ? "none" : "block";
+  $("stalebanner").style.display = p.stale ? "inline-block" : "none";
+}
+function rCounts(p) {
+  var html = "", stages = p.stages || [];
+  for (var i = 0; i < stages.length; i++) {
+    var s = stages[i];
+    html += '<span class="chip"><span class="n">' + esc(s.count) +
+      '</span><span class="lbl">' + esc(s.stage) + " " + esc(s.name) + "</span></span>";
+  }
+  var pc = p.phase_counts || {};
+  var order = ["_working", "_needauth", "_initial", "_done"];
+  for (var j = 0; j < order.length; j++) {
+    if (pc[order[j]]) {
+      html += '<span class="chip"><span class="n">' + esc(pc[order[j]]) +
+        '</span><span class="lbl">' + esc(order[j].slice(1)) + "</span></span>";
+    }
+  }
+  $("countbody").innerHTML = html ||
+    '<span class="meta">no images in the pipeline yet</span>';
+}
+function rAttention(p) {
+  var rows = p.attention || [];
+  if (!rows.length) {
+    $("attbody").innerHTML = '<div class="ok">Nothing needs attention</div>';
+    return;
+  }
+  var html = "";
+  for (var i = 0; i < rows.length; i++) {
+    var a = rows[i];
+    html += '<div class="arow">' + kindBadge(a.kind) +
+      '<span class="iid">' + esc(a.id) + "</span>" +
+      "<span>" + esc(a.reason || "") + "</span>" +
+      '<span class="meta">' +
+      (a.ts ? tm(a.ts) + (a.actor ? " by " + esc(a.actor) : "") : "") +
+      (a.age_s != null ? " (" + ageTxt(a.age_s) + " ago)" : "") +
+      "</span></div>";
+  }
+  $("attbody").innerHTML = html;
+}
+function rStages(p) {
+  var html = "", stages = p.stages || [];
+  for (var i = 0; i < stages.length; i++) {
+    var s = stages[i];
+    html += '<div class="card"><h2>Stage ' + esc(s.stage) + " - " +
+      esc(s.name) + " (" + esc(s.count) + ")</h2>";
+    var items = s.items || [];
+    for (var j = 0; j < items.length; j++) {
+      var it = items[j];
+      html += '<div class="irow' + (it.stuck ? " stuck" : "") + '">' +
+        thumbHtml(it) +
+        '<span class="iid">' + esc(it.id) + "</span>" +
+        badge(it) +
+        (it.note ? '<span class="note">' + esc(it.note) + "</span>" : "") +
+        (it.error ? '<span class="note" style="color:var(--red)">' +
+          esc(it.error) + "</span>" : "") +
+        '<span class="meta">' +
+        (it.ts ? tm(it.ts) : "") +
+        (it.actor ? " by " + esc(it.actor) : "") +
+        (it.age_s != null ? " - " + ageTxt(it.age_s) : "") +
+        "</span></div>";
+    }
+    var hidden = s.count - items.length;
+    if (hidden > 0) {
+      html += '<div class="more">+ ' + esc(hidden) + " more not listed</div>";
+    }
+    html += "</div>";
+  }
+  $("stages").innerHTML = html;
+}
+function rLog(l) {
+  if (!l || !l.present) {
+    $("logbody").textContent = "no PIPELINE_LOG yet";
+    return;
+  }
+  $("logbody").textContent = (l.lines || []).slice().reverse().join("\n");
+}
+
+var lastGood = null;
+var delayMs = 3000;       // base poll inside the 2-5s spec window
+var MAX_DELAY = 30000;    // backoff ceiling on failure
+
+async function load() {
+  var res = await Promise.all([jget("/api/pipeline"), jget("/api/log?n=40")]);
+  var p = res[0], l = res[1];
+  if (p) {
+    lastGood = p;
+    delayMs = 3000;
+    $("downbanner").style.display = "none";
+  } else {
+    delayMs = Math.min(delayMs * 2, MAX_DELAY);
+    $("downbanner").style.display = "inline-block";
+    if (lastGood) { p = lastGood; p.stale = true; }
+  }
+  if (p) {
+    rHeader(p); rCounts(p); rAttention(p); rStages(p);
+  } else {
+    $("countbody").innerHTML = '<span class="meta">monitor endpoint down</span>';
+  }
+  rLog(l);
+  setTimeout(load, delayMs);
+}
+load();
+</script>
+</body>
+</html>

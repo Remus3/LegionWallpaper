@@ -1,7 +1,7 @@
 # Legion Wallpaper - Agent Context
 
-Legion Wallpaper (LW) - a wallpaper app for the Legion machine. The product is NOT yet defined: do not assume features, endpoints, ports, or architecture until they land in docs/ARCHITECTURE.md and docs/adr/.
-This file is the operating contract - rules, tiers, gates, rituals - inherited 1:1 from the Riot Commander project (ADR-001). Process is settled; product is TBD.
+Legion Wallpaper (LW) - a staged, self-auditing image restoration pipeline for the Legion machine's wallpaper corpus: drop an image in `images\0.Originals` -> recover source -> single upscale -> masked cleaning -> face/eye polish -> gate ladder audit -> approved 2560x1440 PNG to Pictures. Product defined by ADR-002/ADR-003; the operational plan is `docs/RESTORATION_PLAN.md`.
+This file is the operating contract - rules, tiers, gates, rituals - inherited 1:1 from the Riot Commander project (ADR-001).
 
 > **Living docs (read at session start):** `docs/ARCHITECTURE.md` - `docs/OPERATIONS.md` - `ROADMAP.md`
 > **Aspirational:** `BACKLOG.md`
@@ -174,5 +174,6 @@ Per-item completion ledger lives in `docs/LEDGER.md` (append-only, newest-first,
 Settled decisions accumulate here as one-line entries; long-tail entries relocate verbatim to `docs/history_notes.md` when this section grows. Read the archive for full context before re-opening any line below.
 
 - **LW inherits the Riot Commander operating system 1:1 (ADR-001):** rules, tiers, gates, rituals, TDD, verification, subagent delegation, memory conventions. Process questions are settled by this file + `docs/adr/`; only product questions are open.
+- **Pipeline folder scheme is operator-designed, settled by ADR-003 - do not re-litigate** (10 stage folders under `images\`, 4-phase tokens, slug grammar, GC + End Review rulings).
 
 Full open work + future: `ROADMAP.md` + `BACKLOG.md`. Per-item ledger: `docs/LEDGER.md`. Deep archive: `docs/history_notes.md`.

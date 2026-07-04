@@ -1,17 +1,35 @@
 # Legion Wallpaper
 
-A wallpaper app for the Legion machine. **The product is not yet defined** - engine,
-scope, and architecture are all pending the first product ADR (see `ROADMAP.md`).
+A staged, self-auditing **image restoration pipeline** for the Legion machine's
+wallpaper corpus (~302 League-splash-style illustrations). Drop an image into
+`images\0.Originals` and the pipeline recovers the best full-res source,
+upscales it exactly once (IllustrationJaNai primary, ncnn fallback), removes
+watermarks and AI-generation artifacts by masked inpainting, repairs
+illustrated faces/eyes, audits itself at every stage through a metric + Claude
+vision gate ladder (G0-G4), and delivers the approved 2560x1440 PNG to
+Pictures with an optional sequential `###.png` rename. Autonomy is earned via
+a calibration ladder (shadow -> spot-check -> full auto), never assumed.
 
-What this repo DOES carry today is a complete, battle-tested **operating system**
-inherited 1:1 from the Riot Commander project: the rules, gates, tiers, rituals,
-and verification discipline that project ran under. The process is live from day
-one; the product will be built inside it.
+The cleaned third-party images stay private; the shareable deliverable is the
+PROCESS - pipeline code, gate ladder, golden-set regression protocol, and
+per-image provenance manifests. Product decisions:
+`docs/adr/ADR-002-restoration-pipeline-product.md` (product + architecture)
+and `docs/adr/ADR-003-pipeline-folder-scheme.md` (folder/state scheme).
+Operational plan: `docs/RESTORATION_PLAN.md`.
+
+The repo also carries a complete, battle-tested **operating system** inherited
+1:1 from the Riot Commander project (ADR-001): the rules, gates, tiers,
+rituals, and verification discipline that project ran under. The product is
+built inside that process.
 
 ## Where things live
 
 | Surface | Path |
 |---|---|
+| Operational plan (the pipeline, gates, autonomy ladder) | `docs/RESTORATION_PLAN.md` |
+| Pipeline stage folders (gitignored content) | `images\0.Originals` .. `images\9.Image Backup` |
+| Pipeline machine state (atomic) | `ops/runtime/pipeline_state.json` |
+| Pipeline transition log (append-only, gitignored) | `PIPELINE_LOG.md` |
 | Operating rules (per-session auto-load) | `CLAUDE.md` |
 | Harness config, hooks, agents, commands | `.claude/` |
 | Living docs (architecture, operations, agents, charters, ADRs) | `docs/` |

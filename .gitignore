@@ -31,6 +31,19 @@ _scratch/
 # Operator's living work list - Claude-synced, untracked one-stop tracker
 LW_WORK_TRACKER.md
 
+# Image pipeline content - the operator's personal image corpus (GBs of
+# binaries). The PROCESS is shareable and tracked (tools/, docs/,
+# .claude/commands/); the images themselves never are. Track only the
+# folder skeleton via .gitkeep so a fresh clone has the stage tree.
+images/**
+!images/**/
+!images/**/.gitkeep
+
+# Root pipeline status log - per-image transition history for THIS
+# machine's corpus. Untracked like LW_WORK_TRACKER.md (personal state,
+# not shareable process).
+PIPELINE_LOG.md
+
 # Databases - never commit binary DB files.
 # Recursive on purpose - a bare `data/*.db` only catches direct children.
 **/*.db

@@ -13,6 +13,10 @@ by a shared budget well under the 8s hook timeout):
     ("none registered yet" fallback - do NOT register tasks from here).
   - ops/runtime/health.json summary if the file exists, else
     "no runtime yet (product TBD)".
+  - Pipeline digest: per-stage counts under images/, loose files in
+    0.Originals awaiting intake, needs-attention count from
+    ops/runtime/pipeline_state.json, PIPELINE_LOG.md last line.
+    Degrades to "pipeline idle" when nothing is staged or probing fails.
   - WAKEUP_NOTES.md first non-empty line (session-notes freshness hint).
 
 Cheap and idempotent. A single failing probe can never break session
@@ -141,6 +145,119 @@ def _health_lines(anomalies: list[str]) -> list[str]:
         return ["- runtime health.json: UNREADABLE"]
 
 
+# Stage folders exactly per the pipeline contract (docs/research/
+# PIPELINE_STATE_MACHINE.md). 0.Originals holds loose intake files; stages
+# 1-9 hold per-image subfolders; reference_pictures is the non-pipeline
+# reference corpus.
+_STAGE_FOLDERS = (
+    "0.Originals",
+    "1.First Pass Scratch",
+    "2.First Pass Done",
+    "3.Cleaning Scratch",
+    "4.Cleaning Done",
+    "5.Final Scratch",
+    "6.Final Done",
+    "7.Last Scratch",
+    "8.End Review",
+    "9.Image Backup",
+)
+
+
+def _pipeline_state_lines(anomalies: list[str], state_path: Path) -> list[str]:
+    """needs-attention summary from ops/runtime/pipeline_state.json."""
+    try:
+        if not state_path.is_file():
+            return ["- pipeline_state.json: absent (no scan yet)"]
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        counts = state.get("counts") or {}
+        need = counts.get("anomalies")
+        if need is None:
+            need = len(state.get("anomalies") or [])
+        line = f"- pipeline_state.json: needs_attention={need}"
+        ts = state.get("generated_ts")
+        if ts:
+            line += f" (scanned {ts})"
+        if need:
+            anomalies.append(f"pipeline needs attention: {need} anomalies in pipeline_state.json")
+        return [line]
+    except Exception:  # noqa: BLE001 - a probe must never break the hook
+        anomalies.append("pipeline_state.json exists but unreadable/invalid")
+        return ["- pipeline_state.json: UNREADABLE"]
+
+
+def _pipeline_log_line(log_path: Path) -> list[str]:
+    """Last non-empty line of PIPELINE_LOG.md (never raises)."""
+    try:
+        if not log_path.is_file():
+            return ["- PIPELINE_LOG.md: not present yet"]
+        last = ""
+        for ln in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if ln.strip():
+                last = ln.strip()
+        if last:
+            return [f"- PIPELINE_LOG.md last: {last}"]
+        return ["- PIPELINE_LOG.md: present but empty"]
+    except Exception:  # noqa: BLE001
+        return ["- PIPELINE_LOG.md: probe failed"]
+
+
+def _pipeline_lines(anomalies: list[str], root: Path | None = None) -> list[str]:
+    """Pipeline digest for the session-start hook.
+
+    root is injectable for tests (defaults to the repo root); everything is
+    derived from it: images/ tree, ops/runtime/pipeline_state.json,
+    PIPELINE_LOG.md. Cheap (one shallow scandir per stage folder) and
+    exception-proof; degrades to "pipeline idle".
+    """
+    if root is None:
+        root = _ROOT
+    try:
+        images = root / "images"
+        lines: list[str] = []
+        if not images.is_dir():
+            lines.append("- pipeline idle - images/ tree not present")
+        else:
+            # 0.Originals: loose files awaiting intake ("new since last
+            # intake" - intake removes files, so presence = pending).
+            awaiting = 0
+            orig = images / _STAGE_FOLDERS[0]
+            if orig.is_dir():
+                awaiting = sum(
+                    1 for p in orig.iterdir() if p.is_file() and p.name != ".gitkeep"
+                )
+            # Stages 1-9: per-image subfolder counts.
+            stage_counts: list[tuple[str, int]] = []
+            staged_total = 0
+            for stage in _STAGE_FOLDERS[1:]:
+                d = images / stage
+                n = sum(1 for p in d.iterdir() if p.is_dir()) if d.is_dir() else 0
+                stage_counts.append((stage, n))
+                staged_total += n
+            ref = images / "reference_pictures"
+            ref_n = (
+                sum(1 for p in ref.iterdir() if p.is_file() and p.name != ".gitkeep")
+                if ref.is_dir()
+                else 0
+            )
+            if awaiting == 0 and staged_total == 0 and ref_n == 0:
+                lines.append("- pipeline idle - no files staged under images/")
+            else:
+                lines.append(f"- 0.Originals: {awaiting} loose files awaiting intake")
+                lines.append(
+                    "- stages: "
+                    + " | ".join(f"{name}={n}" for name, n in stage_counts)
+                )
+                lines.append(f"- reference_pictures: {ref_n} files")
+        lines.extend(
+            _pipeline_state_lines(anomalies, root / "ops" / "runtime" / "pipeline_state.json")
+        )
+        lines.extend(_pipeline_log_line(root / "PIPELINE_LOG.md"))
+        return lines
+    except Exception:  # noqa: BLE001 - a probe must never break the hook
+        anomalies.append("pipeline probe crashed")
+        return ["- pipeline: probe failed (treat as pipeline idle)"]
+
+
 def _wakeup_lines(anomalies: list[str]) -> list[str]:
     try:
         if not _WAKEUP.is_file():
@@ -169,6 +286,9 @@ def main() -> int:
 
     out.append("\n## Runtime\n")
     out.extend(_health_lines(anomalies))
+
+    out.append("\n## Pipeline\n")
+    out.extend(_pipeline_lines(anomalies))
 
     out.append("\n## Session notes\n")
     out.extend(_wakeup_lines(anomalies))
