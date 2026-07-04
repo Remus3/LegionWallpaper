@@ -27,6 +27,38 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+4. DONE **2026-07-04 (first-pass golden-set regression protocol; commits
+   8e8b9a0 + 936d99b).** Built the drift-detection harness the pipeline lacked,
+   adapted for the no-ground-truth reality (operator ruling - no finished
+   references exist; LEDGER item 3). Flow: brainstorm -> spec
+   (`docs/research/GOLDEN_SET.md`) -> plan (`docs/superpowers/plans/`) -> TDD
+   build. **Shipped:** `tools/lw_golden.py` with `freeze` (manifest from the
+   blessed IJN baselines, copy bytes to durable gitignored storage, real G1
+   metrics + a deterministic pipeline_version hash) and `regress` (re-score a
+   candidate dir vs the frozen baseline within epsilon: MS-SSIM 0.01 / LPIPS
+   0.02 / lap 5 percent / halo 0.02). Heavy deps INJECTED so the whole tool is
+   CI-testable (CI 3.12 / system 3.14 have no pyiqa/torch). **Reference of
+   record (operator decision):** the current blessed IJN first-pass output, not
+   human perfection - drift + no-regression detection with a quality floor, no
+   ground-truth needed; first-pass scope, per-stage baselines deferred.
+   **Live:** operator blessed all 10 (kept all), froze
+   `data/golden/golden_set.json` (TRACKED; pv d9ec8125be99; 10 cases; image
+   bytes gitignored + sha-pinned so the privacy boundary held), and the regress
+   self-check PASSED 10/10 within epsilon (pv_changed=False) - which also
+   confirms spandrel/IJN upscale DETERMINISM. **Verified:** full suite 190
+   passed / 3 skipped; ruff clean; CI green (8e8b9a0, 936d99b); `git
+   check-ignore` confirmed no image bytes staged. **Process notes:** fixed a
+   real CLI bug (`from tools import ...` failed when run as a script - added the
+   `__main__` sys.path insert); a stray `&` inside a background launch spawned a
+   duplicate torch job that exhausted the pagefile (WinError 1455), fixed by
+   taskkill of command-line-verified torch PIDs - and NEARLY killed
+   dwm/explorer/claude by trusting `nvidia-smi` compute-apps blindly (ALWAYS
+   verify a PID's name/command line before taskkill). **Future:** G3 Haiku
+   side-by-side "win or tie" is a documented TODO gated on the vision stage;
+   widen n past 10; add banding/JPEG-artifact defect-class cases (the 10 span
+   source-softness/halo, that gap unconfirmed); per-stage baselines as
+   clean/final/last come online.
+
 3. DONE **2026-07-04 (QA Session 2 - IllustrationJaNai primary path + frozen G1
    gate + manifest annotate verb; commit dca6071).** Established the IJN
    (4x_IllustrationJaNai_V1_DAT2_190k, spandrel/torch) first-pass upscaler as the
