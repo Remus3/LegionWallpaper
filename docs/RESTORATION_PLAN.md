@@ -239,8 +239,9 @@ Consolidated from the research docs' install-now lists. Order matters.
    - smoke test: `torch.cuda.is_available()` True + device name contains 5070;
      spandrel load + 64x64 forward pass per downloaded model.
 3. Models to `C:\LegionWallpaper\tools\models\`: 4x IllustrationJaNai V3detail
-   (DAT2), V3denoise (DAT2), 4x AnimeSharp (cross-check). Fallback if V3 fails
-   spandrel load: 4x_IllustrationJaNai_V1_DAT2_190k.pth.
+   (DAT2), V3denoise (DAT2), 4x AnimeSharp (cross-check). V3detail DAT2 is the
+   PRIMARY first-pass upscaler as of ADR-004 (spandrel-loaded, sha eb9faf6a);
+   4x_IllustrationJaNai_V1_DAT2_190k.pth is the spandrel-confirmed fallback.
 4. Cleaning venv (`C:\Tools\lw-clean\venv`, py 3.12): torch cu128, then
    `ultralytics easyocr simple-lama-inpainting opencv-python pillow`; download
    `yolo11x-train28-best.pt` watermark weights (115 MB, HuggingFace

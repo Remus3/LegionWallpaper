@@ -150,6 +150,16 @@ either path. Still n=10 - widen n before treating these as final - but the
 primary path and the real overshoot detector now agree, and the gate no longer
 hard-fails clean primary-path output.
 
+**UPDATE (2026-07-05, ADR-004 - V3 detail DAT2 now PRIMARY).** n was widened
+past 10 (n=14 golden-comparable) and the golden set re-frozen at n=12 on V3
+(added a JPEG-artifact + a banding defect case; pv 6d43a6d4). These thresholds
+are UNCHANGED and HOLD under V3 - no real hard-gate breaches, and V3's gentler
+sharpening drops the 2 high-halo cases under the 0.05 flag, so all 12 golden
+cases are PASS with zero flags. Finding: first-pass 4x on sources already
+>= 2560w scores as false-soft (the common-scale rule upscales the 1440p output
+back to the native source resolution to compare) - a G0 source-gate gap, not a
+threshold problem.
+
 Inpaint stage:
 - Outside dilated mask: SSIM >= 0.995 hard gate, else FAIL (pipeline bug).
 - Inside mask: no FR pass gate; run section 3.4 residual checks instead.

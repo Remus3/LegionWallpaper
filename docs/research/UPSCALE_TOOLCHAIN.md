@@ -300,8 +300,9 @@ Components:
     subset.
   - 4x_AnimeSharp - cheap cross-check model for the audit A/B.
   From: github.com/the-database/MangaJaNai/releases and openmodeldb.info.
-  If V3 DAT2 files are not loadable by current spandrel, drop to V1 DAT2
-  (4x_IllustrationJaNai_V1_DAT2_190k.pth) which is confirmed compatible.
+  V3detail DAT2 is spandrel-loaded and PROMOTED to primary as of ADR-004
+  (2026-07-05); V1 DAT2 (4x_IllustrationJaNai_V1_DAT2_190k.pth) is the
+  spandrel-confirmed fallback.
 
 Install steps (new venv, PowerShell):
 

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "pipeline_version": "d9ec8125be994eb574ed030efa6fe4ca4faca1db2b270edf783be71b1c2bf4f2",
-  "created_ts": "2026-07-04T22:12:27Z",
+  "pipeline_version": "6d43a6d4c2d44aa78a98c29ca2380a35c93dbba0a77a124ed88aba294d9bbc24",
+  "created_ts": "2026-07-05T04:39:42Z",
   "cases": [
     {
       "slug": "dgk8f8n-398197d0-65d6-4299-8f0b-afdd9021c395",
@@ -11,14 +11,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dgk8f8n-398197d0-65d6-4299-8f0b-afdd9021c395_ijn.png",
-        "sha256": "5a5865845e861a9bb2d2ca3c83ab4410e8d7f1962b2d10ca10298c2aa6449d0a"
+        "sha256": "92da6105ab2b46d366b35c38464029dcd0a6154fec129c97a491a36551d7077f"
       },
       "metrics": {
-        "msssim": 0.998506,
-        "lpips": 0.017495,
-        "lap_ratio": 1.9593552201101638,
-        "halo_pct": 0.0436,
-        "band_delta": 0.00553771876810466
+        "msssim": 0.99848,
+        "lpips": 0.0175,
+        "lap_ratio": 1.954990645750748,
+        "halo_pct": 0.0448,
+        "band_delta": 0.007387433768226537
       },
       "defect_axes": [
         "mid-detail"
@@ -33,14 +33,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dfz5w2g-8ba7345b-5776-4d83-b939-4ca7d045f545_ijn.png",
-        "sha256": "c37a7f764e7e22b4fd7aa5287e6af5e2883075ad6ca7ed7baead1d8ea8233b65"
+        "sha256": "a6c884a737c95ed70da6e4a895b59f47b5fe7e861b3602d6aa21e128a07c12ac"
       },
       "metrics": {
-        "msssim": 0.998429,
-        "lpips": 0.030859,
-        "lap_ratio": 1.2583926205597502,
-        "halo_pct": 0.0179,
-        "band_delta": 0.029240575817518447
+        "msssim": 0.9986,
+        "lpips": 0.024512,
+        "lap_ratio": 1.2793067885050227,
+        "halo_pct": 0.0204,
+        "band_delta": 0.007655270762482361
       },
       "defect_axes": [
         "soft-source"
@@ -55,14 +55,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dfzlox4-7e2bdc64-36ce-41fa-80b0-c83f97fdf5f5_ijn.png",
-        "sha256": "b74e3532ab954ebfcb319a51db44cd7849fe966d9c34ba9145fc39f0cde4a811"
+        "sha256": "91ddec90cf4a5001e1394d88d7b03d4f8b0d3a24714c9e9c623b20887e8bb770"
       },
       "metrics": {
-        "msssim": 0.997964,
-        "lpips": 0.016162,
-        "lap_ratio": 1.4034222330031787,
-        "halo_pct": 0.042,
-        "band_delta": 0.002430132656941475
+        "msssim": 0.998233,
+        "lpips": 0.015497,
+        "lap_ratio": 1.325748798282642,
+        "halo_pct": 0.0345,
+        "band_delta": 0.0025841410308079793
       },
       "defect_axes": [
         "soft-source"
@@ -77,14 +77,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dgfkw05-0dca21c7-cf08-4dee-9a8e-4045dc98c451_ijn.png",
-        "sha256": "27df0d8464389d76939fc98f8ca0c0f6c4e9b3652093c985d292042f0f6def4f"
+        "sha256": "c3120c9fed343dfbb6d7affab0707d72bdcdc729866caf16a88d949e765e2340"
       },
       "metrics": {
-        "msssim": 0.998717,
-        "lpips": 0.011773,
-        "lap_ratio": 1.5586068785331888,
-        "halo_pct": 0.0223,
-        "band_delta": 0.005445490548666748
+        "msssim": 0.998838,
+        "lpips": 0.010267,
+        "lap_ratio": 1.4880007764492884,
+        "halo_pct": 0.0201,
+        "band_delta": 0.007128191242765314
       },
       "defect_axes": [
         "mid-detail"
@@ -99,14 +99,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dgk8f92-bc10d7a7-f520-4b4f-ad86-ac70f6d50293_ijn.png",
-        "sha256": "417e0757a459093704087d187e321d40ace30550ce8c58653dd16606093d4e0f"
+        "sha256": "0895839edfbbe1038c63b6a86c127a4277c19497ef3c59e2169d2fef7b35a983"
       },
       "metrics": {
-        "msssim": 0.998691,
-        "lpips": 0.015092,
-        "lap_ratio": 1.9077506288520782,
-        "halo_pct": 0.0242,
-        "band_delta": 0.00480771976300251
+        "msssim": 0.998777,
+        "lpips": 0.014108,
+        "lap_ratio": 1.8872961855888837,
+        "halo_pct": 0.0233,
+        "band_delta": 0.00692497400155076
       },
       "defect_axes": [
         "mid-detail"
@@ -121,14 +121,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dfzypp1-251c5c37-e25f-496e-a9a6-4900304e6fa5_ijn.png",
-        "sha256": "24dfcf5321a41c443dec2811e7f2fe6ab91724afdaa06e9f32d8a0194558b184"
+        "sha256": "2b7488c2371308e71463cf1ce14fceb9e86a4dae04b9361798367c183304e3f5"
       },
       "metrics": {
-        "msssim": 0.998777,
-        "lpips": 0.008209,
-        "lap_ratio": 1.380660003398055,
-        "halo_pct": 0.0317,
-        "band_delta": 0.0038546935328189202
+        "msssim": 0.999032,
+        "lpips": 0.006123,
+        "lap_ratio": 1.2822166004286284,
+        "halo_pct": 0.0215,
+        "band_delta": 0.005534027029772071
       },
       "defect_axes": [
         "soft-source"
@@ -143,14 +143,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/fiora2_ijn.png",
-        "sha256": "e5eaec31fd78e605ab3d6e360ac71de439a9e8120854d428b16871eb17b28990"
+        "sha256": "a33e0e9efbfc0f97ef0fc793b80c6794a389cf6bd06d0bedca92cf4d2720f316"
       },
       "metrics": {
-        "msssim": 0.993788,
-        "lpips": 0.079922,
-        "lap_ratio": 2.9364861101649002,
-        "halo_pct": 0.0717,
-        "band_delta": -0.0019420834025233036
+        "msssim": 0.996658,
+        "lpips": 0.052538,
+        "lap_ratio": 2.2049123839333316,
+        "halo_pct": 0.0425,
+        "band_delta": -0.03162636077074138
       },
       "defect_axes": [
         "high-detail",
@@ -166,14 +166,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dfzypou-30bef263-c754-4a26-9797-484757b1c4cf_ijn.png",
-        "sha256": "4fc111b0dab88d66b1a4c322d03e692231745a39ee6b1bc1f55328d5c12cc183"
+        "sha256": "934f43fc241b57f2dd8dd740fd9bb6f56ef69231201988a948e6797f895d36cb"
       },
       "metrics": {
-        "msssim": 0.998622,
-        "lpips": 0.011157,
-        "lap_ratio": 1.4151778023584927,
-        "halo_pct": 0.0406,
-        "band_delta": 0.001360545133246821
+        "msssim": 0.99879,
+        "lpips": 0.009236,
+        "lap_ratio": 1.3466916202970423,
+        "halo_pct": 0.0328,
+        "band_delta": 0.006130022952230557
       },
       "defect_axes": [
         "soft-source"
@@ -188,14 +188,14 @@
       },
       "baseline": {
         "path": "data/golden/baseline/inkshadow-kai-sa-by-pebano1-dm7m9lz-fullview_ijn.png",
-        "sha256": "0fdbf7e36143ac9f526fd8dfef7acf5ccebb9ae2bf64e46942e97a3542753ce8"
+        "sha256": "8473044b6d6fefc7e765db3ca9b588a4ac6229ee2c9e82a7825d2c55f4e7e5b1"
       },
       "metrics": {
-        "msssim": 0.995003,
-        "lpips": 0.048122,
-        "lap_ratio": 3.2162517339226824,
-        "halo_pct": 0.0748,
-        "band_delta": -0.01004474545884429
+        "msssim": 0.996729,
+        "lpips": 0.032726,
+        "lap_ratio": 2.3700008451857046,
+        "halo_pct": 0.0432,
+        "band_delta": -0.015693377397834052
       },
       "defect_axes": [
         "high-detail",
@@ -211,17 +211,61 @@
       },
       "baseline": {
         "path": "data/golden/baseline/dfzypoo-482973ff-dfb0-44e4-a90c-386714d27faf_ijn.png",
-        "sha256": "45f1a1734ce0fa75adff02760dc7770372273c791d8e208ac0e72e3f7439647a"
+        "sha256": "cf6793adc2757f0267f743df669c68e6c7db614d97def91159c86eca2674fb83"
       },
       "metrics": {
-        "msssim": 0.99861,
-        "lpips": 0.015501,
-        "lap_ratio": 1.4288907371417818,
-        "halo_pct": 0.0299,
-        "band_delta": 0.019741359801868336
+        "msssim": 0.998602,
+        "lpips": 0.01378,
+        "lap_ratio": 1.4020584309642512,
+        "halo_pct": 0.03,
+        "band_delta": 0.02236479416948936
       },
       "defect_axes": [
         "soft-source"
+      ],
+      "blessed": true
+    },
+    {
+      "slug": "coven-ashe-lol-df49jt0-pre",
+      "input": {
+        "path": "data/golden/inputs/coven_ashe___league_of_legends_by_chisuniii_df49jt0-pre.jpg",
+        "sha256": "5d7d05fa0ac96c0b46b5b57b414bd52bad7f84eaefaaa910a51a2d9a81f2f765"
+      },
+      "baseline": {
+        "path": "data/golden/baseline/coven_ashe___league_of_legends_by_chisuniii_df49jt0-pre.png",
+        "sha256": "93d72e119a6b00de27d274c2c67348e5845f507e6f29410566d54ec92c4081e1"
+      },
+      "metrics": {
+        "msssim": 0.99693,
+        "lpips": 0.040988,
+        "lap_ratio": 1.9824444167368258,
+        "halo_pct": 0.011,
+        "band_delta": -0.013666725821168207
+      },
+      "defect_axes": [
+        "jpeg-artifact"
+      ],
+      "blessed": true
+    },
+    {
+      "slug": "1341679-banding",
+      "input": {
+        "path": "data/golden/inputs/1341679.jpeg",
+        "sha256": "8728643c968f395c63361c622f8dd4d64773fd48c3a547e78fcde20209a0386c"
+      },
+      "baseline": {
+        "path": "data/golden/baseline/1341679.png",
+        "sha256": "15f1584e68355410b311c1dc9309fe33667344356b16383c4716a5e60e67d0e8"
+      },
+      "metrics": {
+        "msssim": 0.997161,
+        "lpips": 0.028271,
+        "lap_ratio": 1.4240859953871619,
+        "halo_pct": 0.0378,
+        "band_delta": -0.025282425166836486
+      },
+      "defect_axes": [
+        "banding"
       ],
       "blessed": true
     }

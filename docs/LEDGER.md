@@ -27,6 +27,36 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+5. DONE **2026-07-05 (V3 detail DAT2 promoted to primary; golden re-frozen n=12
+   on V3; dark-cosmic-ahri reprocessed; ADR-004).** Closed the top NOW item
+   (widen G1 + V3 trial + defect-class cases) and the operator's dark-cosmic ask.
+   **Premise VERIFIED:** V3's OpenModelDB link is dead - V3 ships only via the
+   MangaJaNai v3.0.0 GitHub release (direct HTTPS, no gdrive token); fetched
+   `4x_IllustrationJaNai_V3detail_DAT2_28k_bf16.safetensors` (139,793,020 bytes,
+   sha eb9faf6a, self-computed - no upstream checksum), spandrel-loaded
+   (arch=DAT/4x). **A/B (`lw_golden regress`, same USM70 finish so the delta
+   isolates the upscaler):** V3 beats V1 on golden n=10 - MS-SSIM 8/10, LPIPS
+   9/10, halo 7/10 - and on both new defect cases; clears BOTH high-halo flags
+   (fiora2 0.072->0.043, inkshadow 0.075->0.043). **Widened** to n=14
+   golden-comparable: frozen G1 thresholds HOLD (no real breaches; 3 apparent
+   lap<1.0 "fails" were big-4K-source common-scale-upscale artifacts, not gate
+   failures - logged as a G0 source-gate gap in ROADMAP). **Promoted (operator
+   directive, ADR-004):** re-froze `data/golden/golden_set.json` at n=12 on V3
+   (pv d9ec8125 -> 6d43a6d4; added `coven-ashe-lol-df49jt0-pre` jpeg-artifact +
+   `1341679-banding`), all 12 blessed + PASS with ZERO flags; regress self-check
+   PASS 12/12 pv_changed=False (V3 determinism confirmed). **dark-cosmic-ahri:**
+   recovered its Tier-0 source (`Pictures/288.png`, 2560x1440, pHash dP=4 vs the
+   1192x670 G0-fail preview), V3 first-passed it (PASS), and
+   save-working -> annotate -> submit put it in `_firstneedauth` awaiting
+   operator approve. **Verified:** full suite 190 passed / 3 skipped; only
+   `data/golden/golden_set.json` tracked-dirty (image bytes + pipeline state
+   gitignored). **Process note:** killed a pathological 8K source (caitlyn
+   7680x4320) mid-widening that pinned the 12GB card at 11.5GB - PID verified by
+   working-set/CPU/GPU correlation, NOT blind nvidia-smi. **Do NOT redo:** the V3
+   weight (gitignored `tools/models/`); the n=12 V3 freeze; the A/B. **Future:**
+   G0 over-target source-gate; V3denoise as a per-image halftone alternative; G3
+   Haiku win-or-tie (vision stage).
+
 4. DONE **2026-07-04 (first-pass golden-set regression protocol; commits
    8e8b9a0 + 936d99b).** Built the drift-detection harness the pipeline lacked,
    adapted for the no-ground-truth reality (operator ruling - no finished

@@ -5,7 +5,39 @@
 > this banner when you prune). Per-item completion records live in
 > `docs/LEDGER.md`; open work lives in `ROADMAP.md` + `BACKLOG.md`.
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
-> product-defined) - pruned 2026-07-04 to keep the last 3.
+> product-defined, pruned 2026-07-04) and 2026-07-04 QA Session 1 (pruned
+> 2026-07-05) - keep the last 3.
+
+---
+
+# 2026-07-05 (V3 detail DAT2 promoted to primary + golden re-frozen n=12 + dark-cosmic reprocessed)
+
+Resolved + promoted IllustrationJaNai V3 detail DAT2 to the PRIMARY first-pass
+upscaler (ADR-004; LEDGER item 5). V3's OpenModelDB link is dead - it ships only
+via the MangaJaNai v3.0.0 GitHub release (direct HTTPS, no gdrive dance); fetched
+the DAT2 detail weight (sha eb9faf6a, 139,793,020 bytes, self-computed checksum),
+spandrel-loaded (arch=DAT/4x). A/B'd V1 vs V3 through `lw_golden regress`: V3 wins
+golden n=10 (MS-SSIM 8/10, LPIPS 9/10, halo 7/10) + both new defect cases, and
+clears BOTH high-halo flags (fiora2 0.072->0.043, inkshadow 0.075->0.043). Widened
+calibration to n=14 golden-comparable - thresholds HOLD (the 3 lap<1.0 'fails'
+were big-4K-source common-scale-upscale artifacts, a G0 source-gate gap now in
+ROADMAP). Re-froze the golden set at n=12 on V3 (pv d9ec8125 -> 6d43a6d4; added
+`coven-ashe-lol-df49jt0-pre` jpeg-artifact + `1341679-banding`); all 12 PASS with
+ZERO flags; regress self-check PASS 12/12 pv_changed=False. Reprocessed
+`dark-cosmic-ahri-by-pebano1-dlnxav6-pre` from its recovered Tier-0 source
+(`Pictures/288.png`, 2560x1440, pHash dP=4 vs the 1192x670 G0-fail preview) -> V3
+first-pass (PASS) -> submitted to `_firstneedauth`.
+
+**Do NOT redo:** the V3 weight (gitignored `tools/models/`); the n=12 V3 freeze;
+the A/B. Suite 190 passed / 3 skipped; only `data/golden/golden_set.json`
+tracked-dirty. **Process scar:** killed a pathological 8K source (caitlyn
+7680x4320) mid-widening that pinned the 12GB card at 11.5GB - verified the PID by
+working-set/CPU/GPU correlation, NOT blind nvidia-smi. **AWAITING OPERATOR:**
+approve dark-cosmic via `lw_pipeline approve dark-cosmic-ahri-by-pebano1-dlnxav6-pre`
+(or reject). **Next:** (1) G0 over-target source-gate (first-pass must not 4x
+sources already >= 2560w - route to downscale-only); (2) recovery campaign (149
+pending, 75 niphrimit -pre); (3) G3 Haiku win-or-tie (vision stage); V3denoise as
+a per-image halftone alternative.
 
 ---
 
@@ -60,29 +92,3 @@ since none exists yet; widen n past 10; trial V3detail DAT2 (its OpenModelDB
 gdrive link was unresolved this session). **Queued (unchanged):** recovery
 campaign (149 pending, 75 `niphrimit` `-pre`); artist-signature policy; API
 keys (SauceNAO + DeviantArt).
-
----
-
-# 2026-07-04 (QA Session 1 - first-pass stack live + G1 calibrated n=10)
-
-First real pipeline runs. Installed the first-pass ML stack (py3.12,
-`.venv-upscale` = torch 2.11+cu128 + spandrel on RTX 5070, `.venv-metrics` =
-pyiqa 99 metrics); gallery-dl + imagehash on 3.14. Ran 10 images intake ->
-first-pass -> operator-approved into `2.First Pass Done` (fiora2 + a 9-image
-Found-original batch), full manifest audit trails. G1 calibrated n=10
-(realesrgan-x4plus-anime fallback, USM70): MS-SSIM 0.984-0.993, LPIPS
-0.047-0.144, GT LPIPS <= 0.097; tighter seeds in `AUDIT_GATES.md` 1.4 (pass
-msssim >= 0.98, lpips <= 0.12).
-
-Key: `reference_pictures` is a FR ground-truth goldmine (pHash dP=0 matches).
-Found corpus (`Desktop\Found`, 121 folders) = 21 real originals + 97 still
-`-pre`. Laplacian ratio is source-dependent, NOT an over-sharpen ceiling - need
-a real overshoot detector.
-
-**Do NOT redo:** the ML venv installs (done + gitignored `.venv-*/`); the 10
-approved first-pass images. **Gaps:** no manifest verb for provenance/metrics
-(ROADMAP NOW + spawned task); IllustrationJaNai primary weights still TODO (this
-run used the ncnn fallback). **Next:** QA Session 2 - IJN primary path +
-recalibrate; then the recovery campaign (149 pending, 75 `niphrimit` `-pre`).
-**Queued:** artist-signature policy (watermarks on all Found originals);
-LongPathsEnabled (deferred).

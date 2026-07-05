@@ -18,8 +18,31 @@ rewritten - relocations are verbatim, newest batch first.
 
 ---
 
-_Empty - no sessions archived yet. First relocation batch goes directly under
-the `---` rule above, newest-first._
+## Relocated 2026-07-05 (keep last 3 sessions: WAKEUP added the 2026-07-05 V3-promotion session)
+
+# 2026-07-04 (QA Session 1 - first-pass stack live + G1 calibrated n=10)
+
+First real pipeline runs. Installed the first-pass ML stack (py3.12,
+`.venv-upscale` = torch 2.11+cu128 + spandrel on RTX 5070, `.venv-metrics` =
+pyiqa 99 metrics); gallery-dl + imagehash on 3.14. Ran 10 images intake ->
+first-pass -> operator-approved into `2.First Pass Done` (fiora2 + a 9-image
+Found-original batch), full manifest audit trails. G1 calibrated n=10
+(realesrgan-x4plus-anime fallback, USM70): MS-SSIM 0.984-0.993, LPIPS
+0.047-0.144, GT LPIPS <= 0.097; tighter seeds in `AUDIT_GATES.md` 1.4 (pass
+msssim >= 0.98, lpips <= 0.12).
+
+Key: `reference_pictures` is a FR ground-truth goldmine (pHash dP=0 matches).
+Found corpus (`Desktop\Found`, 121 folders) = 21 real originals + 97 still
+`-pre`. Laplacian ratio is source-dependent, NOT an over-sharpen ceiling - need
+a real overshoot detector.
+
+**Do NOT redo:** the ML venv installs (done + gitignored `.venv-*/`); the 10
+approved first-pass images. **Gaps:** no manifest verb for provenance/metrics
+(ROADMAP NOW + spawned task); IllustrationJaNai primary weights still TODO (this
+run used the ncnn fallback). **Next:** QA Session 2 - IJN primary path +
+recalibrate; then the recovery campaign (149 pending, 75 `niphrimit` `-pre`).
+**Queued:** artist-signature policy (watermarks on all Found originals);
+LongPathsEnabled (deferred).
 
 ---
 
