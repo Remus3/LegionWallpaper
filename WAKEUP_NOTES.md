@@ -46,9 +46,9 @@ cleaning scratch stage - closes the last queued ADR-002 decision). Full suite no
 (_firstdone). Recovery keys IN - `API-Key-SauceNAO.txt` (40 chars) +
 `API-Key-DeviantArt.txt` (client-id/secret); `%APPDATA%/gallery-dl/config.json`
 written with the app creds + quota-friendly (original=false, quality=100,
-intermediary=true). **AWAITING OPERATOR:** run `gallery-dl oauth:deviantart` (one
-browser Authorize click) to mint + cache the DeviantArt refresh-token - the last
-piece for Tier 1 fetch. **NEXT (active - recovery activation):** (1) finish the
+intermediary=true). **DeviantArt AUTHORIZED** (operator ran `gallery-dl oauth:deviantart`
+2026-07-05; refresh-token cached) - all recovery keys live. **NEXT (active -
+recovery activation):** (1) finish the
 SauceNAO image-upload POST in `lw_recover.saucenao_search` (flagged TODO; TDD);
 (2) build + run a campaign driver - enumerate the 149 pending, Tier-0 corpus =
 `Pictures/` + `Desktop/Found`, run `run_waterfall`, record provenance via
