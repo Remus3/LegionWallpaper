@@ -375,3 +375,53 @@ def test_source_url_map_missing_file_is_empty(tmp_path: Path):
     """A missing matches.json yields an empty map, not an error."""
     m = fp.load_source_urls(tmp_path / "nope.json")
     assert m == {}
+
+
+# ---------------------------------------------------------------------------
+# downscale-only gate policy (ADR-006): drop the lap_ratio floor for a
+# no-upscale path; keep msssim/lpips + halo/band.
+# ---------------------------------------------------------------------------
+def test_gate_metrics_drops_lap_ratio_for_downscale_only():
+    """backend 'downscale-only' removes lap_ratio from the gated set only."""
+    metrics = {"lap_ratio": 0.75, "halo_pct": 0.01, "band_delta": 0.0,
+               "msssim": 0.998, "lpips": 0.02}
+    gated = fp.gate_metrics(metrics, "downscale-only")
+    assert "lap_ratio" not in gated
+    assert gated["msssim"] == 0.998
+    assert gated["lpips"] == 0.02
+    assert "halo_pct" in gated and "band_delta" in gated
+
+
+def test_gate_metrics_keeps_full_set_for_spandrel():
+    """A real AI upscale gates on the full metric set (lap_ratio retained)."""
+    metrics = {"lap_ratio": 0.8, "msssim": 0.99, "lpips": 0.05,
+               "halo_pct": 0.01, "band_delta": 0.0}
+    assert fp.gate_metrics(metrics, "spandrel") == metrics
+
+
+def test_downscale_only_soft_lap_ratio_passes_via_gate():
+    """lap_ratio 0.75 but healthy others -> PASS for downscale-only (ADR-006)."""
+    metrics = {"lap_ratio": 0.75, "halo_pct": 0.01, "band_delta": 0.0,
+               "msssim": 0.998, "lpips": 0.02}
+    v = fp.verdict(fp.gate_metrics(metrics, "downscale-only"),
+                   DEFAULT_G1_THRESHOLDS)
+    assert v["verdict"] == "PASS"
+
+
+def test_downscale_only_still_flags_halo():
+    """Dropping lap_ratio does NOT disable halo/band flags for downscale-only."""
+    metrics = {"lap_ratio": 0.75, "halo_pct": 0.06, "band_delta": 0.0,
+               "msssim": 0.998, "lpips": 0.02}
+    v = fp.verdict(fp.gate_metrics(metrics, "downscale-only"),
+                   DEFAULT_G1_THRESHOLDS)
+    assert v["verdict"] == "FLAG"
+    assert any("halo" in r for r in v["reasons"])
+
+
+def test_downscale_only_still_fails_corrupt_msssim():
+    """A genuinely corrupt downscale (msssim < 0.96) still FAILS downscale-only."""
+    metrics = {"lap_ratio": 1.5, "halo_pct": 0.01, "band_delta": 0.0,
+               "msssim": 0.90, "lpips": 0.02}
+    v = fp.verdict(fp.gate_metrics(metrics, "downscale-only"),
+                   DEFAULT_G1_THRESHOLDS)
+    assert v["verdict"] == "FAIL"

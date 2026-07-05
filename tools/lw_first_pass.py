@@ -219,6 +219,22 @@ def assemble_metrics(fr, lap_ratio, halo_pct, band_delta):
     return metrics
 
 
+def gate_metrics(metrics, backend):
+    """Return the metric subset to feed verdict(), conditioned on the backend.
+
+    ADR-006: a downscale-only path (source already covered 2560x1440; one Lanczos
+    down, no AI upscale) has no upscale to sharpen, so the lap_ratio softness
+    FLOOR is invalid there - it reads as arbitrary pass/fail by source content.
+    Drop lap_ratio from the GATED set for backend "downscale-only"; keep msssim,
+    lpips (structure preservation) and halo_pct, band_delta (added artifacts).
+    The lap_ratio VALUE is still recorded in the manifest for provenance - it is
+    just not gated on. Every other backend gates on the full set unchanged.
+    """
+    if backend == "downscale-only":
+        return {k: v for k, v in metrics.items() if k != "lap_ratio"}
+    return dict(metrics)
+
+
 def load_source_urls(matches_path=MATCHES_JSON):
     """Map slug -> source url from matches.json (top-level JSON array).
 
@@ -502,10 +518,13 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
     fr = run_fr_metrics(up_out, conditioned)
     lap, halo, band = compute_numpy_metrics(conditioned, up_out)
     metrics = assemble_metrics(fr, lap, halo, band)
-    v = verdict(metrics, DEFAULT_G1_THRESHOLDS)
+    backend = audit.get("backend")
+    # ADR-006: downscale-only drops the (invalid) lap_ratio floor from the gate.
+    v = verdict(gate_metrics(metrics, backend), DEFAULT_G1_THRESHOLDS)
 
     annotate_payload = {
         "gate": "G1", "metrics": metrics, "fr_all": fr,
+        "backend": backend, "lap_ratio_gated": backend != "downscale-only",
         "verdict": v["verdict"], "reasons": v["reasons"],
         "source_choice": kind, "aspect_class": cls, "crop_box": box,
         "area_loss": round(area_loss, 6), "cropped": cplan.get("cropped"),
