@@ -42,15 +42,19 @@ first-pass routes sources already covering 2560x1440 to a downscale-only path
 cleaning scratch stage - closes the last queued ADR-002 decision). Full suite now
 226 passed / 3 skipped; commits 37741ea, b61c1a5, 6cffc3d all pushed.
 
-**AWAITING OPERATOR:** (1) approve dark-cosmic via
-`lw_pipeline approve dark-cosmic-ahri-by-pebano1-dlnxav6-pre` (or reject); (2)
-register API keys (`API-Key-SauceNAO.txt` + DeviantArt OAuth) to activate recovery
-Tier 1/2. **NEXT (operator-queued):** monitor polish - lw_monitor
-(127.0.0.1:8901): thumbs roots, stuck thresholds, Desktop shortcut per
-`docs/research/LW_MONITOR_SPEC.md` section 8; runs the UI Fixture Ritual. **Then:**
-Tier-0 recovery campaign on the 149 pending (no keys); finish the SauceNAO POST
-when the key lands; G3 Haiku win-or-tie (vision stage); V3denoise per-image
-halftone alternative.
+**STATE update (later 2026-07-05):** dark-cosmic APPROVED -> `2.First Pass Done`
+(_firstdone). Recovery keys IN - `API-Key-SauceNAO.txt` (40 chars) +
+`API-Key-DeviantArt.txt` (client-id/secret); `%APPDATA%/gallery-dl/config.json`
+written with the app creds + quota-friendly (original=false, quality=100,
+intermediary=true). **AWAITING OPERATOR:** run `gallery-dl oauth:deviantart` (one
+browser Authorize click) to mint + cache the DeviantArt refresh-token - the last
+piece for Tier 1 fetch. **NEXT (active - recovery activation):** (1) finish the
+SauceNAO image-upload POST in `lw_recover.saucenao_search` (flagged TODO; TDD);
+(2) build + run a campaign driver - enumerate the 149 pending, Tier-0 corpus =
+`Pictures/` + `Desktop/Found`, run `run_waterfall`, record provenance via
+`lw_pipeline annotate`. **Then:** monitor polish (lw_monitor 127.0.0.1:8901,
+`docs/research/LW_MONITOR_SPEC.md` section 8, UI Fixture Ritual); G3 Haiku
+win-or-tie; V3denoise per-image halftone alternative.
 
 ---
 
