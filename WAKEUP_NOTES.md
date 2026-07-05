@@ -10,7 +10,7 @@
 
 ---
 
-# 2026-07-05 (V3 detail DAT2 promoted to primary + golden re-frozen n=12 + dark-cosmic reprocessed)
+# 2026-07-05 (V3 promoted to primary + golden n=12 + dark-cosmic; recovery scaffolding; G0 gate; ADR-004/005)
 
 Resolved + promoted IllustrationJaNai V3 detail DAT2 to the PRIMARY first-pass
 upscaler (ADR-004; LEDGER item 5). V3's OpenModelDB link is dead - it ships only
@@ -32,12 +32,25 @@ first-pass (PASS) -> submitted to `_firstneedauth`.
 the A/B. Suite 190 passed / 3 skipped; only `data/golden/golden_set.json`
 tracked-dirty. **Process scar:** killed a pathological 8K source (caitlyn
 7680x4320) mid-widening that pinned the 12GB card at 11.5GB - verified the PID by
-working-set/CPU/GPU correlation, NOT blind nvidia-smi. **AWAITING OPERATOR:**
-approve dark-cosmic via `lw_pipeline approve dark-cosmic-ahri-by-pebano1-dlnxav6-pre`
-(or reject). **Next:** (1) G0 over-target source-gate (first-pass must not 4x
-sources already >= 2560w - route to downscale-only); (2) recovery campaign (149
-pending, 75 niphrimit -pre); (3) G3 Haiku win-or-tie (vision stage); V3denoise as
-a per-image halftone alternative.
+working-set/CPU/GPU correlation, NOT blind nvidia-smi. **Also shipped this session (2026-07-05, continuous):** (a) source-recovery
+waterfall scaffolding `tools/lw_recover.py` (LEDGER item 6, commit b61c1a5) -
+Tier 0 local pHash/dHash match usable NOW, Tier 1 token-decode + oEmbed work now,
+Tier 1 gallery-dl + Tier 2 SauceNAO gated on keys, the SauceNAO multipart-POST a
+flagged TODO; (b) the G0 over-target source-gate (LEDGER item 7, commit 6cffc3d) -
+first-pass routes sources already covering 2560x1440 to a downscale-only path
+(closes the widening gap); (c) artist-signature ruling ADR-005 (REMOVE at the
+cleaning scratch stage - closes the last queued ADR-002 decision). Full suite now
+226 passed / 3 skipped; commits 37741ea, b61c1a5, 6cffc3d all pushed.
+
+**AWAITING OPERATOR:** (1) approve dark-cosmic via
+`lw_pipeline approve dark-cosmic-ahri-by-pebano1-dlnxav6-pre` (or reject); (2)
+register API keys (`API-Key-SauceNAO.txt` + DeviantArt OAuth) to activate recovery
+Tier 1/2. **NEXT (operator-queued):** monitor polish - lw_monitor
+(127.0.0.1:8901): thumbs roots, stuck thresholds, Desktop shortcut per
+`docs/research/LW_MONITOR_SPEC.md` section 8; runs the UI Fixture Ritual. **Then:**
+Tier-0 recovery campaign on the 149 pending (no keys); finish the SauceNAO POST
+when the key lands; G3 Haiku win-or-tie (vision stage); V3denoise per-image
+halftone alternative.
 
 ---
 
