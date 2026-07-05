@@ -8,23 +8,14 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **First-pass needauth queue - approve/reject (NOW).** 49 images sit in
-  `_firstneedauth` from the 2026-07-05 recovered-backlog batch (LEDGER item 10):
-  40 PASS + 9 FLAG (mild halo/banding, flagged for vision audit - `meramora`
-  halo 0.166 is the outlier). Operator gate: `lw_pipeline approve <slug>` /
-  `reject <slug> --note "<reason>"`. The LW Monitor (127.0.0.1:8901) lists them.
-  (dark-cosmic-ahri already APPROVED -> 2.First Pass Done last session.)
-
-- **Downscale-only G1 handling + process the 61 deferred (NEXT).** 61 sources
-  (native 8K/4K + over-2560 fullviews + crop_ok-large) were intaken but NOT
-  first-passed: the G1 common-scale lap_ratio floor is invalid for a no-upscale
-  downscale-only path (the LEDGER item 7 false-soft - the gate upscales the 1440p
-  output back to source res). Fix: for backend "downscale-only" skip the
-  upscale-quality floor (a clean Lanczos downscale of an already-good source IS
-  the target wallpaper); decide the retained gate subset (halo/banding still
-  apply) and whether it auto-submits, then run `lw_first_pass --batch`. Regenerate
-  the slug list via post-crop bucketing (chosen source >= 2560x1440 after
-  conditioning).
+- **First-pass needauth queue - approve/reject (NOW).** 110 images sit in
+  `_firstneedauth` (54 PASS + 56 FLAG) from the 2026-07-05 recovered-backlog first
+  pass (LEDGER items 10 + 11): 49 upscale (40 PASS / 9 FLAG) + 61 downscale-only
+  (14 PASS / 47 FLAG). Operator gate: `lw_pipeline approve <slug>` / `reject <slug>
+  --note "<reason>"`; the LW Monitor (127.0.0.1:8901) lists them. **WATCH:** 47/61
+  downscale-only flagged on halo_pct - if these read spurious in the vision audit,
+  a halo-for-downscale-only calibration look is the follow-up (analogous to the
+  ADR-006 lap_ratio fix). (dark-cosmic-ahri already APPROVED -> 2.First Pass Done.)
 
 - **Crop the 10 held (NEXT).** 10 crop_heavy sources HELD (center-crop to 16:9
   loses > 8 percent): manual per-image crop, then re-run. 3 are borderline

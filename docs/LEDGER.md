@@ -27,6 +27,37 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+11. DONE **2026-07-05 (downscale-only G1 gate ADR-006 + the 61 deferred batched; commit 7b11f21 + docs).**
+   Closed the downscale-only deferral from LEDGER item 10 (operator launched the
+   spawned follow-up). **Premise VERIFIED empirically (non-mutating probe, 3
+   downscale-only 4K sources):** the G1 lap_ratio floor is INVALID for a no-upscale
+   path - it swung 0.75 / 0.78 / 1.20 across near-identical clean downscales
+   (arbitrary pass/fail; the third PASSED as spuriously as the first two FAILED)
+   while msssim/lpips (0.996-0.998) + halo/band stayed meaningful. **Decision
+   ADR-006 (operator ruling, option a):** for upscale backend "downscale-only" drop
+   ONLY the lap_ratio floor from the G1 verdict; keep msssim/lpips + halo/band; the
+   lap_ratio value is still recorded for provenance. DEFAULT_G1_THRESHOLDS untouched
+   (per-path metric selection, not a recalibration); every other backend unchanged.
+   **Built (TDD, inline - small well-scoped change):** a pure `gate_metrics(metrics,
+   backend)` filter feeding verdict(), wired into process_slug with backend +
+   lap_ratio_gated recorded in the manifest. RED confirmed (5 new tests fail, no
+   gate_metrics) -> GREEN (32 passed: drops lap only for downscale-only, keeps the
+   full set for spandrel, soft-lap passes, halo still flags, corrupt msssim still
+   fails); ruff + ASCII clean; py_compile OK. **Ran:** regenerated the 61-slug list
+   (post-crop bucket) + batched -> 14 PASS + 47 FLAG + 0 FAIL + 0 error. **Zero
+   lap_ratio fails - the false-soft is gone.** **Verified:** scan anomalies=0, 0
+   still-editing, needauth now 110 (49 upscale + 61 downscale-only), verify --all ok
+   (131 images), full suite 275 passed / 3 skipped (was 270/3; +5). **OBSERVATION
+   (open, NOT fixed):** 47/61 downscale-only FLAGGED on halo_pct (0.052-0.211).
+   Flag-only (all submitted for vision audit) so conservative/safe, but the rate is
+   high; a quick probe to separate real USM ringing from a common-scale
+   back-upscale artifact was inconclusive (confounded by per-slug source selection).
+   WATCH during the vision audit - if the flags read spurious, a
+   halo-for-downscale-only calibration look (analogous to this lap_ratio fix) is the
+   follow-up. **Do NOT redo:** ADR-006, the gate_metrics change, the 61-batch.
+   **State:** all 120 originals first-passed - 110 in _firstneedauth (approve/
+   reject), 10 crop_heavy HELD.
+
 10. DONE **2026-07-05 (first-pass driver + recovered-backlog first-pass batch; commit 82aacc2 + docs).**
    Executed task 1 - processed the recovered source backlog through Stage-1 first
    pass. **Premise CORRECTED (ground-truth):** the WAKEUP "67 fullviews quota-capped
