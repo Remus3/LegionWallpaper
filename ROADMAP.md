@@ -20,11 +20,6 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   common-scale scoring). The G3 Haiku side-by-side "win or tie" check stays a
   documented TODO gated on the vision-audit stage.
 
-- **Monitor polish (NEXT).** lw_monitor (127.0.0.1:8901) tracks the pipeline
-  via `ops/runtime/pipeline_state.json`; polish pass once real pipeline runs
-  produce state: thumbs roots, stuck thresholds, Desktop shortcut per
-  `docs/research/LW_MONITOR_SPEC.md` section 8.
-
 ## Open items - Medium priority
 
 - **Autonomy phases B/C (LATER).** After the Phase A shadow window

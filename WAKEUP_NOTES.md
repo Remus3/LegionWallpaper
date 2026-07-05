@@ -56,6 +56,30 @@ SauceNAO image-upload POST in `lw_recover.saucenao_search` (flagged TODO; TDD);
 `docs/research/LW_MONITOR_SPEC.md` section 8, UI Fixture Ritual); G3 Haiku
 win-or-tie; V3denoise per-image halftone alternative.
 
+**STATE update 2 (recovery activated + monitor polished, 2026-07-05):** the
+"NEXT (active)" above is DONE. (1) SauceNAO multipart POST wired (real image
+upload; live-verified parsed shape + quota long_remaining=94). (2) Campaign
+driver `tools/lw_recover_campaign.py` built (TDD, 11 tests) + RAN on the live
+170 pending previews (backlog grew past the noted 149): 102 Tier-0 local pHash,
+67 real DeviantArt fullview fetches, 1 SauceNAO (Pixiv, dead deviation), 0
+manual, 0 errors. **Root-caused + fixed a live DeviantArt clampdown regression:**
+oEmbed now 404s on `/deviation/<id>` and needs the canonical
+`/<artist>/art/x-<id>` URL (rebuilt from the `_by_<artist>_` filename); the fetch
+stays on authoritative gallery-dl OAuth. Provenance annotated via `lw_pipeline
+annotate` on the two manifest-bearing slugs; loose targets record provenance in
+`data/recovery/matches.json`. `.gitignore` now ignores all recovery runtime
+outputs (fetched art + personal-path caches). Suite 243 passed / 3 skipped.
+Commits 5c2cf42 (code) + ea74508 (docs); LEDGER item 8. **Monitor polish (LEDGER
+item 9):** verified lw_monitor live against real state (renders 11
+First-Pass-Done + 120 pending; log tail + page all HTTP 200), created the "LW
+Monitor" Desktop shortcut (section 8), confirmed the page ASCII-clean; thumbnail
+generation found DORMANT (no producer writes `thumb` fields) so the spec
+thumbs-root RISK is RESOLVED/deferred. **Do NOT redo:** the POST, the oEmbed
+artist-URL fix, the driver + this run, the shortcut. **NEXT:** dark-cosmic
+downstream stages (cleaning pass); a thumbnail producer if monitor thumbs are
+wanted; per-image `original=true` 4K escalation for quota-capped fullviews; G3
+Haiku win-or-tie; V3denoise halftone alternative.
+
 ---
 
 # 2026-07-04 (golden set - first-pass drift-regression harness shipped)

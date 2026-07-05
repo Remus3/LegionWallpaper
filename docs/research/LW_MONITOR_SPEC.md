@@ -529,9 +529,14 @@ Stop path (documented, not on the shortcut): `POST /api/shutdown` via
   3.14 on this box (cp314 wheel availability UNVERIFIED). Fallback behavior
   is specified (5.1) so the monitor works either way, minus thumbnails for
   large PNGs.
-- RISK: images root defaults (`data\`, `ops\runtime\thumbs\`) are guesses
-  until the pipeline fixes its folder layout; the `--images-root` flag and
-  the 403-on-miss behavior contain the blast radius.
+- RESOLVED 2026-07-05: the thumbnail root settled on `images/` (the pipeline's
+  actual stage tree) with the `--images-root` flag + 403-on-miss containing the
+  blast radius. Verified live against real pipeline_state.json (11
+  First-Pass-Done + 120 pending render correctly). NOTE: thumbnail generation is
+  still DORMANT - no producer writes per-image `thumb` fields and
+  `ops/runtime/thumbs` is absent, so thumb-root tuning is deferred until a thumb
+  producer exists (BACKLOG). The earlier `data\` / `ops\runtime\thumbs\` guess
+  is superseded.
 - RISK: 302-image corpus renders fine with done_cap, but if the pipeline
   later fans out per-stage artifacts (masks, intermediates) as separate
   items, the page needs pagination - out of scope v1, noted for the audit.

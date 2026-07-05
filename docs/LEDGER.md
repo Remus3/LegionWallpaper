@@ -27,6 +27,29 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+9. DONE **2026-07-05 (monitor polish - verified live + Desktop shortcut; docs-only).**
+   Polished lw_monitor now that real pipeline_state.json exists (ROADMAP NEXT).
+   **Verified live (running instance):** /api/pipeline renders the real state
+   (stage 0=120 pending + stage 2=11 First-Pass-Done, 0 attention, not stale),
+   /api/log tails PIPELINE_LOG, GET / serves the 9KB page - all HTTP 200; Pillow
+   12.3.0 present for thumbs; the 432-line tests/test_lw_monitor.py rides in the
+   243-pass suite. **Created the "LW Monitor" Desktop shortcut** per
+   LW_MONITOR_SPEC section 8 (pythonw.exe tools/lw_monitor.py --open, WorkingDir
+   C:\LegionWallpaper, imageres.dll,109 icon) - a machine artifact, not committed.
+   **Finding (verified, not assumed):** thumbnail generation is DORMANT - no
+   pipeline item carries a `thumb` field, `ops/runtime/thumbs` is absent, and
+   lw_pipeline references no thumbs, so the spec's guessed thumbs-root RISK
+   (`data\` / `ops\runtime\thumbs\`) is moot. Resolved it in LW_MONITOR_SPEC
+   section 10: the root settled on `images/` + `--images-root`, thumb-root tuning
+   deferred until a producer exists (BACKLOG). web/monitor.html confirmed 7-bit
+   ASCII clean (repo hard rule). No lw_monitor.py / monitor.html change was
+   warranted (the code is complete + tested + working), so the UI Fixture Ritual
+   was not triggered - there was no page change to audit. **Do NOT redo:** the
+   shortcut, the live verification. **FUTURE:** a thumbnail producer (writes
+   `thumb` fields + populates a thumbs root) if the monitor thumbnail lane is
+   wanted; then confirm/extend the thumb root + run the fixture ritual on any
+   page change.
+
 8. DONE **2026-07-05 (source-recovery campaign activated + run on 170; commit 5c2cf42).**
    Activated + ran the Tier 0/1/2 recovery waterfall against the full pending
    backlog, racing DeviantArt's 2026-03-09 download clampdown (RESTORATION_PLAN
