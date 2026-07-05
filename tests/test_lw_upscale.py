@@ -76,6 +76,59 @@ def test_finish_with_extreme_usm_does_not_error():
 
 
 # ---------------------------------------------------------------------------
+# G0 over-target source-gate (CI-runnable: no torch, downscale-only path)
+# ---------------------------------------------------------------------------
+
+
+def test_covers_target_boundaries():
+    """_covers_target is True iff src >= target in BOTH dims (inclusive edge)."""
+    assert lw_upscale._covers_target(2560, 1440) is True
+    assert lw_upscale._covers_target(3840, 2160) is True
+    assert lw_upscale._covers_target(2559, 1440) is False
+    assert lw_upscale._covers_target(2560, 1439) is False
+    assert lw_upscale._covers_target(1920, 1080) is False
+
+
+def test_first_pass_over_target_16x9_downscale_only(tmp_path):
+    """An over-target 16:9 source takes the downscale-only path - no model needed.
+
+    A 3840x2160 (16:9) source already covers the 2560x1440 target, so G0 skips
+    the AI 4x and does one Lanczos downscale. model_path=None must NOT raise.
+    """
+    src = str(tmp_path / "over_target.png")
+    out = str(tmp_path / "firstworking.png")
+    _solid_16x9(3840, 2160).save(src, format="PNG")
+
+    audit = lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+    assert audit["backend"] == "downscale-only"
+    assert audit["scale"] == 1
+    assert audit["model"] is None
+    assert "model_sha256" not in audit
+    assert audit["up_dims"] == [3840, 2160]
+    assert audit["src_dims"] == [3840, 2160]
+
+    assert os.path.exists(out)
+    with Image.open(out) as got:
+        assert got.size == (2560, 1440)
+        assert got.mode == "RGB"
+
+
+def test_first_pass_over_target_non_16x9_still_raises(tmp_path):
+    """An over-target NON-16:9 source still hits the _finish aspect guard.
+
+    3000x3000 covers the target in both dims but is 1:1 - _finish must raise
+    ValueError rather than squash aspect, even on the downscale-only path.
+    """
+    src = str(tmp_path / "over_target_square.png")
+    out = str(tmp_path / "firstworking_square.png")
+    Image.new("RGB", (3000, 3000), (10, 10, 10)).save(src, format="PNG")
+
+    with pytest.raises(ValueError):
+        lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+
+# ---------------------------------------------------------------------------
 # torch-guarded test (SKIPPED where torch is absent - CI 3.12, system 3.14)
 # ---------------------------------------------------------------------------
 

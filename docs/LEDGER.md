@@ -27,6 +27,26 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+7. DONE **2026-07-05 (G0 over-target source-gate; TDD).** Closed the G0 gap
+   surfaced during the V3 widening (LEDGER item 5): first-pass was 4x-ing sources
+   that already cover the 2560x1440 target - pathological compute (an 8K source
+   -> a ~531-megapixel tensor, minutes) AND false-soft G1 scoring (the
+   common-scale rule upscales the 1440p output back to native source res to
+   compare). **Built (TDD via a subagent slice + independent merger probe):**
+   `tools/lw_upscale.py` gains `_covers_target(w, h, target)` and a gate at the
+   top of `first_pass` - when the source covers the target on both axes it takes
+   a DOWNSCALE-ONLY path (raw = the source, one Lanczos to target + light USM, no
+   model needed), recorded as backend "downscale-only" (scale 1, no
+   model_sha256); below-target sources keep the unchanged AI 4x path. ADR-002
+   never-double-resample doctrine honored. The `_finish` aspect guard is
+   preserved (over-target non-16:9 still raises). **Verified (merger's own
+   probe):** RED-then-GREEN confirmed; full suite 226 passed / 3 skipped (was
+   223/3; +3 new CI-runnable tests, no torch); ruff clean; module still imports
+   on stdlib+PIL+numpy. **Do NOT redo:** the gate + tests. **Design note:**
+   downscale-only (not low-factor AI or flag-for-operator) chosen per the
+   operator's "shouldn't 4x" phrasing + never-double-resample; AI enhancement of
+   over-target sources, if ever wanted, belongs to the Stage-2 cleaning stage.
+
 6. DONE **2026-07-05 (source-recovery waterfall scaffolding + artist-signature
    ruling ADR-005).** Operator directive: scaffold the recovery campaign so it is
    ready the moment API keys land. **Premise VERIFIED:** no recovery tool existed

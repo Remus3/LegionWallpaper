@@ -8,18 +8,17 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **dark-cosmic approve + G0 over-target source-gate (NOW).** V3 detail DAT2 is
-  now the PRIMARY first-pass upscaler (ADR-004; LEDGER item 5): the golden set
-  was re-frozen at n=12 on V3 (pv 6d43a6d4; added a JPEG-artifact + a banding
-  defect case), thresholds unchanged and holding, all 12 cases PASS with zero
-  flags. `dark-cosmic-ahri-by-pebano1-dlnxav6-pre` was reprocessed from its
-  recovered Tier-0 source (`Pictures/288.png`, 2560x1440, pHash dP=4) and now
-  sits in `_firstneedauth` awaiting `lw_pipeline approve`. New gap surfaced while
-  widening: first-pass 4x-ing sources already >= 2560w is wasteful and scores as
-  false-soft (the common-scale rule upscales the 1440p output back to native res
-  to compare) - add a G0 source-gate that routes over-target sources onto a
-  downscale-only path instead of the AI upscale. The G3 Haiku side-by-side "win
-  or tie" check stays a documented TODO gated on the vision-audit stage.
+- **dark-cosmic approve (NOW).** V3 detail DAT2 is now the PRIMARY first-pass
+  upscaler (ADR-004; LEDGER item 5): the golden set was re-frozen at n=12 on V3
+  (pv 6d43a6d4; added a JPEG-artifact + a banding defect case), thresholds
+  unchanged and holding, all 12 cases PASS with zero flags.
+  `dark-cosmic-ahri-by-pebano1-dlnxav6-pre` was reprocessed from its recovered
+  Tier-0 source (`Pictures/288.png`, 2560x1440, pHash dP=4) and now sits in
+  `_firstneedauth` awaiting `lw_pipeline approve`. The G0 over-target source-gate
+  SHIPPED this session (LEDGER item 7): `first_pass` now routes sources already
+  covering 2560x1440 to a downscale-only path (no wasteful AI 4x, no false-soft
+  common-scale scoring). The G3 Haiku side-by-side "win or tie" check stays a
+  documented TODO gated on the vision-audit stage.
 
 - **Recovery campaign - keys + run (NEXT, time-sensitive).** The waterfall
   scaffolding is BUILT (`tools/lw_recover.py`, LEDGER item 6; Tier 0 local

@@ -72,6 +72,21 @@ def _clamp_usm(usm):
     return (radius, percent, threshold)
 
 
+def _covers_target(src_w, src_h, target=TARGET):
+    """True iff a source already covers the target in BOTH dimensions.
+
+    G0 over-target gate: when the source is at least the target size on each
+    axis (e.g. a 4K/8K source vs the 2560x1440 target), the AI 4x upscale is
+    pathological (an 8K source blows up to a ~531-megapixel tensor and minutes
+    of compute) AND the 1440p output scores false-soft under the G1 common-scale
+    rule (G1 upscales the output back to the native source resolution to
+    compare). ADR-002 doctrine: never double-resample. So an over-target source
+    skips the AI upscale and takes ONE Lanczos downscale only. AI cleaning is the
+    Stage-2 cleaning job, not first-pass.
+    """
+    return src_w >= target[0] and src_h >= target[1]
+
+
 def _finish(upscaled_img, target=TARGET, usm=USM_DEFAULT):
     """Downscale a raw 4x upscale to the target and apply one unsharp mask.
 
@@ -295,18 +310,40 @@ def first_pass(
     t0 = time.time()
     src_sha256 = _sha256(src_path)
 
-    if backend == "spandrel":
-        if not model_path:
-            raise ValueError("spandrel backend requires model_path")
-        raw, meta = upscale_spandrel(
-            src_path, model_path, tile=tile, overlap=overlap
-        )
-    elif backend == "ncnn":
-        # Stage the ncnn PNG next to the final output, then finish + atomic move.
-        ncnn_tmp = out_path + ".ncnn.png"
-        raw, meta = upscale_ncnn(src_path, ncnn_tmp)
-    else:
-        raise ValueError(f"unknown backend: {backend!r}")
+    # G0 over-target source-gate. Open the source once and read its dims. If it
+    # already covers the target in both axes, skip the AI 4x entirely (see
+    # _covers_target) and take a downscale-only path: the raw image IS the
+    # source, and _finish does the single Lanczos downscale. This branch needs
+    # no model, so the spandrel model_path check below must not fire when it
+    # takes over.
+    with Image.open(src_path) as _src_probe:
+        src_w, src_h = _src_probe.size
+        if _covers_target(src_w, src_h, target):
+            raw = _src_probe.convert("RGB")
+            meta = {
+                "backend": "downscale-only",
+                "model": None,
+                "scale": 1,
+                "src_dims": [src_w, src_h],
+                "up_dims": [src_w, src_h],
+                "seconds": round(time.time() - t0, 3),
+            }
+        else:
+            raw = None
+
+    if raw is None:
+        if backend == "spandrel":
+            if not model_path:
+                raise ValueError("spandrel backend requires model_path")
+            raw, meta = upscale_spandrel(
+                src_path, model_path, tile=tile, overlap=overlap
+            )
+        elif backend == "ncnn":
+            # Stage the ncnn PNG next to the final output, then finish + atomic move.
+            ncnn_tmp = out_path + ".ncnn.png"
+            raw, meta = upscale_ncnn(src_path, ncnn_tmp)
+        else:
+            raise ValueError(f"unknown backend: {backend!r}")
 
     finished = _finish(raw, target=target, usm=usm)
 
@@ -323,6 +360,7 @@ def first_pass(
         "src_path": src_path,
         "src_sha256": src_sha256,
         "src_dims": meta["src_dims"],
+        "up_dims": meta["up_dims"],
         "out_path": out_path,
         "out_sha256": _sha256(out_path),
         "out_dims": list(finished.size),
