@@ -269,10 +269,11 @@ re-auth message, not a silent failure.
 
 ## 9. Open operator decisions (queued, not blockers)
 
-- ARTIST-SIGNATURE POLICY: the watermark detector will flag legitimate in-art
-  signatures. Keep vs remove is a per-class OPERATOR DECISION - queued;
-  until ruled, signature-flagged files route to the human QA queue, never
-  auto-inpainted.
+- ARTIST-SIGNATURE POLICY - RULED 2026-07-05 (ADR-005): REMOVE, do not keep.
+  Artist signatures are treated as removable marks and inpainted out during the
+  cleaning scratch stage (Stage 2), through the standard
+  detect -> mask -> inpaint -> verify cleaning path with the usual gate + human
+  QA fallback. No longer routed to a keep-queue.
 - Licensing re-check before the shareable milestone: fancyfeast detector
   weights license unstated; big-lama weight redistribution terms if the
   shipped process bundles weights.

@@ -134,6 +134,19 @@ data/.*.tmp
 data/golden/inputs/
 data/golden/baseline/
 
+# Source-recovery fetched image bytes (privacy - same boundary as golden/ and
+# images/**). gallery-dl / manual downloads land third-party art on this box;
+# NEVER commit it. The recovery METADATA (manual_queue.csv, hashes/matches
+# JSON caches, logs) IS trackable process state and stays. See
+# docs/research/SOURCE_RECOVERY.md section 5. Keep the dir on checkout via
+# .gitkeep; ignore any downloaded image bytes and the fetch subdir.
+data/recovery/downloads/
+data/recovery/*.jpg
+data/recovery/*.jpeg
+data/recovery/*.png
+data/recovery/*.webp
+data/recovery/*.gif
+
 # Transient verify/test scratch dropped at repo root by item runs
 # (_verify_*.txt and friends) + ad-hoc stdout/stderr captures.
 /_*.txt

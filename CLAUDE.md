@@ -176,5 +176,6 @@ Settled decisions accumulate here as one-line entries; long-tail entries relocat
 - **LW inherits the Riot Commander operating system 1:1 (ADR-001):** rules, tiers, gates, rituals, TDD, verification, subagent delegation, memory conventions. Process questions are settled by this file + `docs/adr/`; only product questions are open.
 - **Pipeline folder scheme is operator-designed, settled by ADR-003 - do not re-litigate** (10 stage folders under `images\`, 4-phase tokens, slug grammar, GC + End Review rulings).
 - **Primary first-pass upscaler = IllustrationJaNai V3 detail DAT2 (ADR-004, 2026-07-05) - do not re-litigate.** Promoted from V1 DAT2 on a golden A/B sweep (V3 wins MS-SSIM/LPIPS/halo, clears all halo flags); golden re-frozen at n=12 on V3 (pv 6d43a6d4); G1 thresholds unchanged. V1 DAT2 = spandrel-confirmed fallback; V3denoise = per-image halftone alternative.
+- **Artist signatures are REMOVED, not kept (ADR-005, 2026-07-05) - do not re-litigate.** Inpainted out at the cleaning scratch stage via the standard detect -> mask -> inpaint -> verify path (gate + QA fallback); not routed to a keep-queue. Justified only by the private-use / process-is-the-deliverable boundary (RESTORATION_PLAN section 10).
 
 Full open work + future: `ROADMAP.md` + `BACKLOG.md`. Per-item ledger: `docs/LEDGER.md`. Deep archive: `docs/history_notes.md`.

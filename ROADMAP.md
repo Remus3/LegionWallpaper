@@ -21,15 +21,18 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   downscale-only path instead of the AI upscale. The G3 Haiku side-by-side "win
   or tie" check stays a documented TODO gated on the vision-audit stage.
 
-- **API keys + recovery campaign (NEXT, time-sensitive).** Register the
-  SauceNAO API key and the DeviantArt OAuth app (`API-Key-*.txt` convention),
-  then run the Tier 0/1 source-recovery campaign EARLY - DeviantArt's
+- **Recovery campaign - keys + run (NEXT, time-sensitive).** The waterfall
+  scaffolding is BUILT (`tools/lw_recover.py`, LEDGER item 6; Tier 0 local
+  pHash/dHash match usable NOW, no keys). To activate Tier 1/2 fetch: register
+  the SauceNAO API key + the DeviantArt OAuth app (`API-Key-*.txt` convention)
+  and finish the small SauceNAO multipart-POST TODO. Then run the Tier 0/1
+  source-recovery campaign EARLY - DeviantArt's
   2026-03-09 download clampdown signals more anti-scraping moves coming
   (`docs/RESTORATION_PLAN.md` section 8). Cache everything. Backlog is real
   now: 149 pending intake incl a ~75-file `niphrimit` `-pre` batch dropped
-  2026-07-04, all previews needing Tier-1 fullview recovery; plus the parked
-  `dark-cosmic-ahri-...-pre` (Tier0 -> 288.png 1440p, Tier1 -> deviation
-  1309974594). The Found corpus (Desktop\Found, 121 folders) already supplies
+  2026-07-04, all previews needing Tier-1 fullview recovery. (dark-cosmic-ahri
+  already proved the Tier 0 path this session - recovered from `Pictures/288.png`,
+  now in needauth.) The Found corpus (Desktop\Found, 121 folders) already supplies
   21 real originals - 97 entries there are still `-pre` and need true originals.
 
 - **Monitor polish (NEXT).** lw_monitor (127.0.0.1:8901) tracks the pipeline
@@ -47,11 +50,6 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   (pipeline code, gate ladder, rubric, golden-set protocol, manifests) -
   never the cleaned third-party images. Prereq: licensing re-check on
   detector/LaMa weights (queued in `docs/RESTORATION_PLAN.md` section 9).
-
-- **Artist-signature keep/remove policy (operator decision, queued).** Until
-  ruled, signature-flagged files route to the human QA queue - never
-  auto-inpainted.
-
 - **Arm the audit/hygiene scheduled tasks (operator-gated).** The standard
   roster (`LW-Supervisor`, `LW-GeminiAudit`, `LW-WeeklyHygiene`,
   `LW-CIWatchdog`) stays documented in `docs/OPERATIONS.md`, NOT YET

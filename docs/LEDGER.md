@@ -27,6 +27,33 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+6. DONE **2026-07-05 (source-recovery waterfall scaffolding + artist-signature
+   ruling ADR-005).** Operator directive: scaffold the recovery campaign so it is
+   ready the moment API keys land. **Premise VERIFIED:** no recovery tool existed
+   (grep) - built to the complete existing spec `docs/research/SOURCE_RECOVERY.md`,
+   not from scratch. **Shipped `tools/lw_recover.py`** (TDD via a subagent slice,
+   then an INDEPENDENT verifier probe by the merger): the 4-tier waterfall - Tier
+   0 local pHash+dHash consensus match (both hashes must agree, accept<=8 /
+   review<=14; usable NOW, no keys), Tier 1 DeviantArt token-decode (strip "d",
+   base36 -> deviation id; the `dlnxav6 -> 1309974594` vector is a test) + public
+   oEmbed liveness + gallery-dl fetch (decode/oEmbed work now; fetch gated on
+   OAuth config), Tier 2 SauceNAO (gated on `API-Key-SauceNAO.txt`;
+   accept>=85/review 60-85; the multipart-POST body is a flagged TODO for when the
+   key lands), Tier 3 manual-queue CSV. CI-safe (stdlib at import, imagehash/PIL
+   lazy, every network call injected so no test touches the wire),
+   friendly-degraded (no raw API errors, never crashes the waterfall), atomic
+   writes, CREATE_NO_WINDOW on gallery-dl. **Verified (merger's own probe, not the
+   subagent's word):** full suite 223 passed / 3 skipped (was 190/3; +33 new),
+   ruff clean, module imports on stdlib, token vector correct, `.gitignore`
+   ignores fetched image bytes (privacy) while keeping recovery metadata
+   trackable, `data/recovery/` holds only `.gitkeep`. **ADR-005 (artist
+   signatures):** operator RULED remove-not-keep, inpainted at the cleaning
+   scratch stage - closes the last queued ADR-002 operator decision; synced
+   RESTORATION_PLAN, CLEANING_INPAINT, ROADMAP, CLAUDE Settled. **Do NOT redo:**
+   the recovery tool + tests. **Future:** finish the SauceNAO multipart POST when
+   the key lands; run the Tier 0 campaign on the 149 pending (no keys needed); G0
+   over-target source-gate + monitor polish are next.
+
 5. DONE **2026-07-05 (V3 detail DAT2 promoted to primary; golden re-frozen n=12
    on V3; dark-cosmic-ahri reprocessed; ADR-004).** Closed the top NOW item
    (widen G1 + V3 trial + defect-class cases) and the operator's dark-cosmic ask.

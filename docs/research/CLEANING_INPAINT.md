@@ -282,8 +282,10 @@ matching nightly cu128 build.
 
 - IOPaint archived 2025-08-13: pin 1.6.0; long-term the batch path already
   avoids it (simple-lama-inpainting), only the QA web UI depends on it.
-- Artist-signature policy: detector will flag legitimate in-art signatures;
-  needs an explicit keep/remove decision per class before full autonomy.
+- Artist-signature policy - RULED 2026-07-05 (ADR-005): REMOVE. Flagged
+  signatures are inpainted out at the cleaning scratch stage like any other mark
+  (standard detect -> mask -> inpaint -> verify, gate + QA fallback); not kept,
+  not routed to a keep-queue.
 - fancyfeast model licensing unstated (UNVERIFIED) - re-check before the
   "shareable public process" milestone; same for big-lama weights
   redistribution if the pipeline ships weights.
