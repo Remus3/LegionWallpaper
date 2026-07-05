@@ -20,20 +20,6 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   common-scale scoring). The G3 Haiku side-by-side "win or tie" check stays a
   documented TODO gated on the vision-audit stage.
 
-- **Recovery campaign - keys + run (NEXT, time-sensitive).** The waterfall
-  scaffolding is BUILT (`tools/lw_recover.py`, LEDGER item 6; Tier 0 local
-  pHash/dHash match usable NOW, no keys). To activate Tier 1/2 fetch: register
-  the SauceNAO API key + the DeviantArt OAuth app (`API-Key-*.txt` convention)
-  and finish the small SauceNAO multipart-POST TODO. Then run the Tier 0/1
-  source-recovery campaign EARLY - DeviantArt's
-  2026-03-09 download clampdown signals more anti-scraping moves coming
-  (`docs/RESTORATION_PLAN.md` section 8). Cache everything. Backlog is real
-  now: 149 pending intake incl a ~75-file `niphrimit` `-pre` batch dropped
-  2026-07-04, all previews needing Tier-1 fullview recovery. (dark-cosmic-ahri
-  already proved the Tier 0 path this session - recovered from `Pictures/288.png`,
-  now in needauth.) The Found corpus (Desktop\Found, 121 folders) already supplies
-  21 real originals - 97 entries there are still `-pre` and need true originals.
-
 - **Monitor polish (NEXT).** lw_monitor (127.0.0.1:8901) tracks the pipeline
   via `ops/runtime/pipeline_state.json`; polish pass once real pipeline runs
   produce state: thumbs roots, stuck thresholds, Desktop shortcut per

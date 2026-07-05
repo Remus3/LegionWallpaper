@@ -27,6 +27,49 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+8. DONE **2026-07-05 (source-recovery campaign activated + run on 170; commit 5c2cf42).**
+   Activated + ran the Tier 0/1/2 recovery waterfall against the full pending
+   backlog, racing DeviantArt's 2026-03-09 download clampdown (RESTORATION_PLAN
+   section 8). **Premise VERIFIED live before building:** DA OAuth resolves
+   (`gallery-dl -g` on deviation 1309974594 -> EXIT 0, wixmp fullview URL); keys
+   present (SauceNAO 40ch, DA 65ch); gallery-dl 1.32.5 + %APPDATA% config
+   (original=false, quality=100, intermediary=true). **Built (subagent-first,
+   TDD, verifier-gated fresh):** (slice A) `saucenao_search` real
+   multipart/form-data image POST replacing the GET stub - params in query, file
+   part, live short_remaining/long_remaining surfaced for self-throttle, public
+   signature unchanged (+3 tests); (slice B) new `tools/lw_recover_campaign.py`
+   driver - enumerate_targets (170 pending: 69 in 0.Originals + 101 Found
+   -pre-only folders), build_corpus_hashes ((mtime,size) cache over 424
+   Pictures+Found candidates), run_campaign (per-target waterfall -> tier-1
+   quota-free fullview fetch -> guarded provenance annotate), annotate_via_pipeline,
+   CLI run/report, all side effects injected (11 tests). **FIX (root-cause, live
+   clampdown regression):** DeviantArt oEmbed now 404s on the /deviation/<id>
+   redirect form (the SOURCE_RECOVERY-predicted risk landed) and requires the
+   canonical /<artist>/art/x-<id> URL - title slug ignored, artist required.
+   Added `parse_artist()` (from the *_by_<artist>_* filename) and rebuilt the
+   oEmbed query URL; provenance URL stays the resolvable /deviation/<id> form;
+   the fetch stays on authoritative gallery-dl OAuth (+3 tests). Proven live:
+   oembed_liveness + run_waterfall resolve a real target to tier 1. **Verified:**
+   suite 243 passed / 3 skipped (was 226/3; +3 saucenao +3 artist/oembed +11
+   campaign, all CI-runnable, network injected), ruff clean, direct + `-m` CLI
+   both run. **Full run (170/170, 0 errors):** 102 Tier-0 local pHash matches,
+   67 real DeviantArt fullview fetches (quota-free, verified real JPEGs ~1280px),
+   1 SauceNAO (Pixiv source, dead deviation), 0 manual-queued; a live SauceNAO
+   probe confirmed the parsed shape + quota (long_remaining=94). Provenance
+   annotated via `lw_pipeline annotate` on the two manifest-bearing slugs
+   (dark-cosmic-...-pre + inkshadow-kai-sa-...-fullview); loose targets record
+   provenance in data/recovery/matches.json (their record of authority - no
+   manifest exists pre-intake). **.gitignore:** recovery runtime outputs now
+   ignored - fetched third-party art (nested fetched/) + the hash/match/saucenao
+   caches (they embed personal-corpus abspaths); supersedes the earlier "caches
+   stay tracked" note. **Cached everything:** hashes.json (424), matches.json
+   (170), saucenao_cache.json, fetched/ (68 fullviews incl dark-cosmic). **Do
+   NOT redo:** the POST, the oEmbed artist-URL fix, the driver, this run's
+   caches. **FUTURE (BACKLOG):** per-image original=true escalation (10/week
+   budget) for the ~67 fullviews quota-capped at ~1280px that need true 4K; a
+   gallery-dl `-g` liveness fallback would harden Tier-1 against a full oEmbed
+   shutdown.
+
 7. DONE **2026-07-05 (G0 over-target source-gate; TDD).** Closed the G0 gap
    surfaced during the V3 widening (LEDGER item 5): first-pass was 4x-ing sources
    that already cover the 2560x1440 target - pathological compute (an 8K source
