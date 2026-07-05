@@ -27,6 +27,43 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+10. DONE **2026-07-05 (first-pass driver + recovered-backlog first-pass batch; commit 82aacc2 + docs).**
+   Executed task 1 - processed the recovered source backlog through Stage-1 first
+   pass. **Premise CORRECTED (ground-truth):** the WAKEUP "67 fullviews quota-capped
+   ~1280px" was the DA oEmbed PREVIEW dim, not the fetched file - gallery-dl already
+   pulled true fullviews (median 1440w, 19 of 68 >=2560, one 7680x4320). So the
+   operator's gate-triggered original=true budget cost 0 this batch (no source
+   needed it). **Two operator forks resolved:** (a) budget = gate-triggered (spend
+   original=true only on G1 source-res FAILs); (b) non-16:9 conditioning = auto
+   center-crop to exact 16:9 when area-loss <= 8 percent, else manual HOLD.
+   **Validated the recipe live BEFORE building** (p08e8 manual chain -> G1 PASS):
+   intake basename -> upscale the fetched fullview via .venv-upscale spandrel V3 DAT2
+   -> save-working -> G1 (.venv-metrics FR + numpy at common scale; fr 'ms_ssim' ->
+   'msssim' remap; pyiqa stdout noise -> last-json-line) -> annotate -> submit.
+   **Built (subagent-first, TDD, verifier-gated) `tools/lw_first_pass.py`** -
+   resumable single/batch driver: best-source selection (fetched fullview else
+   _firstinitial), aspect conditioning (crop_ok <=8 percent writes a 16:9 temp
+   BEFORE first_pass so _finish never raises; crop_heavy HOLDs), sequential (GPU is
+   one device), CREATE_NO_WINDOW, all pipeline mutation through lw_pipeline
+   (single-writer). 27 unit tests (aspect thresholds, crop math, source select, FR
+   remap, verdict wiring, subprocess argv), ruff + ASCII clean; verifier
+   VERIFIED-GREEN independently; live-proven on aatrox via the committed driver (G1
+   PASS). **Ran:** intake --all (119 -> scratch, 0 anomalies); real-upscale batch of
+   47 -> 38 PASS + 9 FLAG (halo/band, submitted for vision audit) + 0 FAIL + 0 error;
+   10 crop_heavy recorded HELD. **49 total in _firstneedauth** (47 batch + p08e8 +
+   aatrox) awaiting operator approve/reject. **Verified:** scan anomalies=0, verify
+   --all ok (131 images, no hash mismatch), full suite 270 passed / 3 skipped (was
+   243/3; +27 driver). **Deferred with cause (NOT done):** 61 downscale-only sources
+   (native 8K/4K + over-2560 fullviews + crop_ok-large) - the G1 common-scale
+   lap_ratio floor is INVALID for a no-upscale path (the LEDGER-7 false-soft: the
+   gate upscales the 1440p output back to source res); they need distinct
+   downscale-only G1 handling (skip the upscale-quality floor - a clean Lanczos
+   downscale of an already-good source IS the wallpaper) before gating. **Do NOT
+   redo:** the driver, the 47-batch, the 10 holds, the 2 pilots. **FUTURE
+   (ROADMAP):** (1) downscale-only G1 handling + process the 61; (2) operator crop of
+   the 10 held (3 borderline at 0.080-0.081 loss - a hair over the cap); (3)
+   approve/reject the 49 needauth; then cleaning-pass downstream.
+
 9. DONE **2026-07-05 (monitor polish - verified live + Desktop shortcut; docs-only).**
    Polished lw_monitor now that real pipeline_state.json exists (ROADMAP NEXT).
    **Verified live (running instance):** /api/pipeline renders the real state

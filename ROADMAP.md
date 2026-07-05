@@ -8,17 +8,33 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **dark-cosmic approve (NOW).** V3 detail DAT2 is now the PRIMARY first-pass
-  upscaler (ADR-004; LEDGER item 5): the golden set was re-frozen at n=12 on V3
-  (pv 6d43a6d4; added a JPEG-artifact + a banding defect case), thresholds
-  unchanged and holding, all 12 cases PASS with zero flags.
-  `dark-cosmic-ahri-by-pebano1-dlnxav6-pre` was reprocessed from its recovered
-  Tier-0 source (`Pictures/288.png`, 2560x1440, pHash dP=4) and now sits in
-  `_firstneedauth` awaiting `lw_pipeline approve`. The G0 over-target source-gate
-  SHIPPED this session (LEDGER item 7): `first_pass` now routes sources already
-  covering 2560x1440 to a downscale-only path (no wasteful AI 4x, no false-soft
-  common-scale scoring). The G3 Haiku side-by-side "win or tie" check stays a
-  documented TODO gated on the vision-audit stage.
+- **First-pass needauth queue - approve/reject (NOW).** 49 images sit in
+  `_firstneedauth` from the 2026-07-05 recovered-backlog batch (LEDGER item 10):
+  40 PASS + 9 FLAG (mild halo/banding, flagged for vision audit - `meramora`
+  halo 0.166 is the outlier). Operator gate: `lw_pipeline approve <slug>` /
+  `reject <slug> --note "<reason>"`. The LW Monitor (127.0.0.1:8901) lists them.
+  (dark-cosmic-ahri already APPROVED -> 2.First Pass Done last session.)
+
+- **Downscale-only G1 handling + process the 61 deferred (NEXT).** 61 sources
+  (native 8K/4K + over-2560 fullviews + crop_ok-large) were intaken but NOT
+  first-passed: the G1 common-scale lap_ratio floor is invalid for a no-upscale
+  downscale-only path (the LEDGER item 7 false-soft - the gate upscales the 1440p
+  output back to source res). Fix: for backend "downscale-only" skip the
+  upscale-quality floor (a clean Lanczos downscale of an already-good source IS
+  the target wallpaper); decide the retained gate subset (halo/banding still
+  apply) and whether it auto-submits, then run `lw_first_pass --batch`. Regenerate
+  the slug list via post-crop bucketing (chosen source >= 2560x1440 after
+  conditioning).
+
+- **Crop the 10 held (NEXT).** 10 crop_heavy sources HELD (center-crop to 16:9
+  loses > 8 percent): manual per-image crop, then re-run. 3 are borderline
+  (`chengwei-pan-1/2`, `rey-jinn-up-2` at 0.080-0.081 loss - a hair over the cap;
+  nudging `AREA_LOSS_MAX` or hand-cropping recovers them).
+
+- **Cleaning pass downstream (LATER).** dark-cosmic-ahri + the approved first-pass
+  set flow to Stage-2 cleaning (`/cleaning-pass`). The G3 Haiku side-by-side "win
+  or tie" check + the V3denoise per-image halftone alternative stay documented
+  TODOs gated on the vision-audit stage.
 
 ## Open items - Medium priority
 

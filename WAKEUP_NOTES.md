@@ -80,6 +80,20 @@ downstream stages (cleaning pass); a thumbnail producer if monitor thumbs are
 wanted; per-image `original=true` 4K escalation for quota-capped fullviews; G3
 Haiku win-or-tie; V3denoise halftone alternative.
 
+**STATE update 3 (recovered backlog first-passed, 2026-07-05):** Task 1 executed.
+Ground-truth CORRECTED the "1280px cap" (that was the oEmbed PREVIEW dim; fetched
+fullviews are median 1440w, 19/68 >=2560). Operator forks: budget = gate-triggered
+original=true (cost 0 this batch); non-16:9 = auto-crop when area-loss <=8 percent
+else HOLD. Validated the full chain live (p08e8 PASS) THEN built + committed
+`tools/lw_first_pass.py` (resumable first-pass driver, 27 tests, verifier-green,
+live-proven on aatrox; commit 82aacc2). `intake --all` (119 -> scratch, 0
+anomalies) -> real-upscale batch of 47 = 38 PASS + 9 FLAG + 0 FAIL; 10 crop_heavy
+HELD. **49 in _firstneedauth** (approve/reject queue). Suite 270 passed / 3
+skipped. **Deferred (cause):** 61 downscale-only need distinct G1 handling
+(lap_ratio floor invalid for a no-upscale path; the LEDGER-7 false-soft) - now the
+top ROADMAP NEXT. **Do NOT redo:** the driver, the 47-batch, the 10 holds, the 2
+pilots. LEDGER item 10.
+
 ---
 
 # 2026-07-04 (golden set - first-pass drift-regression harness shipped)
