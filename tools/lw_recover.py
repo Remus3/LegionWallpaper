@@ -51,6 +51,12 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 # SOURCE_RECOVERY section 0 / 2.2.
 _TOKEN_RE = re.compile(r"(?:^|_)(d[0-9a-z]{6,8})-")
 
+# The DeviantArt artist username in a "*_by_<artist>_<token>-*" filename. DA
+# usernames are letters/digits/hyphens (no underscores), so the segment between
+# "_by_" and the "_<token>-" boundary is the username. Used to rebuild the
+# canonical /<artist>/art/<slug>-<id> oEmbed URL (see oembed_liveness).
+_ARTIST_RE = re.compile(r"_by_([a-z0-9][a-z0-9-]*)_d[0-9a-z]{6,8}-", re.IGNORECASE)
+
 # Public oEmbed + deviation endpoints (SOURCE_RECOVERY 2.2). oEmbed is a
 # metadata / liveness source over public http, NOT the download path.
 _DEVIATION_URL = "https://www.deviantart.com/deviation/{id}"
@@ -66,13 +72,21 @@ _SAUCENAO_REVIEW = 60.0
 # default http getter (only used when a caller does NOT inject one; unit tests
 # always inject, so this real path is never exercised in CI)
 # ===========================================================================
-def _default_http(url: str, *, timeout: float = 15.0):
-    """Minimal stdlib GET returning (status, text). Real network path only.
+def _default_http(url: str, *, data: Optional[bytes] = None,
+                  headers: Optional[Dict[str, str]] = None,
+                  timeout: float = 15.0):
+    """Minimal stdlib HTTP returning (status, text). Real network path only.
 
-    Wrapped by every caller in try/except so a transport error degrades to a
-    friendly status rather than propagating (Error Handling rule).
+    GET when data is None, POST when data is bytes (urllib flips the method
+    automatically the moment a Request carries data). Keeps the standing
+    User-Agent and merges in any injected headers (e.g. a multipart
+    Content-Type). Wrapped by every caller in try/except so a transport error
+    degrades to a friendly status rather than propagating (Error Handling rule).
     """
-    req = urllib.request.Request(url, headers={"User-Agent": "lw_recover/1.0"})
+    merged = {"User-Agent": "lw_recover/1.0"}
+    if headers:
+        merged.update(headers)
+    req = urllib.request.Request(url, data=data, headers=merged)
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return resp.status, resp.read().decode("utf-8", errors="replace")
 
@@ -212,9 +226,23 @@ def deviation_url(deviation_id: int) -> str:
     return _DEVIATION_URL.format(id=deviation_id)
 
 
+def parse_artist(name: str) -> Optional[str]:
+    """Extract the DeviantArt artist username from a *_by_<artist>_<token>-* name.
+
+    Returns the lowercased username, or None when the name has no "_by_<artist>_"
+    segment (e.g. a raw <token>-<uuid>.jpg CDN save). The username lets
+    oembed_liveness rebuild the canonical /<artist>/art/<slug>-<id> URL that the
+    public oEmbed endpoint now requires - the /deviation/<id> redirect form 404s
+    after the 2026 DeviantArt clampdown.
+    """
+    m = _ARTIST_RE.search(name)
+    return m.group(1).lower() if m else None
+
+
 def oembed_liveness(
     deviation_id: int,
     http: Optional[Callable] = None,
+    artist: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Public-oEmbed liveness + metadata check for a deviation (no API key).
 
@@ -226,8 +254,17 @@ def oembed_liveness(
     {'alive': False, ...} - never raises, never leaks a raw error string.
     """
     getter = http or _default_http
-    dev_url = deviation_url(deviation_id)
-    url = _OEMBED_URL.format(url=urllib.parse.quote(dev_url, safe=""))
+    dev_url = deviation_url(deviation_id)  # /deviation/<id> - resolvable provenance
+    # DeviantArt's public oEmbed now 404s on the /deviation/<id> redirect form
+    # (2026 clampdown) but resolves the canonical /<artist>/art/<slug>-<id> URL
+    # (the title slug is ignored - it keys on artist + id). Build the canonical
+    # form when the artist is known; without one, fall back to the legacy form
+    # (which reads dead, so the waterfall falls through to SauceNAO).
+    if artist:
+        query_target = f"https://www.deviantart.com/{artist}/art/x-{deviation_id}"
+    else:
+        query_target = dev_url
+    url = _OEMBED_URL.format(url=urllib.parse.quote(query_target, safe=""))
     try:
         status, text = getter(url, timeout=15.0)
     except Exception as exc:  # noqa: BLE001 - degrade, never surface raw error
@@ -306,6 +343,38 @@ def gallery_dl_fetch(
 # ===========================================================================
 # Tier 2 - SAUCENAO  (gated on API-Key-SauceNAO.txt; injected http)
 # ===========================================================================
+# A FIXED ASCII multipart boundary - deterministic on purpose so tests can
+# assert on the body byte-for-byte (no random / time). It is vanishingly
+# unlikely to collide with real image bytes; the RFC only requires it not
+# appear in the content, which holds for the file parts we send.
+_MULTIPART_BOUNDARY = "lwRecoverBoundaryVC2Fd41Ac9E7b0000"
+
+
+def _build_multipart(
+    file_field: str,
+    filename: str,
+    file_bytes: bytes,
+    content_type: str = "application/octet-stream",
+) -> tuple:
+    """Build a single-part RFC-2388 multipart/form-data body for a file upload.
+
+    Returns (body_bytes, content_type_header) where content_type_header is
+    "multipart/form-data; boundary=<fixed>". The boundary is a FIXED ASCII
+    constant (deterministic - no random / time) so unit tests can assert on the
+    exact bytes. CRLF line endings per the RFC.
+    """
+    boundary = _MULTIPART_BOUNDARY
+    head = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="{file_field}"; '
+        f'filename="{filename}"\r\n'
+        f"Content-Type: {content_type}\r\n\r\n"
+    ).encode("ascii")
+    tail = f"\r\n--{boundary}--\r\n".encode("ascii")
+    body = head + file_bytes + tail
+    return body, f"multipart/form-data; boundary={boundary}"
+
+
 def saucenao_search(
     image_path: str,
     api_key: Optional[str],
@@ -319,10 +388,16 @@ def saucenao_search(
     60-85 review, < 60 fail. Without a key returns a friendly
     {'ok': False, 'status': 'no_key'} - the tier is skipped, never crashed.
 
-    http and reader are injected for tests (http(url) -> (status, text); reader
-    reads the image bytes). Any transport / parse error degrades to
-    {'ok': False, 'status': 'error'} with a friendly message - a raw API error
-    string is never surfaced (Error Handling rule).
+    The image is POSTed as a multipart/form-data "file" part; the SauceNAO
+    params (output_type / api_key / db / numres) ride in the query string. On a
+    successful parse the returned dict also carries short_remaining /
+    long_remaining (default None) from payload["header"] so the caller can
+    self-throttle from live quota data, not hardcoded constants.
+
+    http and reader are injected for tests (http(url, data=, headers=,
+    timeout=) -> (status, text); reader reads the image bytes). Any transport /
+    parse error degrades to {'ok': False, 'status': 'error'} with a friendly
+    message - a raw API error string is never surfaced (Error Handling rule).
     """
     if not api_key:
         return {"ok": False, "status": "no_key",
@@ -331,21 +406,24 @@ def saucenao_search(
 
     getter = http or _default_http
     read = reader or _read_bytes
-    # The real API POSTs the image; the injected getter in tests only needs the
-    # URL to key its canned response, so we build a query-tagged URL and let the
-    # (dependency-injected) transport decide how to send. The image bytes are
-    # read here so a missing file degrades before any network attempt.
+    # The real API keeps the query params (output_type / api_key / db / numres)
+    # in the URL and POSTs the image as a multipart/form-data "file" part - this
+    # matches the saucenao_api wrapper convention. Read the bytes first so a
+    # missing file degrades to a friendly status before any network attempt.
     try:
-        _ = read(image_path)  # surfaces a missing-file OSError as a friendly status
+        file_bytes = read(image_path)
     except OSError as exc:
         return {"ok": False, "status": "error",
                 "message": f"could not read image ({type(exc).__name__})"}
 
     params = urllib.parse.urlencode(
-        {"output_type": "2", "api_key": api_key, "db": "999"})
+        {"output_type": "2", "api_key": api_key, "db": "999", "numres": "16"})
     url = f"{_SAUCENAO_URL}?{params}"
+    filename = os.path.basename(image_path) or "upload"
+    body, ctype = _build_multipart("file", filename, file_bytes)
     try:
-        status, text = getter(url, timeout=30.0)
+        status, text = getter(
+            url, data=body, headers={"Content-Type": ctype}, timeout=30.0)
     except Exception as exc:  # noqa: BLE001 - degrade, never surface raw error
         return {"ok": False, "status": "error",
                 "message": f"saucenao request failed ({type(exc).__name__})"}
@@ -359,10 +437,19 @@ def saucenao_search(
         return {"ok": False, "status": "error",
                 "message": "saucenao returned non-JSON"}
 
+    # Live quota fields from the response header - the caller self-throttles
+    # from these, not from hardcoded constants (SOURCE_RECOVERY 1.1). Default
+    # None when absent so a missing field never breaks the caller.
+    header = payload.get("header") or {}
+    short_remaining = header.get("short_remaining")
+    long_remaining = header.get("long_remaining")
+
     results = payload.get("results") or []
     if not results:
         return {"ok": True, "decision": "fail", "similarity": None,
-                "source": None, "results": []}
+                "source": None, "results": [],
+                "short_remaining": short_remaining,
+                "long_remaining": long_remaining}
 
     top = results[0]
     try:
@@ -379,7 +466,9 @@ def saucenao_search(
     else:
         decision = "fail"
     return {"ok": True, "decision": decision, "similarity": similarity,
-            "source": source, "results": results}
+            "source": source, "results": results,
+            "short_remaining": short_remaining,
+            "long_remaining": long_remaining}
 
 
 def _read_bytes(path: str) -> bytes:
@@ -471,7 +560,7 @@ def run_waterfall(
     name = target.get("name", "")
     deviation_id = decode_deviation_token(name)
     if deviation_id is not None:
-        live = oembed_liveness(deviation_id, http=http)
+        live = oembed_liveness(deviation_id, http=http, artist=parse_artist(name))
         decisions.append({"tier": 1, "decision": "alive" if live.get("alive")
                           else "dead", "deviation_id": deviation_id,
                           "source": deviation_url(deviation_id), "evidence": live})

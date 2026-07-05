@@ -36,7 +36,7 @@ class FakeHttp:
         self.default = default
         self.calls = []
 
-    def __call__(self, url, *, timeout=None):
+    def __call__(self, url, *, data=None, headers=None, timeout=None):
         self.calls.append(url)
         for frag, resp in self.responses.items():
             if frag in url:
@@ -51,9 +51,26 @@ class BoomHttp:
     def __init__(self):
         self.calls = []
 
-    def __call__(self, url, *, timeout=None):
+    def __call__(self, url, *, data=None, headers=None, timeout=None):
         self.calls.append(url)
         raise OSError("simulated connection reset by peer")
+
+
+class RecordingHttp:
+    """An http getter that records the full POST call - (url, data, headers) -
+    so a test can assert the image bytes and multipart headers really go out."""
+
+    def __init__(self, response=(200, "{}")):
+        self.response = response
+        self.url = None
+        self.data = None
+        self.headers = None
+
+    def __call__(self, url, *, data=None, headers=None, timeout=None):
+        self.url = url
+        self.data = data
+        self.headers = headers
+        return self.response
 
 
 # ===========================================================================
@@ -123,6 +140,39 @@ def test_oembed_liveness_network_error_is_friendly_not_raised():
     res = lw_recover.oembed_liveness(1, http=BoomHttp())
     assert res["alive"] is False
     assert "error" in res  # a friendly status string, not a traceback
+
+
+# ---- artist parse + canonical oEmbed URL (2026 DeviantArt clampdown fix) ---
+def test_parse_artist_from_by_token_names():
+    assert lw_recover.parse_artist(
+        "dark_cosmic_ahri_by_pebano1_dlnxav6-pre.jpg") == "pebano1"
+    assert lw_recover.parse_artist(
+        "aatrox_the_darkin_blade_by_vexxsoul_dm6j4xi-pre.jpg") == "vexxsoul"
+    # a raw <token>-<uuid>.jpg CDN save carries no _by_<artist>_ segment.
+    assert lw_recover.parse_artist(
+        "dl3e4dq-0ad4bcb2-42f6-48d5-b3ea-cb216eda20bd.jpg") is None
+
+
+def test_oembed_uses_canonical_artist_url_when_artist_given():
+    # After the 2026 clampdown the backend 404s on /deviation/<id> and needs the
+    # canonical /<artist>/art/<slug>-<id> form. With an artist, the query must
+    # target that form (username present, no "deviation" redirect segment).
+    http = FakeHttp(responses={"oembed":
+                    (200, '{"title": "X", "author_name": "pebano1"}')})
+    res = lw_recover.oembed_liveness(1309974594, http=http, artist="pebano1")
+    assert res["alive"] is True
+    assert any("pebano1" in c and "deviation" not in c for c in http.calls)
+    # the provenance URL stays the resolvable /deviation/<id> form.
+    assert res["deviation_url"] == (
+        "https://www.deviantart.com/deviation/1309974594")
+
+
+def test_oembed_without_artist_falls_back_to_legacy_deviation_form():
+    # the deviation URL is percent-encoded into the oembed query, so the slash
+    # reads as %2F - assert on the "deviation" segment + id, encoding-robust.
+    http = FakeHttp(responses={"oembed": (200, '{"title": "X"}')})
+    lw_recover.oembed_liveness(1309974594, http=http)
+    assert any("deviation" in c and "1309974594" in c for c in http.calls)
 
 
 # ---- gallery-dl subprocess wrapper (gated on config) ----------------------
@@ -273,6 +323,57 @@ def test_saucenao_network_error_is_friendly(tmp_path):
         str(img), api_key="KEY", http=BoomHttp(), reader=lambda p: b"bytes")
     assert res["ok"] is False
     assert res["status"] == "error"  # degraded, tier skipped, not crashed
+
+
+def test_build_multipart_content_type_and_body():
+    # RFC-2388 single-part form-data with a FIXED ASCII boundary (deterministic
+    # for tests - no random / time). The body must carry the boundary, the
+    # filename, and the raw file bytes verbatim.
+    body, ctype = lw_recover._build_multipart(
+        "file", "x.png", b"RAWIMAGEBYTES", content_type="image/png")
+    assert ctype.startswith("multipart/form-data; boundary=")
+    assert isinstance(body, bytes)
+    boundary = ctype.split("boundary=", 1)[1].encode("ascii")
+    assert boundary in body
+    assert b"x.png" in body
+    assert b"RAWIMAGEBYTES" in body
+
+
+def test_saucenao_posts_image_as_multipart(tmp_path):
+    # The image bytes MUST be POSTed as a multipart body; the SauceNAO params
+    # (output_type / db) stay in the query string per the real API + wrapper.
+    img = tmp_path / "x.png"
+    http = RecordingHttp(response=(
+        200,
+        '{"results": [{"header": {"similarity": "92"}, '
+        '"data": {"ext_urls": ["https://www.deviantart.com/art/x-1"]}}]}'))
+    res = lw_recover.saucenao_search(
+        str(img), api_key="KEY", http=http, reader=lambda p: b"IMGBYTES")
+    # query string carries the SauceNAO params
+    assert "saucenao" in http.url
+    assert "output_type=2" in http.url
+    assert "db=999" in http.url
+    # the file goes out as a multipart POST body with the real image bytes
+    assert http.headers["Content-Type"].startswith("multipart/form-data")
+    assert isinstance(http.data, bytes)
+    assert b"IMGBYTES" in http.data
+    # and the canned similarity 92 drives an accept decision
+    assert res["ok"] is True
+    assert res["decision"] == "accept"
+
+
+def test_saucenao_reports_quota_remaining(tmp_path):
+    # The client must surface short_remaining / long_remaining from each
+    # response header so the caller can self-throttle from live data.
+    img = tmp_path / "x.png"
+    body = ('{"header": {"short_remaining": 3, "long_remaining": 97}, '
+            '"results": [{"header": {"similarity": "92"}, '
+            '"data": {"ext_urls": ["https://www.deviantart.com/art/x-1"]}}]}')
+    http = FakeHttp(responses={"saucenao": (200, body)})
+    res = lw_recover.saucenao_search(
+        str(img), api_key="KEY", http=http, reader=lambda p: b"bytes")
+    assert res["short_remaining"] == 3
+    assert res["long_remaining"] == 97
 
 
 # ===========================================================================
