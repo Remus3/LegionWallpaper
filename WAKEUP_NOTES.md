@@ -5,8 +5,32 @@
 > this banner when you prune). Per-item completion records live in
 > `docs/LEDGER.md`; open work lives in `ROADMAP.md` + `BACKLOG.md`.
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
-> product-defined, pruned 2026-07-04) and 2026-07-04 QA Session 1 (pruned
-> 2026-07-05) - keep the last 3.
+> product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
+> 2026-07-05), and 2026-07-04 QA Session 2 (pruned 2026-07-07) - keep the last 3.
+
+---
+
+# 2026-07-07 (first-pass queue fully worked: needauth + crop-held + bucket-C recovery + 9 working triaged)
+
+Operator-driven review pass. Commits 6c6006a + d441993 + 0c9b1f5 (last is
+docs-only, CI path-ignored; first two CI green). `2.First Pass Done` 121 -> 179.
+
+**Needauth (53 live):** 49 APPROVED, 4 REJECTED (xayah1/camille1/kaisa1/fiora1 -
+source ingest artifact, a foreign strip on top; NOT a process fail).
+**Crop-held (12):** A+B 4 hand-cropped to 16:9 + re-run + approved
+(chengwei-pan-1/2, rey-jinn-up-2, tina-wei). Bucket-C 4 recovered + approved
+(darius/fantasy-aivio/fury-sona via gallery-dl original=true; mfortune1 via local
+2560x1440 twin Pictures/145_cleanup.png); 4 discarded (inkshadow, ashe, syndra,
+wp-vayne). **9 working triaged:** image1/2/4/5 (800x450 alphacoders thumbs)
+DISCARDED; elise-8k (clean 8K, spurious lpips-only downscale-only FAIL)
+force-submitted + approved; 4 messups PARKED for manual re-source.
+
+**NEXT:** (1) manual re-source the 4 messups (Battle Academia splashes; drop a
+clean 1920x1080+ into 0.Originals + re-intake; Tier-0 found no local twin, no
+token) OR (2) start the cleaning pass (Stage 2, /cleaning-pass) on the 179 Done.
+**Do NOT redo:** the 57 approvals, the crop+recovery flow, the discards, elise
+force-submit - all shipped. select_source prefers data/recovery/fetched/<slug>
+fullviews over scratch _firstinitial (the crop-wrong-file trap; see LEDGER 12).
 
 ---
 
@@ -115,35 +139,3 @@ LEDGER item 4: a stray `&` spawned a duplicate torch job -> pagefile OOM
 compute-apps blindly - ALWAYS verify a PID name before taskkill. Next: widen n
 past 10; trial V3 DAT2 via `lw_golden regress`; add banding/JPEG-artifact
 defect-class cases to the golden set.
-
----
-
-# 2026-07-04 (QA Session 2 - IJN primary path live + G1 gate frozen n=10)
-
-Commit dca6071. IllustrationJaNai V1 DAT2 (spandrel/torch) is now the PRIMARY
-first-pass upscaler and the G1 gate is frozen on it. Downloaded + extracted the
-V1 DAT2 weights to `tools/models/` (gitignored; OpenModelDB -> Google-Drive zip
-bundle, confirm-token dance), spandrel loads DAT/4x on the RTX 5070. Built 3
-committed modules (TDD, subagent slices, CI-safe via importorskip):
-`lw_upscale.py` (spandrel + ncnn backends, seam-exact tiling), `lw_g1_gate.py`
-(the REAL overshoot detector replacing the crude edge-diff proxy, plus
-laplacian/banding/common-scale-FR/verdict), and a `lw_pipeline annotate` verb
-(provenance + G1 metrics into manifests; closes task_fb503c0a). Ran the 10
-approved images through IJN and G1-scored IJN vs the realesrgan-anime fallback
-with identical code: **IJN wins 10/10 on MS-SSIM, LPIPS, AND halo_pct.** Froze
-AUDIT_GATES 1.4; fixed a band_delta hard-fail bug (was fail>0 - it wrongly
-hard-failed the BETTER upscaler 8/10 on ~0.004 noise; demoted to advisory
-flag). Suite 183 passed / 2 skipped, ruff clean, pushed.
-
-**Premise CORRECTED (operator ruling):** `reference_pictures/*_cleanup.png` are
-"original-not-found" MARKERS, NOT finished ground-truth. The Session 1 "GT vs
-finished ref" band is VOID - G1 scores self-metrics only; every image still
-needs work. Saved to memory (`project-no-finished-ground-truth`).
-
-**Do NOT redo:** venvs + V1 DAT2 weights (downloaded, gitignored under
-`tools/models/` + `.venv-*/`); the 10 first-pass images. **Next:** golden set of
-approved (input, output) pairs - the prereq for any GT-vs-approved regression,
-since none exists yet; widen n past 10; trial V3detail DAT2 (its OpenModelDB
-gdrive link was unresolved this session). **Queued (unchanged):** recovery
-campaign (149 pending, 75 `niphrimit` `-pre`); artist-signature policy; API
-keys (SauceNAO + DeviantArt).
