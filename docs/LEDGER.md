@@ -27,6 +27,24 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+13. DONE **2026-07-07 (9 residual first-pass working slugs triaged; commit this).**
+   Cleared the working-state backlog left in `1.First Pass Scratch` after LEDGER 12.
+   Per-slug ground truth (G1 verdict + visual read, R3-sanctioned): (a) `image1/2/4/5`
+   - real wallpapers but 800x450 alphacoders thumbnails, G1 FAIL on lap_ratio softening
+   (3.2x upscale, well over the operator's 2.0x cut); operator ruled DISCARD (no source
+   URL to re-fetch). (b) `wallpapersden-com-elise-8k-...` - a visually-clean 7680x4324
+   Bewitching Elise, G1 FAIL only on `lpips 0.224 > 0.2` on the downscale-only path
+   (over-strict, same family as the ADR-006 lap_ratio miscalibration); operator ruled
+   KEEP - `lw_pipeline submit` promoted the existing `_firstworking_01` past the failed
+   gate to needauth, then APPROVED -> `2.First Pass Done` (179). ROADMAP carries a watch
+   note for a downscale-only lpips calibration if more synthetic-8K sources trip it.
+   (c) the 4 ingest messups (`xayah1/camille1/kaisa1/fiora1`, 1920x1173 with a ~210px
+   foreign strip on top) - operator ruled re-source clean, crop only on failure; Tier-0
+   pHash found NO local twin and there is no token for an auto-fetch, so PARKED for a
+   manual clean grab (identifiable Battle Academia splashes) with the lossy strip-crop
+   documented as the fallback. Scratch now holds only the 4 parked messups. No product
+   code changed. **Do NOT redo:** the image1/2/4/5 discard, the elise force-submit.
+
 12. DONE **2026-07-07 (first-pass needauth queue cleared + crop-held A/B/C dispositioned; commits 6c6006a + this).**
    Operator-driven review pass over the recovered-backlog first-pass output. **Needauth
    (53 live, down from the LEDGER-11 110 as the prior session cleared the rest):** 49

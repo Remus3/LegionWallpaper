@@ -8,16 +8,22 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **Re-source the 4 ingest messups (NOW).** `xayah1`, `camille1`, `kaisa1`,
-  `fiora1` REJECTED out of needauth 2026-07-07 - composite source has a second
-  image strip bleeding behind the intended image (top edge); NOT a process fail.
-  Re-crop the source top-off + re-intake. Sit in `1.First Pass Scratch` as
-  `_firstworking` (demoted, not held). Part of the 9 residual working slugs there.
+- **Re-source the 4 ingest messups - MANUAL (NOW).** `xayah1`, `camille1`,
+  `kaisa1`, `fiora1` (1920x1173, a ~210px strip of a different image pasted on
+  top; the clean Battle Academia splash below is ~1920x960). Operator ruling
+  2026-07-07: re-source a clean full 16:9 splash, crop only if that fails.
+  Tier-0 pHash found NO local twin (423-file corpus) and there is no source
+  token for an auto-fetch, so PARKED for a manual grab (these are identifiable
+  Battle Academia splashes - drop a clean 1920x1080+ into `0.Originals` and
+  re-intake). Fallback if you skip the manual grab: bottom-anchored crop off the
+  strip -> ~1712x960 -> upscale ~1.5x (lossy; not preferred).
 
-- **Triage the 5 pre-existing working slugs (NEXT).** `image1`, `image2`,
-  `image4`, `image5`, `wallpapersden-com-elise-8k-...` sit in `1.First Pass Scratch`
-  as `_firstworking` (rejected/mid-process before this session). Re-run or dispose
-  per case; grep manifest for the demotion reason first.
+- **Possible G1 downscale-only lpips calibration (LATER, watch).** `elise-8k`
+  FAILed on `lpips 0.224 > 0.2` for a visually-clean 8K downscale; operator
+  force-submitted + approved it 2026-07-07. If more synthetic-8K downscales trip
+  the same spurious lpips fail, calibrate the downscale-only lpips threshold
+  (analogous to the ADR-006 lap_ratio ruling). One data point so far - not yet
+  actionable.
 
 - **Cleaning pass downstream (LATER).** dark-cosmic-ahri + the approved first-pass
   set flow to Stage-2 cleaning (`/cleaning-pass`). The G3 Haiku side-by-side "win
