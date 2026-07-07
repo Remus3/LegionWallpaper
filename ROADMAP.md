@@ -8,19 +8,22 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **First-pass needauth queue - approve/reject (NOW).** 110 images sit in
-  `_firstneedauth` (54 PASS + 56 FLAG) from the 2026-07-05 recovered-backlog first
-  pass (LEDGER items 10 + 11): 49 upscale (40 PASS / 9 FLAG) + 61 downscale-only
-  (14 PASS / 47 FLAG). Operator gate: `lw_pipeline approve <slug>` / `reject <slug>
-  --note "<reason>"`; the LW Monitor (127.0.0.1:8901) lists them. **WATCH:** 47/61
-  downscale-only flagged on halo_pct - if these read spurious in the vision audit,
-  a halo-for-downscale-only calibration look is the follow-up (analogous to the
-  ADR-006 lap_ratio fix). (dark-cosmic-ahri already APPROVED -> 2.First Pass Done.)
+- **Bucket C source recovery (NOW).** 8 held first-pass slugs are sub-resolution -
+  even a perfect 16:9 crop lands < 2560w, so cropping cannot deliver; route each to
+  the source-recovery waterfall, reject only if recovery fails (operator ruling
+  2026-07-07). Splits by source shape: (C1) 4 DeviantArt `-pre`
+  (`darius-...-vexxsoul`, `fantasy-design-...-aivio`, `fury-tempest-sona-...`,
+  `victorious-syndra-...`) - lever is the deferred per-image `original=true` 4K
+  gallery-dl escalation (quota-costed); (C2) 2 already-`-fullview`
+  (`inkshadow-yone-...` 1024w, `ashe-...-nortonki` 900w) - DeviantArt already maxed,
+  only SauceNAO/other-source or reject; (C3) 2 manual-named (`mfortune1` 1920x887,
+  `wp11960522-...-vayne` 2560x1920 4:3) - Tier-0 pHash vs Pictures + Desktop/Found.
 
-- **Crop the 10 held (NEXT).** 10 crop_heavy sources HELD (center-crop to 16:9
-  loses > 8 percent): manual per-image crop, then re-run. 3 are borderline
-  (`chengwei-pan-1/2`, `rey-jinn-up-2` at 0.080-0.081 loss - a hair over the cap;
-  nudging `AREA_LOSS_MAX` or hand-cropping recovers them).
+- **Re-source the 4 ingest messups (NOW).** `xayah1`, `camille1`, `kaisa1`,
+  `fiora1` REJECTED out of needauth 2026-07-07 - composite source has a second
+  image strip bleeding behind the intended image (top edge); NOT a process fail.
+  Re-crop the source top-off + re-intake (converges with the bucket-C crop/recovery
+  refactor).
 
 - **Cleaning pass downstream (LATER).** dark-cosmic-ahri + the approved first-pass
   set flow to Stage-2 cleaning (`/cleaning-pass`). The G3 Haiku side-by-side "win
