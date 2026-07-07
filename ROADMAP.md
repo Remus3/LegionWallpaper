@@ -8,22 +8,16 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **Bucket C source recovery (NOW).** 8 held first-pass slugs are sub-resolution -
-  even a perfect 16:9 crop lands < 2560w, so cropping cannot deliver; route each to
-  the source-recovery waterfall, reject only if recovery fails (operator ruling
-  2026-07-07). Splits by source shape: (C1) 4 DeviantArt `-pre`
-  (`darius-...-vexxsoul`, `fantasy-design-...-aivio`, `fury-tempest-sona-...`,
-  `victorious-syndra-...`) - lever is the deferred per-image `original=true` 4K
-  gallery-dl escalation (quota-costed); (C2) 2 already-`-fullview`
-  (`inkshadow-yone-...` 1024w, `ashe-...-nortonki` 900w) - DeviantArt already maxed,
-  only SauceNAO/other-source or reject; (C3) 2 manual-named (`mfortune1` 1920x887,
-  `wp11960522-...-vayne` 2560x1920 4:3) - Tier-0 pHash vs Pictures + Desktop/Found.
-
 - **Re-source the 4 ingest messups (NOW).** `xayah1`, `camille1`, `kaisa1`,
   `fiora1` REJECTED out of needauth 2026-07-07 - composite source has a second
   image strip bleeding behind the intended image (top edge); NOT a process fail.
-  Re-crop the source top-off + re-intake (converges with the bucket-C crop/recovery
-  refactor).
+  Re-crop the source top-off + re-intake. Sit in `1.First Pass Scratch` as
+  `_firstworking` (demoted, not held). Part of the 9 residual working slugs there.
+
+- **Triage the 5 pre-existing working slugs (NEXT).** `image1`, `image2`,
+  `image4`, `image5`, `wallpapersden-com-elise-8k-...` sit in `1.First Pass Scratch`
+  as `_firstworking` (rejected/mid-process before this session). Re-run or dispose
+  per case; grep manifest for the demotion reason first.
 
 - **Cleaning pass downstream (LATER).** dark-cosmic-ahri + the approved first-pass
   set flow to Stage-2 cleaning (`/cleaning-pass`). The G3 Haiku side-by-side "win

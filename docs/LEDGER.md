@@ -27,6 +27,36 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+12. DONE **2026-07-07 (first-pass needauth queue cleared + crop-held A/B/C dispositioned; commits 6c6006a + this).**
+   Operator-driven review pass over the recovered-backlog first-pass output. **Needauth
+   (53 live, down from the LEDGER-11 110 as the prior session cleared the rest):** 49
+   APPROVED -> `2.First Pass Done` (121 -> 178 across the session), 4 REJECTED as source
+   ingest artifacts (`xayah1`/`camille1`/`kaisa1`/`fiora1` - a second image strip bleeds
+   behind the intended image at the top edge; operator ruled NOT a process fail).
+   **Crop-held (12 held on the aspect crop_heavy > 8pct rule), operator strategy
+   A+B-now / C-to-recovery:** bucket A+B (4 with the pixels - `chengwei-pan-1/2`,
+   `rey-jinn-up-2`, `tina-wei`) hand-cropped to exact 16:9 via `tools/_crop_held_oneoff.py`
+   (center-crop from the driver's own `center_crop_box`, HOLD annotation neutralized,
+   uncropped source archived to `images/_precrop_originals/`, MANUAL_CROP provenance
+   transition), re-run -> 3 PASS + 1 FLAG, all APPROVED. **Bucket C (operator ruling: route
+   to recovery, reject only on failure; then a <=2.0x upscale cut-line):** Tier-0 pHash
+   (`_recover_bucketc_oneoff.py`) + Tier-1 DeviantArt liveness ran first (free); then
+   operator-approved `gallery-dl original=true` fetch (`_fetch_bucketc_oneoff.py`) -
+   **originals were NOT bigger** for the `-pre`/`-fullview` set (artists uploaded low-res),
+   so recovery "failed" per the ruling for most. Final disposition: `darius` +
+   `fantasy-aivio` (DeviantArt orig 1280x854 -> crop -> 2.0x) + `fury-sona` (orig 1920x1280
+   -> 1.33x) recovered via `_install_fetched_oneoff.py` and APPROVED; `mfortune1` recovered
+   from a **local 2560x1440 twin** (`Pictures/145_cleanup.png`, operator-spotted - the
+   423-file Tier-0 corpus missed it) and APPROVED; `inkshadow-yone`, `ashe-nortonki`,
+   `victorious-syndra` (fetch failed, > 2.0x), and `wp-vayne` DISCARDED. **Process scar +
+   root-cause:** the scratch `_firstinitial` for the `-pre` slugs had degraded to an
+   oEmbed-preview-size (1095px) file, and `select_source` prefers a fetched fullview under
+   `data/recovery/fetched/` over `_firstinitial` - the first crop cropped the wrong (small)
+   file; fixed by installing the fetched originals and moving the uncropped fullviews aside
+   (`data/recovery/_fetched_uncropped_aside/`). No product-code change (constants + gates
+   untouched); one-off drivers only. **Remaining open (ROADMAP):** 4 ingest messups +
+   `image1/2/4/5` + `elise-8k` = 9 `_firstworking` residual scratch slugs.
+
 11. DONE **2026-07-05 (downscale-only G1 gate ADR-006 + the 61 deferred batched; commit 7b11f21 + docs).**
    Closed the downscale-only deferral from LEDGER item 10 (operator launched the
    spawned follow-up). **Premise VERIFIED empirically (non-mutating probe, 3

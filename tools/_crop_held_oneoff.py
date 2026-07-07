@@ -22,9 +22,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lw_first_pass import center_crop_box, aspect_class  # noqa: E402
 
 SCRATCH = Path("images/1.First Pass Scratch")
-SLUGS = ["chengwei-pan-1", "chengwei-pan-2", "rey-jinn-up-2",
-         "tina-wei-final-official"]
+_DEFAULT_SLUGS = ["chengwei-pan-1", "chengwei-pan-2", "rey-jinn-up-2",
+                  "tina-wei-final-official"]
 DRY = "--execute" not in sys.argv
+_argv_slugs = [a for a in sys.argv[1:] if not a.startswith("--")]
+SLUGS = _argv_slugs or _DEFAULT_SLUGS
 
 
 def sha256_file(p):
