@@ -238,3 +238,83 @@ def old_weapon_coverage(mask_binary, prop_box) -> float:
     inter = int(np.asarray(mask_binary[iy0:iy1, ix0:ix1], dtype=bool).sum())
     cov = inter / float(area)
     return float(min(1.0, max(0.0, cov)))
+
+
+# --- SLICE 2: raw OpenPose body -> name-keyed kp_map adapter -----------------
+# M0's poseresult_to_keypoints COMPACTS the body list (drops None sentinels),
+# so a persisted index is no longer joint-aligned. This adapter instead reads
+# the RAW, index-aligned body keypoints straight off a detect_candidate
+# PoseResult and maps the canonical OpenPose-18 indices to joint NAMES,
+# PRESERVING None. Confirmed index -> joint from controlnet_aux:
+#   open_pose/body.py:245 format_body_result builds keypoints from person[:18]
+#     (index-aligned; None where a part is missing), and
+#   open_pose/util.py:86 draw_bodypose limbSeq decodes to
+#     0=nose 1=neck 2=RShoulder 3=RElbow 4=RWrist 5=LShoulder 6=LElbow 7=LWrist.
+# Keypoint.x/.y are already normalized to [0, 1] (open_pose/__init__.py:186
+# divides by W/H), so coordinates pass through unchanged.
+_OPENPOSE18_JOINTS = {
+    "nose": 0,
+    "neck": 1,
+    "RElbow": 3,
+    "RWrist": 4,
+    "LElbow": 6,
+    "LWrist": 7,
+}
+
+
+def _pick_max_pose(pose_results):
+    """Return the max-total_score PoseResult, or None if no body is present.
+
+    Mirrors poseresult_to_keypoints exactly: skip any PoseResult whose body is
+    None, then pick the surviving body with the greatest total_score.
+    """
+    bodies = [p for p in (pose_results or []) if getattr(p, "body", None) is not None]
+    if not bodies:
+        return None
+    return max(bodies, key=lambda p: p.body.total_score)
+
+
+def body_to_kp_map(pose_results, img_wh=(1344, 768)):
+    """Adapt a RAW OpenPose detection into slice 1's name-keyed kp_map.
+
+    pose_results is the list detect_candidate returns (List[PoseResult]); the
+    max-total_score body is chosen (mirror M0). Its RAW index-aligned keypoints
+    are mapped to {"nose","neck","RElbow","RWrist","LElbow","LWrist"} via the
+    confirmed OpenPose-18 indices, PRESERVING None (never compacted) so a
+    missing joint stays missing and slice 1's fallback ladder - not this
+    adapter - decides. Values are the already-normalized (x, y). No body (empty
+    list or every PoseResult bodyless) -> every joint None.
+
+    img_wh is accepted for signature symmetry with weapon_roi_from_keypoints;
+    the keypoints are already normalized [0, 1] so it is not applied here.
+    """
+    kp_map = {name: None for name in _OPENPOSE18_JOINTS}
+    pose = _pick_max_pose(pose_results)
+    if pose is None:
+        return kp_map
+    raw = list(pose.body.keypoints or [])
+    n = len(raw)
+    for name, idx in _OPENPOSE18_JOINTS.items():
+        if idx < n and raw[idx] is not None:
+            kp = raw[idx]
+            kp_map[name] = (float(kp.x), float(kp.y))
+    return kp_map
+
+
+def pose_to_weapon_inputs(pose_results, wrist="right", img_wh=(1344, 768)):
+    """Full adapter: raw pose -> (kp_map, hand) for weapon_roi_from_keypoints.
+
+    Returns the name-keyed kp_map (see body_to_kp_map) plus the hand keypoint
+    list for the chosen wrist side (right_hand for wrist="right", else
+    left_hand), each point a raw normalized (x, y). The negative missing-peak
+    sentinel is passed through UNFILTERED - slice 1's _valid_hand_px drops it.
+    No pose, or no hand on that side -> hand is None.
+    """
+    kp_map = body_to_kp_map(pose_results, img_wh=img_wh)
+    pose = _pick_max_pose(pose_results)
+    hand = None
+    if pose is not None:
+        raw_hand = pose.right_hand if wrist == "right" else pose.left_hand
+        if raw_hand:
+            hand = [(float(kp.x), float(kp.y)) for kp in raw_hand if kp is not None]
+    return kp_map, hand
