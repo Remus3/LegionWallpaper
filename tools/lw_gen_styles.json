@@ -19,6 +19,16 @@
       "cfg": 5.0
     }
   },
+  "splash-booru": {
+    "positive": "{subject}, {prompt_extra}, official splash art, dynamic action pose, dramatic cinematic lighting, detailed background, glowing magic effects, masterpiece, high score, great score, absurdres",
+    "negative": "{negative_extra}, lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, fewer digits, cropped, worst quality, low quality, low score, bad score, average score, signature, watermark, username, blurry, mangled hands, deformed, extra fingers, fused fingers, bad eyewear, deformed glasses, photorealistic, 3d render",
+    "sampler": {
+      "name": "euler_a",
+      "scheduler": "normal",
+      "steps": 28,
+      "cfg": 5.5
+    }
+  },
   "portrait": {
     "positive": "portrait of {subject}, League of Legends champion, centered bust, painterly semi-realistic key art, shallow depth of field, soft bokeh background, dramatic rim lighting, richly detailed face, desktop wallpaper, {prompt_extra}",
     "negative": "anime, cel shaded, flat colors, chibi, text, watermark, signature, logo, ui, hud, healthbar, border, frame, low quality, blurry, jpeg artifacts, extra limbs, extra fingers, deformed hands, multiple characters, collage, {negative_extra}",

@@ -47,6 +47,7 @@ date (YYYY-MM-DD).
 |---|---|---|---|---|---|---|
 | RealVisXL V5.0 | V5.0 fp16 | huggingface.co/SG161222/RealVisXL_V5.0 | openrail++ | 6a35a7855770ae9820a3c931d4964c3817b6d9e3c6f9c4dabb5b3a94e5643b80 | 2026-07-10 | approach A: photoreal-leaning SDXL finetune; ungated; no personal-use restriction (verified live). 6.94 GB, tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors |
 | SDXL base 1.0 | 1.0 fp16 | huggingface.co/stabilityai/stable-diffusion-xl-base-1.0 | CreativeML OpenRAIL++-M | (not downloaded) | - | approach B anchor - DEFERRED. Staged only if the RealVis by-eye spike is not painterly enough; then pull base SDXL + a splash/key-art LoRA |
+| Animagine XL 4.0 | 4.0 fp16 opt | huggingface.co/cagliostrolab/animagine-xl-4.0 | CreativeML OpenRAIL++-M | 6327eca98bfb6538dd7a4edce22484a1bbc57a8cff6b11d075d40da1afb847ac | 2026-07-11 | ANIME base (operator-directed anime-flat direction). 6.94 GB animagine-xl-4.0-opt.safetensors. Booru-tag prompting (style splash-booru). KNOWS LoL champions canonically (Vayne: correct glasses/dual-crossbows/ponytail) + clean anime faces/glasses - fixed the mangled-glasses + odd-expression + too-photoreal complaints RealVis could not |
 
 Placeholder path in `tools/lw_gen_config.json`:
 `tools/models/<PLACEHOLDER checkpoint>.safetensors`. No weight is downloaded yet;

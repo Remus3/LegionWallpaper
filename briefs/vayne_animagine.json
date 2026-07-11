@@ -1,0 +1,13 @@
+{
+  "subject": "vayne",
+  "subject_aliases": ["vayne", "vayne league of legends", "the night hunter"],
+  "style": "splash-booru",
+  "n": 4,
+  "aspect": "16:9",
+  "prompt_extra": "league of legends, 1girl, solo, sunglasses, tinted eyewear, dark purple hair, ponytail, navy blue bodysuit, red cape, bat wing shoulder armor, holding wrist crossbow, gothic cathedral, night sky, purple magic, drifting bats, dark fantasy, looking at viewer, serious expression, cowboy shot",
+  "negative_extra": "big longbow, blonde hair, smile, nsfw",
+  "seed": 12345,
+  "qa_subject_floor": 0.26,
+  "qa_margin_floor": 0.05,
+  "max_regen_rounds": 1
+}

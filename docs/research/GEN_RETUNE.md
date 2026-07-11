@@ -26,6 +26,19 @@ photoreal (RealVis wrong feel), uncanny valley. Fix with DEPTH, cheapest lever f
   per-candidate init cycling across the champion's skins for variety); a few hands still
   imperfect on close zoom (optional occluded-region touch-up); the similarity/QA gate is
   not built yet. Face-LoRA likely UNNECESSARY now (img2img already nails identity).
+- ANIME-FLAT DIRECTION (operator 2026-07-11: "more anime flat aspect, less photorealism,
+  careful of mangled glasses + odd expression"). Anime ban OVERRIDDEN by operator. RealVis +
+  anime prompts only goes PARTWAY + still mangles glasses. The WIN is a real ANIME BASE:
+  Animagine XL 4.0 (tools/models/animagine-xl-4.0, style splash-booru, booru tags via
+  briefs/vayne_animagine.json, --model-path override). It KNOWS LoL champions from booru data
+  (Vayne = correct clean RED TINTED GLASSES, dual crossbows, violet ponytail, navy+red cape)
+  AND renders clean anime-flat faces - fixing glasses + odd-expression + too-photoreal in ONE
+  shot, no img2img needed for identity. Batch vayne-splash-booru-20260711062307 = canonical
+  clean anime Vayne. Booru prompt: "<champ>, league of legends, 1girl, solo, <features>,
+  masterpiece, high score, great score, absurdres".
+- TWO VIABLE RECIPES: (A) RealVis + img2img-from-real = semi-realistic canonical; (B) Animagine
+  + booru tags = anime-flat canonical (operator's current preference). Same run/qa/promote
+  plumbing; only base + style + prompt-vocab differ.
 
 ## Root causes of the rejects
 1. RealVisXL photoreal base pulls output toward photography / plastic-SSS skin, not

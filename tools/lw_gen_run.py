@@ -479,6 +479,10 @@ def run(args, config=None, styles=None):
     elif getattr(args, "lora_path", None):
         config = dict(config)
         config["lora_path"] = args.lora_path
+    # CLI base-model override (test an alternate checkpoint, e.g. an anime SDXL base).
+    if getattr(args, "model_path", None):
+        config = dict(config)
+        config["model_path"] = args.model_path
 
     cli = {
         "subject": args.subject, "style": args.style, "n": args.n,
@@ -633,6 +637,8 @@ def build_parser():
     p.add_argument("--img2img-strength", dest="img2img_strength", type=float,
                    default=None,
                    help="img2img denoise strength 0-1 (default 0.55; lower = closer to reference)")
+    p.add_argument("--model-path", dest="model_path", default=None,
+                   help="override config model_path (test an alternate base checkpoint)")
     return p
 
 
