@@ -35,7 +35,7 @@
 29. [202f.png](file:///C:/LegionWallpaper/images/reference_pictures/202f.png) - guess: unknown dark sorceress (LeBlanc/Coven-adjacent, pointed ears; likely AI-gen) | OPERATOR: Janna
 30. [209_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/209_cleanup.png) - guess: likely Irelia or cyber-cat OC - Chenbo fan splash (floating drone blades, cat-ear headset) | OPERATOR: Irelia
 31. [211_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/211_cleanup.png) - guess: unknown - jade-armor concept sheet (possibly fan skin concept, white-haired glaive wielder) | OPERATOR: Riven
-32. [213_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/213_cleanup.png) - guess: unknown - pink-white bob rider with giant crescent ring-blade, scooter marked QIQI (fan splash or OC) | OPERATOR: Qianna
+32. [213_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/213_cleanup.png) - guess: unknown - pink-white bob rider with giant crescent ring-blade, scooter marked QIQI (fan splash or OC) | OPERATOR: Qiyana
 33. [219_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/219_cleanup.png) - guess: uncertain - dark-haired samurai close-up (Yasuo-adjacent fan art; possibly Sekiro); givemeanime DeviantArt piece | OPERATOR: Yasuo
 34. [226f.png](file:///C:/LegionWallpaper/images/reference_pictures/226f.png) - guess: unknown - horned dark sorceress (Soraka-like coven/nightmare fan-art, likely AI) | OPERATOR: Soraka
 35. [228f.png](file:///C:/LegionWallpaper/images/reference_pictures/228f.png) - guess: unknown - crystal-thorn sorceress (Withered/Crystal Rose Zyra vibe, likely AI) | OPERATOR: Janna
@@ -108,7 +108,7 @@
 99. [200_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/200_cleanup.png) - guess: Morgana (crystal/stained-glass-wing prestige-style skin, likely) | OPERATOR: Morgana
 100. [206_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/206_cleanup.png) - guess: Lee Sin (spirit/oni skin, likely Spirit Blossom line) | OPERATOR: Lee Sin
 101. [207_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/207_cleanup.png) - guess: Sett (Crystal Rose wedding line, likely) | OPERATOR: Sett
-102. [208_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/208_cleanup.png) - guess: Aatrox (pale-marble variant, likely Spirit Blossom line) | OPERATOR: Zaheen
+102. [208_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/208_cleanup.png) - guess: Aatrox (pale-marble variant, likely Spirit Blossom line) | OPERATOR: Zaahen (official wiki: https://wiki.leagueoflegends.com/en-us/Zaahen)
 103. [210_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/210_cleanup.png) - guess: Spirit Blossom ensemble - center likely Morgana, top-left Hwei, plus ~6 others | OPERATOR: Morgana (center; Hwei top left; Kayle top right; Akali center left; Yunara center right; Karma bottom left most; Zed bottom center; Nidalee below Zed; Yasuo bottom right)
 104. [216_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/216_cleanup.png) - guess: Riven (Broken Covenant, likely) - white-haired duelist, official-splash grade | OPERATOR: Kayle
 105. [233f.png](file:///C:/LegionWallpaper/images/reference_pictures/233f.png) - guess: Ahri (crimson/Blood-Moon-adjacent fan art, braids, red orb) | OPERATOR: Ahri
