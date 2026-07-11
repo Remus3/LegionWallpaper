@@ -27,6 +27,34 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+17. DONE **2026-07-11 (GOLDEN DEFINITION: rubric v1.1 + full corpus deep dive + M0-M4 path; docs-only).**
+   Fable-5 ultraplan + adversarial full-res review, operator-extended to a full corpus dive.
+   4 background workflows, ~100 agents, 0 errors; every design hit by 2 skeptics, both corpus
+   review sets spot-audited FAITHFUL (no hallucinated notations). Premise VERIFIED live:
+   _extract_pose discards OpenPose keypoints (lw_gen_run.py:413, output_type=pil) - the cheap
+   unlock all passes share; config model_path still RealVisXL (flagged by all 5 verdicts -> M0).
+   (a) CORPUS: all 179 firstdone + 273 reference_pictures reviewed at FULL RES (6 imgs/agent,
+   structured notation); pHash Tier-0 correlation 19 exact pairs / 2 flags / 273 unmatched
+   (compute_hashes+hamming, tools/lw_recover.py). Artifacts committed: docs/research/corpus/
+   (notes_firstdone_179.json, notes_refpics_273.json, audits, ref_correlation.json,
+   CORPUS_PREMISE.md, CORPUS_ANCHORS.md, CHAMPION_UNKNOWNS.md - 78 true unknowns + 44 hedged
+   awaiting operator labels). Key findings: anime-flat = 1.6 pct of operator taste (7/451);
+   all 9 corpus Vayne 5s painterly-semireal; corpus-sanctioned WEAPON DODGE LANE (7/9 Vayne 5s
+   dodge the literal crossbow); focal-face = highest-leverage axis; hands always gloved/hidden;
+   generated text/watermark = auto-reject; 1-5 scale anchored on named images (min promotion
+   bar = 3). (b) DESIGNS: docs/research/golden_designs/ - weapon (W1-W4 escalation + mask spec),
+   face_hands (verify-then-repair ADetailer pattern), finish (1344x756 crop + optional 2AFC-gated
+   refine + proven JaNai chain), qa_fix (dual sharpness metric, fixed-crop T_blur_subject,
+   offline calibration), rubric v1 + VERDICTS.md (10 sound_with_fixes verdicts, 10 critic gaps).
+   (c) GOLDEN_DEFINITION.md REWRITTEN: rubric v1.1 (severity + addressability + stage scorecard),
+   golden bar (7 conditions, stop = n>=3 GOLD from 2 batches), M0-M4 orchestrator spec closing
+   all 10 gaps, QA fix plan, 4 BLOCKING ratification questions (glasses shape Q1, style-band
+   steer Q2, dodge-lane Q3, scorecard Q4). Verification: docs-only Tier-0 (no .py touched, no
+   suite owed); ASCII sweeps clean on all committed artifacts. FUTURE: M0 foundations next
+   session (config Animagine flip + test, shared tools/lw_gen_pose.py + ONE recall gate, manifest
+   cand[file] contract, plan B lanes); DO NOT re-run the corpus review, the knob sweep, or the
+   QA-floor calibration; ops/budget_saver/ is operator WIP, intentionally left untracked.
+
 16. DONE **2026-07-11 (lw-gen QA floors calibrated + recipe v2 iteration; commit 2894e0b + docs this).**
    Built on item 15's LOCKED recipe. TWO shippable outcomes plus a seeded next-session task.
    (a) QA-FLOOR CALIBRATION (commit 2894e0b): measured the real ClipScorer on a Vayne candidate
