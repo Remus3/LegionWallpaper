@@ -221,3 +221,20 @@ def test_local_slug_collision_suffixing(batch):
     assert second_slug != first_slug
     assert second_slug.startswith(first_slug + "-")
     assert SLUG_RE.match(second_slug)
+
+
+def test_promote_uses_rewritten_cand_file(batch):
+    # (e) contract: promote copies whatever cand["file"] points at - here the
+    # stage-rewritten cand_00_finish.png. Only the _finish artifact exists on
+    # disk, so a raw-stem lookup would miss and route to review instead.
+    batch_dir, originals = batch
+    _png(batch_dir / "cand_00_finish.png", (1344, 768))
+    _write_manifest(batch_dir, _manifest("b-splash-1", [_cand("cand_00_finish.png")]))
+
+    manifest = lw_gen_promote.promote(batch_dir, originals_dir=originals)
+    promoted = manifest["promote"]["promoted"]
+
+    assert len(promoted) == 1
+    assert promoted[0]["file"] == "cand_00_finish.png"
+    slug = promoted[0]["slug"]
+    assert (originals / f"{slug}.png").exists()

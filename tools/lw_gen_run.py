@@ -346,6 +346,63 @@ def build_manifest(plan, config, style_def, res, pos, neg, batch_id, fast):
 
 
 # --------------------------------------------------------------------------
+# Candidate file/stage contract (PURE + torch-free - safe to import in CI).
+# --------------------------------------------------------------------------
+_STAGE_SUFFIXES = ("wfix", "repair", "finish")
+
+
+def stage_filename(raw_file, stage):
+    """Build a stage-tagged candidate filename from the RAW stem every call.
+
+    Stages never accrete: stage_filename('cand_00_wfix.png', 'repair') is
+    'cand_00_repair.png', not 'cand_00_wfix_repair.png'.
+    """
+    stem = raw_file[:-4] if raw_file.lower().endswith(".png") else raw_file
+    stripped = True
+    while stripped:
+        stripped = False
+        for suf in _STAGE_SUFFIXES:
+            token = "_" + suf
+            if stem.endswith(token):
+                stem = stem[:-len(token)]
+                stripped = True
+                break
+    return f"{stem}_{stage}.png"
+
+
+def new_candidate_record(fname, seed, round_no):
+    """The raw manifest candidate record for a freshly generated PNG.
+
+    'stage'/'provenance' are appended at the END (append-fields-with-defaults
+    convention) so every existing consumer of the record keeps working.
+    """
+    return {
+        "file": fname, "seed": seed, "round": round_no,
+        "subject_cos": None, "off_cos": None, "margin": None,
+        "aesthetic": None, "lap_var": None,
+        "stage_a_pass": None, "stage_b_pass": None,
+        "verdict": "PENDING", "reason": None,
+        "stage": "raw", "provenance": [fname],
+    }
+
+
+def advance_cand_file(cand, new_file, stage):
+    """Point cand at a rewritten file, tag the stage, record the prior file.
+
+    Uses .get(...) so records predating the stage/provenance fields are
+    tolerated (the prior file is still appended to the provenance chain).
+    """
+    prior = cand.get("file")
+    provenance = list(cand.get("provenance", []))
+    if prior is not None:
+        provenance.append(prior)
+    cand["file"] = new_file
+    cand["stage"] = stage
+    cand["provenance"] = provenance
+    return cand
+
+
+# --------------------------------------------------------------------------
 # Generation (LAZY torch/diffusers - never reached in CI).
 # --------------------------------------------------------------------------
 def _load_pipeline(config, model_abs, fast, controlnet_path=None):
@@ -470,13 +527,7 @@ def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir
             raise
         except Exception as exc:  # noqa: BLE001
             raise GenError(f"generation failed on {fname}: {exc}", code=4) from exc
-        out.append({
-            "file": fname, "seed": seed, "round": round_no,
-            "subject_cos": None, "off_cos": None, "margin": None,
-            "aesthetic": None, "lap_var": None,
-            "stage_a_pass": None, "stage_b_pass": None,
-            "verdict": "PENDING", "reason": None,
-        })
+        out.append(new_candidate_record(fname, seed, round_no))
     return out
 
 

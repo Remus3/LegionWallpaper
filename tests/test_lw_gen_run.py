@@ -260,3 +260,46 @@ def test_main_returns_gen_error_code(monkeypatch):
     # main() catches GenError and returns the exit code (never a raw traceback).
     monkeypatch.setattr(gr, "run", lambda *a, **k: (_ for _ in ()).throw(gr.GenError("x", code=3)))
     assert gr.main(["--subject", "Ambessa"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# M0 (e): manifest cand[file] contract - stage helpers (pure, torch-free).
+# ---------------------------------------------------------------------------
+def test_new_candidate_record_has_stage_and_provenance():
+    rec = gr.new_candidate_record("cand_00.png", 1234, 0)
+    # Existing candidate shape is preserved verbatim.
+    assert rec["file"] == "cand_00.png"
+    assert rec["seed"] == 1234
+    assert rec["round"] == 0
+    assert rec["verdict"] == "PENDING"
+    assert rec["subject_cos"] is None
+    # New (e) fields, appended at the END.
+    assert rec["stage"] == "raw"
+    assert rec["provenance"] == ["cand_00.png"]
+
+
+def test_advance_cand_file_rewrites_and_records():
+    cand = {"file": "cand_00.png", "stage": "raw", "provenance": ["cand_00.png"]}
+    gr.advance_cand_file(cand, "cand_00_wfix.png", "weapon")
+    assert cand["file"] == "cand_00_wfix.png"
+    assert cand["stage"] == "weapon"
+    assert "cand_00.png" in cand["provenance"]
+
+
+def test_advance_cand_file_tolerates_legacy_record():
+    # Records predating (e) have no stage/provenance; advance must not KeyError.
+    cand = {"file": "cand_00.png"}
+    gr.advance_cand_file(cand, "cand_00_wfix.png", "weapon")
+    assert cand["file"] == "cand_00_wfix.png"
+    assert cand["stage"] == "weapon"
+    assert "cand_00.png" in cand["provenance"]
+
+
+def test_stage_filename_chain():
+    assert gr.stage_filename("cand_00.png", "wfix") == "cand_00_wfix.png"
+    assert gr.stage_filename("cand_00.png", "repair") == "cand_00_repair.png"
+    assert gr.stage_filename("cand_00.png", "finish") == "cand_00_finish.png"
+    # No accretion: a rewrite from an already-staged file derives from the RAW
+    # stem, never cand_00_wfix_repair.png.
+    assert gr.stage_filename("cand_00_wfix.png", "repair") == "cand_00_repair.png"
+    assert gr.stage_filename("cand_00_repair.png", "finish") == "cand_00_finish.png"

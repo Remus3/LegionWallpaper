@@ -199,3 +199,105 @@ def test_laplacian_variance_numpy_only(tmp_path):
     Image.fromarray(rng.integers(0, 256, (32, 32, 3), dtype=np.uint8)).save(noisy)
     assert lw_gen_qa.laplacian_variance(str(noisy)) > 0.0
     assert "cv2" not in sys.modules
+
+
+# --- M0 (a)/(e): sidecar model + rewritten cand[file] regression locks -----
+
+def _write_manifest_model(batch_dir, candidates, model):
+    manifest = {
+        "batch_id": "vayne-splash-20260711000000",
+        "subject": "Vayne",
+        "subject_aliases": ["Vayne"],
+        "style": "splash",
+        "model": model,
+        "clip_model": "ViT-L-14",
+        "prompt": "splash art of Vayne",
+        "negative": "text, watermark",
+        "candidates": candidates,
+        "promote": {},
+    }
+    path = os.path.join(batch_dir, "gen_manifest.json")
+    with open(path, "w", encoding="utf-8") as fo:
+        json.dump(manifest, fo)
+    return path
+
+
+def test_qa_sidecar_model_from_manifest_not_config(tmp_path):
+    # The QA sidecar records the model the batch was GENERATED with (manifest),
+    # never whatever model_path the CURRENT config happens to hold. GREEN today;
+    # this locks the provenance source so a refactor cannot regress it.
+    batch = tmp_path / "batch"
+    batch.mkdir()
+    (batch / "cand_00.png").write_bytes(b"not-a-real-png")
+    _write_manifest_model(
+        str(batch),
+        [{"file": "cand_00.png", "seed": 1000, "round": 1, "verdict": "PENDING"}],
+        model="MANIFEST_MODEL.safetensors")
+
+    scores = {os.path.join(str(batch), "cand_00.png"):
+              RawScore(subject_cos=0.35, off_cos=0.10, aesthetic=0.60, lap_var=500.0)}
+
+    def stub(path):
+        return scores[path]
+
+    lw_gen_qa.score_batch(str(batch), scorer=stub,
+                          config={"model_path": "CONFIG_OTHER.safetensors"})
+
+    with open(os.path.join(str(batch), "cand_00.qa.json"), encoding="utf-8") as fo:
+        sc = json.load(fo)
+    assert sc["model"] == "MANIFEST_MODEL.safetensors"
+    assert sc["model"] != "CONFIG_OTHER.safetensors"
+
+
+def test_score_batch_scores_rewritten_cand_file(tmp_path):
+    # (e) contract: QA scores whatever cand["file"] currently points at (a
+    # stage-rewritten name like cand_00_wfix.png), NOT the raw cand_00.png.
+    batch = tmp_path / "batch"
+    batch.mkdir()
+    (batch / "cand_00_wfix.png").write_bytes(b"not-a-real-png")
+    _write_manifest_model(
+        str(batch),
+        [{"file": "cand_00_wfix.png", "seed": 1000, "round": 1,
+          "verdict": "PENDING", "stage": "weapon", "provenance": ["cand_00.png"]}],
+        model="MANIFEST_MODEL.safetensors")
+
+    seen = []
+    # Keyed ONLY on the wfix path: a call on the raw path would KeyError loudly.
+    scores = {os.path.join(str(batch), "cand_00_wfix.png"):
+              RawScore(subject_cos=0.35, off_cos=0.10, aesthetic=0.60, lap_var=500.0)}
+
+    def stub(path):
+        seen.append(os.path.basename(path))
+        return scores[path]
+
+    lw_gen_qa.score_batch(str(batch), scorer=stub, config={})
+
+    assert "cand_00_wfix.png" in seen
+    assert "cand_00.png" not in seen
+    # sidecar is named from the rewritten file, not the raw stem.
+    assert os.path.isfile(os.path.join(str(batch), "cand_00_wfix.qa.json"))
+    assert not os.path.isfile(os.path.join(str(batch), "cand_00.qa.json"))
+
+
+def test_score_batch_preserves_stage_and_provenance(tmp_path):
+    # (e) contract: scoring updates score fields only; it must leave the
+    # stage/provenance bookkeeping untouched.
+    batch = tmp_path / "batch"
+    batch.mkdir()
+    (batch / "cand_00_wfix.png").write_bytes(b"not-a-real-png")
+    _write_manifest_model(
+        str(batch),
+        [{"file": "cand_00_wfix.png", "seed": 1000, "round": 1,
+          "verdict": "PENDING", "stage": "weapon", "provenance": ["cand_00.png"]}],
+        model="MANIFEST_MODEL.safetensors")
+
+    scores = {os.path.join(str(batch), "cand_00_wfix.png"):
+              RawScore(subject_cos=0.35, off_cos=0.10, aesthetic=0.60, lap_var=500.0)}
+
+    def stub(path):
+        return scores[path]
+
+    updated = lw_gen_qa.score_batch(str(batch), scorer=stub, config={})
+    cand = updated["candidates"][0]
+    assert cand["stage"] == "weapon"
+    assert cand["provenance"] == ["cand_00.png"]

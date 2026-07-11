@@ -68,6 +68,22 @@ def test_config_sampler_shape():
         assert key in sampler, f"sampler missing key: {key}"
 
 
+# --- M0 (a): Animagine model flip + defensive steps lock ------------------
+
+def test_config_model_path_is_animagine_single_file():
+    # M0 (a): model_path must point at the Animagine XL 4.0 SINGLE FILE
+    # (from_single_file rejects a directory), not the old RealVis checkpoint.
+    _, cfg = _load(CONFIG_PATH)
+    assert cfg["model_path"].endswith("animagine-xl-4.0-opt.safetensors")
+
+
+def test_config_sampler_steps_is_28():
+    # M0 (a): steps locked to 28 (styles may override the sampler; this is the
+    # defensive base value the generator falls back to).
+    _, cfg = _load(CONFIG_PATH)
+    assert cfg["sampler"]["steps"] == 28
+
+
 def test_config_resolution_is_16_9_only():
     _, cfg = _load(CONFIG_PATH)
     res = cfg["resolution"]
