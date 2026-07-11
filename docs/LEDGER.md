@@ -27,6 +27,29 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+15. DONE **2026-07-11 (lw-gen provisioned + retuned to the Animagine + ControlNet-OpenPose
+   winning recipe; commits 7d6a3ca 5aec00d cc2875a e35ea14 f67c8f4 065679b e7f98ea d77dbe2
+   8e30892 f0ac578).** Built on item 14's sidecar. Provisioned .venv-gen (torch 2.11 cu128 +
+   diffusers 0.39 + peft + controlnet_aux + ultralytics + tensorboard); proved Phase-0 live
+   (sm_120 get_device_capability==(12,0), gen ~3.4 it/s). Then a deep-research + iterative
+   retune driven by operator by-eye feedback (full journey + rejected paths in
+   docs/research/GEN_RETUNE.md): RealVis painterly-prompt fixed too-photoreal; img2img-from-real
+   fixed palette/pose but BLURRED faces (rejected); a naive subject-LoRA + YOLO hand-detection
+   both proved dead ends (LoRA overfit; detection fails on painted hands). WINNING RECIPE =
+   Animagine XL 4.0 anime base (booru tags; KNOWS LoL champions - Vayne clean red glasses/dual
+   crossbows/ponytail) + ControlNet-OpenPose (xinsir SDXL skeleton from a real splash via
+   controlnet_aux OpenposeDetector hand_and_face) + cowboy-shot detail-tag prompt: SHARP txt2img
+   detail + natural pose + correct hand chirality + canonical clean-glasses faces (production
+   quality on Vayne, batch vayne-controlnet-tuned). Integrated first-class in lw_gen_run
+   (--model-path / --controlnet-pose / --controlnet-scale / --lora-path / --init-image), style
+   splash-booru, brief briefs/vayne_animagine.json; models gitignored under tools/models/.
+   Verified: ruff clean, 67 gen tests green, hygiene green, live --controlnet-pose path
+   reproduces the prototype. Deep research via workflows wbnpch0uo (archetypes) + posing
+   (ArtStation). FUTURE/next: THRESHOLD ITERATION (controlnet_scale, img2img_strength, cfg/steps,
+   QA floors T_subj/T_margin/T_aes/T_blur) + per-candidate skeleton cycling for pose variety +
+   full QA+promote pass. DO NOT REDO: base/model choices, ControlNet integration, the
+   img2img/anime exploration, hand-detection repair (dead end).
+
 14. DONE **2026-07-10 (lw-gen generator sidecar Phases 1-3 code + /generate + tests + docs landed; downloads/Phase-0 spike operator-gated; commit this).**
    Built the lw-gen text-brief-to-wallpaper generator sidecar per the Desktop
    spec (`LEGIONWALLPAPER_GENERATOR_SIDECAR_PLAN.md`, authored 2026-07-06). Premise

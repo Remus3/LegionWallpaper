@@ -39,29 +39,33 @@ hands/faces). **Next champion = VAYNE** (6 curated firstdone + 19 official splas
 in `tools/models/lora_datasets/vayne/`). Baseline RealVis already recognizes KNOWN
 champs well (Ahri baseline QA 4/4) - subject gap is for NEW champs (Ambessa).
 
-**RETUNE PROGRESS (deep-research workflow wbnpch0uo DONE -> docs/research/GEN_RETUNE.md
-has the archetype rubric + ordered priority plan):**
-- STEP 1 free lever DONE + WORKING (commit cc2875a): rewrote lw_gen_styles.json splash
-  to painterly/anti-photoreal + Vayne archetype tokens via briefs/vayne.json, cfg
-  5.5->5.0. Vayne n=8 txt2img (batch vayne-splash-20260711013929) = photoreal->PAINTERLY
-  FIXED, uncanny FIXED, canonically recognizable (round tinted glasses cue landed, navy
-  palette, bat-wing pauldrons, dark updo, sharp face). 3 of 4 operator complaints fixed.
-- STEP 2 IMG2IMG = THE WIN (lw_gen_run img2img via AutoPipelineForImage2Image.from_pipe,
-  --init-image + --img2img-strength; baked into briefs/vayne.json init_image=vayne_00_default
-  strength 0.55). Batch vayne-splash-20260711014930: seeding from the REAL default splash
-  LOCKED canonical navy+crimson palette + canonical dynamic pose + painterly style AND
-  materially fixed HANDS (inherits real anatomy - no detection needed). cand_00/cand_02
-  read like actual Vayne splashes. ALL 4 operator complaints now addressed.
-- HAND DETECTION DEAD END: ultralytics hand_yolov8s = 0 detections on the worst broken
-  hand; detect->inpaint can't repair unseen hands. YOLO models sit in tools/models/yolo/
-  (unused). DO NOT build the detect-repair loop; img2img already fixes hands.
-- WINNING RECIPE: painterly-prompt + img2img-from-real-reference (a champion's own splash).
-  Face-LoRA now likely UNNECESSARY (img2img nails identity).
-- NEXT (polish, not blockers): per-candidate init cycling across a champion's skins for
-  variety (currently all share one init -> similar poses); optional similarity/QA gate
-  (DINOv2 or CSD soft rank vs the reference bank); full Vayne n=8 demo + operator review.
-  Generalize: any champion = fetch their ddragon splashes (fetch_splashes.py) -> brief with
-  init_image -> gen. See docs/research/GEN_RETUNE.md "LIVE FINDINGS" for the full recipe.
+**RETUNE - WINNING RECIPE LOCKED (full journey + rubric in docs/research/GEN_RETUNE.md):**
+Deep-research workflow wbnpch0uo (archetypes) + posing research -> iterated through
+RealVis-painterly (fixed too-photoreal), img2img-from-real (fixed palette/pose but BLURRED
+faces - rejected), to the FINAL recipe. Commits this session: cc2875a e35ea14 f67c8f4
+065679b e7f98ea d77dbe2 8e30892 f0ac578.
+- **WINNING RECIPE = Animagine XL 4.0 (anime base) + ControlNet-OpenPose (skeleton from a
+  real splash) + cowboy-shot detail-tag booru prompt.** Operator directed anime-flat
+  (overriding the anime ban) + flagged mangled glasses / odd faces / blotchy-blur / bad hands.
+  Animagine KNOWS champions from booru data (Vayne: clean red glasses, dual crossbows,
+  ponytail, navy+red) + clean anime faces. ControlNet-OpenPose (xinsir SDXL, controlnet_aux
+  OpenposeDetector hand_and_face) transplants a real natural pose + pins hand chirality (kills
+  the mirrored 2nd-left-hand) while keeping SHARP txt2img detail (no img2img blur).
+  Batch vayne-controlnet-tuned = production quality, hits the operator bar.
+- Integrated first-class in lw_gen_run: `--model-path` (base override), `--controlnet-pose
+  <ref>` / `--controlnet-scale` (config controlnet_openpose_path), `--lora-path`/`--no-lora`,
+  `--init-image`/`--img2img-strength`. Style `splash-booru` (posing+detail vocab, lean
+  negatives). Brief briefs/vayne_animagine.json. 67 gen tests green, CI-safe (lazy imports).
+- Provisioned + gitignored (tools/models/): RealVisXL_V5.0, animagine-xl-4.0-opt.safetensors,
+  controlnet-openpose-sdxl (xinsir), lora_datasets/{vayne,ahri} (ddragon fetch), yolo/ (unused
+  - hand DETECTION is a dead end on painted hands, do NOT build detect-repair). .venv-gen has
+  torch2.11cu128 + diffusers0.39 + peft + controlnet_aux + ultralytics + tensorboard.
+- DO NOT REDO: the base/model choices, ControlNet integration, the img2img/anime exploration (settled),
+  hand-detection repair (dead end). Full recipe + rejected paths in docs/research/GEN_RETUNE.md.
+- **NEXT = THRESHOLD ITERATION (operator, new session):** dial in the knobs on the winning
+  recipe - controlnet_scale (0.75), img2img_strength, cfg/steps, and the QA floors in
+  lw_gen_config.json qa{} (T_subj .26 / T_margin .05 / T_aes .45 / T_blur 100.0). Also
+  per-candidate skeleton cycling (pose variety in one batch), then a full QA+promote pass.
 
 **Continuity/headless:** full authority, commit+push on green. Self-continue across
 sessions via Gemini + AHK (`gemini-headless-upgrade` skill) targeting THIS window
@@ -177,25 +181,3 @@ skipped. **Deferred (cause):** 61 downscale-only need distinct G1 handling
 (lap_ratio floor invalid for a no-upscale path; the LEDGER-7 false-soft) - now the
 top ROADMAP NEXT. **Do NOT redo:** the driver, the 47-batch, the 10 holds, the 2
 pilots. LEDGER item 10.
-
----
-
-# 2026-07-04 (golden set - first-pass drift-regression harness shipped)
-
-Commits 8e8b9a0 + 936d99b + e0a1250. Built `tools/lw_golden.py` (freeze +
-regress) - the drift-detection harness, adapted for no-ground-truth (operator
-ruling: no finished refs; reference of record = the current blessed IJN
-first-pass output, not perfection). Flow: brainstorm -> spec
-(`docs/research/GOLDEN_SET.md`) -> plan
-(`docs/superpowers/plans/2026-07-04-golden-set.md`) -> TDD build; heavy deps
-INJECTED so the tool is CI-testable. Operator blessed all 10, froze
-`data/golden/golden_set.json` (TRACKED, pv d9ec8125, 10 cases; image bytes
-gitignored + sha-pinned). Regress self-check PASSED 10/10 within epsilon (also
-proves IJN upscale determinism). Suite 190 passed / 3 skipped; CI green.
-
-Do NOT redo: the golden freeze (done); the 10 baselines. Two process scars in
-LEDGER item 4: a stray `&` spawned a duplicate torch job -> pagefile OOM
-(WinError 1455); nearly taskkill'd dwm/explorer/claude by trusting `nvidia-smi`
-compute-apps blindly - ALWAYS verify a PID name before taskkill. Next: widen n
-past 10; trial V3 DAT2 via `lw_golden regress`; add banding/JPEG-artifact
-defect-class cases to the golden set.

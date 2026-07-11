@@ -8,6 +8,17 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
+- **lw-gen: iterate THRESHOLDS on the winning recipe (NOW - next session).** Recipe
+  LOCKED (LEDGER 15): Animagine XL 4.0 + ControlNet-OpenPose (skeleton from a real
+  splash) + cowboy-shot detail-tag booru prompt = sharp, natural-pose, correct-hand,
+  canonical clean-glasses anime splashes (production quality on Vayne). Next: dial in the
+  knobs against the archetype rubric (`docs/research/GEN_RETUNE.md`) - `controlnet_scale`
+  (0.75), `img2img_strength`, cfg/steps, and the QA floors in `lw_gen_config.json` qa{}
+  (T_subj .26 / T_margin .05 / T_aes .45 / T_blur 100.0). Then per-candidate skeleton
+  cycling (pose variety in one batch) + a full QA+promote pass into 0.Originals. Verify:
+  `py tools/lw_gen_run.py --brief briefs/vayne_animagine.json --model-path <animagine> --controlnet-pose <real splash>`.
+  DO NOT REDO base/model/ControlNet choices or the img2img/hand-detection paths (settled).
+
 - **Re-source the 4 ingest messups - MANUAL (NOW).** `xayah1`, `camille1`,
   `kaisa1`, `fiora1` (1920x1173, a ~210px strip of a different image pasted on
   top; the clean Battle Academia splash below is ~1920x960). Operator ruling

@@ -46,6 +46,28 @@ LongPathsEnabled (deferred).
 
 ---
 
+# 2026-07-04 (golden set - first-pass drift-regression harness shipped)
+
+Commits 8e8b9a0 + 936d99b + e0a1250. Built `tools/lw_golden.py` (freeze +
+regress) - the drift-detection harness, adapted for no-ground-truth (operator
+ruling: no finished refs; reference of record = the current blessed IJN
+first-pass output, not perfection). Flow: brainstorm -> spec
+(`docs/research/GOLDEN_SET.md`) -> plan
+(`docs/superpowers/plans/2026-07-04-golden-set.md`) -> TDD build; heavy deps
+INJECTED so the tool is CI-testable. Operator blessed all 10, froze
+`data/golden/golden_set.json` (TRACKED, pv d9ec8125, 10 cases; image bytes
+gitignored + sha-pinned). Regress self-check PASSED 10/10 within epsilon (also
+proves IJN upscale determinism). Suite 190 passed / 3 skipped; CI green.
+
+Do NOT redo: the golden freeze (done); the 10 baselines. Two process scars in
+LEDGER item 4: a stray `&` spawned a duplicate torch job -> pagefile OOM
+(WinError 1455); nearly taskkill'd dwm/explorer/claude by trusting `nvidia-smi`
+compute-apps blindly - ALWAYS verify a PID name before taskkill. Next: widen n
+past 10; trial V3 DAT2 via `lw_golden regress`; add banding/JPEG-artifact
+defect-class cases to the golden set.
+
+---
+
 # 2026-07-04 (QA Session 2 - IJN primary path live + G1 gate frozen n=10)
 
 Commit dca6071. IllustrationJaNai V1 DAT2 (spandrel/torch) is now the PRIMARY
