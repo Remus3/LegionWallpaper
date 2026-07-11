@@ -20,8 +20,9 @@
     }
   },
   "splash-booru": {
-    "positive": "{subject}, {prompt_extra}, official splash art, dynamic action pose, dramatic cinematic lighting, detailed background, glowing magic effects, masterpiece, high score, great score, absurdres",
-    "negative": "{negative_extra}, lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, fewer digits, cropped, worst quality, low quality, low score, bad score, average score, signature, watermark, username, blurry, mangled hands, deformed, extra fingers, fused fingers, bad eyewear, deformed glasses, photorealistic, 3d render",
+    "_comment": "booru-tag anime bases (Animagine). Positive carries ArtStation posing vocab (line-of-action / twist / low hero angle); negative stays LEAN per research (overloaded hand negatives degrade quality; chirality is fixed by ControlNet structure, not words).",
+    "positive": "{subject}, {prompt_extra}, official splash art, dynamic action pose, dynamic angle, twisted torso, contrapposto, leaning forward, foreshortening, from below, cowboy shot, dramatic cinematic lighting, detailed background, glowing magic effects, floating hair, wind, looking at viewer, masterpiece, high score, great score, absurdres",
+    "negative": "{negative_extra}, lowres, bad anatomy, bad hands, bad proportions, extra digits, fewer digits, missing fingers, fused fingers, extra fingers, mutated hands, poorly drawn hands, extra arms, extra hands, extra limbs, disfigured, deformed glasses, stiff pose, static, t-pose, standing straight, text, signature, watermark, worst quality, low quality, low score, bad score, blurry, photorealistic, 3d render",
     "sampler": {
       "name": "euler_a",
       "scheduler": "normal",
