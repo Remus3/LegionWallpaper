@@ -204,7 +204,10 @@ def test_styles_str_format_fills_slots():
 def test_splash_negative_excludes_wallpaper_failure_modes():
     _, styles = _load(STYLES_PATH)
     neg = styles["splash"]["negative"]
-    for token in ("anime", "cel shaded", "chibi", "watermark", "multiple characters"):
+    for token in (
+        "anime", "cel shading", "chibi", "watermark", "multiple characters",
+        "photorealistic", "extra fingers", "off-model face",
+    ):
         assert token in neg, f"splash negative should exclude: {token}"
 
 

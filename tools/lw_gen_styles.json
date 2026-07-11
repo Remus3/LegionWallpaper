@@ -1,12 +1,12 @@
 {
   "splash": {
-    "positive": "splash art of {subject}, League of Legends champion, painterly semi-realistic key art, dynamic action pose, cinematic composition, dramatic rim lighting, richly detailed, desktop wallpaper, {prompt_extra}",
-    "negative": "anime, cel shaded, flat colors, chibi, text, watermark, signature, logo, ui, hud, healthbar, border, frame, low quality, blurry, jpeg artifacts, extra limbs, extra fingers, deformed hands, multiple characters, collage, {negative_extra}",
+    "positive": "splash art of {subject}, League of Legends champion, painterly semi-realistic digital illustration, concept-art key art, cover-illustration finish, visible confident brushstrokes, textured painterly surface, fully volumetric form rendering, smooth idealized matte painted skin, idealized canonically-correct champion face, dynamic heroic action pose, low camera angle, dramatic cinematic chiaroscuro lighting, strong colored rim and back light, warm key versus cool shadow complementary color grade, rich deep blacks with luminous glowing magic FX, atmospheric painterly-blurred background, flowing hair and cloth in motion, single dominant hero character, highly detailed, Riot Games splash art, desktop wallpaper, {prompt_extra}",
+    "negative": "photorealistic, photograph, DSLR photo, cosplay photo, film grain, skin pores, skin texture, plastic CGI, waxy skin, subsurface scattering skin, uncanny valley, 3d render, unreal engine, daz3d, flat cel shading, hard banded shadows, black ink lineart, coloring book, chibi, generic anime proportions, flat even lighting, muted desaturated palette, gray washed out low contrast, mangled hands, extra fingers, fused fingers, malformed hands, deformed digits, six fingers, off-model face, distorted face, asymmetric eyes, symmetrical stiff frontal pose, cluttered background, multiple characters, text, watermark, signature, logo, ui, hud, border, {negative_extra}",
     "sampler": {
       "name": "dpmpp_2m_sde",
       "scheduler": "karras",
-      "steps": 30,
-      "cfg": 5.5
+      "steps": 32,
+      "cfg": 5.0
     }
   },
   "portrait": {

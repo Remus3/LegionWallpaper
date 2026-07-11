@@ -1,0 +1,13 @@
+{
+  "subject": "Vayne",
+  "subject_aliases": ["Vayne", "the Night Hunter", "Night Hunter Vayne", "monster hunter", "crossbow hunter"],
+  "style": "splash",
+  "n": 8,
+  "aspect": "16:9",
+  "prompt_extra": "sharp angular face with high cheekbones and thin high-arched eyebrows, determined predatory expression, dark crimson lips, winged eyeliner, round red-tinted round glasses, dark violet-black hair in a high bun, bat-wing angular spiked shoulder pauldrons, deep navy indigo bodysuit, crimson red cape lining, thigh-high heeled boots, wrist-mounted repeating crossbow, gripping a bladed silver bolt with a glowing bolt-of-light trail, bat motif, gothic ruined cathedral with tall stained glass windows, drifting bats and embers, misty night, navy indigo and crimson red palette, cold silver accents, cool moody atmosphere with a hot red accent",
+  "negative_extra": "big longbow, medieval bow and arrow, blonde bright hair, sweet smile, cheerful daylight, muscular male, heavy armor tank",
+  "seed": 12345,
+  "qa_subject_floor": 0.26,
+  "qa_margin_floor": 0.05,
+  "max_regen_rounds": 1
+}
