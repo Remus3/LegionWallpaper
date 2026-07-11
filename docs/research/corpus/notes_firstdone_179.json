@@ -169,7 +169,7 @@
 },
 {
 "file": "bayonetta-by-stellastria-dm7iiug-pre",
-"champion": "Bayonetta (non-League guest character)",
+"champion": "Vayne (reframed from Bayonetta, operator-intentional)",
 "style_band": "painterly-semireal",
 "palette": "near-black teal/navy, cold moonlight blues, gold + sapphire accents",
 "lighting": "low-key moonlit rim light, deep shadow, specular jewelry glints",
@@ -179,7 +179,7 @@
 "strengths": "striking mood, jewel-like specular detail, confident dark grade, wallpaper-safe dark margins",
 "acceptability_1to5": 3,
 "weapon_hands_note": "no weapon; single white-gloved hand, fingers plausible but knuckles soft",
-"is_vayne": false
+"is_vayne": true
 },
 {
 "file": "blood-moon-diana-ia-fan-art-by-youngarthy-dm9hyda-pre",
@@ -1093,7 +1093,7 @@
 },
 {
 "file": "league-of-legends-zaahe-splash-fan-art-by-joneyuan-dmbilhz-pre",
-"champion": "Zaahe (fan-made champion concept, fan art by Joneyuan)",
+"champion": "Zaahen",
 "style_band": "painterly-semireal",
 "palette": "slate-grey skin, crimson cape/halo, antique gold armor, smoky umber",
 "lighting": "dark ambient, red halo rim glow behind head",
@@ -1779,7 +1779,7 @@
 },
 {
 "file": "spirit-blossom-spirit-blossom-league-of-legends-league-of-legend",
-"champion": "Yone (Spirit Blossom, official splash)",
+"champion": "Soraka",
 "style_band": "photobash-cinematic",
 "palette": "cold blue-violet storm greys, magenta/cyan azakana-mask glow, white lotus accent",
 "lighting": "overcast diffuse, strong emissive glow from mask and flower",

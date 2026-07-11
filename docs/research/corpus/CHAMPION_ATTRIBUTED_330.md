@@ -100,7 +100,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Bayonetta (1)
 
-65. [bayonetta-by-stellastria-dm7iiug-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/bayonetta-by-stellastria-dm7iiug-pre/bayonetta-by-stellastria-dm7iiug-pre_firstdone.png) - Bayonetta (non-League guest character)  [painterly-semireal]
+65. [bayonetta-by-stellastria-dm7iiug-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/bayonetta-by-stellastria-dm7iiug-pre/bayonetta-by-stellastria-dm7iiug-pre_firstdone.png) - Bayonetta (non-League guest character)  [painterly-semireal] | OPERATOR: Vayne (reframed from Bayonetta, operator-intentional)
 
 ## Braum (1)
 
@@ -116,10 +116,10 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Camille (8)
 
-72. [120_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/120_cleanup.png) - Camille (Coven)  [painterly-semireal]
+72. [120_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/120_cleanup.png) - Camille (Coven)  [painterly-semireal] | OPERATOR: Akali
 73. [168_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/168_cleanup.png) - Camille (Winterblessed, official splash)  [painterly-semireal]
 74. [266f.png](file:///C:/LegionWallpaper/images/reference_pictures/266f.png) - Camille  [photobash-cinematic]
-75. [69_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/69_cleanup.png) - Camille (Coven, fan-style semireal - white ponytail, ravens, leg blades)  [painterly-semireal]
+75. [69_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/69_cleanup.png) - Camille (Coven, fan-style semireal - white ponytail, ravens, leg blades)  [painterly-semireal] | OPERATOR: Akali
 76. [arcana-camille-by-jessibeans-deil0d1-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/arcana-camille-by-jessibeans-deil0d1-pre/arcana-camille-by-jessibeans-deil0d1-pre_firstdone.png) - Camille (Arcana skin)  [anime-painterly-hybrid]
 77. [camille-league-of-legends-league-of-legends-summoner-s-rift-vide_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/camille-league-of-legends-league-of-legends-summoner-s-rift-vide/camille-league-of-legends-league-of-legends-summoner-s-rift-vide_firstdone.png) - Camille (Coven skin)  [painterly-semireal]
 78. [camille-league-of-legends-wild-rift-league-of-legends-riot-games_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/camille-league-of-legends-wild-rift-league-of-legends-riot-games/camille-league-of-legends-wild-rift-league-of-legends-riot-games_firstdone.png) - Camille (Stargazer, Wild Rift)  [painterly-semireal]
@@ -137,7 +137,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 82. [111_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/111_cleanup.png) - Diana (Blood Moon Diana - official Riot splash art)  [photobash-cinematic]
 83. [259f.png](file:///C:/LegionWallpaper/images/reference_pictures/259f.png) - Diana (dark/coven style, crescent-moon forehead)  [photobash-cinematic]
-84. [277f.png](file:///C:/LegionWallpaper/images/reference_pictures/277f.png) - Diana (magenta variant, AI-gen fan skin)  [photobash-cinematic]
+84. [277f.png](file:///C:/LegionWallpaper/images/reference_pictures/277f.png) - Diana (magenta variant, AI-gen fan skin)  [photobash-cinematic] | OPERATOR: Akali
 85. [292f.png](file:///C:/LegionWallpaper/images/reference_pictures/292f.png) - Diana (Withered Rose style fanwork - crescent brow + moonblade)  [anime-painterly-hybrid]
 86. [blood-moon-diana-ia-fan-art-by-youngarthy-dm9hyda-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/blood-moon-diana-ia-fan-art-by-youngarthy-dm9hyda-pre/blood-moon-diana-ia-fan-art-by-youngarthy-dm9hyda-pre_firstdone.png) - Diana (Blood Moon, AI fan art)  [anime-painterly-hybrid]
 87. [wallpapersden-com-digital-art-diana-lol-4096x2305_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/wallpapersden-com-digital-art-diana-lol-4096x2305/wallpapersden-com-digital-art-diana-lol-4096x2305_firstdone.png) - Diana (Battle Queen)  [painterly-semireal]
@@ -157,7 +157,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Evelynn (6)
 
-95. [13_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/13_cleanup.png) - Evelynn (Coven) - high confidence from gold feather ruff, red lens mask, claw hand with red gem, white ponytail  [painterly-semireal]
+95. [13_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/13_cleanup.png) - Evelynn (Coven) - high confidence from gold feather ruff, red lens mask, claw hand with red gem, white ponytail  [painterly-semireal] | OPERATOR: Vayne
 96. [185f.png](file:///C:/LegionWallpaper/images/reference_pictures/185f.png) - Evelynn (K/DA) - fan art  [minimal-graphic]
 97. [222_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/222_cleanup.png) - Evelynn (K/DA)  [anime-painterly-hybrid]
 98. [evelynn-by-pebano1-dmc9764-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/evelynn-by-pebano1-dmc9764-pre/evelynn-by-pebano1-dmc9764-pre_firstdone.png) - Evelynn (base/demon shade, fan art by pebano1)  [anime-painterly-hybrid]
@@ -195,7 +195,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Hwei (1)
 
-115. [hwei1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/hwei1/hwei1_firstdone.png) - Hwei (Winterblessed)  [anime-painterly-hybrid]
+115. [hwei1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/hwei1/hwei1_firstdone.png) - Hwei (Winterblessed)  [anime-painterly-hybrid] | OPERATOR: Hwei CONFIRMED - ACTION: crop top + redo (leftover messup)
 
 ## Illaoi (1)
 
@@ -207,7 +207,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Irelia (5)
 
-118. [34_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/34_cleanup.png) - Irelia (Crystal Rose, Wild Rift) with Swain + Lux background cameos  [painterly-semireal]
+118. [34_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/34_cleanup.png) - Irelia (Crystal Rose, Wild Rift) with Swain + Lux background cameos  [painterly-semireal] | OPERATOR: Vayne
 119. [64_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/64_cleanup.png) - Irelia (Mythmaker)  [painterly-semireal]
 120. [dl4hbwf-38813030-0c50-4e97-8cf7-ec727a42225a_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/dl4hbwf-38813030-0c50-4e97-8cf7-ec727a42225a/dl4hbwf-38813030-0c50-4e97-8cf7-ec727a42225a_firstdone.png) - Irelia (crimson/lava variant)  [anime-painterly-hybrid]
 121. [porcelain-league-of-legends-irelia-league-of-legends-video-games_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/porcelain-league-of-legends-irelia-league-of-legends-video-games/porcelain-league-of-legends-irelia-league-of-legends-video-games_firstdone.png) - Irelia  [painterly-semireal]
@@ -269,7 +269,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Kaisa (1)
 
-156. [245f.png](file:///C:/LegionWallpaper/images/reference_pictures/245f.png) - Kaisa (K/DA-style closeup, crystal wings)  [painterly-semireal]
+156. [245f.png](file:///C:/LegionWallpaper/images/reference_pictures/245f.png) - Kaisa (K/DA-style closeup, crystal wings)  [painterly-semireal] | OPERATOR: Kai'Sa
 
 ## Kalista (1)
 
@@ -312,7 +312,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## LeBlanc (3)
 
-175. [135_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/135_cleanup.png) - LeBlanc (Coven) - high confidence from raven-sigil staff, black tear streaks, white hair  [painterly-semireal]
+175. [135_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/135_cleanup.png) - LeBlanc (Coven) - high confidence from raven-sigil staff, black tear streaks, white hair  [painterly-semireal] | OPERATOR: Soraka
 176. [leblanc-lol-new-art-4k-wallpaper-uhdpaper-com-219-5-e_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/leblanc-lol-new-art-4k-wallpaper-uhdpaper-com-219-5-e/leblanc-lol-new-art-4k-wallpaper-uhdpaper-com-219-5-e_firstdone.png) - LeBlanc (new official art)  [painterly-semireal]
 177. [nguyen-ky-phuc-reyjin-leblanc-j-f1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/nguyen-ky-phuc-reyjin-leblanc-j-f1/nguyen-ky-phuc-reyjin-leblanc-j-f1_firstdone.png) - LeBlanc (Coven-style fan art by Reyjin)  [painterly-semireal]
 
@@ -322,7 +322,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Leona (4)
 
-179. [190_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/190_cleanup.png) - Leona (Eclipse Leona fan art, signed ORIA 2022)  [painterly-semireal]
+179. [190_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/190_cleanup.png) - Leona (Eclipse Leona fan art, signed ORIA 2022)  [painterly-semireal] | OPERATOR: Kayle
 180. [196f.png](file:///C:/LegionWallpaper/images/reference_pictures/196f.png) - Leona (Coven-style variant, AI-gen)  [painterly-semireal]
 181. [291f.png](file:///C:/LegionWallpaper/images/reference_pictures/291f.png) - Leona (Withered/Crystal Rose style fanwork - sword + rose shield)  [anime-painterly-hybrid]
 182. [leona-league-of-legends-crystalis-motus-league-of-legends-league_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/leona-league-of-legends-crystalis-motus-league-of-legends-league/leona-league-of-legends-crystalis-motus-league-of-legends-league_firstdone.png) - Leona (Crystalis Motus skin, official splash)  [anime-painterly-hybrid]
@@ -355,7 +355,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 195. [101_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/101_cleanup.png) - Miss Fortune - Star Guardian splash  [painterly-semireal]
 196. [123f.png](file:///C:/LegionWallpaper/images/reference_pictures/123f.png) - Miss Fortune (capped profile, AI rendition)  [anime-painterly-hybrid]
-197. [127_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/127_cleanup.png) - Miss Fortune  [painterly-semireal]
+197. [127_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/127_cleanup.png) - Miss Fortune  [painterly-semireal] | OPERATOR: Katarina
 198. [30_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/30_cleanup.png) - Miss Fortune (Broken Covenant)  [painterly-semireal]
 199. [dfzypoo-482973ff-dfb0-44e4-a90c-386714d27faf_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/dfzypoo-482973ff-dfb0-44e4-a90c-386714d27faf/dfzypoo-482973ff-dfb0-44e4-a90c-386714d27faf_firstdone.png) - Miss Fortune  [anime-painterly-hybrid]
 200. [mfortune1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/mfortune1/mfortune1_firstdone.png) - Miss Fortune (Battle Bunny crystal variant)  [painterly-semireal]
@@ -366,9 +366,9 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Morgana (7)
 
-202. [121_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/121_cleanup.png) - Morgana (Coven)  [painterly-semireal]
+202. [121_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/121_cleanup.png) - Morgana (Coven)  [painterly-semireal] | OPERATOR: Kai'Sa
 203. [246f.png](file:///C:/LegionWallpaper/images/reference_pictures/246f.png) - Morgana (winter blossom variant, chained wings)  [painterly-semireal]
-204. [274f.png](file:///C:/LegionWallpaper/images/reference_pictures/274f.png) - Morgana (fan-art)  [painterly-semireal]
+204. [274f.png](file:///C:/LegionWallpaper/images/reference_pictures/274f.png) - Morgana (fan-art)  [painterly-semireal] | OPERATOR: LeBlanc
 205. [dawnbringer-dawnbringer-and-nightbringer-morgana-morgana-league_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/dawnbringer-dawnbringer-and-nightbringer-morgana-morgana-league/dawnbringer-dawnbringer-and-nightbringer-morgana-morgana-league_firstdone.png) - Morgana (Dawnbringer/Nightbringer)  [painterly-semireal]
 206. [dk10s0a-6333e35f-6327-4941-92f3-2603f1f2c9bd_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/dk10s0a-6333e35f-6327-4941-92f3-2603f1f2c9bd/dk10s0a-6333e35f-6327-4941-92f3-2603f1f2c9bd_firstdone.png) - Morgana (Spirit Blossom)  [painterly-semireal]
 207. [porcelain-league-of-legends-morgana-league-of-legends-video-game_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/porcelain-league-of-legends-morgana-league-of-legends-video-game/porcelain-league-of-legends-morgana-league-of-legends-video-game_firstdone.png) - Morgana  [painterly-semireal]
@@ -420,13 +420,13 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Riven (10)
 
-223. [113_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/113_cleanup.png) - Riven (Spirit Blossom)  [painterly-semireal]
-224. [156_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/156_cleanup.png) - Riven (Valiant Sword, prestige-style white/gold)  [painterly-semireal]
-225. [170_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/170_cleanup.png) - Riven (K/DA fanart by Perry Han)  [painterly-semireal]
-226. [17_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/17_cleanup.png) - Riven (white-gold LPL esports theme, semireal fan art)  [painterly-semireal]
+223. [113_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/113_cleanup.png) - Riven (Spirit Blossom)  [painterly-semireal] | OPERATOR: Akali
+224. [156_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/156_cleanup.png) - Riven (Valiant Sword, prestige-style white/gold)  [painterly-semireal] | OPERATOR: Diana
+225. [170_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/170_cleanup.png) - Riven (K/DA fanart by Perry Han)  [painterly-semireal] | OPERATOR: Akali
+226. [17_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/17_cleanup.png) - Riven (white-gold LPL esports theme, semireal fan art)  [painterly-semireal] | OPERATOR: Vayne
 227. [186_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/186_cleanup.png) - Riven (Dawnbringer/Nightbringer promo)  [painterly-semireal]
-228. [19_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/19_cleanup.png) - Riven (flame-blade skin variant, pro-splash style)  [painterly-semireal]
-229. [234f.png](file:///C:/LegionWallpaper/images/reference_pictures/234f.png) - Riven (Spirit Blossom, oni masks + glowing sword)  [painterly-semireal]
+228. [19_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/19_cleanup.png) - Riven (flame-blade skin variant, pro-splash style)  [painterly-semireal] | OPERATOR: Vayne
+229. [234f.png](file:///C:/LegionWallpaper/images/reference_pictures/234f.png) - Riven (Spirit Blossom, oni masks + glowing sword)  [painterly-semireal] | OPERATOR: Fiora
 230. [24_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/24_cleanup.png) - Riven (AI-gen restyle)  [anime-painterly-hybrid]
 231. [riven-broken-blade-unbroken-will-by-vexxsoul-dm9po91-fullview_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/riven-broken-blade-unbroken-will-by-vexxsoul-dm9po91-fullview/riven-broken-blade-unbroken-will-by-vexxsoul-dm9po91-fullview_firstdone.png) - Riven  [anime-painterly-hybrid]
 232. [star-guardian-riven-by-niphrimit-dl6sdhf-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/star-guardian-riven-by-niphrimit-dl6sdhf-pre/star-guardian-riven-by-niphrimit-dl6sdhf-pre_firstdone.png) - Riven (Star Guardian)  [painterly-semireal]
@@ -465,7 +465,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Shyvana (1)
 
-247. [shyvana1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/shyvana1/shyvana1_firstdone.png) - Shyvana (Immortal Journey style splash)  [painterly-semireal]
+247. [shyvana1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/shyvana1/shyvana1_firstdone.png) - Shyvana (Immortal Journey style splash)  [painterly-semireal] | OPERATOR: Shyvana CONFIRMED - ACTION: crop top + redo (leftover messup)
 
 ## Skarner (1)
 
@@ -480,7 +480,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 251. [171_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/171_cleanup.png) - Soraka (kirin-companion celestial skin)  [painterly-semireal]
 252. [soraka-soraka-league-of-legends-support-league-of-legends-league_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/soraka-soraka-league-of-legends-support-league-of-legends-league/soraka-soraka-league-of-legends-support-league-of-legends-league_firstdone.png) - Soraka (Nightbringer, official splash)  [painterly-semireal]
-253. [soraka1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/soraka1/soraka1_firstdone.png) - Soraka (bright fantasy skin, staff)  [painterly-semireal]
+253. [soraka1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/soraka1/soraka1_firstdone.png) - Soraka (bright fantasy skin, staff)  [painterly-semireal] | OPERATOR: Soraka CONFIRMED - ACTION: crop top + redo (leftover messup)
 
 ## Spirit Blossom Akali (1)
 
@@ -504,7 +504,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Star Guardian Miss Fortune (1)
 
-259. [297f.png](file:///C:/LegionWallpaper/images/reference_pictures/297f.png) - Star Guardian Miss Fortune (fan/AI variant)  [anime-painterly-hybrid]
+259. [297f.png](file:///C:/LegionWallpaper/images/reference_pictures/297f.png) - Star Guardian Miss Fortune (fan/AI variant)  [anime-painterly-hybrid] | OPERATOR: Nidalee
 
 ## Star Guardian Yuumi (1)
 
@@ -544,10 +544,10 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Vayne (10)
 
-272. [100f.png](file:///C:/LegionWallpaper/images/reference_pictures/100f.png) - Vayne - gothic/crystal skin splash (ravens, thorns, pink-crystal crossbow)  [painterly-semireal]
-273. [143_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/143_cleanup.png) - Vayne (Firecracker)  [painterly-semireal]
-274. [29_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/29_cleanup.png) - Vayne (Prestige Firecracker splash)  [painterly-semireal]
-275. [59_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/59_cleanup.png) - Vayne (Crystal Rose, Wild Rift)  [painterly-semireal]
+272. [100f.png](file:///C:/LegionWallpaper/images/reference_pictures/100f.png) - Vayne - gothic/crystal skin splash (ravens, thorns, pink-crystal crossbow)  [painterly-semireal] | OPERATOR: Akali
+273. [143_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/143_cleanup.png) - Vayne (Firecracker)  [painterly-semireal] | OPERATOR: Kai'Sa
+274. [29_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/29_cleanup.png) - Vayne (Prestige Firecracker splash)  [painterly-semireal] | OPERATOR: Kai'Sa
+275. [59_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/59_cleanup.png) - Vayne (Crystal Rose, Wild Rift)  [painterly-semireal] | OPERATOR: Caitlyn
 276. [bo-chen-firecracker-vayne_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/bo-chen-firecracker-vayne/bo-chen-firecracker-vayne_firstdone.png) - Vayne (Firecracker, official splash by Bo Chen)  [painterly-semireal]
 277. [p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pre/p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pre_firstdone.png) - Vayne (Shadow Hunter fan art by namakx)  [anime-painterly-hybrid]
 278. [vayne1_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/vayne1/vayne1_firstdone.png) - Vayne (Victorious)  [painterly-semireal]
@@ -625,7 +625,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 312. [league-of-legends-4k-riot-games-yone-league-of-legends-spirit-bl_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/league-of-legends-4k-riot-games-yone-league-of-legends-spirit-bl/league-of-legends-4k-riot-games-yone-league-of-legends-spirit-bl_firstdone.png) - Yone (Spirit Blossom)  [painterly-semireal]
 313. [league-of-legends-league-of-legends-wild-rift-battle-academia-ga_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/league-of-legends-league-of-legends-wild-rift-battle-academia-ga/league-of-legends-league-of-legends-wild-rift-battle-academia-ga_firstdone.png) - Yone (Battle Academia, Wild Rift)  [painterly-semireal]
-314. [spirit-blossom-spirit-blossom-league-of-legends-league-of-legend_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/spirit-blossom-spirit-blossom-league-of-legends-league-of-legend/spirit-blossom-spirit-blossom-league-of-legends-league-of-legend_firstdone.png) - Yone (Spirit Blossom, official splash)  [photobash-cinematic]
+314. [spirit-blossom-spirit-blossom-league-of-legends-league-of-legend_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/spirit-blossom-spirit-blossom-league-of-legends-league-of-legend/spirit-blossom-spirit-blossom-league-of-legends-league-of-legend_firstdone.png) - Yone (Spirit Blossom, official splash)  [photobash-cinematic] | OPERATOR: Soraka
 315. [yone-petals-of-spring-lol-skin-splash-art-4k-wallpaper-uhdpaper_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/yone-petals-of-spring-lol-skin-splash-art-4k-wallpaper-uhdpaper/yone-petals-of-spring-lol-skin-splash-art-4k-wallpaper-uhdpaper_firstdone.png) - Yone  [painterly-semireal]
 
 ## Yone, Pyke, Vi, Gnar, Varus (1)
@@ -645,7 +645,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Zaahe (1)
 
-322. [league-of-legends-zaahe-splash-fan-art-by-joneyuan-dmbilhz-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/league-of-legends-zaahe-splash-fan-art-by-joneyuan-dmbilhz-pre/league-of-legends-zaahe-splash-fan-art-by-joneyuan-dmbilhz-pre_firstdone.png) - Zaahe (fan-made champion concept, fan art by Joneyuan)  [painterly-semireal]
+322. [league-of-legends-zaahe-splash-fan-art-by-joneyuan-dmbilhz-pre_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/league-of-legends-zaahe-splash-fan-art-by-joneyuan-dmbilhz-pre/league-of-legends-zaahe-splash-fan-art-by-joneyuan-dmbilhz-pre_firstdone.png) - Zaahe (fan-made champion concept, fan art by Joneyuan)  [painterly-semireal] | OPERATOR: Zaahen
 
 ## Zed (1)
 
@@ -653,7 +653,7 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Zeri (2)
 
-324. [41_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/41_cleanup.png) - Zeri (Coven, official splash)  [painterly-semireal]
+324. [41_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/41_cleanup.png) - Zeri (Coven, official splash)  [painterly-semireal] | OPERATOR: Vayne
 325. [fright-night-league-of-legends-zeri-league-of-legends-prestige-e_firstdone.png](file:///C:/LegionWallpaper/images/2.First%20Pass%20Done/fright-night-league-of-legends-zeri-league-of-legends-prestige-e/fright-night-league-of-legends-zeri-league-of-legends-prestige-e_firstdone.png) - Zeri (Fright Night Prestige)  [painterly-semireal]
 
 ## Zoe (1)
@@ -662,9 +662,9 @@ Totals: 330 images | 110 distinct champions (+ a non-champion bucket).
 
 ## Zyra (3)
 
-327. [161_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/161_cleanup.png) - Zyra (Coven)  [painterly-semireal]
-328. [178_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/178_cleanup.png) - Zyra (Prestige Coven)  [painterly-semireal]
-329. [39f.png](file:///C:/LegionWallpaper/images/reference_pictures/39f.png) - Zyra (Coven, official splash)  [painterly-semireal]
+327. [161_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/161_cleanup.png) - Zyra (Coven)  [painterly-semireal] | OPERATOR: LeBlanc
+328. [178_cleanup.png](file:///C:/LegionWallpaper/images/reference_pictures/178_cleanup.png) - Zyra (Prestige Coven)  [painterly-semireal] | OPERATOR: Zyra
+329. [39f.png](file:///C:/LegionWallpaper/images/reference_pictures/39f.png) - Zyra (Coven, official splash)  [painterly-semireal] | OPERATOR: Evelynn
 
 ## Non-champion / non-LoL / UI (1)
 

@@ -15,7 +15,7 @@
 },
 {
 "file": "100f.png",
-"champion": "Vayne - gothic/crystal skin splash (ravens, thorns, pink-crystal crossbow)",
+"champion": "Akali",
 "style_band": "painterly-semireal",
 "palette": "desaturated silver-grey, black leather, magenta/crimson accents; cool moonlit grade",
 "lighting": "strong rim backlight from round window, moonlight key",
@@ -25,7 +25,7 @@
 "strengths": "pro splash finish, dramatic backlight, clear silhouette, on-theme Vayne subject",
 "acceptability_1to5": 5,
 "weapon_hands_note": "crystal bolt + giant crossbow crisp; gloved fingers plausible, slight ambiguity",
-"is_vayne": true
+"is_vayne": false
 },
 {
 "file": "101_cleanup.png",
@@ -169,7 +169,7 @@
 },
 {
 "file": "113_cleanup.png",
-"champion": "Riven (Spirit Blossom)",
+"champion": "Akali",
 "style_band": "painterly-semireal",
 "palette": "deep indigo, violet, cyan water glow, pink lotus accents",
 "lighting": "bioluminescent underlight from pool, dark ambient night",
@@ -267,7 +267,7 @@
 },
 {
 "file": "120_cleanup.png",
-"champion": "Camille (Coven)",
+"champion": "Akali",
 "style_band": "painterly-semireal",
 "palette": "desaturated teal-grey and black, violet-magenta blade glow",
 "lighting": "moonlit rim light, purple magic glow, dim ambient",
@@ -281,7 +281,7 @@
 },
 {
 "file": "121_cleanup.png",
-"champion": "Morgana (Coven)",
+"champion": "Kai'Sa",
 "style_band": "painterly-semireal",
 "palette": "dark teal-charcoal with crimson-magenta spell swirls",
 "lighting": "dim ambient, magenta spell glow keying face and hand",
@@ -351,7 +351,7 @@
 },
 {
 "file": "127_cleanup.png",
-"champion": "Miss Fortune",
+"champion": "Katarina",
 "style_band": "painterly-semireal",
 "palette": "desaturated sea-green, umber, parchment warm accents",
 "lighting": "soft tavern diffuse, glowing backlit papers, dim moody",
@@ -421,7 +421,7 @@
 },
 {
 "file": "135_cleanup.png",
-"champion": "LeBlanc (Coven) - high confidence from raven-sigil staff, black tear streaks, white hair",
+"champion": "Soraka",
 "style_band": "painterly-semireal",
 "palette": "desaturated charcoal + crimson/rose silk, near-monochrome grade",
 "lighting": "moody backlight, red magic glow, heavy vignette",
@@ -491,7 +491,7 @@
 },
 {
 "file": "13_cleanup.png",
-"champion": "Evelynn (Coven) - high confidence from gold feather ruff, red lens mask, claw hand with red gem, white ponytail",
+"champion": "Vayne",
 "style_band": "painterly-semireal",
 "palette": "oxblood red field + black/navy + bone white + antique gold",
 "lighting": "dim red ambient, cool rim on skin, red rune-circle accent",
@@ -501,7 +501,7 @@
 "strengths": "official-splash polish, striking face through red lenses, iconic silhouette on uncluttered ground",
 "acceptability_1to5": 5,
 "weapon_hands_note": "bird-skull dagger crisp in right hand; left claw hand stylized-long but confident",
-"is_vayne": false
+"is_vayne": true
 },
 {
 "file": "140_cleanup.png",
@@ -547,7 +547,7 @@
 },
 {
 "file": "143_cleanup.png",
-"champion": "Vayne (Firecracker)",
+"champion": "Kai'Sa",
 "style_band": "painterly-semireal",
 "palette": "charcoal grey + crimson red + brass gold, cool stony grade",
 "lighting": "overcast diffuse + warm ember rim from crossbow",
@@ -557,7 +557,7 @@
 "strengths": "dynamic action pose, hardware detail on crossbow rig, confident face, material rendering",
 "acceptability_1to5": 5,
 "weapon_hands_note": "giant gold crossbow + wrist bolt crisp; hands gloved, partly hidden, small",
-"is_vayne": true
+"is_vayne": false
 },
 {
 "file": "146_cleanup.png",
@@ -701,7 +701,7 @@
 },
 {
 "file": "156_cleanup.png",
-"champion": "Riven (Valiant Sword, prestige-style white/gold)",
+"champion": "Diana",
 "style_band": "painterly-semireal",
 "palette": "ivory, gold, warm sepia godrays, magenta petals and gems",
 "lighting": "warm cathedral godrays, glowing gold energy rings on blade",
@@ -785,7 +785,7 @@
 },
 {
 "file": "161_cleanup.png",
-"champion": "Zyra (Coven)",
+"champion": "LeBlanc",
 "style_band": "painterly-semireal",
 "palette": "desaturated grey-mauve, black feathers, magenta crystal accents",
 "lighting": "soft diffuse forest gloom, pale skin key",
@@ -925,7 +925,7 @@
 },
 {
 "file": "170_cleanup.png",
-"champion": "Riven (K/DA fanart by Perry Han)",
+"champion": "Akali",
 "style_band": "painterly-semireal",
 "palette": "warm sepia garage, purple magic accents, teal spray can, gold jacket",
 "lighting": "warm backlight glow, soft key on face, purple accent glow",
@@ -1037,7 +1037,7 @@
 },
 {
 "file": "178_cleanup.png",
-"champion": "Zyra (Prestige Coven)",
+"champion": "Zyra",
 "style_band": "painterly-semireal",
 "palette": "ivory-gold-bronze monochrome grade, cool grey-violet forest, warm amber swirls",
 "lighting": "top-down divine shaft, glowing gold eyes, strong subject key vs dim bg",
@@ -1065,7 +1065,7 @@
 },
 {
 "file": "17_cleanup.png",
-"champion": "Riven (white-gold LPL esports theme, semireal fan art)",
+"champion": "Vayne",
 "style_band": "painterly-semireal",
 "palette": "ivory-white + gold armor, prismatic pastel bg, dark navy underlayer",
 "lighting": "bright hazy daylight, rainbow lens flares, soft frontal key on face",
@@ -1075,7 +1075,7 @@
 "strengths": "top-tier semireal face/hair/armor rendering, clean material separation, wallpaper-legible subject",
 "acceptability_1to5": 5,
 "weapon_hands_note": "ornate gold blade crisp; fist anatomy passable, fingers a bit sausage",
-"is_vayne": false
+"is_vayne": true
 },
 {
 "file": "180_cleanup.png",
@@ -1233,7 +1233,7 @@
 },
 {
 "file": "190_cleanup.png",
-"champion": "Leona (Eclipse Leona fan art, signed ORIA 2022)",
+"champion": "Kayle",
 "style_band": "painterly-semireal",
 "palette": "near-black umber and crimson, gold eclipse halo backlight",
 "lighting": "dramatic eclipse backlight, heavy chiaroscuro, glowing orb key at chest",
@@ -1359,7 +1359,7 @@
 },
 {
 "file": "19_cleanup.png",
-"champion": "Riven (flame-blade skin variant, pro-splash style)",
+"champion": "Vayne",
 "style_band": "painterly-semireal",
 "palette": "steel grey-green rain field vs saturated red-orange-gold blade",
 "lighting": "overcast rain ambient, fiery blade rim-light on face/torso",
@@ -1369,7 +1369,7 @@
 "strengths": "top-tier face/hair finish, dramatic complementary color story, dynamic weapon staging",
 "acceptability_1to5": 5,
 "weapon_hands_note": "blade superbly rendered; visible hand plausible, other hand concealed",
-"is_vayne": false
+"is_vayne": true
 },
 {
 "file": "1f.png",
@@ -1891,7 +1891,7 @@
 },
 {
 "file": "234f.png",
-"champion": "Riven (Spirit Blossom, oni masks + glowing sword)",
+"champion": "Fiora",
 "style_band": "painterly-semireal",
 "palette": "lavender-pink-cyan pastel dusk, warm lantern oranges",
 "lighting": "twilight ambient, lantern glow, cyan spirit-fox glow",
@@ -2059,7 +2059,7 @@
 },
 {
 "file": "245f.png",
-"champion": "Kaisa (K/DA-style closeup, crystal wings)",
+"champion": "Kai'Sa",
 "style_band": "painterly-semireal",
 "palette": "charcoal black leather, violet-magenta glow, cyan crystal accents",
 "lighting": "low-key cinematic, magenta backglow, crystal spec highlights",
@@ -2493,7 +2493,7 @@
 },
 {
 "file": "274f.png",
-"champion": "Morgana (fan-art)",
+"champion": "LeBlanc",
 "style_band": "painterly-semireal",
 "palette": "crimson, black leather, antique gold, wine red grade",
 "lighting": "red magic glow both flanks, soft key on face, ember particles",
@@ -2521,7 +2521,7 @@
 },
 {
 "file": "277f.png",
-"champion": "Diana (magenta variant, AI-gen fan skin)",
+"champion": "Akali",
 "style_band": "photobash-cinematic",
 "palette": "near-black plum, magenta/crimson energy wisps, silver hair, gold trim",
 "lighting": "dark key rim light, glowing purple blade accents",
@@ -2774,7 +2774,7 @@
 },
 {
 "file": "297f.png",
-"champion": "Star Guardian Miss Fortune (fan/AI variant)",
+"champion": "Nidalee",
 "style_band": "anime-painterly-hybrid",
 "palette": "crimson hair, white-gold armor, violet-magenta cosmic grade",
 "lighting": "cool starfield ambient + warm star-spear glow rim",
@@ -2802,7 +2802,7 @@
 },
 {
 "file": "29_cleanup.png",
-"champion": "Vayne (Prestige Firecracker splash)",
+"champion": "Kai'Sa",
 "style_band": "painterly-semireal",
 "palette": "white-gold outfit, crimson-orange fire accents, hazy cream sky",
 "lighting": "soft warm backlight, phoenix-fire glow, high-key haze",
@@ -2812,7 +2812,7 @@
 "strengths": "genuine Riot splash composition and anatomy, elegant profile, phoenix wing-crossbow spectacle",
 "acceptability_1to5": 5,
 "weapon_hands_note": "wing-crossbow reads clean; raised hand with fiery bolt slightly stiff",
-"is_vayne": true
+"is_vayne": false
 },
 {
 "file": "301f.png",
@@ -2914,7 +2914,7 @@
 },
 {
 "file": "34_cleanup.png",
-"champion": "Irelia (Crystal Rose, Wild Rift) with Swain + Lux background cameos",
+"champion": "Vayne",
 "style_band": "painterly-semireal",
 "palette": "lavender/periwinkle suit, teal hair, pink carpet + petals, sunlit greens",
 "lighting": "bright outdoor wedding daylight, soft bounce, crystal glints",
@@ -2924,7 +2924,7 @@
 "strengths": "charming glasses-look styling, layered multi-character storytelling, crisp hero-face detail",
 "acceptability_1to5": 4,
 "weapon_hands_note": "crystal fan-blades on forearms sharp; both hands drawn fully, near-correct",
-"is_vayne": false
+"is_vayne": true
 },
 {
 "file": "35_cleanup.png",
@@ -2984,7 +2984,7 @@
 },
 {
 "file": "39f.png",
-"champion": "Zyra (Coven, official splash)",
+"champion": "Evelynn",
 "style_band": "painterly-semireal",
 "palette": "near-monochrome ash gray + white, black, gold trim, blood red accents",
 "lighting": "low-key foggy ambient, red eye glow, subtle skin rim",
@@ -3012,7 +3012,7 @@
 },
 {
 "file": "41_cleanup.png",
-"champion": "Zeri (Coven, official splash)",
+"champion": "Vayne",
 "style_band": "painterly-semireal",
 "palette": "deep indigo, slate blue, spectral teal-mint, pale gold tips; cool night grade",
 "lighting": "cool moonlit ambient, teal moth glow as practical lights, crisp rim",
@@ -3022,7 +3022,7 @@
 "strengths": "official-grade rendering, unified indigo-teal story, elegant moth motif repetition, sharp face",
 "acceptability_1to5": 5,
 "weapon_hands_note": "moth-blade weapons crisp; right hand fine, left hand obscured dark",
-"is_vayne": false
+"is_vayne": true
 },
 {
 "file": "42_cleanup.png",
@@ -3264,7 +3264,7 @@
 },
 {
 "file": "59_cleanup.png",
-"champion": "Vayne (Crystal Rose, Wild Rift)",
+"champion": "Caitlyn",
 "style_band": "painterly-semireal",
 "palette": "icy blue/silver/periwinkle, blue rose, cool crystal grade",
 "lighting": "bright diffuse crystal glow, strong sparkle speculars",
@@ -3274,7 +3274,7 @@
 "strengths": "elegant Vayne fantasy, crisp costume metalwork, strong face and jewelry detail",
 "acceptability_1to5": 5,
 "weapon_hands_note": "crystal hand-crossbow ornate and readable; hat hand good, crossbow grip stiffer",
-"is_vayne": true
+"is_vayne": false
 },
 {
 "file": "60_cleanup.png",
@@ -3404,7 +3404,7 @@
 },
 {
 "file": "69_cleanup.png",
-"champion": "Camille (Coven, fan-style semireal - white ponytail, ravens, leg blades)",
+"champion": "Akali",
 "style_band": "painterly-semireal",
 "palette": "ash white-gray field; crimson bodice, teal feathers, magenta straps; cold desaturated grade",
 "lighting": "overcast diffuse white, purple glow from crystal blades",
