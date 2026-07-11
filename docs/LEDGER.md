@@ -27,6 +27,29 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+16. DONE **2026-07-11 (lw-gen QA floors calibrated + recipe v2 iteration; commit 2894e0b + docs this).**
+   Built on item 15's LOCKED recipe. TWO shippable outcomes plus a seeded next-session task.
+   (a) QA-FLOOR CALIBRATION (commit 2894e0b): measured the real ClipScorer on a Vayne candidate
+   sweep (n=6 tuned good + proto + official-skin + non-vayne anchors). Set floors from the real
+   distribution - T_subj 0.26 (kept; midpoint good-min 0.275 vs non-vayne-max 0.247), T_margin
+   0.05 -> 0.045 (good-min 0.051 was on the line), T_blur 100.0 -> 150.0 (good lap 232-663; mild
+   r=1 blur crashes to ~52, validated by a blur sweep), T_aes 0.45 kept but DOCUMENTED as a
+   non-discriminative no-op (all content scores 0.500-0.504). Live re-grade: 6/6 good PASS;
+   proto misses + non-vayne + blurred all REJECT with the right reason. Test updated
+   (_note_T_blur -> _note_qa_calibration); gen suite 67/67 green. (b) RECIPE v2 iteration
+   (operator-in-the-loop sweep, docs this commit): controlnet_scale tight (1.10) rejected,
+   loose-mid (0.35-0.55) wins; POSE SOURCE is the lever (curated skel_01 >> default crouch);
+   fixed a 156-vs-77-token PROMPT TRUNCATION dropping the Animagine quality tags; feminine cues
+   + male/androgynous negatives fixed a male-read; clean-DoF prompt removed FX chaos. Recipe v2
+   reliably yields canonical feminine clean-DoF Vayne but raw single-pass PLATEAUS at "good fan
+   splash". (c) QA GATE FINDING: global lap_var is confounded by DoF (operator accepted seed22
+   which the gate wrongly rejected as blurry) - needs a subject/face-region sharpness fix (deferred
+   engine work). Docs: GEN_RETUNE.md (calibration + recipe v2 + gate finding), new
+   GOLDEN_DEFINITION.md (operator seed critique + failure taxonomy: WEAPON is the #1 blocker,
+   then hands/face/glasses/kit). FUTURE / next session: fable-5 ultraplan + adversarial full-res
+   review to develop the golden rubric + iterative path. DO NOT REDO the recipe knob sweep or the
+   QA calibration (both shipped this session).
+
 15. DONE **2026-07-11 (lw-gen provisioned + retuned to the Animagine + ControlNet-OpenPose
    winning recipe; commits 7d6a3ca 5aec00d cc2875a e35ea14 f67c8f4 065679b e7f98ea d77dbe2
    8e30892 f0ac578).** Built on item 14's sidecar. Provisioned .venv-gen (torch 2.11 cu128 +

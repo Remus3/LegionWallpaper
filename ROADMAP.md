@@ -8,16 +8,18 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: iterate THRESHOLDS on the winning recipe (NOW - next session).** Recipe
-  LOCKED (LEDGER 15): Animagine XL 4.0 + ControlNet-OpenPose (skeleton from a real
-  splash) + cowboy-shot detail-tag booru prompt = sharp, natural-pose, correct-hand,
-  canonical clean-glasses anime splashes (production quality on Vayne). Next: dial in the
-  knobs against the archetype rubric (`docs/research/GEN_RETUNE.md`) - `controlnet_scale`
-  (0.75), `img2img_strength`, cfg/steps, and the QA floors in `lw_gen_config.json` qa{}
-  (T_subj .26 / T_margin .05 / T_aes .45 / T_blur 100.0). Then per-candidate skeleton
-  cycling (pose variety in one batch) + a full QA+promote pass into 0.Originals. Verify:
-  `py tools/lw_gen_run.py --brief briefs/vayne_animagine.json --model-path <animagine> --controlnet-pose <real splash>`.
-  DO NOT REDO base/model/ControlNet choices or the img2img/hand-detection paths (settled).
+- **lw-gen: develop the GOLDEN DEFINITION + iterative path (NOW - next session, fable-5 ultraplan).**
+  Recipe is LOCKED + v2-dialed and QA floors are calibrated (LEDGER 16, commit 2894e0b) - do NOT
+  re-run the knob sweep or the calibration. Raw single-pass SDXL PLATEAUS at "good fan splash";
+  golden needs a rubric + iterative finish passes. Next: fable-5 ultraplan + adversarial FULL-RES
+  review over the repo + the accepted "barely okay" images to develop the golden rubric and design
+  the iterative path. Seed material: `docs/research/GOLDEN_DEFINITION.md` (operator seed critique +
+  failure taxonomy - WEAPON is the #1 blocker: Vayne's wrist crossbow almost never renders; then
+  hands/face/eye-clarity/glasses/kit). Accepted reference set: `images/_gen_scratch/exp3_clean/`
+  seed22 + seed33, `exp4_volume/seed800`, `vayne-controlnet-proto/cand_01`+`cand_02`. Also FIX the
+  QA sharpness metric (global lap_var is confounded by DoF - needs a subject/face-region measure in
+  `tools/lw_gen_qa.py`; see GEN_RETUNE.md). Recipe v2 strings: `images/_gen_scratch/exp3_clean/index.json`.
+  Acceptance: a written golden rubric + a concrete iterative-pass plan (weapon fix first).
 
 - **Re-source the 4 ingest messups - MANUAL (NOW).** `xayah1`, `camille1`,
   `kaisa1`, `fiora1` (1920x1173, a ~210px strip of a different image pasted on

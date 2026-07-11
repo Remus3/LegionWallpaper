@@ -88,6 +88,40 @@ GENERATION KNOBS (controlnet_scale 0.75 / cfg / steps) left at the LOCKED-recipe
 defaults - the tuned batch already hits the operator bar; a by-eye sweep is deferred
 to a session where the operator can rank variants live (operator = canonical judge).
 
+## WINNING RECIPE v2 + knob sweep (2026-07-11) - clean-DoF, feminine, pose-sourced
+Operator-in-the-loop sweep this session (exp2/exp3/exp4 in images/_gen_scratch/).
+Findings that supersede the earlier "generation knobs deferred" note:
+- controlnet_scale: TIGHT (1.10) is OUT (stiff, locks to the ref pose, reads worse);
+  LOOSE-to-mid (0.35-0.55) wins. cn ~0.55 is the working default. The aesthetic wants
+  Animagine to compose freely, not be pose-locked.
+- POSE SOURCE is the real lever, not scale. The default-skin skeleton (vayne_00 crouch)
+  produced awkward posing; a curated GOOD single-figure skeleton (proto skel_01, a clean
+  leap) fixed it. NOTE: `_extract_pose` runs ONCE per batch - all candidates share one
+  skeleton; pose VARIETY still needs the deferred per-candidate skeleton-cycling feature.
+- PROMPT TRUNCATION was silently dropping half the brief: the positive was 156 tokens vs
+  CLIP's 77 limit, so the Animagine quality tags (masterpiece/absurdres) + posing vocab at
+  the tail were CUT. Fix = a lean <77-token prompt with identity + FEMININE cues + quality
+  tags up front. This also fixed a "reads slightly male" failure (add feminine cues early +
+  male/androgynous to negatives).
+- CLEANER COMPOSITION: "depth of field, blurred background, negative space" + negatives for
+  cluttered/busy-background + effect-spam removed the chaotic energy-streak look, giving
+  focal hero shots (operator preferred these).
+- The v2 recipe (lean feminine clean-DoF prompt + skel_01 + cn 0.55 + male/androgynous
+  negatives) reliably yields canonical feminine clean-DoF Vayne. Exact strings live in
+  images/_gen_scratch/exp3_clean/index.json (throwaway scratch; promote into
+  briefs/lw_gen_styles.json when the recipe is locked for production).
+- PLATEAU: even dialed, raw single-pass SDXL tops out at "good fan splash". Golden needs a
+  finish pass + per-element correctness (weapon above all) - see GOLDEN_DEFINITION.md.
+
+## QA GATE FINDING - sharpness metric is confounded by DoF (fix needed)
+The operator accepted exp3/seed22, which the gate REJECTED as blurry (global lap_var 111
+< T_blur 150). Root cause: `lap_var` is a WHOLE-IMAGE metric, so an intentionally blurred
+DoF background drags it down even when the SUBJECT/FACE is crisp. A center-upper crop
+(x 25-75%, y 5-65%) sharpness proxy ranked the DoF hero shots correctly in the throwaway
+judge (scratchpad/pool_judge.py). FIX (deferred engine work): replace/augment lap_var with
+a subject/face-region sharpness measure in tools/lw_gen_qa.py before trusting the blur gate
+on the clean-DoF aesthetic. Until then T_blur=150 will false-reject good DoF compositions.
+
 ## Root causes of the rejects
 1. RealVisXL photoreal base pulls output toward photography / plastic-SSS skin, not
    painterly key art. 2. No champion-identity conditioning -> generic/wrong faces
