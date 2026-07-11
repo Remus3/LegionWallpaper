@@ -340,7 +340,7 @@ def _load_pipeline(config, model_abs, fast):
     """Lazily build a diffusers text2image pipeline. Heavy imports live here."""
     try:
         import torch  # noqa: F401
-        from diffusers import AutoPipelineForText2Image
+        from diffusers import StableDiffusionXLPipeline
     except Exception as exc:  # noqa: BLE001 - degrade, never dump a raw import error
         raise GenError(
             "generator backend unavailable (torch/diffusers not importable in "
@@ -348,13 +348,16 @@ def _load_pipeline(config, model_abs, fast):
             code=4,
         ) from exc
     try:
-        pipe = AutoPipelineForText2Image.from_single_file(
+        pipe = StableDiffusionXLPipeline.from_single_file(
             model_abs, torch_dtype=torch.bfloat16
         )
-        pipe = pipe.to("cuda")
         gen = config.get("gen") or {}
+        # cpu-offload manages device placement itself; calling .to("cuda") first
+        # conflicts with it, so only move to cuda on the all-resident fast path.
         if gen.get("offload", True) and not fast:
             pipe.enable_model_cpu_offload()
+        else:
+            pipe = pipe.to("cuda")
         if gen.get("tiled_vae", True) and hasattr(pipe, "vae"):
             try:
                 pipe.vae.enable_tiling()

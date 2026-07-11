@@ -1,9 +1,10 @@
 {
-  "model_path": "tools/models/PLACEHOLDER_gen_checkpoint.safetensors",
-  "_note_model_path": "No weight is downloaded yet - this is a placeholder path. See docs/GEN_MODELS.md Phase-0 setup (operator-run, permission-gated multi-GB download).",
+  "model_path": "tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors",
+  "_note_model_path": "RealVisXL V5.0 fp16 (approach A, openrail++, ungated) downloaded 2026-07-10 - see docs/GEN_MODELS.md. Loaded via AutoPipelineForText2Image.from_single_file. Approach B (base SDXL + splash LoRA) not yet staged; add if the by-eye spike shows the finetune is not painterly enough.",
   "lora_path": null,
-  "clip_model": "ViT-L-14",
+  "clip_model": "ViT-L-14-quickgelu",
   "clip_pretrained": "openai",
+  "_note_clip_model": "MUST be the -quickgelu variant for the 'openai' pretrained weights: OpenAI CLIP was trained with QuickGELU activations. Plain 'ViT-L-14' + 'openai' warns 'QuickGELU mismatch' and degrades subject-QA accuracy (verified live 2026-07-10).",
   "sampler": {
     "name": "dpmpp_2m_sde",
     "scheduler": "karras",
@@ -58,8 +59,8 @@
     "processes": [
       "LeagueClient.exe",
       "LeagueClientUx.exe",
-      "League of Legends.exe",
-      "RiotClientServices.exe"
+      "League of Legends.exe"
     ]
-  }
+  },
+  "_note_rc_live": "Gate lists ONLY the VRAM-contending game/client processes. RiotClientServices.exe was REMOVED 2026-07-11: it is a background launcher service that lingers idle after the game closes and uses ~0 GPU, so gating on it would permanently block gen on any box with the Riot client installed (Vanguard vgtray/vgc are anti-cheat, never GPU, and are also excluded). Verified live: game closed + RiotClientServices resident -> nvidia-smi showed 554 MiB used / 11390 MiB free. The operator's locked hard-gate intent is VRAM contention by the actual game, which this list now matches. Future: a direct free-VRAM-threshold check would be a more robust gate."
 }

@@ -6,10 +6,14 @@ themselves are gitignored (`tools/models/*`, `.venv-*`) - the PROCESS is tracked
 the multi-GB binaries never are (same discipline as `images/**` and the recovery
 corpus).
 
-STATUS 2026-07-10: NO WEIGHTS DOWNLOADED YET. The rows below are EMPTY templates
-to fill in on download. Every download is operator-run and permission-gated (see
-Phase-0 setup). Record the model/version/license/sha256 line BEFORE the download,
-not "confirmed later" (plan section 9, Licensing/IP).
+STATUS 2026-07-10: Phase-0 provisioning IN PROGRESS (operator-authorized 2026-07-10).
+.venv-gen built (torch 2.11.0+cu128, torchvision 0.26.0+cu128, diffusers 0.39.0);
+open-clip-torch 3.3.0 installed into .venv-metrics (torch pin held at 2.11.0+cu128).
+Weight downloads under way - the rows below carry model/version/license/source
+recorded BEFORE download per plan section 9; sha256 is filled after each file lands.
+The (12,0) live proof + the by-eye style-fidelity spike are HARD-GATED off until
+League/RC is closed (League was live at provisioning time - downloads are network/
+disk only, so they proceed; GPU work waits).
 
 ---
 
@@ -41,7 +45,8 @@ date (YYYY-MM-DD).
 
 | model | version | source_url | license | sha256 | date | notes |
 |---|---|---|---|---|---|---|
-|  |  |  |  |  |  | (empty - fill on download) |
+| RealVisXL V5.0 | V5.0 fp16 | huggingface.co/SG161222/RealVisXL_V5.0 | openrail++ | 6a35a7855770ae9820a3c931d4964c3817b6d9e3c6f9c4dabb5b3a94e5643b80 | 2026-07-10 | approach A: photoreal-leaning SDXL finetune; ungated; no personal-use restriction (verified live). 6.94 GB, tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors |
+| SDXL base 1.0 | 1.0 fp16 | huggingface.co/stabilityai/stable-diffusion-xl-base-1.0 | CreativeML OpenRAIL++-M | (not downloaded) | - | approach B anchor - DEFERRED. Staged only if the RealVis by-eye spike is not painterly enough; then pull base SDXL + a splash/key-art LoRA |
 
 Placeholder path in `tools/lw_gen_config.json`:
 `tools/models/<PLACEHOLDER checkpoint>.safetensors`. No weight is downloaded yet;
@@ -64,7 +69,7 @@ Config key `lora_path` is `null` until a LoRA is adopted.
 
 | model | version | source_url | license | sha256 | date | notes |
 |---|---|---|---|---|---|---|
-| ViT-L-14 | openai | (open_clip pretrained tag) | (per open-clip / OpenAI CLIP terms) |  |  | ~1.7GB weight; the existing pyiqa/clipiqa import is BROKEN, so this is a fresh install |
+| ViT-L-14-quickgelu | openai (open-clip-torch 3.3.0) | open-clip-torch pretrained "openai" | MIT (open-clip-torch); OpenAI CLIP weight terms | (cached ~1.7GB) | 2026-07-10 | INSTALLED + weight prefetched into .venv-metrics (427.6M params load clean); torch pin held at 2.11.0+cu128. MUST be the -quickgelu variant: plain ViT-L-14 warns QuickGELU-mismatch and degrades subject-QA. Replaces the BROKEN pyiqa/clipiqa import |
 
 ---
 

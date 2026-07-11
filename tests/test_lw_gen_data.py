@@ -133,9 +133,16 @@ def test_config_rc_live_block():
     assert isinstance(procs, list)
     for p in (
         "LeagueClient.exe", "LeagueClientUx.exe",
-        "League of Legends.exe", "RiotClientServices.exe",
+        "League of Legends.exe",
     ):
         assert p in procs, f"rc_live process missing: {p}"
+    # RiotClientServices.exe is DELIBERATELY excluded: it is a non-GPU background
+    # launcher that lingers idle after the game closes, so gating on it would
+    # permanently block gen on any box with the Riot client installed (see the
+    # _note_rc_live key in the config). Vanguard (vgtray/vgc) is likewise excluded.
+    assert "RiotClientServices.exe" not in procs
+    for anti_cheat in ("vgtray.exe", "vgc.exe"):
+        assert anti_cheat not in procs
 
 
 def test_config_top_k():
