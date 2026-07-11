@@ -29,11 +29,12 @@
   },
   "qa": {
     "T_subj": 0.26,
-    "T_margin": 0.05,
+    "T_margin": 0.045,
     "T_aes": 0.45,
-    "T_blur": 100.0
+    "T_blur": 150.0
   },
-  "_note_T_blur": "T_blur is a NEW no-ref laplacian-variance floor (grayscale). Phase-2 calibration PLACEHOLDER - 100.0 is a seed value, re-calibrate on a real candidate sweep before trusting the blurry-reject gate.",
+  "_note_qa_calibration": "Calibrated 2026-07-11 on a real Vayne candidate sweep (Animagine + ControlNet-OpenPose tuned batch, n=6 good + proto + official-skin + non-vayne anchors; scores recorded in docs/research/GEN_RETUNE.md). T_subj 0.26 = clean midpoint (good-min subject_cos 0.275 vs non-vayne-max 0.247; also correctly rewards canonical-default Vayne over off-canonical alt-skins). T_margin loosened 0.05 -> 0.045 (good-cluster min margin was 0.051, right on the line; 0.045 gives borderline-good breathing room and still rejects the observed 0.043 near-miss). T_blur raised 100.0 -> 150.0 from the seed placeholder: good-cluster lap_var 232-663, a mild r=1 Gaussian blur crashes lap to ~52, so 150 sits safely between (validated by a blur sweep on the sharpest candidate; reason correctly reports 'blurry' with subject still readable).",
+  "_note_T_aes": "T_aes is currently a PERMISSIVE NO-OP. The aesthetic scorer (CLIP softmax over high/low-quality text) is non-discriminative on this content - every image (good gen, blurred, real photo, official skin) scores 0.500-0.504 (measured 2026-07-11). Keep T_aes well below 0.50; raising it toward the cluster would reject at random, not by quality. A real aesthetic/degenerate discriminator is DEFERRED (see GEN_RETUNE.md DEFERRED: aesthetic-predictor-v2).",
   "distractors": [
     "Darius",
     "Garen",

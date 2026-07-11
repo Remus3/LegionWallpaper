@@ -59,6 +59,35 @@ photoreal (RealVis wrong feel), uncanny valley. Fix with DEPTH, cheapest lever f
     single-figure refs (skip multi-body). FOLLOW-UP: per-candidate skeleton cycling across a
     champion's skins for pose variety in one batch.
 
+## QA-FLOOR CALIBRATION (2026-07-11) - gate now accepts good / rejects bad
+Measured the real ClipScorer on the tuned batch (n=6 good) + proto + official skins
++ non-vayne anchors. Raw scores (subject_cos / off_cos / margin / aesthetic / lap_var):
+- GOOD tuned cand_00..05: subj 0.275-0.288, margin 0.051-0.071, aes 0.502-0.504,
+  lap 232-663. All 6 PASS.
+- non-vayne (other-champion firstdone): subj 0.207-0.247, margin -0.058..0.003. REJECT.
+- official skins: default 0.294 PASS; Heartseeker 0.228 + Sentinel 0.258 REJECT. The
+  gate rewards CANONICAL-DEFAULT Vayne, not off-canonical reskins - correct for our
+  default-look target; generated candidates outscore 2 of 3 real alt-skins.
+Floors set (tools/lw_gen_config.json qa{}):
+- T_subj 0.26 (unchanged) - clean midpoint: good-min 0.275 vs non-vayne-max 0.247.
+- T_margin 0.05 -> 0.045 - good-min margin 0.051 was on the line; 0.045 protects
+  borderline-good (cand_03) and still rejects the observed 0.043 near-miss.
+- T_aes 0.45 (unchanged) - DEAD GATE: the CLIP high/low-quality softmax scores
+  EVERYTHING 0.500-0.504 (no discriminative power). Keep permissive; never raise
+  toward 0.50. A real aesthetic/degenerate scorer is deferred (see DEFERRED).
+- T_blur 100.0 -> 150.0 - good-cluster lap 232-663; a mild r=1 Gaussian blur crashes
+  lap to ~52, so 150 sits safely between. Blur sweep on the sharpest candidate
+  confirmed: sharp PASS, any blur -> REJECT 'blurry' (subject still readable, so
+  Stage A passes and Stage B isolates the blur).
+- Live re-grade under the new floors: 6/6 good PASS; proto misses, non-vayne, and a
+  synthetically-blurred candidate all REJECT with the correct reason.
+INERT BRIEF FIELDS (follow-up): briefs/*.json qa_subject_floor / qa_margin_floor are
+NOT read by lw_gen_run (it never writes manifest qa_overrides); the gate uses config
+qa{} ONLY. Wiring per-brief QA overrides is a deferred engine follow-up.
+GENERATION KNOBS (controlnet_scale 0.75 / cfg / steps) left at the LOCKED-recipe
+defaults - the tuned batch already hits the operator bar; a by-eye sweep is deferred
+to a session where the operator can rank variants live (operator = canonical judge).
+
 ## Root causes of the rejects
 1. RealVisXL photoreal base pulls output toward photography / plastic-SSS skin, not
    painterly key art. 2. No champion-identity conditioning -> generic/wrong faces

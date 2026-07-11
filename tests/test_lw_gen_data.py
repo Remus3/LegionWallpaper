@@ -100,12 +100,13 @@ def test_config_qa_thresholds():
         assert isinstance(qa[key], (int, float))
 
 
-def test_config_t_blur_placeholder_note():
-    # The T_blur Phase-2 calibration note must ride as a sibling string key
-    # (JSON cannot hold comments).
+def test_config_qa_calibration_note():
+    # The QA-floor calibration rationale must ride as a sibling string key (JSON
+    # cannot hold comments). T_blur was calibrated off its seed placeholder on a
+    # real candidate sweep 2026-07-11; the note records the provenance + floors.
     _, cfg = _load(CONFIG_PATH)
-    assert "_note_T_blur" in cfg
-    assert isinstance(cfg["_note_T_blur"], str)
+    assert "_note_qa_calibration" in cfg
+    assert isinstance(cfg["_note_qa_calibration"], str)
 
 
 def test_config_distractors():
