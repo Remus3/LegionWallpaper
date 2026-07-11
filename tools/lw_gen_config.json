@@ -2,6 +2,8 @@
   "model_path": "tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors",
   "_note_model_path": "RealVisXL V5.0 fp16 (approach A, openrail++, ungated) downloaded 2026-07-10 - see docs/GEN_MODELS.md. Loaded via AutoPipelineForText2Image.from_single_file. Approach B (base SDXL + splash LoRA) not yet staged; add if the by-eye spike shows the finetune is not painterly enough.",
   "lora_path": null,
+  "controlnet_openpose_path": "tools/models/controlnet-openpose-sdxl",
+  "_note_controlnet": "ControlNet-OpenPose SDXL (xinsir) for pose control. Pass --controlnet-pose <real splash> to extract a skeleton (natural pose + correct hand chirality) and keep sharp txt2img detail. Needs controlnet_aux (installed in .venv-gen).",
   "clip_model": "ViT-L-14-quickgelu",
   "clip_pretrained": "openai",
   "_note_clip_model": "MUST be the -quickgelu variant for the 'openai' pretrained weights: OpenAI CLIP was trained with QuickGELU activations. Plain 'ViT-L-14' + 'openai' warns 'QuickGELU mismatch' and degrades subject-QA accuracy (verified live 2026-07-10).",

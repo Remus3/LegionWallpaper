@@ -39,6 +39,25 @@ photoreal (RealVis wrong feel), uncanny valley. Fix with DEPTH, cheapest lever f
 - TWO VIABLE RECIPES: (A) RealVis + img2img-from-real = semi-realistic canonical; (B) Animagine
   + booru tags = anime-flat canonical (operator's current preference). Same run/qa/promote
   plumbing; only base + style + prompt-vocab differ.
+- POSE + HANDS + CLARITY (operator 2026-07-11: "right hand = 2nd left hand; body positioning
+  unnatural; keep detail HIGH, champion is the centerpiece; faces went blotchy/blurry"). Deep
+  ArtStation posing research -> the DURABLE FIX = ControlNet-OpenPose. Findings:
+  * img2img fixes pose but BLURS faces (blends a semi-realistic source) - rejected for the
+    clarity-critical face. Hand DETECTION (YOLO) is unreliable on painterly hands - dead end.
+  * Hand chirality (mirrored/second-left-hand) is NOT fixable by negatives - only by STRUCTURE.
+    Riot hand formula: hands unified on one weapon / one occluded / gloved (composes ambiguity
+    away). Encoded in the prompt.
+  * WINNING RECIPE = Animagine + ControlNet-OpenPose (xinsir SDXL) skeleton extracted from a
+    real splash (controlnet_aux OpenposeDetector hand_and_face=True) + cowboy-shot detail-tag
+    booru prompt. This is TXT2IMG (keeps Animagine's SHARP high detail - no blur) conditioned
+    on the skeleton -> natural pro pose + correct hand chirality + large crisp detailed face.
+    Batch vayne-controlnet-tuned (cand_05 etc.) = production quality, hits the operator bar.
+  * Prompt now carries ArtStation posing vocab (line-of-action/twist/contrapposto/from-below/
+    cowboy-shot) + detail tags (detailed face/eyes/skin, sharp focus); negatives kept LEAN.
+  * Integrated into lw_gen_run: --controlnet-pose <ref> / --controlnet-scale (config
+    controlnet_openpose_path). Skeleton with >1 body -> duplicate-figure glitch; curate
+    single-figure refs (skip multi-body). FOLLOW-UP: per-candidate skeleton cycling across a
+    champion's skins for pose variety in one batch.
 
 ## Root causes of the rejects
 1. RealVisXL photoreal base pulls output toward photography / plastic-SSS skin, not

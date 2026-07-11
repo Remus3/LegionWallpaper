@@ -145,6 +145,12 @@ def resolve_plan(cli, config, styles, brief=None):
         if init_rel else None
     )
     plan["img2img_strength"] = float(pick("img2img_strength", 0.55))
+    cn_rel = pick("controlnet_pose", None)
+    plan["controlnet_pose"] = (
+        (cn_rel if os.path.isabs(cn_rel) else os.path.join(ROOT, cn_rel))
+        if cn_rel else None
+    )
+    plan["controlnet_scale"] = float(pick("controlnet_scale", 0.75))
     if plan["n"] < 1:
         raise GenError("n must be >= 1", code=2)
     if plan["max_regen_rounds"] < 1:
@@ -342,11 +348,11 @@ def build_manifest(plan, config, style_def, res, pos, neg, batch_id, fast):
 # --------------------------------------------------------------------------
 # Generation (LAZY torch/diffusers - never reached in CI).
 # --------------------------------------------------------------------------
-def _load_pipeline(config, model_abs, fast):
-    """Lazily build a diffusers text2image pipeline. Heavy imports live here."""
+def _load_pipeline(config, model_abs, fast, controlnet_path=None):
+    """Lazily build a diffusers text2image pipeline, optionally ControlNet-conditioned
+    (OpenPose skeleton control). Heavy imports live here."""
     try:
         import torch  # noqa: F401
-        from diffusers import StableDiffusionXLPipeline
     except Exception as exc:  # noqa: BLE001 - degrade, never dump a raw import error
         raise GenError(
             "generator backend unavailable (torch/diffusers not importable in "
@@ -354,9 +360,21 @@ def _load_pipeline(config, model_abs, fast):
             code=4,
         ) from exc
     try:
-        pipe = StableDiffusionXLPipeline.from_single_file(
-            model_abs, torch_dtype=torch.bfloat16
-        )
+        if controlnet_path:
+            from diffusers import ControlNetModel, StableDiffusionXLControlNetPipeline
+            cn_abs = (controlnet_path if os.path.isabs(controlnet_path)
+                      else os.path.join(ROOT, controlnet_path))
+            if not os.path.exists(cn_abs):
+                raise GenError(f"controlnet model not found: {controlnet_path}", code=4)
+            controlnet = ControlNetModel.from_pretrained(cn_abs, torch_dtype=torch.bfloat16)
+            pipe = StableDiffusionXLControlNetPipeline.from_single_file(
+                model_abs, controlnet=controlnet, torch_dtype=torch.bfloat16
+            )
+        else:
+            from diffusers import StableDiffusionXLPipeline
+            pipe = StableDiffusionXLPipeline.from_single_file(
+                model_abs, torch_dtype=torch.bfloat16
+            )
         # Optional subject LoRA (sharpens a specific champion's identity). Applied
         # before device placement / offload. lora_path may be a dir or a
         # .safetensors file; both are accepted by load_lora_weights.
@@ -385,13 +403,25 @@ def _load_pipeline(config, model_abs, fast):
         raise GenError(f"could not load the generator model: {exc}", code=4) from exc
 
 
+def _extract_pose(ref_abs, res):
+    """Extract an OpenPose skeleton (with hand keypoints) from a real splash, sized to
+    res, for ControlNet pose conditioning. Lazy controlnet_aux import - never in CI."""
+    from controlnet_aux import OpenposeDetector
+    from PIL import Image
+    detector = OpenposeDetector.from_pretrained("lllyasviel/Annotators")
+    img = Image.open(ref_abs).convert("RGB").resize((res[0], res[1]))
+    return detector(img, hand_and_face=True, output_type="pil").resize((res[0], res[1]))
+
+
 def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir,
-                         count, round_no, start_index, init_image=None):
+                         count, round_no, start_index, init_image=None,
+                         control_image=None):
     """Generate `count` candidate PNGs; return their manifest candidate dicts.
 
-    When init_image is given, `pipe` is an image2image pipeline and generation is
-    seeded from that real reference (inherits its painterly value structure, pose,
-    palette, and hand anatomy) at plan['img2img_strength']."""
+    When control_image is given, `pipe` is a ControlNet pipeline conditioned on an
+    OpenPose skeleton (natural pose + correct hand chirality, sharp txt2img detail) at
+    plan['controlnet_scale']. Else when init_image is given, `pipe` is image2image
+    seeded from a real reference at plan['img2img_strength']. Else plain txt2img."""
     sampler = style_def.get("sampler") or config.get("sampler") or {}
     steps = int(sampler.get("steps", 30))
     base_cfg = float(sampler.get("cfg", 5.5))
@@ -411,7 +441,16 @@ def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir
         try:
             import torch
             generator = torch.Generator(device="cuda").manual_seed(seed)
-            if init_image is not None:
+            if control_image is not None:
+                image = pipe(
+                    prompt=round_pos, negative_prompt=neg,
+                    image=control_image,
+                    controlnet_conditioning_scale=float(plan.get("controlnet_scale", 0.75)),
+                    width=res[0], height=res[1],
+                    num_inference_steps=steps, guidance_scale=cfg,
+                    generator=generator,
+                ).images[0]
+            elif init_image is not None:
                 image = pipe(
                     prompt=round_pos, negative_prompt=neg,
                     image=init_image,
@@ -491,6 +530,8 @@ def run(args, config=None, styles=None):
         "max_regen_rounds": args.max_regen_rounds, "top_k": args.top_k,
         "init_image": getattr(args, "init_image", None),
         "img2img_strength": getattr(args, "img2img_strength", None),
+        "controlnet_pose": getattr(args, "controlnet_pose", None),
+        "controlnet_scale": getattr(args, "controlnet_scale", None),
     }
     brief = load_brief(args.brief) if args.brief else {}
     plan = resolve_plan(cli, config, styles, brief)
@@ -534,21 +575,35 @@ def run(args, config=None, styles=None):
     manifest_path = os.path.join(batch_dir, "gen_manifest.json")
 
     model_abs = os.path.join(ROOT, config["model_path"])
-    pipe = _load_pipeline(config, model_abs, args.fast)
 
-    # img2img: seed from a real reference splash (inherits painterly value structure,
-    # pose, palette, and hand anatomy). Derive an image2image pipe from the loaded
-    # base (from_pipe reuses weights - zero extra VRAM). Heavy imports stay lazy.
+    # ControlNet-OpenPose (natural pose + correct hand chirality, keeping sharp txt2img
+    # detail): extract a skeleton from a real splash and condition on it. Takes
+    # precedence over img2img. config.controlnet_openpose_path = the ControlNet model dir.
+    control_image = None
     init_image = None
-    if plan.get("init_image"):
-        if not os.path.exists(plan["init_image"]):
-            raise GenError(f"init_image not found: {plan['init_image']}", code=2)
-        from PIL import Image
-        from diffusers import AutoPipelineForImage2Image
-        init_image = Image.open(plan["init_image"]).convert("RGB").resize(
-            (res[0], res[1])
-        )
-        pipe = AutoPipelineForImage2Image.from_pipe(pipe)
+    if plan.get("controlnet_pose"):
+        if not os.path.exists(plan["controlnet_pose"]):
+            raise GenError(f"controlnet_pose ref not found: {plan['controlnet_pose']}", code=2)
+        cn_path = config.get("controlnet_openpose_path")
+        if not cn_path:
+            raise GenError(
+                "controlnet_pose set but config.controlnet_openpose_path is missing", code=4
+            )
+        pipe = _load_pipeline(config, model_abs, args.fast, controlnet_path=cn_path)
+        control_image = _extract_pose(plan["controlnet_pose"], res)
+    else:
+        pipe = _load_pipeline(config, model_abs, args.fast)
+        # img2img: seed from a real reference splash (inherits pose, palette, hands).
+        # Derive an image2image pipe from the loaded base (from_pipe reuses weights).
+        if plan.get("init_image"):
+            if not os.path.exists(plan["init_image"]):
+                raise GenError(f"init_image not found: {plan['init_image']}", code=2)
+            from PIL import Image
+            from diffusers import AutoPipelineForImage2Image
+            init_image = Image.open(plan["init_image"]).convert("RGB").resize(
+                (res[0], res[1])
+            )
+            pipe = AutoPipelineForImage2Image.from_pipe(pipe)
 
     metrics_py = _venv_python(config, "metrics")
     qa_script = os.path.join(ROOT, "tools", "lw_gen_qa.py")
@@ -562,6 +617,7 @@ def run(args, config=None, styles=None):
         new_cands = _generate_candidates(
             pipe, plan, style_def, config, res, pos, neg, batch_dir,
             needed, round_no, produced, init_image=init_image,
+            control_image=control_image,
         )
         produced += len(new_cands)
         manifest["candidates"].extend(new_cands)
@@ -639,6 +695,11 @@ def build_parser():
                    help="img2img denoise strength 0-1 (default 0.55; lower = closer to reference)")
     p.add_argument("--model-path", dest="model_path", default=None,
                    help="override config model_path (test an alternate base checkpoint)")
+    p.add_argument("--controlnet-pose", dest="controlnet_pose", default=None,
+                   help="ControlNet-OpenPose: real splash to extract a pose skeleton from "
+                        "(natural pose + correct hands, sharp txt2img)")
+    p.add_argument("--controlnet-scale", dest="controlnet_scale", type=float, default=None,
+                   help="ControlNet conditioning scale 0-1 (default 0.75)")
     return p
 
 
