@@ -5,6 +5,28 @@ is BOTH the generation-steering rubric AND the similarity/acceptance rubric. The
 operator rejected the first results: non-canonical faces, broken hands/fingers, too
 photoreal (RealVis wrong feel), uncanny valley. Fix with DEPTH, cheapest lever first.
 
+## LIVE FINDINGS (2026-07-11) - the winning recipe
+- STEP 1 (painterly prompt rewrite + cfg 5.0): FIXED "too photoreal" + uncanny. Vayne
+  became painterly + canonically recognizable (round tinted glasses cue landed). But
+  palette drifted (gold/silver instead of navy+crimson) and un-occluded HANDS stayed
+  broken (cand_05 clawed fingers).
+- HAND DETECTION IS A DEAD END on painterly art: ultralytics hand_yolov8s detected 0
+  hands on the worst broken-hand image and only 1 low-conf box elsewhere. A
+  detect->inpaint loop cannot repair hands it cannot see. Detection-repair DEPRIORITIZED
+  (matches the critique's warning). YOLO models are downloaded (tools/models/yolo/) if a
+  future occluded-hand pass wants them.
+- STEP 2 (img2img from a REAL reference splash, StableDiffusionXLImg2ImgPipeline via
+  AutoPipelineForImage2Image.from_pipe, strength 0.55) = THE WIN. Seeding from
+  tools/models/lora_datasets/vayne/vayne_00_default.jpg simultaneously: locks the
+  canonical navy+CRIMSON palette, inherits a canonical dynamic pose, keeps the painterly
+  style, AND materially improves hands (inherits real anatomy - no detection needed).
+  Output (batch vayne-splash-20260711014930) reads like an actual Vayne splash. This is
+  the base recipe: PAINTERLY PROMPT + IMG2IMG-FROM-REAL-REFERENCE.
+- REMAINING POLISH (not blockers): all candidates in a run share ONE init image (add
+  per-candidate init cycling across the champion's skins for variety); a few hands still
+  imperfect on close zoom (optional occluded-region touch-up); the similarity/QA gate is
+  not built yet. Face-LoRA likely UNNECESSARY now (img2img already nails identity).
+
 ## Root causes of the rejects
 1. RealVisXL photoreal base pulls output toward photography / plastic-SSS skin, not
    painterly key art. 2. No champion-identity conditioning -> generic/wrong faces

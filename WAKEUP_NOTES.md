@@ -46,16 +46,22 @@ has the archetype rubric + ordered priority plan):**
   5.5->5.0. Vayne n=8 txt2img (batch vayne-splash-20260711013929) = photoreal->PAINTERLY
   FIXED, uncanny FIXED, canonically recognizable (round tinted glasses cue landed, navy
   palette, bat-wing pauldrons, dark updo, sharp face). 3 of 4 operator complaints fixed.
-- REMAINING: HANDS/FINGERS still broken (cand_05 clawed fingers) - the #1 named reject.
-- NEXT BUILD = HAND-REPAIR loop (GEN_RETUNE.md priority 5): ultralytics YOLO hand-detect
-  (Bingsu/adetailer hand_yolov8s.pt from HF) -> dilated feathered mask -> diffusers
-  AutoPipelineForInpainting.from_pipe(base_pipe) re-roll each hand -> composite -> YOLO
-  verify; IOPaint fallback. Mirrors the proven cleaning-pass ultralytics loop. Insert
-  after gen, before QA. ultralytics is pure-pip (add to .venv-gen), no Blackwell issue.
-  THEN: minimal style-score QA (CSD/paint-vs-photo soft rank) + face-LoRA on ONE canonical
-  Vayne skin only-if-needed + full Vayne demo A/B vs real refs + operator review.
-- DO NOT rebuild: img2img/ControlNet/IP-adapter/detect-venv/DINOv3/facenet are DEFERRED
-  (critique: over-scoped); escalate to them ONLY if hand-repair + prompt aren't enough.
+- STEP 2 IMG2IMG = THE WIN (lw_gen_run img2img via AutoPipelineForImage2Image.from_pipe,
+  --init-image + --img2img-strength; baked into briefs/vayne.json init_image=vayne_00_default
+  strength 0.55). Batch vayne-splash-20260711014930: seeding from the REAL default splash
+  LOCKED canonical navy+crimson palette + canonical dynamic pose + painterly style AND
+  materially fixed HANDS (inherits real anatomy - no detection needed). cand_00/cand_02
+  read like actual Vayne splashes. ALL 4 operator complaints now addressed.
+- HAND DETECTION DEAD END: ultralytics hand_yolov8s = 0 detections on the worst broken
+  hand; detect->inpaint can't repair unseen hands. YOLO models sit in tools/models/yolo/
+  (unused). DO NOT build the detect-repair loop; img2img already fixes hands.
+- WINNING RECIPE: painterly-prompt + img2img-from-real-reference (a champion's own splash).
+  Face-LoRA now likely UNNECESSARY (img2img nails identity).
+- NEXT (polish, not blockers): per-candidate init cycling across a champion's skins for
+  variety (currently all share one init -> similar poses); optional similarity/QA gate
+  (DINOv2 or CSD soft rank vs the reference bank); full Vayne n=8 demo + operator review.
+  Generalize: any champion = fetch their ddragon splashes (fetch_splashes.py) -> brief with
+  init_image -> gen. See docs/research/GEN_RETUNE.md "LIVE FINDINGS" for the full recipe.
 
 **Continuity/headless:** full authority, commit+push on green. Self-continue across
 sessions via Gemini + AHK (`gemini-headless-upgrade` skill) targeting THIS window

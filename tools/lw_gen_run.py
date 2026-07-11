@@ -139,6 +139,12 @@ def resolve_plan(cli, config, styles, brief=None):
         "max_regen_rounds": int(pick("max_regen_rounds", 1)),
         "top_k": int(pick("top_k", config.get("top_k", 3))),
     }
+    init_rel = pick("init_image", None)
+    plan["init_image"] = (
+        (init_rel if os.path.isabs(init_rel) else os.path.join(ROOT, init_rel))
+        if init_rel else None
+    )
+    plan["img2img_strength"] = float(pick("img2img_strength", 0.55))
     if plan["n"] < 1:
         raise GenError("n must be >= 1", code=2)
     if plan["max_regen_rounds"] < 1:
@@ -380,8 +386,12 @@ def _load_pipeline(config, model_abs, fast):
 
 
 def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir,
-                         count, round_no, start_index):
-    """Generate `count` candidate PNGs; return their manifest candidate dicts."""
+                         count, round_no, start_index, init_image=None):
+    """Generate `count` candidate PNGs; return their manifest candidate dicts.
+
+    When init_image is given, `pipe` is an image2image pipeline and generation is
+    seeded from that real reference (inherits its painterly value structure, pose,
+    palette, and hand anatomy) at plan['img2img_strength']."""
     sampler = style_def.get("sampler") or config.get("sampler") or {}
     steps = int(sampler.get("steps", 30))
     base_cfg = float(sampler.get("cfg", 5.5))
@@ -401,12 +411,21 @@ def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir
         try:
             import torch
             generator = torch.Generator(device="cuda").manual_seed(seed)
-            image = pipe(
-                prompt=round_pos, negative_prompt=neg,
-                width=res[0], height=res[1],
-                num_inference_steps=steps, guidance_scale=cfg,
-                generator=generator,
-            ).images[0]
+            if init_image is not None:
+                image = pipe(
+                    prompt=round_pos, negative_prompt=neg,
+                    image=init_image,
+                    strength=float(plan.get("img2img_strength", 0.55)),
+                    num_inference_steps=steps, guidance_scale=cfg,
+                    generator=generator,
+                ).images[0]
+            else:
+                image = pipe(
+                    prompt=round_pos, negative_prompt=neg,
+                    width=res[0], height=res[1],
+                    num_inference_steps=steps, guidance_scale=cfg,
+                    generator=generator,
+                ).images[0]
             image.save(fpath)
         except GenError:
             raise
@@ -466,6 +485,8 @@ def run(args, config=None, styles=None):
         "aspect": args.aspect, "prompt_extra": args.prompt_extra,
         "negative_extra": args.negative_extra, "seed": args.seed,
         "max_regen_rounds": args.max_regen_rounds, "top_k": args.top_k,
+        "init_image": getattr(args, "init_image", None),
+        "img2img_strength": getattr(args, "img2img_strength", None),
     }
     brief = load_brief(args.brief) if args.brief else {}
     plan = resolve_plan(cli, config, styles, brief)
@@ -511,6 +532,20 @@ def run(args, config=None, styles=None):
     model_abs = os.path.join(ROOT, config["model_path"])
     pipe = _load_pipeline(config, model_abs, args.fast)
 
+    # img2img: seed from a real reference splash (inherits painterly value structure,
+    # pose, palette, and hand anatomy). Derive an image2image pipe from the loaded
+    # base (from_pipe reuses weights - zero extra VRAM). Heavy imports stay lazy.
+    init_image = None
+    if plan.get("init_image"):
+        if not os.path.exists(plan["init_image"]):
+            raise GenError(f"init_image not found: {plan['init_image']}", code=2)
+        from PIL import Image
+        from diffusers import AutoPipelineForImage2Image
+        init_image = Image.open(plan["init_image"]).convert("RGB").resize(
+            (res[0], res[1])
+        )
+        pipe = AutoPipelineForImage2Image.from_pipe(pipe)
+
     metrics_py = _venv_python(config, "metrics")
     qa_script = os.path.join(ROOT, "tools", "lw_gen_qa.py")
     promote_script = os.path.join(ROOT, "tools", "lw_gen_promote.py")
@@ -522,7 +557,7 @@ def run(args, config=None, styles=None):
             break
         new_cands = _generate_candidates(
             pipe, plan, style_def, config, res, pos, neg, batch_dir,
-            needed, round_no, produced,
+            needed, round_no, produced, init_image=init_image,
         )
         produced += len(new_cands)
         manifest["candidates"].extend(new_cands)
@@ -593,6 +628,11 @@ def build_parser():
                    help="override config lora_path (subject LoRA dir or .safetensors)")
     p.add_argument("--no-lora", dest="no_lora", action="store_true",
                    help="force generation with NO subject LoRA (baseline)")
+    p.add_argument("--init-image", dest="init_image", default=None,
+                   help="img2img: seed generation from a real reference splash (path)")
+    p.add_argument("--img2img-strength", dest="img2img_strength", type=float,
+                   default=None,
+                   help="img2img denoise strength 0-1 (default 0.55; lower = closer to reference)")
     return p
 
 
