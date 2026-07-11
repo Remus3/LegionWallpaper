@@ -10,6 +10,47 @@
 
 ---
 
+# 2026-07-11 (lw-gen GENERATOR SIDECAR built + provisioned + Phase-0 proven; then DEEP-RESEARCH RETUNE pivot - HEADLESS)
+
+New sidecar `lw-gen` (generate LoL-champion splash wallpapers -> subject-QA gate
+-> feed 0.Originals). Commits: b2fc3a2 (sidecar run/qa/promote + /generate +
+67 CI-safe tests), 7d6a3ca (Phase-0 provision + live proof), 5aec00d (subject-LoRA
+loading hook + --lora-path/--no-lora).
+
+**Proven live - DO NOT REDO:** `.venv-gen` (torch 2.11 cu128 + diffusers 0.39 +
+peft 0.19 + tensorboard); open-clip `ViT-L-14-quickgelu` QA in `.venv-metrics`
+(plain ViT-L-14 mismatches - MUST be quickgelu); RealVisXL V5.0 fp16 base
+(`tools/models/RealVisXL_V5.0/`, sha in docs/GEN_MODELS.md) + its diffusers-format
+copy `tools/models/realvisxl5_diffusers/`; sm_120 (12,0) gen ~3.4 it/s; the ddragon
+splash-fetcher (chroma-filter + pHash-dedupe, scratchpad `fetch_splashes.py`);
+SDXL LoRA training runs (diffusers `train_dreambooth_lora_sdxl.py` v0.39.0-matched,
+UNet-only rank16 1500 steps ~23 min, fits 1024px in 11GB) - but rank16/1500
+OVERFIT+blurred. rc_live gate lists ONLY the game/client (NOT RiotClientServices/
+Vanguard - those are idle non-GPU). Loader uses `StableDiffusionXLPipeline.from_single_file`
+(AutoPipeline has no from_single_file).
+
+**PIVOT (operator, headless):** first gen results REJECTED - non-canonical faces,
+broken fingers/hands, too photoreal (RealVis wrong feel), uncanny valley. New
+mandate: UNLIMITED DEEP-RESEARCH ULTRA. Mine ALL `2.First Pass Done` (179 imgs,
+70 champs; `firstdone_by_champ.json`) + official ddragon skins to build per-champion
++ general-style ARCHETYPES, retune against them. Acceptance = SIMILARITY to real
+first-pass-done + official base/extra skins AND artifact/uncanny-free (detect bad
+hands/faces). **Next champion = VAYNE** (6 curated firstdone + 19 official splashes
+in `tools/models/lora_datasets/vayne/`). Baseline RealVis already recognizes KNOWN
+champs well (Ahri baseline QA 4/4) - subject gap is for NEW champs (Ambessa).
+
+**IN FLIGHT:** deep-research workflow `wbnpch0uo` (archetypes -> failure-mode
+research: painterly-base/hands/faces/artifact-detection/similarity -> synthesis ->
+critique). ACT on its synthesis: implement retuned pipeline (fix photoreal->painterly
++ hands + faces + uncanny), demo on Vayne, compare-to-real + artifact-detect, iterate.
+
+**Continuity/headless:** full authority, commit+push on green. Self-continue across
+sessions via Gemini + AHK (`gemini-headless-upgrade` skill) targeting THIS window
+(named **"Image"**). State lives on disk (git + this file + docs/LEDGER.md + memory
+`project-lw-gen-deep-research`).
+
+---
+
 # 2026-07-07 (first-pass queue fully worked: needauth + crop-held + bucket-C recovery + 9 working triaged)
 
 Operator-driven review pass. Commits 6c6006a + d441993 + 0c9b1f5 (last is
