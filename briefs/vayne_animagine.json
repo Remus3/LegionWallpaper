@@ -5,7 +5,7 @@
   "n": 8,
   "aspect": "16:9",
   "prompt_extra": "league of legends, 1girl, solo, sunglasses, red tinted glasses, dark purple hair, high ponytail, dark blue bodysuit, crimson red cape, bat wing shoulder armor, dual wrist crossbows, holding crossbow, gothic cathedral, night sky, glowing purple crossbow bolt, drifting bats, dark fantasy, dynamic action pose, looking at viewer, serious confident expression, detailed hands, perfect anatomy, cinematic lighting, official art, best quality",
-  "negative_extra": "big longbow, blonde hair, sweet smile, nsfw, bad hands, mutated hands",
+  "negative_extra": "big longbow, blonde hair, sweet smile, nsfw, bad hands, mutated hands, two left hands, mirrored hands, duplicate hands, wrong hand anatomy, malformed fingers, unnatural pose, stiff pose, awkward anatomy, twisted limbs",
   "seed": 12345,
   "qa_subject_floor": 0.26,
   "qa_margin_floor": 0.05,
