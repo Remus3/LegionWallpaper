@@ -8,18 +8,18 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: develop the GOLDEN DEFINITION + iterative path (NOW - next session, fable-5 ultraplan).**
-  Recipe is LOCKED + v2-dialed and QA floors are calibrated (LEDGER 16, commit 2894e0b) - do NOT
-  re-run the knob sweep or the calibration. Raw single-pass SDXL PLATEAUS at "good fan splash";
-  golden needs a rubric + iterative finish passes. Next: fable-5 ultraplan + adversarial FULL-RES
-  review over the repo + the accepted "barely okay" images to develop the golden rubric and design
-  the iterative path. Seed material: `docs/research/GOLDEN_DEFINITION.md` (operator seed critique +
-  failure taxonomy - WEAPON is the #1 blocker: Vayne's wrist crossbow almost never renders; then
-  hands/face/eye-clarity/glasses/kit). Accepted reference set: `images/_gen_scratch/exp3_clean/`
-  seed22 + seed33, `exp4_volume/seed800`, `vayne-controlnet-proto/cand_01`+`cand_02`. Also FIX the
-  QA sharpness metric (global lap_var is confounded by DoF - needs a subject/face-region measure in
-  `tools/lw_gen_qa.py`; see GEN_RETUNE.md). Recipe v2 strings: `images/_gen_scratch/exp3_clean/index.json`.
-  Acceptance: a written golden rubric + a concrete iterative-pass plan (weapon fix first).
+- **lw-gen: M0 FOUNDATIONS then M1 weapon pass (NOW - next session).** Golden
+  rubric v1.1 + M0-M4 path SHIPPED (LEDGER 17, commit b12ef46) - do NOT redesign;
+  build per `docs/research/GOLDEN_DEFINITION.md` sec 4 + `golden_designs/VERDICTS.md`.
+  M0 (TDD): (a) config flip model_path -> animagine-xl-4.0 + steps 28 + the
+  manifest[model] rule; (b) shared `tools/lw_gen_pose.py` (candidate-side
+  detect_poses, 512-resize preprocessing, None/negative-coord sentinels) + the ONE
+  operator recall gate (contact sheet, >= 5/6); (c) plan-B lanes if the gate fails;
+  (e) manifest cand[file] contract (raw -> _wfix -> _repair -> _finish + stage
+  field). Then M1 weapon pass (W1-W4 escalation + corpus dodge lane).
+  OPERATOR-BLOCKED in parallel (do not wait on it for M0): ratify sec 6 Q1-Q4
+  (glasses shape / style-band steer / dodge lane / scorecard) + champion labels in
+  `docs/research/corpus/CHAMPION_UNKNOWNS.md` (78 unknowns + 44 hedged).
 
 - **Re-source the 4 ingest messups - MANUAL (NOW).** `xayah1`, `camille1`,
   `kaisa1`, `fiora1` (1920x1173, a ~210px strip of a different image pasted on
