@@ -27,6 +27,39 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+14. DONE **2026-07-10 (lw-gen generator sidecar Phases 1-3 code + /generate + tests + docs landed; downloads/Phase-0 spike operator-gated; commit this).**
+   Built the lw-gen text-brief-to-wallpaper generator sidecar per the Desktop
+   spec (`LEGIONWALLPAPER_GENERATOR_SIDECAR_PLAN.md`, authored 2026-07-06). Premise
+   VERIFIED against live code before scaffolding: `slugify`/`cmd_intake`
+   (MIN_AGE_SECONDS=10)/`unique_slug`/`cmd_annotate`/`Ops.safe_copy`/`Ops.write_json`
+   signatures + the `_finish` non-16:9 raise + downscale-only lap_ratio-gated path all
+   re-confirmed at file:line, no stale cites. **Shipped:** three thin filesystem-
+   interlocked scripts - `tools/lw_gen_run.py` (.venv-gen, lazy torch/diffusers, RC-live
+   HARD gate before torch import, 16:9-only aspect guard, Blackwell env, chains QA +
+   promote), `tools/lw_gen_qa.py` (.venv-metrics, lazy open_clip, Stage-A subject-argmax
+   gate BEFORE Stage-B quality, injectable scorer), `tools/lw_gen_promote.py` (stdlib+PIL,
+   slugify + size-assert < 2560x1440 + atomic retry-wrapped write into 0.Originals, STOPS
+   there - does NOT shell intake/annotate) - plus data (`tools/lw_gen_config.json`,
+   `tools/lw_gen_styles.json`, `briefs/ambessa.json`) and four CI-safe torch-free tests
+   (`tests/test_lw_gen_{data,qa,promote,run}.py`, heavy deps mocked). **DOCS + wiring
+   (this agent):** `docs/GENERATOR_SIDECAR_PLAN.md` (ASCII-clean ingest of the Desktop
+   plan, dated 2026-07-10 header, section-9 OPERATOR DECISIONS marked LOCKED - 16:9-only,
+   model-by-eye, RC-live hard-gate, auto-intake ON, splash-first); `docs/GEN_MODELS.md`
+   (empty license/provenance table + the plan section-7 operator-run Phase-0 setup
+   commands, marked PERMISSION-GATED, states NO weights downloaded yet);
+   `.claude/commands/generate.md` (thin operator-facing dispatcher matching the
+   first-pass.md 6-lock structure incl the SUBAGENT-FIRST block - explains the RC-live
+   gate, Phase-0 readiness graceful-refuse, and that promotion STOPS at 0.Originals for a
+   manual `intake --all`; deliberately NOT added to STAGE_COMMANDS - it is a non-stage
+   command like ship-batch.md). **.gitignore:** verified `.venv-*` (L92), `images/**` ->
+   `images/_gen_scratch/` (L38-40), and `tools/models/*` (L99-100) already cover every new
+   path; `briefs/` is tracked-by-default shareable config - NO additions needed (no
+   duplicate rule added). **Do NOT redo / FUTURE:** Phase-0 (venv build + multi-GB SDXL +
+   open-clip-torch downloads + live sm_120 proof) is operator-run/permission-gated and NOT
+   done here; the g1 fidelity floors still need the Phase-2.5 diffusion-input calibration
+   batch before claiming "gate unchanged"; ultrawide stays OUT (separate multi-target
+   refactor).
+
 13. DONE **2026-07-07 (9 residual first-pass working slugs triaged; commit this).**
    Cleared the working-state backlog left in `1.First Pass Scratch` after LEDGER 12.
    Per-slug ground truth (G1 verdict + visual read, R3-sanctioned): (a) `image1/2/4/5`

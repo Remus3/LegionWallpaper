@@ -1,0 +1,32 @@
+{
+  "splash": {
+    "positive": "splash art of {subject}, League of Legends champion, painterly semi-realistic key art, dynamic action pose, cinematic composition, dramatic rim lighting, richly detailed, desktop wallpaper, {prompt_extra}",
+    "negative": "anime, cel shaded, flat colors, chibi, text, watermark, signature, logo, ui, hud, healthbar, border, frame, low quality, blurry, jpeg artifacts, extra limbs, extra fingers, deformed hands, multiple characters, collage, {negative_extra}",
+    "sampler": {
+      "name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "steps": 30,
+      "cfg": 5.5
+    }
+  },
+  "portrait": {
+    "positive": "portrait of {subject}, League of Legends champion, centered bust, painterly semi-realistic key art, shallow depth of field, soft bokeh background, dramatic rim lighting, richly detailed face, desktop wallpaper, {prompt_extra}",
+    "negative": "anime, cel shaded, flat colors, chibi, text, watermark, signature, logo, ui, hud, healthbar, border, frame, low quality, blurry, jpeg artifacts, extra limbs, extra fingers, deformed hands, multiple characters, collage, {negative_extra}",
+    "sampler": {
+      "name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "steps": 32,
+      "cfg": 5.5
+    }
+  },
+  "landscape-ambient": {
+    "positive": "atmospheric Runeterra environment with {subject} as a smaller figure, League of Legends key art, environment-led wide vista, painterly semi-realistic, cinematic composition, dramatic ambient lighting, richly detailed landscape, desktop wallpaper, {prompt_extra}",
+    "negative": "anime, cel shaded, flat colors, chibi, text, watermark, signature, logo, ui, hud, healthbar, border, frame, low quality, blurry, jpeg artifacts, extra limbs, extra fingers, deformed hands, multiple characters, collage, {negative_extra}",
+    "sampler": {
+      "name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "steps": 28,
+      "cfg": 5.0
+    }
+  }
+}

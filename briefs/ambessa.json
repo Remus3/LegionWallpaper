@@ -1,0 +1,13 @@
+{
+  "subject": "Ambessa",
+  "subject_aliases": ["Ambessa", "Noxus general", "war paint", "greatsword warrior"],
+  "style": "splash",
+  "n": 4,
+  "aspect": "16:9",
+  "prompt_extra": "dramatic backlight, storm sky",
+  "negative_extra": "",
+  "seed": null,
+  "qa_subject_floor": 0.26,
+  "qa_margin_floor": 0.05,
+  "max_regen_rounds": 1
+}

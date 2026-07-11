@@ -1,0 +1,65 @@
+{
+  "model_path": "tools/models/PLACEHOLDER_gen_checkpoint.safetensors",
+  "_note_model_path": "No weight is downloaded yet - this is a placeholder path. See docs/GEN_MODELS.md Phase-0 setup (operator-run, permission-gated multi-GB download).",
+  "lora_path": null,
+  "clip_model": "ViT-L-14",
+  "clip_pretrained": "openai",
+  "sampler": {
+    "name": "dpmpp_2m_sde",
+    "scheduler": "karras",
+    "steps": 30,
+    "cfg": 5.5
+  },
+  "resolution": {
+    "16:9": [1344, 768]
+  },
+  "_note_resolution": "MVP is 16:9 ONLY. Ultrawide/other aspects are deferred (a separate multi-target refactor); lw_gen_run refuses any non-16:9 aspect at exit 2.",
+  "gen": {
+    "offload": true,
+    "tiled_vae": true,
+    "attention": "sdpa",
+    "fast_path": false
+  },
+  "env": {
+    "TORCH_CUDA_ARCH_LIST": "12.0",
+    "CUDA_MODULE_LOADING": "LAZY"
+  },
+  "qa": {
+    "T_subj": 0.26,
+    "T_margin": 0.05,
+    "T_aes": 0.45,
+    "T_blur": 100.0
+  },
+  "_note_T_blur": "T_blur is a NEW no-ref laplacian-variance floor (grayscale). Phase-2 calibration PLACEHOLDER - 100.0 is a seed value, re-calibrate on a real candidate sweep before trusting the blurry-reject gate.",
+  "distractors": [
+    "Darius",
+    "Garen",
+    "Katarina",
+    "Ahri",
+    "Lux",
+    "Jinx",
+    "Yasuo",
+    "Hecarim",
+    "Illaoi",
+    "blank canvas",
+    "generic anime character",
+    "generic character",
+    "abstract art",
+    "landscape photo"
+  ],
+  "top_k": 3,
+  "venvs": {
+    "gen": ".venv-gen",
+    "metrics": ".venv-metrics"
+  },
+  "rc_live": {
+    "mode": "refuse",
+    "flag_path": "ops/runtime/rc_live.flag",
+    "processes": [
+      "LeagueClient.exe",
+      "LeagueClientUx.exe",
+      "League of Legends.exe",
+      "RiotClientServices.exe"
+    ]
+  }
+}
