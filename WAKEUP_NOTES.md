@@ -39,10 +39,23 @@ hands/faces). **Next champion = VAYNE** (6 curated firstdone + 19 official splas
 in `tools/models/lora_datasets/vayne/`). Baseline RealVis already recognizes KNOWN
 champs well (Ahri baseline QA 4/4) - subject gap is for NEW champs (Ambessa).
 
-**IN FLIGHT:** deep-research workflow `wbnpch0uo` (archetypes -> failure-mode
-research: painterly-base/hands/faces/artifact-detection/similarity -> synthesis ->
-critique). ACT on its synthesis: implement retuned pipeline (fix photoreal->painterly
-+ hands + faces + uncanny), demo on Vayne, compare-to-real + artifact-detect, iterate.
+**RETUNE PROGRESS (deep-research workflow wbnpch0uo DONE -> docs/research/GEN_RETUNE.md
+has the archetype rubric + ordered priority plan):**
+- STEP 1 free lever DONE + WORKING (commit cc2875a): rewrote lw_gen_styles.json splash
+  to painterly/anti-photoreal + Vayne archetype tokens via briefs/vayne.json, cfg
+  5.5->5.0. Vayne n=8 txt2img (batch vayne-splash-20260711013929) = photoreal->PAINTERLY
+  FIXED, uncanny FIXED, canonically recognizable (round tinted glasses cue landed, navy
+  palette, bat-wing pauldrons, dark updo, sharp face). 3 of 4 operator complaints fixed.
+- REMAINING: HANDS/FINGERS still broken (cand_05 clawed fingers) - the #1 named reject.
+- NEXT BUILD = HAND-REPAIR loop (GEN_RETUNE.md priority 5): ultralytics YOLO hand-detect
+  (Bingsu/adetailer hand_yolov8s.pt from HF) -> dilated feathered mask -> diffusers
+  AutoPipelineForInpainting.from_pipe(base_pipe) re-roll each hand -> composite -> YOLO
+  verify; IOPaint fallback. Mirrors the proven cleaning-pass ultralytics loop. Insert
+  after gen, before QA. ultralytics is pure-pip (add to .venv-gen), no Blackwell issue.
+  THEN: minimal style-score QA (CSD/paint-vs-photo soft rank) + face-LoRA on ONE canonical
+  Vayne skin only-if-needed + full Vayne demo A/B vs real refs + operator review.
+- DO NOT rebuild: img2img/ControlNet/IP-adapter/detect-venv/DINOv3/facenet are DEFERRED
+  (critique: over-scoped); escalate to them ONLY if hand-repair + prompt aren't enough.
 
 **Continuity/headless:** full authority, commit+push on green. Self-continue across
 sessions via Gemini + AHK (`gemini-headless-upgrade` skill) targeting THIS window
