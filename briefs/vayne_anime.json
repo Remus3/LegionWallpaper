@@ -1,0 +1,13 @@
+{
+  "subject": "Vayne",
+  "subject_aliases": ["Vayne", "the Night Hunter", "Night Hunter Vayne", "monster hunter", "crossbow hunter"],
+  "style": "splash-anime",
+  "n": 4,
+  "aspect": "16:9",
+  "prompt_extra": "sharp confident face, calm determined expression, clean symmetric anime face, dark crimson lips, round red-tinted glasses, dark violet-black hair in a high bun, bat-wing angular shoulder pauldrons, deep navy indigo bodysuit, crimson red cape, wrist-mounted crossbow, glowing energy bolt, gothic cathedral at night, drifting bats, navy indigo and crimson red palette, cool moody atmosphere with red accent",
+  "negative_extra": "big longbow, medieval bow and arrow, blonde bright hair, sweet smile, muscular male, heavy armor tank",
+  "seed": 12345,
+  "qa_subject_floor": 0.26,
+  "qa_margin_floor": 0.05,
+  "max_regen_rounds": 1
+}

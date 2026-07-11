@@ -9,6 +9,16 @@
       "cfg": 5.0
     }
   },
+  "splash-anime": {
+    "positive": "splash art of {subject}, League of Legends champion, anime-influenced digital illustration, clean cel-shaded style, flat stylized shading, semi-flat 2.5D rendering, crisp clean linework, vibrant saturated colors, bold graphic shapes, stylized anime-leaning idealized face, clean symmetric features, natural calm confident expression, dynamic heroic action pose, dramatic lighting, glowing magic FX, atmospheric background, single hero character, highly detailed, key art illustration, {prompt_extra}",
+    "negative": "photorealistic, photograph, DSLR photo, film grain, skin pores, skin texture, plastic CGI, waxy skin, subsurface scattering, uncanny valley, 3d render, unreal engine, hyperrealistic, mangled hands, extra fingers, fused fingers, malformed hands, deformed digits, six fingers, mangled glasses, broken glasses, deformed asymmetric glasses, crooked eyewear, distorted face, odd expression, weird grimace, asymmetric eyes, cross-eyed, lazy eye, off-model face, cluttered background, multiple characters, text, watermark, signature, logo, {negative_extra}",
+    "sampler": {
+      "name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "steps": 30,
+      "cfg": 5.0
+    }
+  },
   "portrait": {
     "positive": "portrait of {subject}, League of Legends champion, centered bust, painterly semi-realistic key art, shallow depth of field, soft bokeh background, dramatic rim lighting, richly detailed face, desktop wallpaper, {prompt_extra}",
     "negative": "anime, cel shaded, flat colors, chibi, text, watermark, signature, logo, ui, hud, healthbar, border, frame, low quality, blurry, jpeg artifacts, extra limbs, extra fingers, deformed hands, multiple characters, collage, {negative_extra}",
