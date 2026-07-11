@@ -351,6 +351,15 @@ def _load_pipeline(config, model_abs, fast):
         pipe = StableDiffusionXLPipeline.from_single_file(
             model_abs, torch_dtype=torch.bfloat16
         )
+        # Optional subject LoRA (sharpens a specific champion's identity). Applied
+        # before device placement / offload. lora_path may be a dir or a
+        # .safetensors file; both are accepted by load_lora_weights.
+        lora_rel = config.get("lora_path")
+        if lora_rel:
+            lora_abs = lora_rel if os.path.isabs(lora_rel) else os.path.join(ROOT, lora_rel)
+            if not os.path.exists(lora_abs):
+                raise GenError(f"lora_path set but not found: {lora_rel}", code=4)
+            pipe.load_lora_weights(lora_abs)
         gen = config.get("gen") or {}
         # cpu-offload manages device placement itself; calling .to("cuda") first
         # conflicts with it, so only move to cuda on the all-resident fast path.
@@ -444,6 +453,13 @@ def _count_passes(manifest):
 def run(args, config=None, styles=None):
     config = config if config is not None else load_config()
     styles = styles if styles is not None else load_styles()
+    # CLI LoRA override (used by the per-champion subject-LoRA flow).
+    if getattr(args, "no_lora", False):
+        config = dict(config)
+        config["lora_path"] = None
+    elif getattr(args, "lora_path", None):
+        config = dict(config)
+        config["lora_path"] = args.lora_path
 
     cli = {
         "subject": args.subject, "style": args.style, "n": args.n,
@@ -573,6 +589,10 @@ def build_parser():
                    help="proceed when RC-live state cannot be determined")
     p.add_argument("--force", action="store_true",
                    help="bypass the RC-live gate (discouraged; warns)")
+    p.add_argument("--lora-path", dest="lora_path", default=None,
+                   help="override config lora_path (subject LoRA dir or .safetensors)")
+    p.add_argument("--no-lora", dest="no_lora", action="store_true",
+                   help="force generation with NO subject LoRA (baseline)")
     return p
 
 
