@@ -7,7 +7,39 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session (pruned 2026-07-11) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11) - keep the last 3.
+
+---
+
+# 2026-07-11 (M0 foundations + M1 weapon slices 1-2 + upstream-localizer exploration)
+
+Shipped + pushed, all green (full suite 380 passed / 3 skipped):
+- **M0 (a934243):** config Animagine flip (model_path -> the single-file
+  animagine-xl-4.0-opt.safetensors; steps 28); tools/lw_gen_pose.py OpenPose helper;
+  cand[file] contract (stage_filename / new_candidate_record / advance_cand_file +
+  stage + provenance). Recall gate PASSED 6/6 (operator).
+- **Corpus (7826b22 / e27054f / ba308ff):** all 122 champion labels applied
+  (#32 -> Qiyana, #102 -> Zaahen); CHAMPION_ATTRIBUTED_330.md generated; operator's
+  32 corrections backfilled into notes_*.json champion + is_vayne. CROP_REDO_QUEUE.md
+  = #115 Hwei / #247 Shyvana / #253 Soraka.
+- **M1 slices (693920f, e5bcdc5):** tools/lw_gen_weaponfix.py = pure
+  weapon_roi_from_keypoints geometry + first-class fallbacks (+13) and the raw-pose
+  -> COCO-18 kp_map adapter with anti-compaction lock (+7).
+
+KEY PIVOT (empirical): weapon-mask contact sheet showed the geometry is SOUND but
+OpenPose WRIST is unreliable on stylized art (1/4 auto-masks hit the weapon). CLIP
+mask-validator DEAD; ControlNet skeleton-reuse NOT viable (drift, settled
+VERDICTS.md); DWPose blocked (mmcv/Blackwell). Operator: in-the-loop regardless.
+
+**NEXT session (operator-directed order):** M1 localizer - try **SDPose-Wholebody
+FIRST** (github T-S-Liang/SDPose-OOD, HF teemosliang/SDPose-Wholebody) as the
+auto-suggestion; acceptance = beat OpenPose 1/6, target >= 4/6 wrist-on-weapon on the
+6 images/_gen_scratch/recall_gate/ samples. If it misses -> **DWPose onnxruntime-CPU
+spike** same session (pip install onnxruntime + ~343MB: yolox_l.onnx +
+dw-ll_ucoco_384.onnx; operator approves the download). If BOTH miss -> a SEPARATE
+later session builds the **manual IOPaint lane**. REUSE tools/lw_gen_weaponfix.py -
+do NOT rebuild slices 1-2. Do NOT redo: M0, corpus labeling, the CLIP + skeleton-reuse
+dead-ends. Still operator-blocked: GOLDEN_DEFINITION.md sec 6 Q1-Q4.
 
 ---
 
@@ -71,68 +103,3 @@ develop the golden rubric from `docs/research/GOLDEN_DEFINITION.md` (operator se
 critique + failure taxonomy; WEAPON is the #1 blocker). Iterative passes, not
 superficial. Accepted refs: exp3_clean/seed22+seed33, exp4_volume/seed800,
 proto/cand_01+cand_02 (all in `images/_gen_scratch/`, full-res).
-
----
-
-# 2026-07-11 (lw-gen GENERATOR SIDECAR built + provisioned + Phase-0 proven; then DEEP-RESEARCH RETUNE pivot - HEADLESS)
-
-New sidecar `lw-gen` (generate LoL-champion splash wallpapers -> subject-QA gate
--> feed 0.Originals). Commits: b2fc3a2 (sidecar run/qa/promote + /generate +
-67 CI-safe tests), 7d6a3ca (Phase-0 provision + live proof), 5aec00d (subject-LoRA
-loading hook + --lora-path/--no-lora).
-
-**Proven live - DO NOT REDO:** `.venv-gen` (torch 2.11 cu128 + diffusers 0.39 +
-peft 0.19 + tensorboard); open-clip `ViT-L-14-quickgelu` QA in `.venv-metrics`
-(plain ViT-L-14 mismatches - MUST be quickgelu); RealVisXL V5.0 fp16 base
-(`tools/models/RealVisXL_V5.0/`, sha in docs/GEN_MODELS.md) + its diffusers-format
-copy `tools/models/realvisxl5_diffusers/`; sm_120 (12,0) gen ~3.4 it/s; the ddragon
-splash-fetcher (chroma-filter + pHash-dedupe, scratchpad `fetch_splashes.py`);
-SDXL LoRA training runs (diffusers `train_dreambooth_lora_sdxl.py` v0.39.0-matched,
-UNet-only rank16 1500 steps ~23 min, fits 1024px in 11GB) - but rank16/1500
-OVERFIT+blurred. rc_live gate lists ONLY the game/client (NOT RiotClientServices/
-Vanguard - those are idle non-GPU). Loader uses `StableDiffusionXLPipeline.from_single_file`
-(AutoPipeline has no from_single_file).
-
-**PIVOT (operator, headless):** first gen results REJECTED - non-canonical faces,
-broken fingers/hands, too photoreal (RealVis wrong feel), uncanny valley. New
-mandate: UNLIMITED DEEP-RESEARCH ULTRA. Mine ALL `2.First Pass Done` (179 imgs,
-70 champs; `firstdone_by_champ.json`) + official ddragon skins to build per-champion
-+ general-style ARCHETYPES, retune against them. Acceptance = SIMILARITY to real
-first-pass-done + official base/extra skins AND artifact/uncanny-free (detect bad
-hands/faces). **Next champion = VAYNE** (6 curated firstdone + 19 official splashes
-in `tools/models/lora_datasets/vayne/`). Baseline RealVis already recognizes KNOWN
-champs well (Ahri baseline QA 4/4) - subject gap is for NEW champs (Ambessa).
-
-**RETUNE - WINNING RECIPE LOCKED (full journey + rubric in docs/research/GEN_RETUNE.md):**
-Deep-research workflow wbnpch0uo (archetypes) + posing research -> iterated through
-RealVis-painterly (fixed too-photoreal), img2img-from-real (fixed palette/pose but BLURRED
-faces - rejected), to the FINAL recipe. Commits this session: cc2875a e35ea14 f67c8f4
-065679b e7f98ea d77dbe2 8e30892 f0ac578.
-- **WINNING RECIPE = Animagine XL 4.0 (anime base) + ControlNet-OpenPose (skeleton from a
-  real splash) + cowboy-shot detail-tag booru prompt.** Operator directed anime-flat
-  (overriding the anime ban) + flagged mangled glasses / odd faces / blotchy-blur / bad hands.
-  Animagine KNOWS champions from booru data (Vayne: clean red glasses, dual crossbows,
-  ponytail, navy+red) + clean anime faces. ControlNet-OpenPose (xinsir SDXL, controlnet_aux
-  OpenposeDetector hand_and_face) transplants a real natural pose + pins hand chirality (kills
-  the mirrored 2nd-left-hand) while keeping SHARP txt2img detail (no img2img blur).
-  Batch vayne-controlnet-tuned = production quality, hits the operator bar.
-- Integrated first-class in lw_gen_run: `--model-path` (base override), `--controlnet-pose
-  <ref>` / `--controlnet-scale` (config controlnet_openpose_path), `--lora-path`/`--no-lora`,
-  `--init-image`/`--img2img-strength`. Style `splash-booru` (posing+detail vocab, lean
-  negatives). Brief briefs/vayne_animagine.json. 67 gen tests green, CI-safe (lazy imports).
-- Provisioned + gitignored (tools/models/): RealVisXL_V5.0, animagine-xl-4.0-opt.safetensors,
-  controlnet-openpose-sdxl (xinsir), lora_datasets/{vayne,ahri} (ddragon fetch), yolo/ (unused
-  - hand DETECTION is a dead end on painted hands, do NOT build detect-repair). .venv-gen has
-  torch2.11cu128 + diffusers0.39 + peft + controlnet_aux + ultralytics + tensorboard.
-- DO NOT REDO: the base/model choices, ControlNet integration, the img2img/anime exploration (settled),
-  hand-detection repair (dead end). Full recipe + rejected paths in docs/research/GEN_RETUNE.md.
-- **NEXT = THRESHOLD ITERATION (operator, new session):** dial in the knobs on the winning
-  recipe - controlnet_scale (0.75), img2img_strength, cfg/steps, and the QA floors in
-  lw_gen_config.json qa{} (T_subj .26 / T_margin .05 / T_aes .45 / T_blur 100.0). Also
-  per-candidate skeleton cycling (pose variety in one batch), then a full QA+promote pass.
-
-**Continuity/headless:** full authority, commit+push on green. Self-continue across
-sessions via Gemini + AHK (`gemini-headless-upgrade` skill) targeting THIS window
-(named **"Image"**). State lives on disk (git + this file + docs/LEDGER.md + memory
-`project-lw-gen-deep-research`).
-

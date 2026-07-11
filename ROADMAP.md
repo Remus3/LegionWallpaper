@@ -8,18 +8,31 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: M0 FOUNDATIONS then M1 weapon pass (NOW - next session).** Golden
-  rubric v1.1 + M0-M4 path SHIPPED (LEDGER 17, commit b12ef46) - do NOT redesign;
-  build per `docs/research/GOLDEN_DEFINITION.md` sec 4 + `golden_designs/VERDICTS.md`.
-  M0 (TDD): (a) config flip model_path -> animagine-xl-4.0 + steps 28 + the
-  manifest[model] rule; (b) shared `tools/lw_gen_pose.py` (candidate-side
-  detect_poses, 512-resize preprocessing, None/negative-coord sentinels) + the ONE
-  operator recall gate (contact sheet, >= 5/6); (c) plan-B lanes if the gate fails;
-  (e) manifest cand[file] contract (raw -> _wfix -> _repair -> _finish + stage
-  field). Then M1 weapon pass (W1-W4 escalation + corpus dodge lane).
-  OPERATOR-BLOCKED in parallel (do not wait on it for M0): ratify sec 6 Q1-Q4
-  (glasses shape / style-band steer / dodge lane / scorecard) + champion labels in
-  `docs/research/corpus/CHAMPION_UNKNOWNS.md` (78 unknowns + 44 hedged).
+- **lw-gen: M1 weapon pass - localizer decision (NOW - next session).** M0
+  foundations + M1 slices 1-2 SHIPPED (LEDGER 18: config Animagine flip a934243;
+  pure mask geometry 693920f; raw-pose->kp_map adapter e5bcdc5; recall gate PASSED
+  6/6). Localizer exploration done + settled: OpenPose wrist = 1/4 on stylized art,
+  CLIP mask-validator DEAD, ControlNet skeleton-reuse NOT viable (drift) - so
+  operator-in-the-loop is the accepted design (no unattended auto-inpaint). NEXT,
+  in order, same session: (1) try **SDPose-Wholebody** as the auto-suggestion
+  localizer (github T-S-Liang/SDPose-OOD, HF teemosliang/SDPose-Wholebody; SD v2
+  prior, 71 AP HumanArt); acceptance = clearly beat OpenPose's 1/6 wrist-on-weapon
+  (target >= 4/6) on the 6 `images/_gen_scratch/recall_gate/` samples. (2) if it
+  misses, a **DWPose onnxruntime-CPU spike** (pip install onnxruntime + ~343MB:
+  yolox_l.onnx + dw-ll_ucoco_384.onnx - operator approval needed for the download).
+  (3) if BOTH miss, a SEPARATE later session builds the **manual IOPaint lane**
+  (keypoints suggest ROI -> operator confirms/redraws -> SDXL diffusion inpaint on
+  the confirmed mask + hard outside-mask identity assert + re-QA via the cand[file]
+  contract). REUSE `tools/lw_gen_weaponfix.py` (mask geometry + adapter) - do NOT
+  rebuild slices 1-2.
+
+- **OPERATOR-BLOCKED: ratify `GOLDEN_DEFINITION.md` sec 6 Q1-Q4** (glasses shape /
+  style-band steer / dodge lane / scorecard). Champion labels are DONE this session
+  (LEDGER 18) - only the sec-6 ratifications remain.
+
+- **Corpus crop-redo (LATER).** `docs/research/corpus/CROP_REDO_QUEUE.md` - #115
+  Hwei / #247 Shyvana / #253 Soraka: champion label correct, image has a leftover
+  top artifact to crop + reprocess.
 
 - **Re-source the 4 ingest messups - MANUAL (NOW).** `xayah1`, `camille1`,
   `kaisa1`, `fiora1` (1920x1173, a ~210px strip of a different image pasted on

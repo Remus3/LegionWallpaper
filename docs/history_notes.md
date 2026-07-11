@@ -70,6 +70,70 @@ LongPathsEnabled (deferred).
 
 ---
 
+# 2026-07-11 (lw-gen GENERATOR SIDECAR built + provisioned + Phase-0 proven; then DEEP-RESEARCH RETUNE pivot - HEADLESS)
+
+New sidecar `lw-gen` (generate LoL-champion splash wallpapers -> subject-QA gate
+-> feed 0.Originals). Commits: b2fc3a2 (sidecar run/qa/promote + /generate +
+67 CI-safe tests), 7d6a3ca (Phase-0 provision + live proof), 5aec00d (subject-LoRA
+loading hook + --lora-path/--no-lora).
+
+**Proven live - DO NOT REDO:** `.venv-gen` (torch 2.11 cu128 + diffusers 0.39 +
+peft 0.19 + tensorboard); open-clip `ViT-L-14-quickgelu` QA in `.venv-metrics`
+(plain ViT-L-14 mismatches - MUST be quickgelu); RealVisXL V5.0 fp16 base
+(`tools/models/RealVisXL_V5.0/`, sha in docs/GEN_MODELS.md) + its diffusers-format
+copy `tools/models/realvisxl5_diffusers/`; sm_120 (12,0) gen ~3.4 it/s; the ddragon
+splash-fetcher (chroma-filter + pHash-dedupe, scratchpad `fetch_splashes.py`);
+SDXL LoRA training runs (diffusers `train_dreambooth_lora_sdxl.py` v0.39.0-matched,
+UNet-only rank16 1500 steps ~23 min, fits 1024px in 11GB) - but rank16/1500
+OVERFIT+blurred. rc_live gate lists ONLY the game/client (NOT RiotClientServices/
+Vanguard - those are idle non-GPU). Loader uses `StableDiffusionXLPipeline.from_single_file`
+(AutoPipeline has no from_single_file).
+
+**PIVOT (operator, headless):** first gen results REJECTED - non-canonical faces,
+broken fingers/hands, too photoreal (RealVis wrong feel), uncanny valley. New
+mandate: UNLIMITED DEEP-RESEARCH ULTRA. Mine ALL `2.First Pass Done` (179 imgs,
+70 champs; `firstdone_by_champ.json`) + official ddragon skins to build per-champion
++ general-style ARCHETYPES, retune against them. Acceptance = SIMILARITY to real
+first-pass-done + official base/extra skins AND artifact/uncanny-free (detect bad
+hands/faces). **Next champion = VAYNE** (6 curated firstdone + 19 official splashes
+in `tools/models/lora_datasets/vayne/`). Baseline RealVis already recognizes KNOWN
+champs well (Ahri baseline QA 4/4) - subject gap is for NEW champs (Ambessa).
+
+**RETUNE - WINNING RECIPE LOCKED (full journey + rubric in docs/research/GEN_RETUNE.md):**
+Deep-research workflow wbnpch0uo (archetypes) + posing research -> iterated through
+RealVis-painterly (fixed too-photoreal), img2img-from-real (fixed palette/pose but BLURRED
+faces - rejected), to the FINAL recipe. Commits this session: cc2875a e35ea14 f67c8f4
+065679b e7f98ea d77dbe2 8e30892 f0ac578.
+- **WINNING RECIPE = Animagine XL 4.0 (anime base) + ControlNet-OpenPose (skeleton from a
+  real splash) + cowboy-shot detail-tag booru prompt.** Operator directed anime-flat
+  (overriding the anime ban) + flagged mangled glasses / odd faces / blotchy-blur / bad hands.
+  Animagine KNOWS champions from booru data (Vayne: clean red glasses, dual crossbows,
+  ponytail, navy+red) + clean anime faces. ControlNet-OpenPose (xinsir SDXL, controlnet_aux
+  OpenposeDetector hand_and_face) transplants a real natural pose + pins hand chirality (kills
+  the mirrored 2nd-left-hand) while keeping SHARP txt2img detail (no img2img blur).
+  Batch vayne-controlnet-tuned = production quality, hits the operator bar.
+- Integrated first-class in lw_gen_run: `--model-path` (base override), `--controlnet-pose
+  <ref>` / `--controlnet-scale` (config controlnet_openpose_path), `--lora-path`/`--no-lora`,
+  `--init-image`/`--img2img-strength`. Style `splash-booru` (posing+detail vocab, lean
+  negatives). Brief briefs/vayne_animagine.json. 67 gen tests green, CI-safe (lazy imports).
+- Provisioned + gitignored (tools/models/): RealVisXL_V5.0, animagine-xl-4.0-opt.safetensors,
+  controlnet-openpose-sdxl (xinsir), lora_datasets/{vayne,ahri} (ddragon fetch), yolo/ (unused
+  - hand DETECTION is a dead end on painted hands, do NOT build detect-repair). .venv-gen has
+  torch2.11cu128 + diffusers0.39 + peft + controlnet_aux + ultralytics + tensorboard.
+- DO NOT REDO: the base/model choices, ControlNet integration, the img2img/anime exploration (settled),
+  hand-detection repair (dead end). Full recipe + rejected paths in docs/research/GEN_RETUNE.md.
+- **NEXT = THRESHOLD ITERATION (operator, new session):** dial in the knobs on the winning
+  recipe - controlnet_scale (0.75), img2img_strength, cfg/steps, and the QA floors in
+  lw_gen_config.json qa{} (T_subj .26 / T_margin .05 / T_aes .45 / T_blur 100.0). Also
+  per-candidate skeleton cycling (pose variety in one batch), then a full QA+promote pass.
+
+**Continuity/headless:** full authority, commit+push on green. Self-continue across
+sessions via Gemini + AHK (`gemini-headless-upgrade` skill) targeting THIS window
+(named **"Image"**). State lives on disk (git + this file + docs/LEDGER.md + memory
+`project-lw-gen-deep-research`).
+
+---
+
 # 2026-07-05 (V3 promoted to primary + golden n=12 + dark-cosmic; recovery scaffolding; G0 gate; ADR-004/005)
 
 Resolved + promoted IllustrationJaNai V3 detail DAT2 to the PRIMARY first-pass
