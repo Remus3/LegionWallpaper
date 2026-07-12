@@ -7,7 +7,7 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12) - keep the last 3.
 
 ---
 
@@ -95,35 +95,3 @@ dw-ll_ucoco_384.onnx; operator approves the download). If BOTH miss -> a SEPARAT
 later session builds the **manual IOPaint lane**. REUSE tools/lw_gen_weaponfix.py -
 do NOT rebuild slices 1-2. Do NOT redo: M0, corpus labeling, the CLIP + skeleton-reuse
 dead-ends. Still operator-blocked: GOLDEN_DEFINITION.md sec 6 Q1-Q4.
-
----
-
-# 2026-07-11 (GOLDEN DEFINITION shipped: rubric v1.1 + full corpus deep dive + iterative path)
-
-Fable-5 ultraplan session (4 workflows, ~100 agents, all adversarially verified /
-spot-audited FAITHFUL). Deliverables all committed:
-
-**docs/research/GOLDEN_DEFINITION.md REWRITTEN** = rubric v1.1 (12-element table w/
-severity + addressability + stage-field scorecard), golden bar (7 conditions + stop
-condition n>=3 GOLD from 2 batches), M0-M4 orchestrator spec, QA fix plan. Full pass
-designs + 10 adversarial verdicts: docs/research/golden_designs/ (weapon, face_hands,
-finish, qa_fix, rubric + VERDICTS.md).
-
-**Corpus deep dive (operator-directed):** ALL 179 firstdone + 273 reference_pictures
-reviewed at full res (6 imgs/agent); pHash correlation 19 exact pairs (Tier-0 rule,
-scratch correlate via tools/lw_recover). Artifacts: docs/research/corpus/ (notes JSONs,
-audits, CORPUS_PREMISE.md, CORPUS_ANCHORS.md, ref_correlation.json).
-Key findings: anime-flat = 1.6 pct niche of operator taste (all 9 Vayne 5s are
-painterly-semireal; nearest reachable band = anime-painterly-hybrid); corpus-sanctioned
-WEAPON DODGE LANE (wing-rig/folded/blur/absent - 7 of 9 Vayne 5s dodge); focal-face
-quality = highest-leverage axis; hands always gloved/hidden; generated text/watermark =
-auto-reject; scale anchored 1-5 (min promotion bar = 3).
-Engine fact verified: _extract_pose discards keypoints (lw_gen_run.py:413); M0 fixes.
-
-**BLOCKING on operator:** (1) GOLDEN_DEFINITION.md sec 6 Q1-Q4 (glasses shape, style
-band steer, dodge-lane ratify, scorecard adopt); (2) champion labels -
-docs/research/corpus/CHAMPION_UNKNOWNS.md (78 true unknowns + 44 hedged, numbered,
-reply "N = champ"; backfill into notes JSONs on receipt).
-**NEXT session:** M0 foundations (config Animagine flip + tests, tools/lw_gen_pose.py
-+ recall gate, manifest cand[file] contract, plan B), then M1 weapon pass.
-ops/budget_saver/ = operator lean-config experiment, left untracked.
