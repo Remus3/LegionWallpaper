@@ -70,6 +70,38 @@ LongPathsEnabled (deferred).
 
 ---
 
+# 2026-07-11 (M0 foundations + M1 weapon slices 1-2 + upstream-localizer exploration)
+
+Shipped + pushed, all green (full suite 380 passed / 3 skipped):
+- **M0 (a934243):** config Animagine flip (model_path -> the single-file
+  animagine-xl-4.0-opt.safetensors; steps 28); tools/lw_gen_pose.py OpenPose helper;
+  cand[file] contract (stage_filename / new_candidate_record / advance_cand_file +
+  stage + provenance). Recall gate PASSED 6/6 (operator).
+- **Corpus (7826b22 / e27054f / ba308ff):** all 122 champion labels applied
+  (#32 -> Qiyana, #102 -> Zaahen); CHAMPION_ATTRIBUTED_330.md generated; operator's
+  32 corrections backfilled into notes_*.json champion + is_vayne. CROP_REDO_QUEUE.md
+  = #115 Hwei / #247 Shyvana / #253 Soraka.
+- **M1 slices (693920f, e5bcdc5):** tools/lw_gen_weaponfix.py = pure
+  weapon_roi_from_keypoints geometry + first-class fallbacks (+13) and the raw-pose
+  -> COCO-18 kp_map adapter with anti-compaction lock (+7).
+
+KEY PIVOT (empirical): weapon-mask contact sheet showed the geometry is SOUND but
+OpenPose WRIST is unreliable on stylized art (1/4 auto-masks hit the weapon). CLIP
+mask-validator DEAD; ControlNet skeleton-reuse NOT viable (drift, settled
+VERDICTS.md); DWPose blocked (mmcv/Blackwell). Operator: in-the-loop regardless.
+
+**NEXT session (operator-directed order):** M1 localizer - try **SDPose-Wholebody
+FIRST** (github T-S-Liang/SDPose-OOD, HF teemosliang/SDPose-Wholebody) as the
+auto-suggestion; acceptance = beat OpenPose 1/6, target >= 4/6 wrist-on-weapon on the
+6 images/_gen_scratch/recall_gate/ samples. If it misses -> **DWPose onnxruntime-CPU
+spike** same session (pip install onnxruntime + ~343MB: yolox_l.onnx +
+dw-ll_ucoco_384.onnx; operator approves the download). If BOTH miss -> a SEPARATE
+later session builds the **manual IOPaint lane**. REUSE tools/lw_gen_weaponfix.py -
+do NOT rebuild slices 1-2. Do NOT redo: M0, corpus labeling, the CLIP + skeleton-reuse
+dead-ends. Still operator-blocked: GOLDEN_DEFINITION.md sec 6 Q1-Q4.
+
+---
+
 # 2026-07-11 (GOLDEN DEFINITION shipped: rubric v1.1 + full corpus deep dive + iterative path)
 
 Fable-5 ultraplan session (4 workflows, ~100 agents, all adversarially verified /
