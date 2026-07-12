@@ -70,6 +70,37 @@ LongPathsEnabled (deferred).
 
 ---
 
+# 2026-07-11 (lw-gen QA-floor CALIBRATION + recipe v2 sweep; golden-definition seeded)
+
+Shipped commit 2894e0b (QA floors calibrated on a real Vayne sweep) + a docs sync
+(this /done). See LEDGER 16.
+
+**QA floors calibrated (DONE - do not redo):** measured real ClipScorer scores;
+set T_subj 0.26 / T_margin 0.05->0.045 / T_blur 100->150 / T_aes 0.45 (kept, but
+T_aes is a NON-DISCRIMINATIVE no-op - everything scores 0.500-0.504). 6/6 good PASS,
+misses REJECT. gen suite 67/67 green.
+
+**Recipe v2 (operator-in-the-loop sweep, DONE - do not redo the sweep):**
+controlnet_scale tight (1.10) OUT, loose-mid (0.35-0.55) wins; POSE SOURCE is the
+lever (curated skel_01 leap >> default crouch; `_extract_pose` shares ONE skeleton
+per batch - pose variety still needs the deferred cycling feature); fixed a
+156-vs-77-token prompt truncation (Animagine quality tags were being cut); feminine
+cues + male/androgynous negatives fixed a male-read; clean-DoF prompt killed FX
+chaos. Recipe v2 strings: `images/_gen_scratch/exp3_clean/index.json`.
+
+**Plateau + gate finding:** raw single-pass SDXL tops out at "good fan splash", not
+golden. Operator accepted seed22 which the gate WRONGLY rejected as blurry - global
+lap_var is confounded by DoF; needs a subject/face-region sharpness fix in
+`tools/lw_gen_qa.py` (deferred).
+
+**NEXT (operator directive):** fable-5 ultraplan + adversarial FULL-RES review ->
+develop the golden rubric from `docs/research/GOLDEN_DEFINITION.md` (operator seed
+critique + failure taxonomy; WEAPON is the #1 blocker). Iterative passes, not
+superficial. Accepted refs: exp3_clean/seed22+seed33, exp4_volume/seed800,
+proto/cand_01+cand_02 (all in `images/_gen_scratch/`, full-res).
+
+---
+
 # 2026-07-11 (lw-gen GENERATOR SIDECAR built + provisioned + Phase-0 proven; then DEEP-RESEARCH RETUNE pivot - HEADLESS)
 
 New sidecar `lw-gen` (generate LoL-champion splash wallpapers -> subject-QA gate

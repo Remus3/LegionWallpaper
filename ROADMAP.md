@@ -8,23 +8,21 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: M1 weapon pass - localizer decision (NOW - next session).** M0
-  foundations + M1 slices 1-2 SHIPPED (LEDGER 18: config Animagine flip a934243;
-  pure mask geometry 693920f; raw-pose->kp_map adapter e5bcdc5; recall gate PASSED
-  6/6). Localizer exploration done + settled: OpenPose wrist = 1/4 on stylized art,
-  CLIP mask-validator DEAD, ControlNet skeleton-reuse NOT viable (drift) - so
-  operator-in-the-loop is the accepted design (no unattended auto-inpaint). NEXT,
-  in order, same session: (1) try **SDPose-Wholebody** as the auto-suggestion
-  localizer (github T-S-Liang/SDPose-OOD, HF teemosliang/SDPose-Wholebody; SD v2
-  prior, 71 AP HumanArt); acceptance = clearly beat OpenPose's 1/6 wrist-on-weapon
-  (target >= 4/6) on the 6 `images/_gen_scratch/recall_gate/` samples. (2) if it
-  misses, a **DWPose onnxruntime-CPU spike** (pip install onnxruntime + ~343MB:
-  yolox_l.onnx + dw-ll_ucoco_384.onnx - operator approval needed for the download).
-  (3) if BOTH miss, a SEPARATE later session builds the **manual IOPaint lane**
-  (keypoints suggest ROI -> operator confirms/redraws -> SDXL diffusion inpaint on
-  the confirmed mask + hard outside-mask identity assert + re-QA via the cand[file]
-  contract). REUSE `tools/lw_gen_weaponfix.py` (mask geometry + adapter) - do NOT
-  rebuild slices 1-2.
+- **lw-gen: M1 weapon pass - wire the DWPose localizer into the inpaint flow (NOW - next session).**
+  Localizer DECISION SETTLED (LEDGER 19, commit 7e21c9d): **DWPose onnx-CPU ADOPTED**
+  as the auto-suggestion localizer - 5/6 wrist-on-weapon on the 6
+  `images/_gen_scratch/recall_gate/` samples vs OpenPose 1/6 (cleared the >= 4/6 bar).
+  **SDPose-Wholebody REJECTED - do NOT retry:** its pipeline hard-imports mmpose and
+  pins mmcv==2.2.0 (the Blackwell / torch-2.11 wall) plus torch 2.8 / transformers
+  4.57 / xformers conflicts + 5.32GB; it is NOT drop-in on .venv-gen. Reusable pieces:
+  `tools/lw_gen_localizer_eval.py` (dwpose_backend + cocowb_to_kp_map) +
+  `tools/dwpose_onnx/` (vendored onnx helpers, no mmcv); models gitignored under
+  `tools/models/dwpose/` (351MB, re-fetch from the fashn-ai HF mirror). NEXT: wire
+  dwpose_backend into `lw_gen_run`'s real detect -> mask -> inpaint path
+  (operator-in-the-loop picks the weapon-side wrist -> feed its kp_map into the REUSED
+  `weapon_roi_from_keypoints` -> SDXL/LaMa inpaint on the confirmed mask + hard
+  outside-mask identity assert + re-QA via the cand[file] contract). REUSE slices 1-2
+  + the localizer - do NOT rebuild them or re-run the spike.
 
 - **OPERATOR-BLOCKED: ratify `GOLDEN_DEFINITION.md` sec 6 Q1-Q4** (glasses shape /
   style-band steer / dodge lane / scorecard). Champion labels are DONE this session

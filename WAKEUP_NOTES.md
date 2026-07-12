@@ -7,7 +7,30 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11) - keep the last 3.
+
+---
+
+# 2026-07-11 (M1 localizer decision - DWPose onnx-CPU adopted, 5/6)
+
+Shipped + pushed (commit 7e21c9d), full suite 387 passed / 3 skipped:
+- **Spike outcome:** DWPose onnx-CPU ADOPTED as the M1 auto-suggestion localizer -
+  5/6 wrist-on-weapon on the 6 recall_gate samples (seed22 / seed33 / seed800 /
+  cand_01 / seed42 hit; cand_02 miss) vs OpenPose 1/6. Cleared the operator's >= 4/6 bar.
+- **SDPose-Wholebody REJECTED (do NOT retry):** its pipeline hard-imports mmpose +
+  pins mmcv==2.2.0 = the Blackwell / torch-2.11 wall (also torch 2.8 / transformers
+  4.57 / xformers; 5.32GB). NOT drop-in as the handoff assumed. Operator approved the
+  DWPose onnx download (351MB, fashn-ai HF mirror) instead.
+- **Built:** tools/lw_gen_localizer_eval.py (detector-agnostic harness + cocowb_to_kp_map
+  COCO-WholeBody-133 adapter + openpose/dwpose backends) feeding the REUSED
+  weapon_roi_from_keypoints; tools/dwpose_onnx/ vendored onnx helpers (no mmcv). +7
+  tests. Models gitignored (tools/models/dwpose). min_conf=0.3 (scores clean [0,1]).
+
+**NEXT session:** wire dwpose_backend into lw_gen_run's real detect -> mask -> inpaint
+path (operator-in-the-loop picks the weapon-side wrist -> kp_map -> weapon_roi_from_keypoints
+-> inpaint + hard outside-mask identity assert + re-QA via cand[file]). Do NOT redo the
+localizer spike, slices 1-2, or re-attempt SDPose. Still operator-blocked:
+GOLDEN_DEFINITION.md sec 6 Q1-Q4.
 
 ---
 
@@ -72,34 +95,3 @@ reply "N = champ"; backfill into notes JSONs on receipt).
 **NEXT session:** M0 foundations (config Animagine flip + tests, tools/lw_gen_pose.py
 + recall gate, manifest cand[file] contract, plan B), then M1 weapon pass.
 ops/budget_saver/ = operator lean-config experiment, left untracked.
-
----
-
-# 2026-07-11 (lw-gen QA-floor CALIBRATION + recipe v2 sweep; golden-definition seeded)
-
-Shipped commit 2894e0b (QA floors calibrated on a real Vayne sweep) + a docs sync
-(this /done). See LEDGER 16.
-
-**QA floors calibrated (DONE - do not redo):** measured real ClipScorer scores;
-set T_subj 0.26 / T_margin 0.05->0.045 / T_blur 100->150 / T_aes 0.45 (kept, but
-T_aes is a NON-DISCRIMINATIVE no-op - everything scores 0.500-0.504). 6/6 good PASS,
-misses REJECT. gen suite 67/67 green.
-
-**Recipe v2 (operator-in-the-loop sweep, DONE - do not redo the sweep):**
-controlnet_scale tight (1.10) OUT, loose-mid (0.35-0.55) wins; POSE SOURCE is the
-lever (curated skel_01 leap >> default crouch; `_extract_pose` shares ONE skeleton
-per batch - pose variety still needs the deferred cycling feature); fixed a
-156-vs-77-token prompt truncation (Animagine quality tags were being cut); feminine
-cues + male/androgynous negatives fixed a male-read; clean-DoF prompt killed FX
-chaos. Recipe v2 strings: `images/_gen_scratch/exp3_clean/index.json`.
-
-**Plateau + gate finding:** raw single-pass SDXL tops out at "good fan splash", not
-golden. Operator accepted seed22 which the gate WRONGLY rejected as blurry - global
-lap_var is confounded by DoF; needs a subject/face-region sharpness fix in
-`tools/lw_gen_qa.py` (deferred).
-
-**NEXT (operator directive):** fable-5 ultraplan + adversarial FULL-RES review ->
-develop the golden rubric from `docs/research/GOLDEN_DEFINITION.md` (operator seed
-critique + failure taxonomy; WEAPON is the #1 blocker). Iterative passes, not
-superficial. Accepted refs: exp3_clean/seed22+seed33, exp4_volume/seed800,
-proto/cand_01+cand_02 (all in `images/_gen_scratch/`, full-res).
