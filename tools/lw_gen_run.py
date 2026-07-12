@@ -539,9 +539,9 @@ def _venv_python(config, key, root=ROOT):
     return os.path.join(root, venvs.get(key, f".venv-{key}"), "Scripts", "python.exe")
 
 
-def _shell_stage(python_exe, script, batch_dir, tag):
+def _shell_stage(python_exe, script, batch_dir, tag, extra_args=None):
     proc = subprocess.run(
-        [python_exe, script, batch_dir],
+        [python_exe, script, batch_dir] + list(extra_args or []),
         capture_output=True, text=True, creationflags=NO_WINDOW,
     )
     if proc.returncode != 0:
@@ -682,6 +682,33 @@ def run(args, config=None, styles=None):
         if _count_passes(manifest) > 0:
             break
 
+    # Weapon pass (M1 W1): a masked SDXL inpaint re-roll of the wrist weapon
+    # region, then a full-image re-QA so verdicts reflect the fixed files. It
+    # shares only the batch dir + manifest (interlock contract). Propose mode
+    # (no --wrist) emits both-wrist overlays and returns without inpainting.
+    if getattr(args, "weapon_fix", False) and not args.no_chain:
+        gen_py = _venv_python(config, "gen")
+        weaponpass_script = os.path.join(ROOT, "tools", "lw_gen_weaponpass.py")
+        if args.wrist:
+            weapon_args = [
+                "--wrist", args.wrist,
+                "--weapon-rung", args.weapon_rung or "w1",
+                "--weapon-min-conf", str(args.weapon_min_conf or 0.3),
+            ]
+            if args.weapon_only:
+                weapon_args += ["--only", args.weapon_only]
+            _shell_stage(gen_py, weaponpass_script, batch_dir, "weapon", weapon_args)
+            _shell_stage(metrics_py, qa_script, batch_dir, "qa")
+            manifest = _read_json(manifest_path)
+            # fall through to promote (verdicts now reflect the wfix files)
+        else:
+            _shell_stage(gen_py, weaponpass_script, batch_dir, "weapon", ["--propose"])
+            manifest = _read_json(manifest_path)
+            _print_summary(batch_dir, batch_id, manifest, args.no_chain)
+            print("weapon propose: overlays in weapon_review/ - re-run with "
+                  "--weapon-fix --wrist {left,right} to inpaint")
+            return 0
+
     if not args.no_chain:
         _shell_stage(sys.executable, promote_script, batch_dir, "promote")
         manifest = _read_json(manifest_path)
@@ -751,6 +778,16 @@ def build_parser():
                         "(natural pose + correct hands, sharp txt2img)")
     p.add_argument("--controlnet-scale", dest="controlnet_scale", type=float, default=None,
                    help="ControlNet conditioning scale 0-1 (default 0.75)")
+    p.add_argument("--weapon-fix", dest="weapon_fix", action="store_true",
+                   help="run the M1 weapon pass after gen/QA (masked inpaint re-roll)")
+    p.add_argument("--wrist", choices=["left", "right"], default=None,
+                   help="weapon rig side; omit with --weapon-fix for propose mode")
+    p.add_argument("--weapon-rung", dest="weapon_rung", default="w1",
+                   help="weapon pass rung (default w1: masked inpaint re-roll)")
+    p.add_argument("--weapon-only", dest="weapon_only", default=None,
+                   help="restrict the weapon pass to one cand file (cand_XX.png)")
+    p.add_argument("--weapon-min-conf", dest="weapon_min_conf", type=float, default=None,
+                   help="pose keypoint confidence floor for the weapon pass (default 0.3)")
     return p
 
 
