@@ -8,21 +8,22 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: M1 weapon pass - wire the DWPose localizer into the inpaint flow (NOW - next session).**
-  Localizer DECISION SETTLED (LEDGER 19, commit 7e21c9d): **DWPose onnx-CPU ADOPTED**
-  as the auto-suggestion localizer - 5/6 wrist-on-weapon on the 6
-  `images/_gen_scratch/recall_gate/` samples vs OpenPose 1/6 (cleared the >= 4/6 bar).
-  **SDPose-Wholebody REJECTED - do NOT retry:** its pipeline hard-imports mmpose and
-  pins mmcv==2.2.0 (the Blackwell / torch-2.11 wall) plus torch 2.8 / transformers
-  4.57 / xformers conflicts + 5.32GB; it is NOT drop-in on .venv-gen. Reusable pieces:
-  `tools/lw_gen_localizer_eval.py` (dwpose_backend + cocowb_to_kp_map) +
-  `tools/dwpose_onnx/` (vendored onnx helpers, no mmcv); models gitignored under
-  `tools/models/dwpose/` (351MB, re-fetch from the fashn-ai HF mirror). NEXT: wire
-  dwpose_backend into `lw_gen_run`'s real detect -> mask -> inpaint path
-  (operator-in-the-loop picks the weapon-side wrist -> feed its kp_map into the REUSED
-  `weapon_roi_from_keypoints` -> SDXL/LaMa inpaint on the confirmed mask + hard
-  outside-mask identity assert + re-QA via the cand[file] contract). REUSE slices 1-2
-  + the localizer - do NOT rebuild them or re-run the spike.
+- **lw-gen: M1/M2 weapon pass - weapon-region gate + W2 transplant (NOW).**
+  M1 W1 wiring SHIPPED (LEDGER 20, commit 834b74e): `tools/lw_gen_weaponpass.py`
+  wires the adopted DWPose localizer into `lw_gen_run`'s real detect -> mask ->
+  inpaint (dwpose_backend -> operator-picked wrist -> REUSED
+  `weapon_roi_from_keypoints` -> `AutoPipelineForInpainting.from_pipe` W1 re-roll
+  strength 0.92 -> hard paste-back + outside-mask identity assert -> cand[file]
+  _wfix -> re-QA). E2e green on seed42/right (mask from DWPose RWrist 0.877,
+  identity true, re-QA PASS). Flags: `--weapon-fix` / `--wrist {left,right}`
+  (omit = propose overlays into `weapon_review/`) / `--weapon-rung` /
+  `--weapon-only` / `--weapon-min-conf`. NEXT: **(1) weapon-region CLIP gate**
+  (design_weapon.md sec 6) - calibrate `T_weapon`/`T_wmargin` on the ~21 known-bad
+  crops + 19 official-skin crops so acceptance proves the weapon is CANONICAL, not
+  just that the subject survived; **(2) W2 transplant** (design_weapon.md sec 3
+  mechanism A) - affine-fit a real crossbow crop then guided inpaint at strength
+  0.35-0.50. REUSE the localizer + slices 1-2 + the weapon pass - do NOT rebuild
+  or re-run the e2e; do NOT re-attempt SDPose (mmcv/Blackwell-blocked).
 
 - **OPERATOR-BLOCKED: ratify `GOLDEN_DEFINITION.md` sec 6 Q1-Q4** (glasses shape /
   style-band steer / dodge lane / scorecard). Champion labels are DONE this session

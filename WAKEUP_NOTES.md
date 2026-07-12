@@ -11,6 +11,38 @@
 
 ---
 
+# 2026-07-12 (M1 weapon pass W1 - DWPose-wrist masked SDXL inpaint SHIPPED)
+
+Shipped + pushed (commit 834b74e); full 3-suite 55 passed / 1 skipped; e2e green.
+- **Wired** the adopted DWPose localizer into lw_gen_run's real detect -> mask ->
+  inpaint. New tools/lw_gen_weaponpass.py (4th gen-sidecar stage): dwpose_backend ->
+  operator-picked wrist -> REUSED weapon_roi_from_keypoints (slices 1-2, UNCHANGED)
+  -> AutoPipelineForInpainting.from_pipe(base, controlnet=None) W1 re-roll (strength
+  0.92) -> hard paste-back + outside-mask identity assert -> cand[file] _wfix -> re-QA.
+  Propose mode (no --wrist) = both-wrist overlays; a fallback -> review, never inpaints.
+  run.py flags --weapon-fix / --wrist / --weapon-rung / --weapon-only / --weapon-min-conf;
+  _shell_stage +extra_args.
+- **Built** TDD RED-first (build subagent) + first-party verifier gate (I re-ran the
+  suite + read the module/test/diff, NOT the subagent's counts). 10 torch-free tests.
+- **E2e acceptance** seed42/right (two-venv chain: real .venv-gen SDXL inpaint +
+  .venv-metrics re-QA): cand_00_wfix.png, mask from DWPose RWrist 0.877,
+  outside_mask_identical true, re-QA PASS (subj 0.296 / margin 0.073 / lap 449).
+  design_weapon.md sec 7's "lw_gen_weaponfix.py" name was already taken by slices 1-2
+  -> new stage is lw_gen_weaponpass.py; the doc predates DWPose (sec 4 assumes OpenPose).
+- **Pruned** ops/budget_saver/ (operator: no longer relevant).
+
+**Scope:** built to the WAKEUP acceptance (mask-from-DWPose-wrist + identity + existing
+full-image re-QA), DEFERRED the weapon-region CLIP gate (design_weapon.md sec 6) - the
+existing re-QA proves plumbing + subject non-regression, the deferred gate proves the
+weapon is CANONICAL.
+
+**NEXT session:** (1) weapon-region CLIP gate calibrated on ~21 known-bad + 19
+official-skin crops; (2) W2 transplant (mechanism A: affine crossbow crop + guided
+inpaint 0.35-0.50). Do NOT redo the localizer / slices 1-2 / weapon pass / SDPose or
+re-run the e2e. Still operator-blocked: GOLDEN_DEFINITION.md sec 6 Q1-Q4.
+
+---
+
 # 2026-07-11 (M1 localizer decision - DWPose onnx-CPU adopted, 5/6)
 
 Shipped + pushed (commit 7e21c9d), full suite 387 passed / 3 skipped:
