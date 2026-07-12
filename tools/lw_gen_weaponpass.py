@@ -45,7 +45,11 @@ if ROOT not in sys.path:
 
 from tools import lw_gen_localizer_eval as loc  # noqa: E402
 from tools import lw_gen_run as gr  # noqa: E402
-from tools.lw_gen_weaponfix import weapon_roi_from_keypoints  # noqa: E402
+from tools.lw_gen_weaponfix import pad_bbox, weapon_roi_from_keypoints  # noqa: E402
+from tools.lw_gen_qa import (  # noqa: E402  (torch-free: gate logic + dataclass only)
+    VERDICT_PASS, VERDICT_REJECT, WeaponScore, resolve_weapon_thresholds,
+    weapon_grade,
+)
 
 # --- W1 defaults (design_weapon.md sec 5) -----------------------------------
 WEAPON_PROMPT = (
@@ -61,6 +65,11 @@ WEAPON_STEPS = 32
 WEAPON_GUIDANCE = 6.0
 
 _STAGE = "wfix"
+
+# ROI crop padding for the weapon gate (design_weapon.md sec 6: bbox padded 10%).
+WEAPON_CROP_PAD = 0.10
+# No console flash for the metrics-venv subprocess (Legion no-flash rule).
+_CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
 
 # --------------------------------------------------------------------------
@@ -104,6 +113,19 @@ def assert_outside_identity(orig_arr, final_arr, mask_binary):
             "weapon pass mutated pixels OUTSIDE the weapon mask "
             "(paste-back identity violated)"
         )
+
+
+def _inpaint_roll(inpainter, cand_img, mask_pil, cand_arr, mask_binary,
+                  prompt, negative, strength, seed):
+    """One masked re-roll -> paste-back composite array (out-of-mask identical).
+
+    Module-level (not a loop closure) so both gate lanes share it without a
+    loop-variable-binding smell.
+    """
+    inp = inpainter(cand_img, mask_pil, prompt, negative, strength, seed)
+    if inp.size != cand_img.size:
+        inp = inp.resize(cand_img.size)
+    return paste_back(cand_arr, np.asarray(inp.convert("RGB")), mask_binary)
 
 
 # --------------------------------------------------------------------------
@@ -183,6 +205,48 @@ def _build_real_inpainter(config):
 
 
 # --------------------------------------------------------------------------
+# Real weapon gate builder (LAZY subprocess to .venv-metrics - never in CI).
+# --------------------------------------------------------------------------
+def _build_real_gate(config):
+    """Build the weapon gate closure: score a ROI crop in the metrics venv.
+
+    Returns (crop_pil) -> WeaponScore. Saves the crop to a temp PNG, shells
+    `lw_gen_qa.py --weapon-crop <png>` under the metrics-venv python (open-clip
+    lives there, never in .venv-gen), parses the JSON line, maps to WeaponScore.
+    CREATE_NO_WINDOW keeps the subprocess console hidden (Legion no-flash rule).
+    Never reached in CI - tests inject a stub gate.
+    """
+    import subprocess
+    import tempfile
+
+    venvs = (config or {}).get("venvs", {}) or {}
+    metrics_venv = venvs.get("metrics", ".venv-metrics")
+    metrics_py = os.path.join(ROOT, metrics_venv, "Scripts", "python.exe")
+    qa_script = os.path.join(ROOT, "tools", "lw_gen_qa.py")
+
+    def _gate(crop_pil):
+        fd, tmp = tempfile.mkstemp(suffix=".png", prefix="wcrop_")
+        os.close(fd)
+        try:
+            crop_pil.save(tmp)
+            proc = subprocess.run(
+                [metrics_py, qa_script, "--weapon-crop", tmp],
+                capture_output=True, text=True, creationflags=_CREATE_NO_WINDOW,
+            )
+            data = json.loads(proc.stdout.strip().splitlines()[-1])
+        finally:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        return WeaponScore(
+            float(data["weapon_cos"]), float(data["weapon_off"]), float(data["lap_var"])
+        )
+
+    return _gate
+
+
+# --------------------------------------------------------------------------
 # Review routing (a fallback never inpaints; it records why + a note).
 # --------------------------------------------------------------------------
 def _route_to_review(batch_dir, cand_file, wrist, rung, fallback, min_conf):
@@ -208,14 +272,18 @@ def _route_to_review(batch_dir, cand_file, wrist, rung, fallback, min_conf):
 # --------------------------------------------------------------------------
 def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
                 min_conf=0.3, only=None, config=None, backend=None,
-                inpainter=None):
+                inpainter=None, gate=None):
     """Run the M1 W1 weapon pass over a batch dir; return the manifest dict.
 
     wrist is None -> PROPOSE (both-wrist overlays, no mutation). wrist set ->
-    FIX (detect -> mask -> inpaint -> paste-back -> advance). backend defaults
-    to dwpose_backend and inpainter to a real-SDXL closure; both are injectable
-    so pure tests never load onnx/torch. `only` (a cand file name), when set,
-    restricts the pass to that candidate. Atomic writes throughout.
+    FIX (detect -> mask -> gated inpaint rolls -> paste-back -> advance). Up to
+    `rolls` masked re-rolls are tried; each is scored by the weapon-region CLIP
+    gate (design_weapon.md sec 6) and the FIRST gated PASS wins (STOP rule). If
+    no roll passes, the best near-miss is dropped in weapon_review/ and cand
+    [file] stays raw. backend defaults to dwpose_backend, inpainter to a real-
+    SDXL closure, gate to a metrics-venv scorer shell; all three are injectable
+    so pure tests never load onnx/torch/open-clip. `only` (a cand file name),
+    when set, restricts the pass to that candidate. Atomic writes throughout.
     """
     from PIL import Image  # lazy; CI has Pillow
 
@@ -252,8 +320,20 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
             overlay.save(os.path.join(review_dir, _raw_stem(cand_file) + "_overlay.png"))
         return manifest
 
-    # ---- FIX: detect -> mask -> inpaint -> paste-back -> advance. ----
+    # ---- FIX: detect -> mask -> rolls; gate_mode decides acceptance. ----
+    # gate_mode "operator" (DEFAULT): the ViT-L-14 CLIP region gate is a DEAD
+    # gate - calibration 2026-07-12 (docs/research/GEN_RETUNE.md) showed it cannot
+    # separate canonical-crossbow crops from wrong-weapon crops (margin negative on
+    # every crop; the canonical default skin fails a floor 6 bad candidates clear),
+    # the T_aes-precedent operator-lane fallback GOLDEN_DEFINITION.md:120 mandates.
+    # So run the rolls, save EVERY attempt to weapon_review/ for operator blessing,
+    # never auto-advance. gate_mode "clip": auto-accept the first gated PASS - kept
+    # wired for a FUTURE separating scorer (weapon-concept LoRA / fine-tuned CLIP).
+    gate_mode = (weapon_cfg.get("gate_mode") or "operator").lower()
+    wthresh = resolve_weapon_thresholds(config, manifest)
     active_inpainter = inpainter
+    active_gate = gate
+    review_dir = os.path.join(batch_dir, "weapon_review")
     for cand in candidates:
         cand_file = cand.get("file")
         if not cand_file or (only is not None and cand_file != only):
@@ -274,31 +354,98 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
         if active_inpainter is None:
             active_inpainter = _build_real_inpainter(config)
 
-        seed = int(cand.get("seed") or 0)
+        cand_arr = np.asarray(cand_img)
         feathered = (np.clip(roi.mask_feathered, 0.0, 1.0) * 255.0).astype(np.uint8)
         mask_pil = Image.fromarray(feathered, mode="L")
-        inpainted = active_inpainter(cand_img, mask_pil, prompt, negative, strength, seed)
-        if inpainted.size != cand_img.size:
-            inpainted = inpainted.resize(cand_img.size)
-        inpainted = inpainted.convert("RGB")
+        base_seed = int(cand.get("seed") or 0)
 
-        cand_arr = np.asarray(cand_img)
-        final_arr = paste_back(cand_arr, np.asarray(inpainted), roi.mask_binary)
-        assert_outside_identity(cand_arr, final_arr, roi.mask_binary)
+        # ---- operator lane (dead-gate default): save every roll for eyeball. ----
+        if gate_mode != "clip":
+            os.makedirs(review_dir, exist_ok=True)
+            roll_files = []
+            for roll in range(max(1, int(rolls))):
+                final_arr = _inpaint_roll(
+                    active_inpainter, cand_img, mask_pil, cand_arr, roi.mask_binary,
+                    prompt, negative, strength, base_seed + roll)
+                assert_outside_identity(cand_arr, final_arr, roi.mask_binary)
+                rf = _raw_stem(cand_file) + f"_wroll{roll}.png"
+                Image.fromarray(final_arr).save(os.path.join(review_dir, rf))
+                roll_files.append(rf)
+            sidecar = {
+                "wrist": wrist, "rung": rung,
+                "roi_bbox": list(roi.bbox) if roi.bbox else None,
+                "fallback": None, "outside_mask_identical": True,
+                "min_conf": min_conf, "strength": strength,
+                "verdict": "REVIEW", "reason": "clip_gate_dead",
+                "gate_mode": gate_mode, "rolls": rolls,
+                "rolls_tried": len(roll_files), "review_files": roll_files,
+                "meta": getattr(out, "meta", {}) or {},
+            }
+            _atomic_write_json(_weapon_sidecar_path(batch_dir, cand_file), sidecar)
+            continue
 
-        new_file = gr.stage_filename(cand_file, _STAGE)
-        Image.fromarray(final_arr).save(os.path.join(batch_dir, new_file))
-        gr.advance_cand_file(cand, new_file, _STAGE)
+        # ---- clip lane: gated rolls, first PASS wins (STOP rule). ----
+        if active_gate is None:
+            active_gate = _build_real_gate(config)
+        crop_box = pad_bbox(roi.bbox, WEAPON_CROP_PAD, (width, height))
+        accepted = None
+        best = None
+        rolls_tried = 0
+        for roll in range(max(1, int(rolls))):
+            rolls_tried += 1
+            seed = base_seed + roll
+            final_arr = _inpaint_roll(
+                active_inpainter, cand_img, mask_pil, cand_arr, roi.mask_binary,
+                prompt, negative, strength, seed)
+            crop_pil = Image.fromarray(final_arr).crop(crop_box)
+            wscore = active_gate(crop_pil)
+            g = weapon_grade(wscore, wthresh)
+            if best is None or wscore.weapon_cos > best[3].weapon_cos:
+                best = (roll, seed, final_arr, wscore)
+            if g.verdict == VERDICT_PASS:
+                accepted = (roll, seed, final_arr, wscore)
+                break
 
-        sidecar = {
-            "wrist": wrist, "rung": rung,
-            "roi_bbox": list(roi.bbox) if roi.bbox else None,
-            "fallback": None, "outside_mask_identical": True,
-            "min_conf": min_conf, "strength": strength, "seed": seed,
-            "rolls": rolls, "meta": getattr(out, "meta", {}) or {},
-        }
-        _atomic_write_json(_weapon_sidecar_path(batch_dir, new_file), sidecar)
-        _atomic_write_json(manifest_path, manifest)
+        if accepted is not None:
+            roll_idx, seed, final_arr, wscore = accepted
+            g = weapon_grade(wscore, wthresh)
+            assert_outside_identity(cand_arr, final_arr, roi.mask_binary)
+            new_file = gr.stage_filename(cand_file, _STAGE)
+            Image.fromarray(final_arr).save(os.path.join(batch_dir, new_file))
+            gr.advance_cand_file(cand, new_file, _STAGE)
+            sidecar = {
+                "wrist": wrist, "rung": rung,
+                "roi_bbox": list(roi.bbox) if roi.bbox else None,
+                "fallback": None, "outside_mask_identical": True,
+                "min_conf": min_conf, "strength": strength,
+                "verdict": VERDICT_PASS, "reason": None, "gate_mode": gate_mode,
+                "weapon_cos": wscore.weapon_cos, "weapon_off": wscore.weapon_off,
+                "weapon_margin": g.margin, "chosen_roll": roll_idx,
+                "chosen_seed": seed, "rolls": rolls, "rolls_tried": rolls_tried,
+                "meta": getattr(out, "meta", {}) or {},
+            }
+            _atomic_write_json(_weapon_sidecar_path(batch_dir, new_file), sidecar)
+            _atomic_write_json(manifest_path, manifest)
+        else:
+            # STOP rule: no gated PASS in the budget -> operator review lane. Drop
+            # the best near-miss for eyeball; cand[file] stays raw (never advanced).
+            roll_idx, seed, final_arr, wscore = best
+            g = weapon_grade(wscore, wthresh)
+            os.makedirs(review_dir, exist_ok=True)
+            Image.fromarray(final_arr).save(
+                os.path.join(review_dir, _raw_stem(cand_file) + "_wbest.png"))
+            sidecar = {
+                "wrist": wrist, "rung": rung,
+                "roi_bbox": list(roi.bbox) if roi.bbox else None,
+                "fallback": None, "outside_mask_identical": None,
+                "min_conf": min_conf, "strength": strength,
+                "verdict": VERDICT_REJECT, "reason": g.reason, "gate_mode": gate_mode,
+                "weapon_cos": wscore.weapon_cos, "weapon_off": wscore.weapon_off,
+                "weapon_margin": g.margin, "chosen_roll": roll_idx,
+                "chosen_seed": seed, "rolls": rolls, "rolls_tried": rolls_tried,
+                "meta": getattr(out, "meta", {}) or {},
+            }
+            _atomic_write_json(_weapon_sidecar_path(batch_dir, cand_file), sidecar)
 
     return manifest
 

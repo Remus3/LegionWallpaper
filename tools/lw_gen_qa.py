@@ -88,6 +88,84 @@ Scorer = Callable[[str], RawScore]
 
 
 # --------------------------------------------------------------------------
+# M1 weapon-region CLIP gate (design_weapon.md sec 6). Proves an accepted
+# weapon fix is CANONICAL (a wrist crossbow), not merely that the subject
+# survived. Scores a ROI CROP - not the whole frame - so it is immune to the
+# DoF blur confound (GEN_RETUNE.md:116-123). Positives/distractors are the
+# design-of-record text sets. weapon_cos = MEAN cosine vs positives; weapon_off
+# = MAX cosine vs distractors (the crossbow is the argmax iff cos > off).
+# --------------------------------------------------------------------------
+WEAPON_POSITIVES = [
+    "a wrist-mounted mechanical repeating crossbow",
+    "a crossbow mounted on an armored forearm",
+    "a small mechanical crossbow",
+]
+WEAPON_DISTRACTORS = [
+    "a longbow", "a sword blade", "a rifle", "an axe", "a spear",
+    "bat wings", "an empty gloved hand", "a blurry dark shape",
+]
+# Placeholder floors: the live values come from config weapon{} after the M1
+# calibration (good official-skin crops vs known-bad candidate crops). T_wblur
+# mirrors the QA blur floor (GEN_RETUNE.md); T_weapon/T_wmargin are set at the
+# good/bad separation midpoint and MUST NOT ship at these seed values.
+WEAPON_DEFAULT_THRESHOLDS: Dict[str, float] = {
+    "T_weapon": 0.22,
+    "T_wmargin": 0.03,
+    "T_wblur": 150.0,
+}
+
+# Weapon reason codes (parallel to the QA Stage-A/B codes).
+REASON_WEAPON_OFFCLASS = "weapon_offclass"      # below floor OR not the argmax
+REASON_WEAPON_WEAK_MARGIN = "weapon_weak_margin"
+REASON_WEAPON_MUSH = "weapon_mush"              # region lap_var below T_wblur
+
+
+@dataclass
+class WeaponScore:
+    """Per-crop weapon-gate raw scores (real CLIP or a test stub).
+
+    weapon_cos is the MEAN cosine over WEAPON_POSITIVES; weapon_off is the MAX
+    cosine over WEAPON_DISTRACTORS; lap_var is the ROI crop's local sharpness.
+    """
+
+    weapon_cos: float
+    weapon_off: float
+    lap_var: float
+
+
+@dataclass
+class WeaponGrade:
+    """Result of the weapon gate on one WeaponScore."""
+
+    verdict: str
+    reason: Optional[str]
+    margin: float
+
+
+def weapon_grade(scores: "WeaponScore", thresholds: Dict[str, float]) -> "WeaponGrade":
+    """Apply the 4-clause weapon gate (design_weapon.md sec 6) to one WeaponScore.
+
+    PASS iff weapon_cos >= T_weapon AND weapon_cos > weapon_off AND
+    (weapon_cos - weapon_off) >= T_wmargin AND lap_var >= T_wblur. The reason
+    ordering is HARD (offclass -> weak_margin -> mush), mirroring the QA grade.
+    """
+    t_weapon = float(thresholds["T_weapon"])
+    t_wmargin = float(thresholds["T_wmargin"])
+    t_wblur = float(thresholds["T_wblur"])
+
+    margin = scores.weapon_cos - scores.weapon_off
+    is_argmax = scores.weapon_cos > scores.weapon_off
+
+    if scores.weapon_cos < t_weapon or not is_argmax:
+        return WeaponGrade(VERDICT_REJECT, REASON_WEAPON_OFFCLASS, margin)
+    if margin < t_wmargin:
+        return WeaponGrade(VERDICT_REJECT, REASON_WEAPON_WEAK_MARGIN, margin)
+    if scores.lap_var < t_wblur:
+        return WeaponGrade(VERDICT_REJECT, REASON_WEAPON_MUSH, margin)
+    return WeaponGrade(VERDICT_PASS, None, margin)
+
+
+# --------------------------------------------------------------------------
 # Pure gate logic (no I/O, no model) - the unit-tested core.
 # --------------------------------------------------------------------------
 def grade(scores: RawScore, thresholds: Dict[str, float]) -> Grade:
@@ -203,6 +281,25 @@ def resolve_thresholds(config: Dict[str, Any], manifest: Dict[str, Any]) -> Dict
     return resolved
 
 
+def resolve_weapon_thresholds(config: Dict[str, Any], manifest: Dict[str, Any]) -> Dict[str, float]:
+    """Weapon floors = config weapon{} defaults, then per-batch weapon_overrides.
+
+    Same shape as resolve_thresholds: missing keys fall back to config weapon{}
+    then to WEAPON_DEFAULT_THRESHOLDS, so the resolved dict is always fully
+    populated (T_weapon / T_wmargin / T_wblur).
+    """
+    resolved = dict(WEAPON_DEFAULT_THRESHOLDS)
+    wcfg = (config or {}).get("weapon", {}) or {}
+    for key in WEAPON_DEFAULT_THRESHOLDS:
+        if key in wcfg and wcfg[key] is not None:
+            resolved[key] = float(wcfg[key])
+    overrides = (manifest or {}).get("weapon_overrides", {}) or {}
+    for key in WEAPON_DEFAULT_THRESHOLDS:
+        if key in overrides and overrides[key] is not None:
+            resolved[key] = float(overrides[key])
+    return resolved
+
+
 # --------------------------------------------------------------------------
 # Real CLIP scorer (lazy open_clip / torch). Never imported in CI (tests stub it).
 # --------------------------------------------------------------------------
@@ -282,6 +379,89 @@ class ClipScorer:
         aesthetic = float(torch.softmax(aes, dim=0)[0].item())
         lap = laplacian_variance(path)
         return RawScore(subject_cos, off_cos, aesthetic, lap)
+
+
+class WeaponClipScorer:
+    """open-clip weapon-region scorer for a ROI crop (design_weapon.md sec 6).
+
+    Same lazy heavy-dep contract as ClipScorer (torch/open_clip imported only
+    inside load/_encode - never in CI). Uses the SAME clip_model/clip_pretrained
+    as the QA scorer (config: ViT-L-14-quickgelu / openai) so the two gates share
+    one embedding space. Scores a CROP path: weapon_cos = MEAN cosine vs the
+    crossbow positives, weapon_off = MAX cosine vs distractors, plus the crop's
+    local laplacian variance.
+    """
+
+    def __init__(self, config: Dict[str, Any]) -> None:
+        self.clip_model = config.get("clip_model", "ViT-L-14-quickgelu")
+        self.clip_pretrained = config.get("clip_pretrained", "openai")
+        wcfg = (config or {}).get("weapon", {}) or {}
+        self.positive_texts = wcfg.get("positives") or list(WEAPON_POSITIVES)
+        self.distractor_texts = wcfg.get("distractors") or list(WEAPON_DISTRACTORS)
+        self._model = None
+        self._tokenizer = None
+        self._preprocess = None
+        self._device = None
+        self._positive_embed = None
+        self._distractor_embed = None
+
+    def load(self) -> "WeaponClipScorer":
+        import open_clip  # lazy heavy dep
+        import torch  # lazy heavy dep
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model, _, preprocess = open_clip.create_model_and_transforms(
+            self.clip_model, pretrained=self.clip_pretrained
+        )
+        model = model.to(device).eval()
+        tokenizer = open_clip.get_tokenizer(self.clip_model)
+        self._model = model
+        self._preprocess = preprocess
+        self._tokenizer = tokenizer
+        self._device = device
+        self._positive_embed = self._encode_text(self.positive_texts)
+        self._distractor_embed = self._encode_text(self.distractor_texts)
+        return self
+
+    def _encode_text(self, texts):
+        import torch
+
+        with torch.no_grad():
+            tok = self._tokenizer(texts).to(self._device)
+            emb = self._model.encode_text(tok)
+            emb = emb / emb.norm(dim=-1, keepdim=True)
+        return emb
+
+    def _encode_image(self, path: str):
+        import torch
+        from PIL import Image
+
+        with Image.open(path) as im:
+            tensor = self._preprocess(im.convert("RGB")).unsqueeze(0).to(self._device)
+        with torch.no_grad():
+            emb = self._model.encode_image(tensor)
+            emb = emb / emb.norm(dim=-1, keepdim=True)
+        return emb
+
+    def __call__(self, path: str) -> WeaponScore:
+        img = self._encode_image(path)
+        pos = (img @ self._positive_embed.T).squeeze(0)
+        weapon_cos = float(pos.mean().item())
+        dist = (img @ self._distractor_embed.T).squeeze(0)
+        weapon_off = float(dist.max().item()) if dist.numel() else -1.0
+        lap = laplacian_variance(path)
+        return WeaponScore(weapon_cos, weapon_off, lap)
+
+
+def weapon_crop_report(crop_path: str, scorer: "Callable[[str], WeaponScore]") -> Dict[str, float]:
+    """Score one ROI crop and return a flat JSON-able dict.
+
+    The body of the `--weapon-crop` helper mode: the weapon pass (in .venv-gen)
+    shells this in .venv-metrics so torch/open_clip stay in the metrics venv.
+    scorer is injectable (a WeaponClipScorer live, a stub in CI).
+    """
+    s = scorer(crop_path)
+    return {"weapon_cos": s.weapon_cos, "weapon_off": s.weapon_off, "lap_var": s.lap_var}
 
 
 # --------------------------------------------------------------------------
@@ -369,9 +549,30 @@ def score_batch(batch_dir: str, scorer: Optional[Scorer] = None,
 
 def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(description="Score one lw-gen candidate batch (stateless QA).")
-    parser.add_argument("batch_dir", help="path to images/_gen_scratch/<batch-id>/")
+    parser.add_argument("batch_dir", nargs="?", default=None,
+                        help="path to images/_gen_scratch/<batch-id>/")
+    parser.add_argument("--weapon-crop", dest="weapon_crop", default=None,
+                        help="score ONE weapon ROI crop; print {weapon_cos, weapon_off, "
+                             "lap_var} as JSON and exit (design_weapon.md sec 6/7.1)")
     args = parser.parse_args(argv)
 
+    # Helper mode: score a single weapon ROI crop (the weapon pass shells this in
+    # .venv-metrics so torch/open_clip never load in .venv-gen).
+    if args.weapon_crop:
+        try:
+            scorer = WeaponClipScorer(load_config()).load()
+            report = weapon_crop_report(os.path.abspath(args.weapon_crop), scorer)
+        except Exception as exc:  # noqa: BLE001 - never surface a raw torch/clip trace
+            print("qa: weapon-crop scoring failed - metrics venv not provisioned or a "
+                  "scorer error (see logs).", file=sys.stderr)
+            _log_error(exc)
+            return 1
+        print(json.dumps(report))
+        return 0
+
+    if not args.batch_dir:
+        print("qa: batch_dir required (or use --weapon-crop <png>)", file=sys.stderr)
+        return 2
     batch_dir = os.path.abspath(args.batch_dir)
     manifest_path = os.path.join(batch_dir, "gen_manifest.json")
     if not os.path.isfile(manifest_path):

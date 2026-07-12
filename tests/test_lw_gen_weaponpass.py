@@ -26,7 +26,7 @@ from tools import lw_gen_qa  # noqa: E402
 from tools import lw_gen_run as gr  # noqa: E402
 from tools import lw_gen_weaponfix as lgw  # noqa: E402
 from tools import lw_gen_weaponpass as wp  # noqa: E402
-from tools.lw_gen_qa import RawScore  # noqa: E402
+from tools.lw_gen_qa import RawScore, WeaponScore  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -63,6 +63,40 @@ def _solid_inpainter(color=(0, 255, 0), record=None):
         return Image.new("RGB", image.size, color)
 
     return inpainter
+
+
+# Weapon-gate stubs: canned WeaponScores so no CLIP model ever loads. A PASS
+# score clears any calibrated floor (cos 0.90); a REJECT score fails the
+# offclass clause (cos 0.05). weapon_pass grades these via resolve_weapon_
+# thresholds, so the injected config carries the floors under test.
+W_PASS = WeaponScore(weapon_cos=0.90, weapon_off=0.05, lap_var=500.0)
+W_REJECT = WeaponScore(weapon_cos=0.05, weapon_off=0.02, lap_var=500.0)
+# gate_mode "clip" drives the auto-accept path (the injected gate stub); the
+# shipped default is "operator" (dead CLIP gate -> save-all-rolls review lane).
+W_CFG = {"weapon": {"gate_mode": "clip", "T_weapon": 0.22, "T_wmargin": 0.03,
+                    "T_wblur": 150.0}}
+W_OP_CFG = {"weapon": {"gate_mode": "operator"}}
+
+
+def _gate_const(score):
+    """A stub weapon gate returning the same WeaponScore on every roll."""
+    def gate(crop_img):
+        return score
+    return gate
+
+
+def _gate_seq(*scores, record=None):
+    """A stub weapon gate returning scores in order (last repeats if exhausted)."""
+    calls = {"n": 0}
+
+    def gate(crop_img):
+        i = calls["n"]
+        calls["n"] += 1
+        if record is not None:
+            record.append(i)
+        return scores[i] if i < len(scores) else scores[-1]
+
+    return gate
 
 
 def _make_batch(tmp_path, name="batch", w=672, h=384, base=(40, 0, 0),
@@ -184,13 +218,14 @@ def test_weapon_pass_advances_cand_file_and_provenance(tmp_path):
         str(batch), wrist="right",
         backend=_right_forearm_backend(),
         inpainter=_solid_inpainter(color=(0, 255, 0), record=record),
+        gate=_gate_const(W_PASS), config=W_CFG,
     )
 
     cand = manifest["candidates"][0]
     assert cand["file"] == "cand_00_wfix.png"
     assert cand["stage"] == "wfix"
     assert "cand_00.png" in cand["provenance"]
-    assert len(record) == 1  # exactly one inpaint roll
+    assert len(record) == 1  # first roll gated PASS -> stop
 
     assert (batch / "cand_00_wfix.png").exists()
 
@@ -210,6 +245,11 @@ def test_weapon_pass_advances_cand_file_and_provenance(tmp_path):
     assert sidecar["fallback"] is None
     assert sidecar["wrist"] == "right"
     assert sidecar["rung"] == "w1"
+    assert sidecar["verdict"] == "PASS"
+    assert sidecar["weapon_cos"] == 0.90
+    assert sidecar["weapon_off"] == 0.05
+    assert sidecar["chosen_roll"] == 0      # first roll passed the gate
+    assert sidecar["rolls_tried"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +302,7 @@ def test_reqa_consumes_advanced_file(tmp_path):
         str(batch), wrist="right",
         backend=_right_forearm_backend(),
         inpainter=_solid_inpainter(),
+        gate=_gate_const(W_PASS), config=W_CFG,
     )
 
     def qa_stub(path):
@@ -273,6 +314,126 @@ def test_reqa_consumes_advanced_file(tmp_path):
     cand = updated["candidates"][0]
     assert cand["file"] == "cand_00_wfix.png"
     assert cand["verdict"] == "PASS"  # flips on the wfix file, keyed by cand[file]
+
+
+# ---------------------------------------------------------------------------
+# 8b. Gated rolls: gate REJECTs roll 0, PASSes roll 1 -> 2 inpaint calls, the
+#     accepted roll's seed = base+1, sidecar records the winning roll + scores.
+# ---------------------------------------------------------------------------
+def test_gated_rolls_accept_first_pass(tmp_path):
+    batch = _make_batch(tmp_path, seed=100)
+    record = []
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rolls=4,
+        backend=_right_forearm_backend(),
+        inpainter=_solid_inpainter(record=record),
+        gate=_gate_seq(W_REJECT, W_PASS), config=W_CFG,
+    )
+    assert len(record) == 2                       # stopped at the first PASS
+    assert record[0]["seed"] == 100               # roll 0 seed = base
+    assert record[1]["seed"] == 101               # roll 1 seed = base + 1
+    cand = manifest["candidates"][0]
+    assert cand["file"] == "cand_00_wfix.png"     # advanced on the PASS
+
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["verdict"] == "PASS"
+    assert sidecar["chosen_roll"] == 1
+    assert sidecar["chosen_seed"] == 101
+    assert sidecar["rolls_tried"] == 2
+
+
+# ---------------------------------------------------------------------------
+# 8c. All rolls REJECT -> STOP-rule review lane: no _wfix advance, cand[file]
+#     stays raw, the best near-miss lands in weapon_review/, sidecar is REJECT.
+# ---------------------------------------------------------------------------
+def test_gated_all_reject_routes_to_review(tmp_path):
+    batch = _make_batch(tmp_path)
+    record = []
+    # Ascending cos so the LAST roll is the best near-miss (still a REJECT).
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rolls=3,
+        backend=_right_forearm_backend(),
+        inpainter=_solid_inpainter(record=record),
+        gate=_gate_seq(
+            WeaponScore(0.05, 0.02, 500.0),
+            WeaponScore(0.10, 0.02, 500.0),
+            WeaponScore(0.15, 0.02, 500.0),
+        ),
+        config=W_CFG,
+    )
+    assert len(record) == 3                        # exhausted the roll budget
+    cand = manifest["candidates"][0]
+    assert cand["file"] == "cand_00.png"           # NOT advanced
+    assert cand.get("stage", "raw") == "raw"
+    assert not (batch / "cand_00_wfix.png").exists()
+
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["verdict"] == "REJECT"
+    assert sidecar["rolls_tried"] == 3
+    assert sidecar["weapon_cos"] == 0.15           # kept the best near-miss
+    assert (batch / "weapon_review" / "cand_00_wbest.png").exists()
+
+
+# ---------------------------------------------------------------------------
+# 8d. First roll PASS -> exactly one inpaint call (no wasted rolls).
+# ---------------------------------------------------------------------------
+def test_gated_first_roll_pass_stops_early(tmp_path):
+    batch = _make_batch(tmp_path)
+    record = []
+    wp.weapon_pass(
+        str(batch), wrist="right", rolls=4,
+        backend=_right_forearm_backend(),
+        inpainter=_solid_inpainter(record=record),
+        gate=_gate_const(W_PASS), config=W_CFG,
+    )
+    assert len(record) == 1
+
+
+# ---------------------------------------------------------------------------
+# 8e. Operator lane (dead-gate DEFAULT): run EVERY roll, save each to
+#     weapon_review/, sidecar verdict REVIEW, cand[file] never advanced, and the
+#     CLIP gate is never consulted (no gate injected, none built).
+# ---------------------------------------------------------------------------
+def test_operator_mode_saves_all_rolls_no_advance(tmp_path):
+    batch = _make_batch(tmp_path, seed=50)
+    record = []
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rolls=3,
+        backend=_right_forearm_backend(),
+        inpainter=_solid_inpainter(record=record),
+        config=W_OP_CFG,  # gate omitted: operator lane never reaches the gate
+    )
+    assert len(record) == 3                        # every roll ran (no early stop)
+    assert [r["seed"] for r in record] == [50, 51, 52]
+    cand = manifest["candidates"][0]
+    assert cand["file"] == "cand_00.png"           # NOT advanced
+    assert cand.get("stage", "raw") == "raw"
+    assert not (batch / "cand_00_wfix.png").exists()
+    for roll in range(3):
+        assert (batch / "weapon_review" / f"cand_00_wroll{roll}.png").exists()
+
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["verdict"] == "REVIEW"
+    assert sidecar["reason"] == "clip_gate_dead"
+    assert sidecar["gate_mode"] == "operator"
+    assert len(sidecar["review_files"]) == 3
+    assert sidecar["outside_mask_identical"] is True
+
+
+# ---------------------------------------------------------------------------
+# 8f. Operator lane is the DEFAULT when config omits weapon.gate_mode entirely.
+# ---------------------------------------------------------------------------
+def test_operator_mode_is_default(tmp_path):
+    batch = _make_batch(tmp_path)
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rolls=1,
+        backend=_right_forearm_backend(),
+        inpainter=_solid_inpainter(),
+        config={"weapon": {}},  # no gate_mode key -> defaults to operator
+    )
+    assert manifest["candidates"][0]["file"] == "cand_00.png"  # not advanced
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["verdict"] == "REVIEW"
 
 
 # ---------------------------------------------------------------------------
@@ -301,15 +462,16 @@ def test_acceptance_seed42_right_e2e(tmp_path):
     }
     (batch / "gen_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
-    # Real backend + real inpainter (config-driven), no stubs.
+    # Real backend + real inpainter (config-driven), no stubs. Shipped config
+    # defaults to the operator lane (the CLIP gate is dead), so this proves the
+    # DWPose -> mask -> SDXL-inpaint -> paste-back -> review chain end to end.
     out = wp.weapon_pass(str(batch), wrist="right")
     cand = out["candidates"][0]
-    assert cand["file"] == "cand_00_wfix.png"
-    assert (batch / "cand_00_wfix.png").exists()
-
     sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
-    assert sidecar["outside_mask_identical"] is True
 
-    # Full-image re-QA runs and stamps a verdict on the advanced file.
-    updated = lw_gen_qa.score_batch(str(batch))
-    assert updated["candidates"][0]["verdict"] in ("PASS", "REJECT")
+    assert sidecar["verdict"] == "REVIEW"
+    assert cand["file"] == "cand_00.png"              # operator lane never advances
+    assert sidecar["outside_mask_identical"] is True  # out-of-mask pixels identical
+    assert len(sidecar["review_files"]) >= 1
+    for rf in sidecar["review_files"]:
+        assert (batch / "weapon_review" / rf).exists()

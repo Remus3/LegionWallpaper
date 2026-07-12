@@ -88,6 +88,38 @@ GENERATION KNOBS (controlnet_scale 0.75 / cfg / steps) left at the LOCKED-recipe
 defaults - the tuned batch already hits the operator bar; a by-eye sweep is deferred
 to a session where the operator can rank variants live (operator = canonical judge).
 
+## WEAPON-GATE CALIBRATION (2026-07-12) - CLIP region gate is a DEAD GATE
+M1-finish aimed to calibrate the weapon-region CLIP gate (design_weapon.md sec 6) so
+weapon-pass acceptance proves the weapon is CANONICAL. RESULT: the ViT-L-14 CLIP region
+gate CANNOT separate canonical-crossbow crops from wrong-weapon crops. Shipped as the
+operator-lane fallback (GOLDEN_DEFINITION.md:120 - the T_aes dead-gate precedent).
+Harness: scratchpad/weapon_calib.py (crop in .venv-gen via DWPose -> weapon_roi bbox;
+score in .venv-metrics via WeaponClipScorer; analyze = per-source max-weapon_cos wrist
+crop, good/bad midpoint). Sets: 19 official skins (GOOD/positives) vs all localizable
+gen candidates (BAD; operator-chosen negatives). DWPose localized 9/19 skins + 30/42
+candidates (photographic-trained -> ~half-miss on stylized splash art).
+MEASURED (per-source representative = the higher-scoring wrist crop):
+- weapon_cos overlaps almost totally: GOOD 0.13-0.22 vs BAD 0.11-0.21. No usable gap.
+- margin (mean crossbow-positives - max distractors) is NEGATIVE on EVERY crop, good
+  and bad: CLIP ranks generic weapon/hand text ("sword blade", "empty gloved hand" -
+  even after dropping the "bat wings"/"blurry dark shape" Vayne-aesthetic confounds)
+  ABOVE "repeating crossbow". The canonical DEFAULT skin's weapon region (cos ~0.156)
+  fails a floor 6 BAD candidates clear.
+- 3 configs, all fail: wide-ROI + 8 distractors -> 1/9 good PASS; wide + clean top-2
+  positives -> 2/9; tight wrist-centered crop + clean top-2 -> 3/9. The sec-6-mandated
+  "shrink to top-2 + re-measure" did NOT rescue it; tighter crops raised absolute cos
+  but not the good-vs-bad ordering. Root cause: ViT-L-14 does not represent a painted
+  "wrist crossbow" distinctly from other painted weapons in a small stylized region.
+DECISION (the pre-authorized fallback): config weapon.gate_mode="operator" is the
+SHIPPED default. W1 runs the rolls + saves EVERY attempt to weapon_review/ for operator
+blessing; NO CLIP auto-accept. The CLIP path stays wired behind gate_mode="clip" for a
+FUTURE separating scorer (weapon-concept LoRA, a fine-tuned/DINO region classifier, or
+operator-blessed exemplars joining the positives). The gate LOGIC + crop + gated-rolls
+loop are built + tested (lw_gen_qa.weapon_grade / WeaponClipScorer / --weapon-crop;
+lw_gen_weaponpass rolls loop) - only the CLIP ACCEPTANCE is dead. This GATES M2: W2
+transplant (design_weapon.md mechanism A) is now the path to canonical, acceptance via
+the operator lane until a real scorer exists. Do NOT re-tune prompts/crops on ViT-L-14.
+
 ## WINNING RECIPE v2 + knob sweep (2026-07-11) - clean-DoF, feminine, pose-sourced
 Operator-in-the-loop sweep this session (exp2/exp3/exp4 in images/_gen_scratch/).
 Findings that supersede the earlier "generation knobs deferred" note:

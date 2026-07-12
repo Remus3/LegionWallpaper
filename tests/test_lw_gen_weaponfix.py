@@ -378,3 +378,27 @@ def test_end_to_end_adapter_into_weapon_roi():
     assert res2.ok is False
     assert res2.fallback == "missing_wrist"
     assert res2.mask_binary is None
+
+
+# ---------------------------------------------------------------------------
+# 21. pad_bbox: expand a ROI bbox by a fraction of its own size, clamp to frame.
+#     Crops the weapon ROI (padded 10%) for the CLIP gate (design_weapon.md
+#     sec 6) so the crossbow has margin without swallowing the whole figure.
+# ---------------------------------------------------------------------------
+def test_pad_bbox_expands_by_fraction():
+    # bbox 100x200; 10% pad -> +/-10 in x, +/-20 in y.
+    assert lgw.pad_bbox((100, 100, 200, 300), 0.10, IMG_WH) == (90, 80, 210, 320)
+
+
+def test_pad_bbox_clamps_to_frame():
+    # A large pad runs past every edge -> clamp to [0, W] x [0, H].
+    assert lgw.pad_bbox((5, 5, 25, 25), 0.5, (30, 30)) == (0, 0, 30, 30)
+
+
+def test_pad_bbox_zero_pad_is_clamped_identity():
+    assert lgw.pad_bbox((10, 10, 20, 20), 0.0, IMG_WH) == (10, 10, 20, 20)
+
+
+def test_pad_bbox_returns_ints():
+    out = lgw.pad_bbox((100, 100, 201, 301), 0.10, IMG_WH)
+    assert all(isinstance(v, int) for v in out)

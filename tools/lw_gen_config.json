@@ -52,6 +52,19 @@
     "landscape photo"
   ],
   "top_k": 3,
+  "weapon": {
+    "gate_mode": "operator",
+    "wrist": "right",
+    "T_weapon": 0.22,
+    "T_wmargin": 0.03,
+    "T_wblur": 150.0,
+    "rolls": 4,
+    "w2_strength": [0.35, 0.45, 0.5],
+    "assets": "tools/models/weapon_assets/vayne",
+    "ip_adapter_path": null,
+    "weapon_lora_path": null
+  },
+  "_note_weapon": "M1 weapon-region CLIP gate (design_weapon.md sec 6). gate_mode='operator' is the SHIPPED default because the ViT-L-14 CLIP region gate is a DEAD GATE: the 2026-07-12 calibration (scratchpad/weapon_calib.py; results in docs/research/GEN_RETUNE.md) could NOT separate canonical-crossbow crops (19 official skins) from wrong-weapon crops (all localizable gen candidates) across 3 configs (wide/full 1/9, wide/clean-top2 2/9, tight/clean-top2 3/9 good-PASS). Margin (crossbow-positives - distractors) is NEGATIVE on every crop - CLIP ranks generic weapon/hand text above 'repeating crossbow' on stylized art; the canonical DEFAULT skin fails a floor 6 bad candidates clear. This is the T_aes-dead-gate precedent + the operator-lane fallback GOLDEN_DEFINITION.md:120 mandates. In 'operator' mode W1 runs the rolls and saves EVERY attempt to weapon_review/ for operator blessing (no auto-advance). T_weapon/T_wmargin are DORMANT placeholders used only if gate_mode is flipped to 'clip' for a future SEPARATING scorer (weapon-concept LoRA / fine-tuned CLIP); do NOT treat them as calibrated. T_wblur mirrors the QA blur floor but is REGION-local. Positives/distractors default to WEAPON_POSITIVES/WEAPON_DISTRACTORS in lw_gen_qa.py. rolls is the W1 re-roll budget.",
   "venvs": {
     "gen": ".venv-gen",
     "metrics": ".venv-metrics"

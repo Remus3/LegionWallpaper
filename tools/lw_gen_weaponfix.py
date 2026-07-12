@@ -83,6 +83,22 @@ def _valid_hand_px(hand, img_wh):
     return out
 
 
+def pad_bbox(bbox, pad_frac, img_wh):
+    """Expand an (x0, y0, x1, y1) bbox by pad_frac of its own w/h, clamp to frame.
+
+    Crops the weapon ROI (padded 10%, design_weapon.md sec 6) before CLIP
+    scoring. Returns an int tuple clamped to [0, W] x [0, H].
+    """
+    x0, y0, x1, y1 = bbox
+    dx = int(round(pad_frac * (x1 - x0)))
+    dy = int(round(pad_frac * (y1 - y0)))
+    nx0 = max(0, int(x0) - dx)
+    ny0 = max(0, int(y0) - dy)
+    nx1 = min(int(img_wh[0]), int(x1) + dx)
+    ny1 = min(int(img_wh[1]), int(y1) + dy)
+    return (nx0, ny0, nx1, ny1)
+
+
 def weapon_roi_from_keypoints(
     kp_map: dict,
     wrist: str = "right",

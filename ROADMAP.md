@@ -8,22 +8,24 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: M1/M2 weapon pass - weapon-region gate + W2 transplant (NOW).**
-  M1 W1 wiring SHIPPED (LEDGER 20, commit 834b74e): `tools/lw_gen_weaponpass.py`
-  wires the adopted DWPose localizer into `lw_gen_run`'s real detect -> mask ->
-  inpaint (dwpose_backend -> operator-picked wrist -> REUSED
-  `weapon_roi_from_keypoints` -> `AutoPipelineForInpainting.from_pipe` W1 re-roll
-  strength 0.92 -> hard paste-back + outside-mask identity assert -> cand[file]
-  _wfix -> re-QA). E2e green on seed42/right (mask from DWPose RWrist 0.877,
-  identity true, re-QA PASS). Flags: `--weapon-fix` / `--wrist {left,right}`
-  (omit = propose overlays into `weapon_review/`) / `--weapon-rung` /
-  `--weapon-only` / `--weapon-min-conf`. NEXT: **(1) weapon-region CLIP gate**
-  (design_weapon.md sec 6) - calibrate `T_weapon`/`T_wmargin` on the ~21 known-bad
-  crops + 19 official-skin crops so acceptance proves the weapon is CANONICAL, not
-  just that the subject survived; **(2) W2 transplant** (design_weapon.md sec 3
-  mechanism A) - affine-fit a real crossbow crop then guided inpaint at strength
-  0.35-0.50. REUSE the localizer + slices 1-2 + the weapon pass - do NOT rebuild
-  or re-run the e2e; do NOT re-attempt SDPose (mmcv/Blackwell-blocked).
+- **lw-gen: M2 weapon pass - W2 transplant (NOW).**
+  M1 W1 wiring (LEDGER 20) + the weapon-region gate (LEDGER 21) are SHIPPED.
+  **The ViT-L-14 CLIP region gate is a DEAD GATE** - the 2026-07-12 calibration
+  (scratchpad/weapon_calib.py; record in docs/research/GEN_RETUNE.md) could NOT
+  separate canonical-crossbow crops from wrong-weapon crops (margin negative on
+  every crop across 3 configs; the canonical default skin fails a floor 6 bad
+  candidates clear). Shipped the pre-authorized operator-lane fallback
+  (GOLDEN_DEFINITION.md:120): `config weapon.gate_mode="operator"` (default) -> W1
+  runs the rolls + saves EVERY attempt to `weapon_review/` for operator blessing,
+  no CLIP auto-accept. The gate LOGIC + crop + gated-rolls loop are built + tested
+  (`lw_gen_qa.weapon_grade` / `WeaponClipScorer` / `--weapon-crop`; `gate_mode="clip"`
+  stays wired for a future scorer). NEXT: **(1) W2 transplant** (design_weapon.md
+  sec 3 mechanism A) - affine-fit a real crossbow crop then guided inpaint strength
+  0.35-0.50, acceptance via the operator lane; **(2) a SEPARATING weapon scorer**
+  (weapon-concept LoRA / fine-tuned or DINO region classifier / operator-blessed
+  exemplars as positives) to revive `gate_mode="clip"`. Do NOT re-tune prompts/crops
+  on ViT-L-14 (measured dead). REUSE the localizer + slices 1-2 + weapon pass + gate
+  logic - do NOT rebuild; do NOT re-attempt SDPose (mmcv/Blackwell-blocked).
 
 - **OPERATOR-BLOCKED: ratify `GOLDEN_DEFINITION.md` sec 6 Q1-Q4** (glasses shape /
   style-band steer / dodge lane / scorecard). Champion labels are DONE this session

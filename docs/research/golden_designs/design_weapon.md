@@ -194,6 +194,15 @@ rhand = poses[0].right_hand             # 21 normalized kps or None
 
 ## 6. Acceptance check - how we KNOW the weapon is canonical
 
+> **CALIBRATION OUTCOME 2026-07-12 (LEDGER 21, GEN_RETUNE.md): this CLIP gate is DEAD.**
+> Built + calibrated exactly as specified below; the ViT-L-14 region gate CANNOT
+> separate canonical-crossbow crops from wrong-weapon crops (margin negative on every
+> crop; 3 configs 1/9, 2/9, 3/9 good-PASS; the top-2 fallback below did NOT rescue it).
+> Shipped the operator-lane fallback (config weapon.gate_mode="operator", default). The
+> spec below stays as the gate_mode="clip" path for a FUTURE SEPARATING scorer (weapon
+> LoRA / fine-tune / DINO). Do NOT re-tune prompts/crops on ViT-L-14. The rest of sec 6
+> (identity assert, full-image re-QA, operator = final judge) still holds.
+
 Weapon-region CLIP gate (new, in .venv-metrics, same open-clip stack as lw_gen_qa.py):
 - Crop the weapon ROI bbox (padded 10%) from the candidate.
 - weapon_cos = mean cosine vs positives ["a wrist-mounted mechanical repeating crossbow",

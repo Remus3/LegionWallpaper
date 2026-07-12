@@ -301,3 +301,93 @@ def test_score_batch_preserves_stage_and_provenance(tmp_path):
     cand = updated["candidates"][0]
     assert cand["stage"] == "weapon"
     assert cand["provenance"] == ["cand_00.png"]
+
+
+# --- M1 weapon-region CLIP gate (design_weapon.md sec 6) -------------------
+# Mirrors the Stage-A/B QA grade tests: a 4-clause conjunction with a HARD
+# reason ordering (offclass -> weak_margin -> mush). weapon_cos is the MEAN
+# cosine vs the crossbow positives; weapon_off is the MAX cosine vs distractors
+# (so the crossbow is the argmax iff weapon_cos > weapon_off). lap_var here is
+# the REGION-local sharpness of the ROI crop (anti-mush; immune to the DoF
+# confound that plagues the whole-image blur gate, GEN_RETUNE.md:116-123).
+WTHRESH = {"T_weapon": 0.22, "T_wmargin": 0.03, "T_wblur": 150.0}
+
+
+def test_weapon_clean_pass():
+    from tools.lw_gen_qa import WeaponScore, weapon_grade
+    s = WeaponScore(weapon_cos=0.30, weapon_off=0.15, lap_var=400.0)
+    g = weapon_grade(s, WTHRESH)
+    assert g.verdict == "PASS"
+    assert g.reason is None
+    assert abs(g.margin - 0.15) < 1e-9
+
+
+def test_weapon_offclass_below_floor():
+    # weapon_cos below T_weapon -> offclass even with a positive margin.
+    from tools.lw_gen_qa import WeaponScore, weapon_grade
+    s = WeaponScore(weapon_cos=0.18, weapon_off=0.10, lap_var=400.0)
+    g = weapon_grade(s, WTHRESH)
+    assert g.verdict == "REJECT"
+    assert g.reason == "weapon_offclass"
+
+
+def test_weapon_offclass_not_argmax():
+    # clears the floor (0.30 >= 0.22) but a distractor scores higher -> offclass,
+    # NOT weak_margin (mirrors the QA argmax-over-distractors rule).
+    from tools.lw_gen_qa import WeaponScore, weapon_grade
+    s = WeaponScore(weapon_cos=0.30, weapon_off=0.42, lap_var=400.0)
+    g = weapon_grade(s, WTHRESH)
+    assert g.verdict == "REJECT"
+    assert g.reason == "weapon_offclass"
+    assert g.margin < 0
+
+
+def test_weapon_weak_margin():
+    # argmax + above floor, but margin (0.02) < T_wmargin (0.03) -> weak_margin.
+    from tools.lw_gen_qa import WeaponScore, weapon_grade
+    s = WeaponScore(weapon_cos=0.30, weapon_off=0.28, lap_var=400.0)
+    g = weapon_grade(s, WTHRESH)
+    assert g.verdict == "REJECT"
+    assert g.reason == "weapon_weak_margin"
+
+
+def test_weapon_mush_when_clip_ok():
+    # CLIP clauses pass; region lap_var below T_wblur -> mush (anti-mush gate).
+    from tools.lw_gen_qa import WeaponScore, weapon_grade
+    s = WeaponScore(weapon_cos=0.30, weapon_off=0.15, lap_var=80.0)
+    g = weapon_grade(s, WTHRESH)
+    assert g.verdict == "REJECT"
+    assert g.reason == "weapon_mush"
+
+
+def test_weapon_offclass_precedence_over_mush():
+    # fails BOTH the floor and the blur; the CLIP clause is checked first.
+    from tools.lw_gen_qa import WeaponScore, weapon_grade
+    s = WeaponScore(weapon_cos=0.05, weapon_off=0.02, lap_var=1.0)
+    g = weapon_grade(s, WTHRESH)
+    assert g.reason == "weapon_offclass"
+
+
+def test_resolve_weapon_thresholds_config_and_overrides():
+    from tools.lw_gen_qa import resolve_weapon_thresholds
+    config = {"weapon": {"T_weapon": 0.25, "T_wmargin": 0.04, "T_wblur": 150.0}}
+    resolved = resolve_weapon_thresholds(config, {})
+    assert resolved["T_weapon"] == 0.25
+    # per-batch manifest weapon_overrides win over config (qa_overrides pattern)
+    resolved2 = resolve_weapon_thresholds(config, {"weapon_overrides": {"T_weapon": 0.33}})
+    assert resolved2["T_weapon"] == 0.33
+    # empty config still yields a fully-populated dict from defaults
+    resolved3 = resolve_weapon_thresholds({}, {})
+    assert set(resolved3) == {"T_weapon", "T_wmargin", "T_wblur"}
+
+
+def test_weapon_crop_report_shape():
+    # The --weapon-crop helper body: score a crop via an injected scorer, emit
+    # a flat JSON-able dict (torch stays in the metrics venv; CI uses a stub).
+    from tools.lw_gen_qa import WeaponScore, weapon_crop_report
+
+    def stub(path):
+        return WeaponScore(weapon_cos=0.31, weapon_off=0.12, lap_var=333.0)
+
+    rep = weapon_crop_report("ignored.png", stub)
+    assert rep == {"weapon_cos": 0.31, "weapon_off": 0.12, "lap_var": 333.0}
