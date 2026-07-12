@@ -437,6 +437,161 @@ def test_operator_mode_is_default(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# W2 reference-transplant rung: a recording inpainter (captures the exact image
+# it is handed) + a synthetic crossbow-crop asset dir. Proves the transplant is
+# applied before the inpaint, the w2_strength ladder is used in order, every roll
+# lands in weapon_review/ as _w2roll{i}.png, cand[file] never advances, and the
+# sidecar is a REVIEW verdict. Design: design_weapon.md sec 3 (W2) + sec 4.
+# ---------------------------------------------------------------------------
+def _recording_inpainter(color=(0, 255, 0), record=None):
+    """Stub inpainter that records the RGB array of the image handed to it."""
+    from PIL import Image
+
+    def inpainter(image, mask_image, prompt, negative_prompt, strength, seed):
+        if record is not None:
+            record.append({
+                "seed": seed, "strength": strength,
+                "image": np.asarray(image.convert("RGB")).copy(),
+            })
+        return Image.new("RGB", image.size, color)
+
+    return inpainter
+
+
+def _write_weapon_asset(adir, file="cb.png"):
+    """A synthetic right-hand side-view crossbow crop + meta.json (opaque, blue
+    body with a magenta anchor block at (30, 30); forearm_len_px 40)."""
+    from PIL import Image
+
+    os.makedirs(adir, exist_ok=True)
+    img = Image.new("RGBA", (120, 60), (0, 0, 200, 255))
+    px = img.load()
+    for yy in range(23, 38):
+        for xx in range(23, 38):
+            px[xx, yy] = (255, 0, 255, 255)
+    img.save(os.path.join(adir, file))
+    meta = {"assets": [{
+        "file": file, "anchor_px": [30, 30], "axis": [1.0, 0.0],
+        "forearm_len_px": 40.0, "handedness": "right", "view": "side",
+    }]}
+    with open(os.path.join(adir, "meta.json"), "w", encoding="utf-8") as fo:
+        json.dump(meta, fo)
+
+
+def test_w2_operator_lane_transplants_and_saves_rolls(tmp_path):
+    from PIL import Image
+
+    batch = _make_batch(tmp_path, seed=700)
+    adir = tmp_path / "assets"
+    _write_weapon_asset(str(adir))
+    record = []
+    cfg = {"weapon": {"gate_mode": "operator", "assets": str(adir),
+                      "w2_strength": [0.35, 0.45, 0.5]}}
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w2",
+        backend=_right_forearm_backend(),
+        inpainter=_recording_inpainter(record=record),
+        config=cfg,
+    )
+
+    # (b) the w2_strength ladder is used, in order, with base+i seeds.
+    assert [round(r["strength"], 2) for r in record] == [0.35, 0.45, 0.5]
+    assert [r["seed"] for r in record] == [700, 701, 702]
+
+    # (a) transplant applied: the image handed to the inpainter differs from the
+    #     raw candidate (the crossbow crop was pasted onto the forearm).
+    raw = np.asarray(Image.open(batch / "cand_00.png").convert("RGB"))
+    assert not np.array_equal(record[0]["image"], raw)
+
+    # (c) N review rolls saved as _w2roll{i}.png.
+    for i in range(3):
+        assert (batch / "weapon_review" / f"cand_00_w2roll{i}.png").exists()
+
+    # (d) cand[file] not advanced (operator lane never auto-promotes).
+    cand = manifest["candidates"][0]
+    assert cand["file"] == "cand_00.png"
+    assert cand.get("stage", "raw") == "raw"
+    assert not (batch / "cand_00_wfix.png").exists()
+
+    # (e) + (f) sidecar: REVIEW verdict, rung w2, asset + strengths recorded,
+    #     out-of-mask identity held.
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["rung"] == "w2"
+    assert sidecar["verdict"] == "REVIEW"
+    assert sidecar["reason"] == "clip_gate_dead"
+    assert sidecar["outside_mask_identical"] is True
+    assert sidecar["asset"] == "cb.png"
+    assert sidecar["strengths"] == [0.35, 0.45, 0.5]
+    assert len(sidecar["review_files"]) == 3
+
+
+def test_w2_default_strengths_when_config_omits(tmp_path):
+    batch = _make_batch(tmp_path, seed=10)
+    adir = tmp_path / "assets"
+    _write_weapon_asset(str(adir))
+    record = []
+    wp.weapon_pass(
+        str(batch), wrist="right", rung="w2",
+        backend=_right_forearm_backend(),
+        inpainter=_recording_inpainter(record=record),
+        config={"weapon": {"assets": str(adir)}},  # no w2_strength -> default ladder
+    )
+    assert [round(r["strength"], 2) for r in record] == [0.35, 0.45, 0.5]
+
+
+def test_w2_no_asset_routes_to_review(tmp_path):
+    batch = _make_batch(tmp_path)
+    empty = tmp_path / "empty_assets"
+    empty.mkdir()
+    record = []
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w2",
+        backend=_right_forearm_backend(),
+        inpainter=_recording_inpainter(record=record),
+        config={"weapon": {"assets": str(empty)}},  # meta.json absent -> []
+    )
+    assert record == []  # nothing inpainted
+    assert manifest["candidates"][0]["file"] == "cand_00.png"
+    assert not (batch / "cand_00_wfix.png").exists()
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["fallback"] == "no_asset"
+    assert sidecar["rung"] == "w2"
+
+
+def test_w2_no_forearm_routes_to_review(tmp_path):
+    batch = _make_batch(tmp_path)
+    record = []
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w2",
+        backend=_right_forearm_backend(RWrist=None),  # forearm_frame -> None
+        inpainter=_recording_inpainter(record=record),
+        config={"weapon": {"assets": "tools/models/weapon_assets/vayne"}},
+    )
+    assert record == []
+    assert manifest["candidates"][0]["file"] == "cand_00.png"
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["fallback"] == "no_forearm"
+    assert sidecar["rung"] == "w2"
+
+
+def test_w2_accepts_injected_assets_param(tmp_path):
+    # assets= injected directly (bypassing config load) still transplants + rolls.
+    batch = _make_batch(tmp_path, seed=5)
+    adir = tmp_path / "assets"
+    _write_weapon_asset(str(adir))
+    assets = wp.load_assets(str(adir))
+    record = []
+    wp.weapon_pass(
+        str(batch), wrist="right", rung="w2", assets=assets,
+        backend=_right_forearm_backend(),
+        inpainter=_recording_inpainter(record=record),
+        config={"weapon": {"w2_strength": [0.4]}},
+    )
+    assert [round(r["strength"], 2) for r in record] == [0.4]
+    assert (batch / "weapon_review" / "cand_00_w2roll0.png").exists()
+
+
+# ---------------------------------------------------------------------------
 # 9. GPU acceptance (real DWPose + real SDXL inpaint) - SKIPPED unless LW_GEN_E2E=1.
 #    The orchestrator runs this on the box; CI never loads onnx/torch.
 # ---------------------------------------------------------------------------

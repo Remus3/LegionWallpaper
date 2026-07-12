@@ -83,6 +83,40 @@ def _valid_hand_px(hand, img_wh):
     return out
 
 
+def forearm_frame(
+    kp_map: dict,
+    wrist: str = "right",
+    img_wh: Tuple[int, int] = (1344, 768),
+) -> Optional[Tuple[float, float, float, float, float]]:
+    """Pixel-space forearm frame (Wx, Wy, vhx, vhy, L) for the chosen wrist.
+
+    Reads the same name-keyed kp_map as weapon_roi_from_keypoints and returns the
+    wrist pixel W = (Wx, Wy), the unit forearm vector v_hat = (vhx, vhy) = (W - E)
+    / L, and the forearm length L in pixels. Returns None on the SAME degenerate
+    cases weapon_roi falls back on: a missing wrist, a missing elbow, or a forearm
+    shorter than MIN_FOREARM_PX. weapon_roi_from_keypoints delegates this math to
+    this helper (byte-identical result); the W2 transplant (design_weapon.md sec 4
+    "Transplant fit") consumes the frame directly to place + scale the crop.
+    """
+    if wrist == "left":
+        w_key, e_key = "LWrist", "LElbow"
+    else:
+        w_key, e_key = "RWrist", "RElbow"
+
+    w_norm = kp_map.get(w_key)
+    e_norm = kp_map.get(e_key)
+    if w_norm is None or e_norm is None:
+        return None
+
+    wx, wy = _to_px(w_norm, img_wh)
+    ex, ey = _to_px(e_norm, img_wh)
+    vx, vy = wx - ex, wy - ey
+    length = math.hypot(vx, vy)
+    if length < MIN_FOREARM_PX:
+        return None
+    return (wx, wy, vx / length, vy / length, length)
+
+
 def pad_bbox(bbox, pad_frac, img_wh):
     """Expand an (x0, y0, x1, y1) bbox by pad_frac of its own w/h, clamp to frame.
 
@@ -133,14 +167,13 @@ def weapon_roi_from_keypoints(
     if e_norm is None:
         return RoiResult(ok=False, fallback="missing_elbow")
 
-    wx, wy = _to_px(w_norm, img_wh)
-    ex, ey = _to_px(e_norm, img_wh)
-    vx, vy = wx - ex, wy - ey
-    L = math.hypot(vx, vy)
-    if L < MIN_FOREARM_PX:
+    # Delegate the (W, v_hat, L) pixel math to forearm_frame so the W2 transplant
+    # and the mask share one source of truth. Wrist + elbow are present here, so a
+    # None frame can only mean a sub-MIN_FOREARM_PX forearm.
+    frame = forearm_frame(kp_map, wrist, img_wh)
+    if frame is None:
         return RoiResult(ok=False, fallback="short_forearm")
-
-    vhx, vhy = vx / L, vy / L
+    wx, wy, vhx, vhy, L = frame
     bx = wx + FIST_OFFSET * vhx * L
     by = wy + FIST_OFFSET * vhy * L
 

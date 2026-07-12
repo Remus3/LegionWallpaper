@@ -17,6 +17,8 @@ import os
 import sys
 from collections import namedtuple
 
+import numpy as np
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from tools import lw_gen_weaponfix as lgw  # noqa: E402
@@ -402,3 +404,64 @@ def test_pad_bbox_zero_pad_is_clamped_identity():
 def test_pad_bbox_returns_ints():
     out = lgw.pad_bbox((100, 100, 201, 301), 0.10, IMG_WH)
     assert all(isinstance(v, int) for v in out)
+
+
+# ===========================================================================
+# SLICE W2 - forearm_frame: the pixel-space (W, v_hat, L) the W2 transplant
+# needs, factored out of weapon_roi_from_keypoints. weapon_roi now CALLS it for
+# that math, so both must agree exactly (non-regression) and forearm_frame must
+# return None on the SAME missing-wrist / missing-elbow / short-forearm cases.
+# ===========================================================================
+
+
+def test_forearm_frame_clean_kp_exact_values():
+    # RElbow (0.5,0.5) -> RWrist (0.6,0.5) on 1344x768: W=(806.4,384),
+    # v=(134.4,0), L=134.4, v_hat=(1,0).
+    fr = lgw.forearm_frame({"RElbow": (0.5, 0.5), "RWrist": (0.6, 0.5)}, "right", IMG_WH)
+    assert fr is not None
+    wx, wy, vhx, vhy, length = fr
+    assert abs(wx - 806.4) < 1e-6
+    assert abs(wy - 384.0) < 1e-6
+    assert abs(vhx - 1.0) < 1e-9
+    assert abs(vhy - 0.0) < 1e-9
+    assert abs(length - 134.4) < 1e-6
+
+
+def test_forearm_frame_left_side_reads_left_joints():
+    fr = lgw.forearm_frame({"LElbow": (0.4, 0.5), "LWrist": (0.5, 0.5)}, "left", IMG_WH)
+    assert fr is not None
+    wx, wy, vhx, vhy, length = fr
+    assert abs(wx - 0.5 * 1344) < 1e-6
+    assert abs(vhx - 1.0) < 1e-9
+
+
+def test_forearm_frame_missing_wrist_is_none():
+    assert lgw.forearm_frame({"RElbow": (0.5, 0.5), "RWrist": None}, "right", IMG_WH) is None
+
+
+def test_forearm_frame_missing_elbow_is_none():
+    assert lgw.forearm_frame({"RElbow": None, "RWrist": (0.6, 0.5)}, "right", IMG_WH) is None
+
+
+def test_forearm_frame_short_forearm_is_none():
+    # L ~ 13.4px < MIN_FOREARM_PX -> None (mirrors weapon_roi short_forearm).
+    assert lgw.forearm_frame({"RElbow": (0.5, 0.5), "RWrist": (0.51, 0.5)}, "right", IMG_WH) is None
+
+
+def test_weapon_roi_mask_unchanged_after_forearm_frame_refactor():
+    """weapon_roi (now delegating the frame math to forearm_frame) must still emit
+    the exact documented dilated-disc union - byte-identical, no regression."""
+    kp = {"RElbow": (0.5, 0.5), "RWrist": (0.6, 0.5)}
+    res = lgw.weapon_roi_from_keypoints(kp, "right", IMG_WH)
+    assert res.ok is True
+
+    # Independently rebuild the expected binary from the section-4 geometry.
+    w, h = IMG_WH
+    wx, wy = 0.6 * w, 0.5 * h
+    length = wx - 0.5 * w
+    bx = wx + lgw.FIST_OFFSET * length  # v_hat=(1,0) so the fist offset is +x only
+    by = wy
+    yy, xx = np.ogrid[0:h, 0:w]
+    exp = (xx - wx) ** 2 + (yy - wy) ** 2 <= (lgw.WRIST_DISC_R * length + lgw.DILATE_PX) ** 2
+    exp = exp | ((xx - bx) ** 2 + (yy - by) ** 2 <= (lgw.FIST_DISC_R * length + lgw.DILATE_PX) ** 2)
+    assert np.array_equal(res.mask_binary, np.asarray(exp, dtype=bool))

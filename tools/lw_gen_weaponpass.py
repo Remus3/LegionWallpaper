@@ -45,7 +45,12 @@ if ROOT not in sys.path:
 
 from tools import lw_gen_localizer_eval as loc  # noqa: E402
 from tools import lw_gen_run as gr  # noqa: E402
-from tools.lw_gen_weaponfix import pad_bbox, weapon_roi_from_keypoints  # noqa: E402
+from tools.lw_gen_weaponfix import (  # noqa: E402
+    forearm_frame, pad_bbox, weapon_roi_from_keypoints,
+)
+from tools.lw_gen_weapon_assets import (  # noqa: E402  (torch-free: PIL lazy)
+    affine_transplant, load_assets, pick_asset,
+)
 from tools.lw_gen_qa import (  # noqa: E402  (torch-free: gate logic + dataclass only)
     VERDICT_PASS, VERDICT_REJECT, WeaponScore, resolve_weapon_thresholds,
     weapon_grade,
@@ -272,7 +277,7 @@ def _route_to_review(batch_dir, cand_file, wrist, rung, fallback, min_conf):
 # --------------------------------------------------------------------------
 def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
                 min_conf=0.3, only=None, config=None, backend=None,
-                inpainter=None, gate=None):
+                inpainter=None, gate=None, assets=None):
     """Run the M1 W1 weapon pass over a batch dir; return the manifest dict.
 
     wrist is None -> PROPOSE (both-wrist overlays, no mutation). wrist set ->
@@ -284,6 +289,15 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
     SDXL closure, gate to a metrics-venv scorer shell; all three are injectable
     so pure tests never load onnx/torch/open-clip. `only` (a cand file name),
     when set, restricts the pass to that candidate. Atomic writes throughout.
+
+    rung selects the fix mechanism. "w1" (default) is the keypoint-masked inpaint
+    re-roll (design_weapon.md sec 3 W1). "w2" is the reference transplant: fit a
+    real crossbow crop to the wrist (forearm_frame + affine_transplant), then run
+    the SAME masked inpaint over the w2_strength ladder (sec 3 W2). W2 uses the
+    operator lane only (the CLIP gate is dead, LEDGER 21): every strength roll is
+    saved to weapon_review/ for operator blessing and cand[file] never advances.
+    `assets` (a list of AssetMeta) overrides the config-loaded crop library; when
+    None the W2 rung loads config weapon.assets (resolved against ROOT).
     """
     from PIL import Image  # lazy; CI has Pillow
 
@@ -334,6 +348,20 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
     active_inpainter = inpainter
     active_gate = gate
     review_dir = os.path.join(batch_dir, "weapon_review")
+
+    # W2 rung setup (design_weapon.md sec 3/4): the crop library + strength ladder.
+    # assets= wins; else load config weapon.assets (absolute or ROOT-relative).
+    w2_strengths = weapon_cfg.get("w2_strength") or [0.35, 0.45, 0.5]
+    w2_assets = []
+    if rung == "w2":
+        if assets is not None:
+            w2_assets = assets
+        else:
+            assets_cfg = weapon_cfg.get("assets") or ""
+            assets_dir = (assets_cfg if os.path.isabs(assets_cfg)
+                          else os.path.join(ROOT, assets_cfg))
+            w2_assets = load_assets(assets_dir)
+
     for cand in candidates:
         cand_file = cand.get("file")
         if not cand_file or (only is not None and cand_file != only):
@@ -346,6 +374,60 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
         kp_map, hand = select_wrist_inputs(out, wrist)
         cand_img = Image.open(src).convert("RGB")
         width, height = cand_img.size
+
+        # ---- W2 rung: reference transplant + guided inpaint (mechanism A). ----
+        # Own gate ladder: forearm_frame (no_forearm) -> asset pick (no_asset) ->
+        # ROI mask -> affine-paste the crossbow crop -> the SAME masked inpaint at
+        # each w2_strength. Operator lane only (the CLIP gate is dead, LEDGER 21):
+        # save every strength roll to weapon_review/, never auto-advance. A clip
+        # lane is deferred until a separating scorer exists (design_weapon.md sec 6).
+        if rung == "w2":
+            frame = forearm_frame(kp_map, wrist, (width, height))
+            if frame is None:
+                _route_to_review(batch_dir, cand_file, wrist, rung, "no_forearm", min_conf)
+                continue
+            wx, wy, vhx, vhy, forearm_len = frame
+            asset = pick_asset(w2_assets, wrist, (vhx, vhy))
+            if asset is None:
+                _route_to_review(batch_dir, cand_file, wrist, rung, "no_asset", min_conf)
+                continue
+            roi = weapon_roi_from_keypoints(kp_map, wrist, (width, height), hand)
+            if not roi.ok:
+                _route_to_review(batch_dir, cand_file, wrist, rung, roi.fallback, min_conf)
+                continue
+            if active_inpainter is None:
+                active_inpainter = _build_real_inpainter(config)
+
+            pasted = affine_transplant(cand_img, asset, (wx, wy), (vhx, vhy), forearm_len)
+            cand_arr = np.asarray(cand_img)
+            feathered = (np.clip(roi.mask_feathered, 0.0, 1.0) * 255.0).astype(np.uint8)
+            mask_pil = Image.fromarray(feathered, mode="L")
+            base_seed = int(cand.get("seed") or 0)
+            os.makedirs(review_dir, exist_ok=True)
+            roll_files = []
+            for i, stg in enumerate(w2_strengths):
+                # Inpaint the TRANSPLANTED image; paste back into the ORIGINAL so
+                # out-of-mask pixels stay byte-identical to the raw candidate.
+                final_arr = _inpaint_roll(
+                    active_inpainter, pasted, mask_pil, cand_arr, roi.mask_binary,
+                    prompt, negative, stg, base_seed + i)
+                assert_outside_identity(cand_arr, final_arr, roi.mask_binary)
+                rf = _raw_stem(cand_file) + f"_w2roll{i}.png"
+                Image.fromarray(final_arr).save(os.path.join(review_dir, rf))
+                roll_files.append(rf)
+            sidecar = {
+                "wrist": wrist, "rung": rung,
+                "roi_bbox": list(roi.bbox) if roi.bbox else None,
+                "fallback": None, "outside_mask_identical": True,
+                "min_conf": min_conf, "strengths": list(w2_strengths),
+                "verdict": "REVIEW", "reason": "clip_gate_dead",
+                "gate_mode": gate_mode, "asset": asset.file,
+                "rolls_tried": len(roll_files), "review_files": roll_files,
+                "meta": getattr(out, "meta", {}) or {},
+            }
+            _atomic_write_json(_weapon_sidecar_path(batch_dir, cand_file), sidecar)
+            continue
+
         roi = weapon_roi_from_keypoints(kp_map, wrist, (width, height), hand)
         if not roi.ok:
             _route_to_review(batch_dir, cand_file, wrist, rung, roi.fallback, min_conf)
