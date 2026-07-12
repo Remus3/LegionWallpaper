@@ -8,24 +8,24 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: M2 weapon pass - W2 transplant (NOW).**
-  M1 W1 wiring (LEDGER 20) + the weapon-region gate (LEDGER 21) are SHIPPED.
-  **The ViT-L-14 CLIP region gate is a DEAD GATE** - the 2026-07-12 calibration
-  (scratchpad/weapon_calib.py; record in docs/research/GEN_RETUNE.md) could NOT
-  separate canonical-crossbow crops from wrong-weapon crops (margin negative on
-  every crop across 3 configs; the canonical default skin fails a floor 6 bad
-  candidates clear). Shipped the pre-authorized operator-lane fallback
-  (GOLDEN_DEFINITION.md:120): `config weapon.gate_mode="operator"` (default) -> W1
-  runs the rolls + saves EVERY attempt to `weapon_review/` for operator blessing,
-  no CLIP auto-accept. The gate LOGIC + crop + gated-rolls loop are built + tested
-  (`lw_gen_qa.weapon_grade` / `WeaponClipScorer` / `--weapon-crop`; `gate_mode="clip"`
-  stays wired for a future scorer). NEXT: **(1) W2 transplant** (design_weapon.md
-  sec 3 mechanism A) - affine-fit a real crossbow crop then guided inpaint strength
-  0.35-0.50, acceptance via the operator lane; **(2) a SEPARATING weapon scorer**
-  (weapon-concept LoRA / fine-tuned or DINO region classifier / operator-blessed
-  exemplars as positives) to revive `gate_mode="clip"`. Do NOT re-tune prompts/crops
-  on ViT-L-14 (measured dead). REUSE the localizer + slices 1-2 + weapon pass + gate
-  logic - do NOT rebuild; do NOT re-attempt SDPose (mmcv/Blackwell-blocked).
+- **lw-gen: M2 weapon pass - W2 SHIPPED (44cb0f2), operator bless DEFERRED (NOW).**
+  M1 W1 (LEDGER 20) + the dead CLIP gate / operator-lane (LEDGER 21) + **W2 reference
+  transplant (LEDGER 22, commit 44cb0f2)** are SHIPPED. W2 (design_weapon.md sec 3
+  mechanism A) = affine-fit a real crossbow crop (`tools/models/weapon_assets/vayne/`,
+  5 crops) onto the DWPose wrist -> masked SDXL inpaint over `w2_strength [0.35,0.45,0.5]`
+  -> operator lane saves every roll. E2e-proven end to end (seed22/seed800 each 3 rolls,
+  outside-mask identical; seed33 = correct face_intersect skip).
+  **OPEN - operator bless (the M2 exit):** operator reviewed the rolls, "not sure",
+  deferred. Honest read: the transplant harmonizes into a generic silver mechanical
+  hand-device (not an unambiguous bat-wing crossbow) + the original wrong weapon persists
+  OUTSIDE the wrist mask; forcing the canonical default crop only marginally helped (the
+  low-strength harmonize plateaus). NEXT: operator to bless a roll (M2 done) OR authorize a
+  design lever - **W3 IP-Adapter** (mechanism C, ~3.2GB downloads, injects the crossbow
+  concept - the design's fix for "pasted-on / wrong-read") and/or a **mask-widen** to remove
+  the 2nd weapon (`old_weapon_coverage` scaffolding exists). Do NOT rebuild W2/assets/rung/
+  forearm_frame, do NOT re-run force-default-crop (plateau), do NOT retune ViT-L-14 (dead).
+  **(2) a SEPARATING weapon scorer** (weapon-concept LoRA / DINO / operator-blessed exemplars)
+  to revive `gate_mode="clip"` stays open. Do NOT re-attempt SDPose (mmcv/Blackwell-blocked).
 
 - **OPERATOR-BLOCKED: ratify `GOLDEN_DEFINITION.md` sec 6 Q1-Q4** (glasses shape /
   style-band steer / dodge lane / scorecard). Champion labels are DONE this session

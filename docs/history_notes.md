@@ -70,6 +70,29 @@ LongPathsEnabled (deferred).
 
 ---
 
+# 2026-07-11 (M1 localizer decision - DWPose onnx-CPU adopted, 5/6)
+
+Shipped + pushed (commit 7e21c9d), full suite 387 passed / 3 skipped:
+- **Spike outcome:** DWPose onnx-CPU ADOPTED as the M1 auto-suggestion localizer -
+  5/6 wrist-on-weapon on the 6 recall_gate samples (seed22 / seed33 / seed800 /
+  cand_01 / seed42 hit; cand_02 miss) vs OpenPose 1/6. Cleared the operator's >= 4/6 bar.
+- **SDPose-Wholebody REJECTED (do NOT retry):** its pipeline hard-imports mmpose +
+  pins mmcv==2.2.0 = the Blackwell / torch-2.11 wall (also torch 2.8 / transformers
+  4.57 / xformers; 5.32GB). NOT drop-in as the handoff assumed. Operator approved the
+  DWPose onnx download (351MB, fashn-ai HF mirror) instead.
+- **Built:** tools/lw_gen_localizer_eval.py (detector-agnostic harness + cocowb_to_kp_map
+  COCO-WholeBody-133 adapter + openpose/dwpose backends) feeding the REUSED
+  weapon_roi_from_keypoints; tools/dwpose_onnx/ vendored onnx helpers (no mmcv). +7
+  tests. Models gitignored (tools/models/dwpose). min_conf=0.3 (scores clean [0,1]).
+
+**NEXT session:** wire dwpose_backend into lw_gen_run's real detect -> mask -> inpaint
+path (operator-in-the-loop picks the weapon-side wrist -> kp_map -> weapon_roi_from_keypoints
+-> inpaint + hard outside-mask identity assert + re-QA via cand[file]). Do NOT redo the
+localizer spike, slices 1-2, or re-attempt SDPose. Still operator-blocked:
+GOLDEN_DEFINITION.md sec 6 Q1-Q4.
+
+---
+
 # 2026-07-11 (M0 foundations + M1 weapon slices 1-2 + upstream-localizer exploration)
 
 Shipped + pushed, all green (full suite 380 passed / 3 skipped):
