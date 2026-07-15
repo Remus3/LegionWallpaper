@@ -11,6 +11,18 @@
 
 ---
 
+# 2026-07-15 (first-pass throughput - reprocess 5 + intake 47 + contamination-strip 4 + Pictures export)
+
+Operational session; NO code changes (all pipeline data ops, gitignored). First Pass Done 179 -> 228; First Pass Scratch now EMPTY.
+- **Reprocessed 5** (vayne3/morgana1/hwei1/shyvana1/soraka1): operator dropped corrected `_firstinitial` (Jul-12 re-crops removing a composite top-strip contamination); regenerated 2560x1440 firstdones. No reverse command exists -> reopen dance (stage scratch + move stale Done to a backup + lw_first_pass + approve). Backup deleted (operator eyeballed). See memory `project-reprocess-done-slug`.
+- **Intake 47** new originals -> first-pass: 34 PASS + 11 FLAG (borderline halo, spot-checked clean) = 45 approved; 2 HELD dropped (seasonal-key-art/viktor: low-res + off-aspect; DA originals quota-blocked) to `data/dropped_20260715/`.
+- **4 remaining** (camille1/fiora1/kaisa1/xayah1): SAME top-strip contamination (seam row 242, batch-consistent), operator-rejected pending re-crop but never re-cropped. Auto-stripped + subject-aware 16:9 + processed + approved.
+- **Pictures export:** copied all 228 firstdones to Pictures (operator moved them flat to root).
+
+**NEXT / do-not-redo:** lw-gen M2 bless remains the top ROADMAP item (unchanged - this session did not touch lw-gen). Downstream stages (cleaning/final) still empty. Recovery campaign for the ~82 sub-1280px sources deferred until the DeviantArt weekly download quota resets. Do NOT re-fetch the 2 dropped (DA has nothing better quota-free). New memories: `project-reprocess-done-slug`, `reference-deviantart-recovery`.
+
+---
+
 # 2026-07-12 (M2 W2 reference-transplant rung - SHIPPED + e2e-proven; canonical bless DEFERRED)
 
 Shipped + pushed (commit 44cb0f2); CI green; full suite 436 passed / 4 skipped; ruff + hygiene clean.
@@ -69,35 +81,3 @@ guided inpaint 0.35-0.50) is now THE path to canonical - acceptance via the oper
 Do NOT re-attempt the ViT-L-14 CLIP gate calibration (dead, 3 configs) - a new gate needs a
 NEW scorer (weapon LoRA / fine-tune / DINO). Do NOT rebuild gate logic / rolls loop /
 localizer / slices 1-2 / weapon pass W1. Still operator-blocked: GOLDEN_DEFINITION.md sec 6.
-
----
-
-# 2026-07-12 (M1 weapon pass W1 - DWPose-wrist masked SDXL inpaint SHIPPED)
-
-Shipped + pushed (commit 834b74e); full 3-suite 55 passed / 1 skipped; e2e green.
-- **Wired** the adopted DWPose localizer into lw_gen_run's real detect -> mask ->
-  inpaint. New tools/lw_gen_weaponpass.py (4th gen-sidecar stage): dwpose_backend ->
-  operator-picked wrist -> REUSED weapon_roi_from_keypoints (slices 1-2, UNCHANGED)
-  -> AutoPipelineForInpainting.from_pipe(base, controlnet=None) W1 re-roll (strength
-  0.92) -> hard paste-back + outside-mask identity assert -> cand[file] _wfix -> re-QA.
-  Propose mode (no --wrist) = both-wrist overlays; a fallback -> review, never inpaints.
-  run.py flags --weapon-fix / --wrist / --weapon-rung / --weapon-only / --weapon-min-conf;
-  _shell_stage +extra_args.
-- **Built** TDD RED-first (build subagent) + first-party verifier gate (I re-ran the
-  suite + read the module/test/diff, NOT the subagent's counts). 10 torch-free tests.
-- **E2e acceptance** seed42/right (two-venv chain: real .venv-gen SDXL inpaint +
-  .venv-metrics re-QA): cand_00_wfix.png, mask from DWPose RWrist 0.877,
-  outside_mask_identical true, re-QA PASS (subj 0.296 / margin 0.073 / lap 449).
-  design_weapon.md sec 7's "lw_gen_weaponfix.py" name was already taken by slices 1-2
-  -> new stage is lw_gen_weaponpass.py; the doc predates DWPose (sec 4 assumes OpenPose).
-- **Pruned** ops/budget_saver/ (operator: no longer relevant).
-
-**Scope:** built to the WAKEUP acceptance (mask-from-DWPose-wrist + identity + existing
-full-image re-QA), DEFERRED the weapon-region CLIP gate (design_weapon.md sec 6) - the
-existing re-QA proves plumbing + subject non-regression, the deferred gate proves the
-weapon is CANONICAL.
-
-**NEXT session:** (1) weapon-region CLIP gate calibrated on ~21 known-bad + 19
-official-skin crops; (2) W2 transplant (mechanism A: affine crossbow crop + guided
-inpaint 0.35-0.50). Do NOT redo the localizer / slices 1-2 / weapon pass / SDPose or
-re-run the e2e. Still operator-blocked: GOLDEN_DEFINITION.md sec 6 Q1-Q4.
