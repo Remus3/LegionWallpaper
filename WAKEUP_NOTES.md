@@ -7,7 +7,20 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16) - keep the last 3.
+
+---
+
+# 2026-07-16 (M2 weapon pass - W3 IP-Adapter SHIPPED + swept, escalated to W4 LoRA; W4 M1 curation + M2 trainer built + smoke-proven)
+
+Big session; 3 commits (0204cfa W3, 7657356 curation tool, 70838da LoRA trainer); full suite 453 passed / 4 skipped (+17); ruff + ASCII clean; all pushed. Operator drove the weapon-pass decision ladder via framed forks; I built + FIRST-PARTY-verified each rung (re-ran suites + read diffs + ran my own smoke, never trusting subagent counts).
+
+- **W3 IP-Adapter (LEDGER 23, 0204cfa):** operator picked W3 at the M2 bless fork. Built the rung (mirrors W2 + an ip_adapter_image concept image) after grounding load_ip_adapter/set_ip_adapter_scale against installed diffusers 0.39. Downloaded h94 vit-h (~3.2GB, gitignored). Found + fixed a real OFFLOAD BUG at e2e: the base pipe gets enable_model_cpu_offload BEFORE load_ip_adapter registers the image_encoder -> encoder stuck on CPU -> re-run offload after load (idempotent). E2e-proven. HONEST: default scale-0.7 PLATEAUS like W2 (ornate mechanical props); an operator-directed sweep (default crop + scale 0.9 + str 0.6) is the best-yet on seed22 (reads as a mechanical weapon rig) but still not a textbook repeating crossbow, and meh on seed800.
+- **Escalation to W4 LoRA:** operator chose W4 (mechanism D) over bless / mask-widen / skip. Plan subagent spec'd it; I re-verified: NO trainer exists in-repo (the "proven path" was RC-inherited) -> build it; peft 0.19.1 present, bitsandbytes absent -> adamw; single-file model -> from_single_file path b (zero downloads).
+- **W4 M1 curation (LEDGER 24, 7657356):** built tools/lw_gen_curate_weapon_crops.py (DWPose auto-crop + asset composite + object-only captions). E2e over 19 splashes yielded 8 localized (mostly junk on stylized art - faces/Poros/wrong-hands/blades) + 5 assets; truly-clean = 6 (5 hand-made assets + dragonslayer). Operator chose "probe-train the clean core + augment". Assembled tools/models/lora_datasets/vayne_weapon_train/ (6 crops).
+- **W4 M2 trainer (LEDGER 25, 70838da):** built tools/lw_gen_train_weapon_lora.py (in-house UNet-only SDXL LoRA, path b). SMOKE proven twice (subagent + my independent re-run, matching numbers): 2 steps no OOM/NaN, 93MB pytorch_lora_weights.safetensors, round-trip load+set_adapters+unload. Peak 7.33/12GB, ~1.0s/step -> full 1000-step run ~17 min.
+
+**NEXT / do-not-redo (operator: the real train is a FRESH session):** (1) run the ~17-min full train: `.venv-gen python tools/lw_gen_train_weapon_lora.py` -> tools/models/loras/vayne_weapon. (2) M3 = wire rung=="w4" in weapon_pass (W1-style masked reroll + LoRA on the inpaint pipe + "vaynecrossbow" trigger prepend + unload after; mirror the W3 _build_real_inpainter seam; config weapon_lora_path/scale/trigger; no_lora review fallback) + TDD (mirror the W3 tests) + e2e on seed22/33/800 -> operator bless. If the thin-data probe LoRA underperforms: hand-crop ~10-15 clean crossbows + retrain. Do NOT rebuild the trainer / curation tool / dataset; do NOT re-run W2/W3 (plateau measured), retune ViT-L-14 (dead), or re-attempt SDPose (mmcv/Blackwell-blocked). Stray untracked at repo root (style.jpg, style2.jpg, data/dropped_20260715/) are pre-existing, NOT from this session.
 
 ---
 
@@ -52,32 +65,3 @@ intended fix for exactly this "pasted-on / wrong-read" case) and/or a mask-widen
 weapon (old_weapon_coverage scaffolding exists in lw_gen_weaponfix). Do NOT rebuild W2 / assets /
 rung / forearm_frame; do NOT re-run the force-default-crop experiment (measured plateau); do NOT
 retune the dead ViT-L-14 CLIP gate. Still operator-blocked: GOLDEN_DEFINITION.md sec 6 Q1-Q4.
-
----
-
-# 2026-07-12 (M1 weapon-region CLIP gate - CLIP is DEAD, operator-lane shipped)
-
-M1-finish. Built the weapon-region CLIP gate (design_weapon.md sec 6) + calibrated it.
-**The CLIP gate CANNOT separate** canonical-crossbow crops from wrong-weapon crops ->
-shipped the pre-authorized operator-lane fallback (GOLDEN_DEFINITION.md:120, T_aes
-dead-gate precedent). Full suite 413 passed / 4 skipped; ruff clean.
-- **Built (TDD RED-first, 3 coupled slices, main-thread):** lw_gen_qa.py = pure
-  weapon_grade (4-clause: offclass -> weak_margin -> mush) + WeaponScore + WeaponClipScorer
-  (lazy open-clip, 3 positives / 8 distractors) + resolve_weapon_thresholds + --weapon-crop
-  JSON helper (shelled to .venv-metrics). lw_gen_weaponfix.py = pad_bbox. lw_gen_weaponpass.py
-  = gated rolls loop (K<=4, first PASS wins) + gate_mode branch. config weapon{} block.
-- **Calibrated live** (scratchpad/weapon_calib.py, cross-venv): 19 official skins vs all
-  localizable gen candidates (DWPose cropped 9/19 + 30/42). weapon_cos overlaps totally
-  (GOOD 0.13-0.22 / BAD 0.11-0.21); margin NEGATIVE on every crop (CLIP ranks generic
-  weapon/hand text above "crossbow" on stylized art; the DEFAULT skin fails a floor 6 bad
-  candidates clear). 3 configs all fail (1/9, 2/9, 3/9 good-PASS). The sec-6 top-2
-  re-measure did NOT rescue it. Root cause = ViT-L-14 can't resolve painted weapon subtype.
-- **Shipped fallback:** config weapon.gate_mode="operator" (DEFAULT) -> W1 saves EVERY
-  roll to weapon_review/ for operator blessing, no auto-accept. gate_mode="clip" stays
-  wired for a future scorer. T_weapon/T_wmargin DORMANT (not calibrated).
-
-**NEXT session:** M2 W2 transplant (design_weapon.md mechanism A: affine crossbow crop +
-guided inpaint 0.35-0.50) is now THE path to canonical - acceptance via the operator lane.
-Do NOT re-attempt the ViT-L-14 CLIP gate calibration (dead, 3 configs) - a new gate needs a
-NEW scorer (weapon LoRA / fine-tune / DINO). Do NOT rebuild gate logic / rolls loop /
-localizer / slices 1-2 / weapon pass W1. Still operator-blocked: GOLDEN_DEFINITION.md sec 6.

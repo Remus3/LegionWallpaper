@@ -8,24 +8,29 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
-- **lw-gen: M2 weapon pass - W2 SHIPPED (44cb0f2), operator bless DEFERRED (NOW).**
-  M1 W1 (LEDGER 20) + the dead CLIP gate / operator-lane (LEDGER 21) + **W2 reference
-  transplant (LEDGER 22, commit 44cb0f2)** are SHIPPED. W2 (design_weapon.md sec 3
-  mechanism A) = affine-fit a real crossbow crop (`tools/models/weapon_assets/vayne/`,
-  5 crops) onto the DWPose wrist -> masked SDXL inpaint over `w2_strength [0.35,0.45,0.5]`
-  -> operator lane saves every roll. E2e-proven end to end (seed22/seed800 each 3 rolls,
-  outside-mask identical; seed33 = correct face_intersect skip).
-  **OPEN - operator bless (the M2 exit):** operator reviewed the rolls, "not sure",
-  deferred. Honest read: the transplant harmonizes into a generic silver mechanical
-  hand-device (not an unambiguous bat-wing crossbow) + the original wrong weapon persists
-  OUTSIDE the wrist mask; forcing the canonical default crop only marginally helped (the
-  low-strength harmonize plateaus). NEXT: operator to bless a roll (M2 done) OR authorize a
-  design lever - **W3 IP-Adapter** (mechanism C, ~3.2GB downloads, injects the crossbow
-  concept - the design's fix for "pasted-on / wrong-read") and/or a **mask-widen** to remove
-  the 2nd weapon (`old_weapon_coverage` scaffolding exists). Do NOT rebuild W2/assets/rung/
-  forearm_frame, do NOT re-run force-default-crop (plateau), do NOT retune ViT-L-14 (dead).
-  **(2) a SEPARATING weapon scorer** (weapon-concept LoRA / DINO / operator-blessed exemplars)
-  to revive `gate_mode="clip"` stays open. Do NOT re-attempt SDPose (mmcv/Blackwell-blocked).
+- **lw-gen: M2 weapon pass - W4 weapon-concept LoRA IN PROGRESS (full train + M3 wiring = NEXT).**
+  Ladder shipped: W1 (LEDGER 20) + dead CLIP gate/operator-lane (21) + W2 transplant (22) +
+  **W3 IP-Adapter (23, commit 0204cfa)**. W2 AND W3 both PLATEAU (ornate silver mechanical
+  props, not an unambiguous bat-wing repeating crossbow) - the no-train mechanisms cannot
+  resolve the weapon on stylized art (W3's default scale-0.7 = mechanism C's own documented
+  risk; a scale/crop sweep got the best-yet on seed22 at scale-0.9/default-crop but still not
+  textbook-canonical, and only meh on seed800). Operator escalated to **W4 = a weapon-concept
+  LoRA** (mechanism D, the design's durable fix). Progress this session: **M1 curation (24,
+  7657356)** + **M2 trainer (25, 70838da)** DONE + smoke-proven (peak 7.33/12GB, ~1s/step ->
+  full 1000-step run ~17 min). Dataset is THIN - only ~6 clean crops (5 hand-made assets +
+  dragonslayer; DWPose auto-crop fails on stylized splashes) - operator chose "probe-train the
+  clean core + augment".
+  **NEXT (a FRESH session, operator directive - the ~17-min train is deferred, not blocked):**
+  (1) run the full train: `.venv-gen python tools/lw_gen_train_weapon_lora.py` (defaults: data
+  `vayne_weapon_train`, out `tools/models/loras/vayne_weapon`, 1000 steps). (2) **M3** = wire
+  `rung=="w4"` in weapon_pass (W1-style masked reroll + LoRA on the inpaint pipe + `vaynecrossbow`
+  trigger prepend + unload after; mirror the W3 `_build_real_inpainter` seam; config
+  `weapon_lora_path`/`scale`/`trigger`; `no_lora` review fallback) + TDD (mirror the W3 tests) +
+  e2e on seed22/33/800 -> operator bless. If the probe LoRA underperforms (thin data): hand-crop
+  ~10-15 clean crossbows and retrain. Do NOT rebuild the trainer/curation/dataset; do NOT re-run
+  W2/W3 (plateau measured) or retune ViT-L-14 (dead) or re-attempt SDPose (mmcv/Blackwell-blocked).
+  A SEPARATING weapon scorer to revive `gate_mode="clip"` stays open (the trained LoRA is itself a
+  candidate). W3 fallback if W4 is abandoned: adopt scale-0.9/default-crop as the W3 default + bless seed22.
 
 - **OPERATOR-BLOCKED: ratify `GOLDEN_DEFINITION.md` sec 6 Q1-Q4** (glasses shape /
   style-band steer / dodge lane / scorecard). Champion labels are DONE this session
