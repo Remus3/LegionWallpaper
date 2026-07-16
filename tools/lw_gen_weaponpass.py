@@ -202,7 +202,7 @@ def _load_config_safe():
 # --------------------------------------------------------------------------
 # Real SDXL inpainter builder (LAZY torch/diffusers - never reached in CI).
 # --------------------------------------------------------------------------
-def _build_real_inpainter(config, ip_adapter=None):
+def _build_real_inpainter(config, ip_adapter=None, weapon_lora=None):
     """Construct the SDXL inpaint closure by reusing lw_gen_run's base loader.
 
     AutoPipelineForInpainting.from_pipe(base, controlnet=None) yields a plain
@@ -216,6 +216,13 @@ def _build_real_inpainter(config, ip_adapter=None):
     IP-Adapter weights + CLIP image encoder onto the pipe and sets the concept
     scale. Default None => byte-identical W1/W2 behavior (no adapter, no
     ip_adapter_image kwarg on the inpipe call).
+
+    weapon_lora (W4 mechanism D, design_weapon.md sec 3/5 W4), when a dict
+    {path, adapter_name, scale, trigger}, loads a pass-scoped weapon-concept
+    LoRA onto the inpaint UNet at the given scale (the trigger prepends the
+    prompt in the caller, not here). The returned closure exposes .unload_lora
+    so the pass can tear the LoRA down afterward (it must not leak into the
+    shared base gen pipe). Default None => no LoRA (byte-identical W1/W2/W3).
     """
     from diffusers import AutoPipelineForInpainting
 
@@ -243,6 +250,18 @@ def _build_real_inpainter(config, ip_adapter=None):
         if ((config or {}).get("gen") or {}).get("offload", True):
             inpipe.enable_model_cpu_offload()
 
+    if weapon_lora is not None:
+        inpipe.load_lora_weights(
+            weapon_lora["path"], adapter_name=weapon_lora["adapter_name"])
+        inpipe.set_adapters(
+            [weapon_lora["adapter_name"]], adapter_weights=[weapon_lora["scale"]])
+        # Mirror the W3 offload fix: the LoRA layers were patched onto the UNet
+        # AFTER enable_model_cpu_offload built its hooks, so re-run offload
+        # (idempotent - remove_all_hooks first) to hook the new params. Gated on
+        # offload being active (the all-resident path is already .to cuda).
+        if ((config or {}).get("gen") or {}).get("offload", True):
+            inpipe.enable_model_cpu_offload()
+
     def _inpaint(image, mask_image, prompt, negative_prompt, strength, seed,
                  ip_adapter_image=None):
         import torch
@@ -259,6 +278,8 @@ def _build_real_inpainter(config, ip_adapter=None):
             **extra,
         ).images[0]
 
+    if weapon_lora is not None:
+        _inpaint.unload_lora = inpipe.unload_lora_weights
     return _inpaint
 
 
@@ -446,6 +467,25 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
                 "scale": 0.7 if ipa_scale is None else ipa_scale,
             }
 
+    # W4 rung: pass-scoped weapon-concept LoRA (design_weapon.md sec 5 W4). A null
+    # weapon_lora_path OR a missing pytorch_lora_weights.safetensors routes each
+    # candidate to review with a no_lora fallback (the LoRA is not trained yet).
+    # Path resolves against ROOT when relative (mirror ipa_path).
+    lora_cfg = None
+    if rung == "w4":
+        lp = weapon_cfg.get("weapon_lora_path")
+        if lp:
+            lp_abs = lp if os.path.isabs(lp) else os.path.join(ROOT, lp)
+            weights = os.path.join(lp_abs, "pytorch_lora_weights.safetensors")
+            if os.path.isfile(weights):
+                lora_cfg = {
+                    "path": lp_abs,
+                    "adapter_name": weapon_cfg.get("weapon_lora_adapter") or "vayne_weapon",
+                    "scale": (0.8 if weapon_cfg.get("weapon_lora_scale") is None
+                              else weapon_cfg.get("weapon_lora_scale")),
+                    "trigger": weapon_cfg.get("weapon_lora_trigger") or "vaynecrossbow",
+                }
+
     for cand in candidates:
         cand_file = cand.get("file")
         if not cand_file or (only is not None and cand_file != only):
@@ -573,6 +613,52 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
             _atomic_write_json(_weapon_sidecar_path(batch_dir, cand_file), sidecar)
             continue
 
+        # ---- W4 rung: LoRA-guided W1 masked reroll (mechanism D). ----
+        # A weapon-concept LoRA rides the inpaint pipe (pass-scoped, unloaded
+        # after) and the trigger token prepends the prompt; otherwise a plain W1
+        # masked reroll (no transplant). design_weapon.md sec 3/5 W4. Gate ladder:
+        # no_lora -> roi. Operator lane only (CLIP gate dead, LEDGER 21): save
+        # every roll to weapon_review/, never auto-advance.
+        if rung == "w4":
+            if lora_cfg is None:
+                _route_to_review(batch_dir, cand_file, wrist, rung, "no_lora", min_conf)
+                continue
+            roi = weapon_roi_from_keypoints(kp_map, wrist, (width, height), hand)
+            if not roi.ok:
+                _route_to_review(batch_dir, cand_file, wrist, rung, roi.fallback, min_conf)
+                continue
+            if active_inpainter is None:
+                active_inpainter = _build_real_inpainter(config, weapon_lora=lora_cfg)
+            w4_prompt = f"{lora_cfg['trigger']}, {prompt}"
+            cand_arr = np.asarray(cand_img)
+            feathered = (np.clip(roi.mask_feathered, 0.0, 1.0) * 255.0).astype(np.uint8)
+            mask_pil = Image.fromarray(feathered, mode="L")
+            base_seed = int(cand.get("seed") or 0)
+            os.makedirs(review_dir, exist_ok=True)
+            roll_files = []
+            for roll in range(max(1, int(rolls))):
+                final_arr = _inpaint_roll(
+                    active_inpainter, cand_img, mask_pil, cand_arr, roi.mask_binary,
+                    w4_prompt, negative, strength, base_seed + roll)
+                assert_outside_identity(cand_arr, final_arr, roi.mask_binary)
+                rf = _raw_stem(cand_file) + f"_w4roll{roll}.png"
+                Image.fromarray(final_arr).save(os.path.join(review_dir, rf))
+                roll_files.append(rf)
+            sidecar = {
+                "wrist": wrist, "rung": rung,
+                "roi_bbox": list(roi.bbox) if roi.bbox else None,
+                "fallback": None, "outside_mask_identical": True,
+                "min_conf": min_conf, "strength": strength,
+                "verdict": "REVIEW", "reason": "clip_gate_dead",
+                "gate_mode": gate_mode, "rolls": rolls,
+                "lora": {"scale": lora_cfg["scale"], "trigger": lora_cfg["trigger"],
+                         "adapter": lora_cfg["adapter_name"]},
+                "rolls_tried": len(roll_files), "review_files": roll_files,
+                "meta": getattr(out, "meta", {}) or {},
+            }
+            _atomic_write_json(_weapon_sidecar_path(batch_dir, cand_file), sidecar)
+            continue
+
         roi = weapon_roi_from_keypoints(kp_map, wrist, (width, height), hand)
         if not roi.ok:
             _route_to_review(batch_dir, cand_file, wrist, rung, roi.fallback, min_conf)
@@ -673,6 +759,14 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
                 "meta": getattr(out, "meta", {}) or {},
             }
             _atomic_write_json(_weapon_sidecar_path(batch_dir, cand_file), sidecar)
+
+    # W4 LoRA is pass-scoped: unload so it never leaks into the shared base gen
+    # pipeline (design_weapon.md:183). Guard: only when a w4 inpainter was built
+    # or injected and exposes the teardown handle.
+    if rung == "w4":
+        unload = getattr(active_inpainter, "unload_lora", None)
+        if callable(unload):
+            unload()
 
     return manifest
 

@@ -725,6 +725,142 @@ def test_w3_no_ip_adapter_routes_to_review(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# W4 weapon-concept LoRA rung (mechanism D): a W1-style masked reroll (NO
+# transplant) with a pass-scoped weapon LoRA riding the inpaint pipe and the
+# "vaynecrossbow" trigger prepended to the prompt (design_weapon.md sec 3/5 W4).
+# Operator lane only (the CLIP gate is dead, LEDGER 21): every roll saves to
+# weapon_review/, cand[file] never advances. A null weapon_lora_path OR a missing
+# pytorch_lora_weights.safetensors routes to review with a no_lora fallback (the
+# LoRA is not trained yet). The stub inpainter records the prompt it received and
+# carries an optional unload hook, keeping the suite torch-free (no SDXL pipe, no
+# LoRA weights are ever loaded).
+# ---------------------------------------------------------------------------
+def _lora_recording_inpainter(record=None, unload=None):
+    """Stub inpainter (W4): records the prompt it received; optional unload hook."""
+    from PIL import Image
+
+    def inpainter(image, mask_image, prompt, negative_prompt, strength, seed,
+                  ip_adapter_image=None):
+        if record is not None:
+            record.append({"seed": seed, "strength": strength, "prompt": prompt,
+                           "image": np.asarray(image.convert("RGB")).copy()})
+        return Image.new("RGB", image.size, (0, 200, 0))
+    if unload is not None:
+        inpainter.unload_lora = unload
+    return inpainter
+
+
+def test_w4_lora_reroll_prepends_trigger_and_saves_rolls(tmp_path):
+    batch = _make_batch(tmp_path, seed=800)
+    ldir = tmp_path / "vayne_weapon"
+    ldir.mkdir()
+    (ldir / "pytorch_lora_weights.safetensors").write_bytes(b"x")
+    record = []
+    cfg = {"weapon": {"gate_mode": "operator", "weapon_lora_path": str(ldir),
+                      "weapon_lora_scale": 0.8}}
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w4", rolls=3,
+        backend=_right_forearm_backend(),
+        inpainter=_lora_recording_inpainter(record=record),
+        config=cfg,
+    )
+
+    # (a) base+i seeds over the roll budget (batch seed 800).
+    assert [r["seed"] for r in record] == [800, 801, 802]
+
+    # (b) the trigger token prepends every prompt.
+    assert len(record) == 3
+    for r in record:
+        assert r["prompt"].startswith("vaynecrossbow, ")
+
+    # (c) N review rolls saved as _w4roll{i}.png.
+    for i in range(3):
+        assert (batch / "weapon_review" / f"cand_00_w4roll{i}.png").exists()
+
+    # (d) cand[file] never advances (operator lane never auto-promotes).
+    cand = manifest["candidates"][0]
+    assert cand["file"] == "cand_00.png"
+    assert cand.get("stage", "raw") == "raw"
+    assert not (batch / "cand_00_wfix.png").exists()
+
+    # (e) sidecar: REVIEW verdict, rung w4, lora block, out-of-mask identity held.
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["rung"] == "w4"
+    assert sidecar["verdict"] == "REVIEW"
+    assert sidecar["outside_mask_identical"] is True
+    assert sidecar["lora"]["scale"] == 0.8
+    assert sidecar["lora"]["trigger"] == "vaynecrossbow"
+    assert sidecar["lora"]["adapter"] == "vayne_weapon"
+    assert len(sidecar["review_files"]) == 3
+
+
+def test_w4_no_lora_routes_to_review(tmp_path):
+    batch = _make_batch(tmp_path)
+    record = []
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w4",
+        backend=_right_forearm_backend(),
+        inpainter=_lora_recording_inpainter(record=record),
+        config={"weapon": {"gate_mode": "operator", "weapon_lora_path": None}},
+    )
+    assert record == []  # LoRA absent -> nothing inpainted
+    assert manifest["candidates"][0]["file"] == "cand_00.png"
+    assert not (batch / "cand_00_wfix.png").exists()
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["fallback"] == "no_lora"
+    assert sidecar["rung"] == "w4"
+
+
+def test_w4_missing_weights_routes_to_review(tmp_path):
+    batch = _make_batch(tmp_path)
+    empty = tmp_path / "empty_lora"
+    empty.mkdir()  # dir exists but NO pytorch_lora_weights.safetensors
+    record = []
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w4",
+        backend=_right_forearm_backend(),
+        inpainter=_lora_recording_inpainter(record=record),
+        config={"weapon": {"gate_mode": "operator", "weapon_lora_path": str(empty)}},
+    )
+    assert record == []  # weights file missing -> nothing inpainted
+    assert manifest["candidates"][0]["file"] == "cand_00.png"
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["fallback"] == "no_lora"
+    assert sidecar["rung"] == "w4"
+
+
+def test_w4_default_scale_when_config_omits(tmp_path):
+    batch = _make_batch(tmp_path, seed=30)
+    ldir = tmp_path / "vayne_weapon"
+    ldir.mkdir()
+    (ldir / "pytorch_lora_weights.safetensors").write_bytes(b"x")
+    record = []
+    wp.weapon_pass(
+        str(batch), wrist="right", rung="w4", rolls=1,
+        backend=_right_forearm_backend(),
+        inpainter=_lora_recording_inpainter(record=record),
+        config={"weapon": {"gate_mode": "operator", "weapon_lora_path": str(ldir)}},
+    )
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["lora"]["scale"] == 0.8  # default when weapon_lora_scale omitted
+
+
+def test_w4_unloads_lora_after_pass(tmp_path):
+    batch = _make_batch(tmp_path)
+    ldir = tmp_path / "vayne_weapon"
+    ldir.mkdir()
+    (ldir / "pytorch_lora_weights.safetensors").write_bytes(b"x")
+    calls = []
+    wp.weapon_pass(
+        str(batch), wrist="right", rung="w4", rolls=1,
+        backend=_right_forearm_backend(),
+        inpainter=_lora_recording_inpainter(record=[], unload=lambda: calls.append(1)),
+        config={"weapon": {"gate_mode": "operator", "weapon_lora_path": str(ldir)}},
+    )
+    assert calls == [1]  # pass-scoped unload fired exactly once
+
+
+# ---------------------------------------------------------------------------
 # 9. GPU acceptance (real DWPose + real SDXL inpaint) - SKIPPED unless LW_GEN_E2E=1.
 #    The orchestrator runs this on the box; CI never loads onnx/torch.
 # ---------------------------------------------------------------------------
