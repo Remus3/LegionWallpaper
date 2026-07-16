@@ -121,16 +121,38 @@ def assert_outside_identity(orig_arr, final_arr, mask_binary):
 
 
 def _inpaint_roll(inpainter, cand_img, mask_pil, cand_arr, mask_binary,
-                  prompt, negative, strength, seed):
+                  prompt, negative, strength, seed, ip_adapter_image=None):
     """One masked re-roll -> paste-back composite array (out-of-mask identical).
 
     Module-level (not a loop closure) so both gate lanes share it without a
-    loop-variable-binding smell.
+    loop-variable-binding smell. ip_adapter_image (W3, mechanism C) is threaded
+    into the inpainter ONLY when non-None: W1/W2 callers omit it, so the closure
+    is invoked with the exact 6-arg contract it always had (byte-identical).
     """
-    inp = inpainter(cand_img, mask_pil, prompt, negative, strength, seed)
+    if ip_adapter_image is not None:
+        inp = inpainter(cand_img, mask_pil, prompt, negative, strength, seed,
+                        ip_adapter_image=ip_adapter_image)
+    else:
+        inp = inpainter(cand_img, mask_pil, prompt, negative, strength, seed)
     if inp.size != cand_img.size:
         inp = inp.resize(cand_img.size)
     return paste_back(cand_arr, np.asarray(inp.convert("RGB")), mask_binary)
+
+
+def _asset_ip_image(asset, bg=(128, 128, 128)):
+    """Composite the picked crossbow crop (RGBA) onto a neutral RGB background.
+
+    The W3 IP-Adapter concept image (design_weapon.md sec 3 W3): the clean weapon
+    crop on a flat neutral field, so the image encoder keys on the crossbow, not a
+    distracting background. Returns an RGB PIL image (the crop's own alpha is the
+    composite matte). Torch-free: PIL only, imported lazily.
+    """
+    from PIL import Image
+
+    crop = Image.open(asset.png_path).convert("RGBA")
+    base = Image.new("RGB", crop.size, bg)
+    base.paste(crop, (0, 0), crop)
+    return base
 
 
 # --------------------------------------------------------------------------
@@ -180,14 +202,20 @@ def _load_config_safe():
 # --------------------------------------------------------------------------
 # Real SDXL inpainter builder (LAZY torch/diffusers - never reached in CI).
 # --------------------------------------------------------------------------
-def _build_real_inpainter(config):
+def _build_real_inpainter(config, ip_adapter=None):
     """Construct the SDXL inpaint closure by reusing lw_gen_run's base loader.
 
     AutoPipelineForInpainting.from_pipe(base, controlnet=None) yields a plain
     StableDiffusionXLInpaintPipeline sharing the base weights (zero extra VRAM;
     design_weapon.md sec 5). The returned closure matches the injectable
     inpainter contract: (image, mask_image, prompt, negative_prompt, strength,
-    seed) -> PIL.Image.
+    seed, ip_adapter_image=None) -> PIL.Image.
+
+    ip_adapter (W3 mechanism C, design_weapon.md sec 3 W3 / sec 5), when a dict
+    {path, subfolder, weight_name, image_encoder_folder, scale}, loads the
+    IP-Adapter weights + CLIP image encoder onto the pipe and sets the concept
+    scale. Default None => byte-identical W1/W2 behavior (no adapter, no
+    ip_adapter_image kwarg on the inpipe call).
     """
     from diffusers import AutoPipelineForInpainting
 
@@ -195,15 +223,40 @@ def _build_real_inpainter(config):
     base = gr._load_pipeline(config, model_abs, fast=False)
     inpipe = AutoPipelineForInpainting.from_pipe(base, controlnet=None)
 
-    def _inpaint(image, mask_image, prompt, negative_prompt, strength, seed):
+    if ip_adapter is not None:
+        inpipe.load_ip_adapter(
+            ip_adapter["path"], subfolder=ip_adapter["subfolder"],
+            weight_name=ip_adapter["weight_name"],
+            image_encoder_folder=ip_adapter["image_encoder_folder"],
+        )
+        inpipe.set_ip_adapter_scale(ip_adapter["scale"])
+        # The base pipe got enable_model_cpu_offload (gr._load_pipeline) BEFORE
+        # load_ip_adapter registered the CLIP image_encoder, so that encoder was
+        # never offload-hooked and stayed on CPU -> a CUDA/CPU device mismatch
+        # when it encodes ip_adapter_image (observed e2e 2026-07-16). The SDXL
+        # inpaint offload seq DOES include image_encoder (text_encoder->
+        # text_encoder_2->image_encoder->unet->vae), so re-running offload here
+        # rebuilds the hooks WITH the encoder present (enable_model_cpu_offload
+        # calls remove_all_hooks first, so this is idempotent). Gated on offload
+        # being the active strategy (the fast/all-resident path is already .to
+        # cuda, and re-enabling would wrongly force offload on).
+        if ((config or {}).get("gen") or {}).get("offload", True):
+            inpipe.enable_model_cpu_offload()
+
+    def _inpaint(image, mask_image, prompt, negative_prompt, strength, seed,
+                 ip_adapter_image=None):
         import torch
 
         generator = torch.Generator("cuda").manual_seed(int(seed))
+        extra = {}
+        if ip_adapter_image is not None:
+            extra["ip_adapter_image"] = ip_adapter_image
         return inpipe(
             prompt=prompt, negative_prompt=negative_prompt,
             image=image, mask_image=mask_image, strength=float(strength),
             num_inference_steps=WEAPON_STEPS, guidance_scale=WEAPON_GUIDANCE,
             width=image.width, height=image.height, generator=generator,
+            **extra,
         ).images[0]
 
     return _inpaint
@@ -296,8 +349,14 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
     the SAME masked inpaint over the w2_strength ladder (sec 3 W2). W2 uses the
     operator lane only (the CLIP gate is dead, LEDGER 21): every strength roll is
     saved to weapon_review/ for operator blessing and cand[file] never advances.
-    `assets` (a list of AssetMeta) overrides the config-loaded crop library; when
-    None the W2 rung loads config weapon.assets (resolved against ROOT).
+    "w3" is the W2 transplant PLUS IP-Adapter concept guidance on the masked
+    inpaint (mechanism C, sec 3 W3): the same crop is also composited onto a
+    neutral field and fed as ip_adapter_image at weapon.ip_adapter_scale over the
+    w3_strength ladder, giving strength headroom pure W2 harmonize lacks. W3 is
+    operator-lane only too; a null weapon.ip_adapter_path routes to review with a
+    no_ip_adapter fallback. `assets` (a list of AssetMeta) overrides the config-
+    loaded crop library; when None the W2/W3 rungs load config weapon.assets
+    (resolved against ROOT).
     """
     from PIL import Image  # lazy; CI has Pillow
 
@@ -349,18 +408,43 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
     active_gate = gate
     review_dir = os.path.join(batch_dir, "weapon_review")
 
-    # W2 rung setup (design_weapon.md sec 3/4): the crop library + strength ladder.
-    # assets= wins; else load config weapon.assets (absolute or ROOT-relative).
+    # W2/W3 rung setup (design_weapon.md sec 3/4): the crop library + strength
+    # ladders. assets= wins; else load config weapon.assets (absolute or ROOT-
+    # relative). The SAME crop library feeds the W2 transplant and the W3
+    # transplant + IP-Adapter concept-guidance rung (mechanism C).
     w2_strengths = weapon_cfg.get("w2_strength") or [0.35, 0.45, 0.5]
-    w2_assets = []
-    if rung == "w2":
+    w3_strengths = weapon_cfg.get("w3_strength") or [0.55, 0.65, 0.75]
+    rung_assets = []
+    if rung in ("w2", "w3"):
         if assets is not None:
-            w2_assets = assets
+            rung_assets = assets
         else:
             assets_cfg = weapon_cfg.get("assets") or ""
             assets_dir = (assets_cfg if os.path.isabs(assets_cfg)
                           else os.path.join(ROOT, assets_cfg))
-            w2_assets = load_assets(assets_dir)
+            rung_assets = load_assets(assets_dir)
+
+    # W3 rung: the IP-Adapter concept-guidance config (design_weapon.md sec 3 W3 /
+    # sec 5). A null ip_adapter_path routes each candidate to review with a
+    # no_ip_adapter fallback (weights not provisioned). Path resolves against ROOT
+    # when relative (mirror the assets_dir pattern); the rest carry code defaults
+    # so a lean config still loads the vit-h SDXL adapter.
+    ipa_cfg = None
+    if rung == "w3":
+        ipa_path = weapon_cfg.get("ip_adapter_path")
+        if ipa_path:
+            ipa_abs = (ipa_path if os.path.isabs(ipa_path)
+                       else os.path.join(ROOT, ipa_path))
+            ipa_scale = weapon_cfg.get("ip_adapter_scale")
+            ipa_cfg = {
+                "path": ipa_abs,
+                "subfolder": weapon_cfg.get("ip_adapter_subfolder") or "sdxl_models",
+                "weight_name": (weapon_cfg.get("ip_adapter_weight")
+                                or "ip-adapter_sdxl_vit-h.safetensors"),
+                "image_encoder_folder": (weapon_cfg.get("ip_adapter_encoder")
+                                         or "models/image_encoder"),
+                "scale": 0.7 if ipa_scale is None else ipa_scale,
+            }
 
     for cand in candidates:
         cand_file = cand.get("file")
@@ -387,7 +471,7 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
                 _route_to_review(batch_dir, cand_file, wrist, rung, "no_forearm", min_conf)
                 continue
             wx, wy, vhx, vhy, forearm_len = frame
-            asset = pick_asset(w2_assets, wrist, (vhx, vhy))
+            asset = pick_asset(rung_assets, wrist, (vhx, vhy))
             if asset is None:
                 _route_to_review(batch_dir, cand_file, wrist, rung, "no_asset", min_conf)
                 continue
@@ -422,6 +506,67 @@ def weapon_pass(batch_dir, wrist=None, rung="w1", rolls=4, strength=0.92,
                 "min_conf": min_conf, "strengths": list(w2_strengths),
                 "verdict": "REVIEW", "reason": "clip_gate_dead",
                 "gate_mode": gate_mode, "asset": asset.file,
+                "rolls_tried": len(roll_files), "review_files": roll_files,
+                "meta": getattr(out, "meta", {}) or {},
+            }
+            _atomic_write_json(_weapon_sidecar_path(batch_dir, cand_file), sidecar)
+            continue
+
+        # ---- W3 rung: reference transplant + IP-Adapter guided inpaint (mech C). ----
+        # W2 geometry (affine-fit a real crossbow crop onto the wrist so STRUCTURE is
+        # canonical) PLUS IP-Adapter concept guidance on the masked inpaint: the clean
+        # weapon crop on a neutral field feeds ip_adapter_image at scale ~0.7, giving
+        # the strength headroom pure W2 harmonize lacks (design_weapon.md sec 3 W3 /
+        # sec 5). Gate ladder: no_forearm -> no_asset -> no_ip_adapter -> roi. Operator
+        # lane only (the CLIP gate is dead, LEDGER 21): save every strength roll to
+        # weapon_review/, never auto-advance.
+        if rung == "w3":
+            frame = forearm_frame(kp_map, wrist, (width, height))
+            if frame is None:
+                _route_to_review(batch_dir, cand_file, wrist, rung, "no_forearm", min_conf)
+                continue
+            wx, wy, vhx, vhy, forearm_len = frame
+            asset = pick_asset(rung_assets, wrist, (vhx, vhy))
+            if asset is None:
+                _route_to_review(batch_dir, cand_file, wrist, rung, "no_asset", min_conf)
+                continue
+            if ipa_cfg is None:
+                _route_to_review(batch_dir, cand_file, wrist, rung, "no_ip_adapter", min_conf)
+                continue
+            roi = weapon_roi_from_keypoints(kp_map, wrist, (width, height), hand)
+            if not roi.ok:
+                _route_to_review(batch_dir, cand_file, wrist, rung, roi.fallback, min_conf)
+                continue
+            if active_inpainter is None:
+                active_inpainter = _build_real_inpainter(config, ip_adapter=ipa_cfg)
+
+            pasted = affine_transplant(cand_img, asset, (wx, wy), (vhx, vhy), forearm_len)
+            ip_img = _asset_ip_image(asset)
+            cand_arr = np.asarray(cand_img)
+            feathered = (np.clip(roi.mask_feathered, 0.0, 1.0) * 255.0).astype(np.uint8)
+            mask_pil = Image.fromarray(feathered, mode="L")
+            base_seed = int(cand.get("seed") or 0)
+            os.makedirs(review_dir, exist_ok=True)
+            roll_files = []
+            for i, stg in enumerate(w3_strengths):
+                # Inpaint the TRANSPLANTED image under IP-Adapter concept guidance;
+                # paste back into the ORIGINAL so out-of-mask pixels stay identical.
+                final_arr = _inpaint_roll(
+                    active_inpainter, pasted, mask_pil, cand_arr, roi.mask_binary,
+                    prompt, negative, stg, base_seed + i, ip_adapter_image=ip_img)
+                assert_outside_identity(cand_arr, final_arr, roi.mask_binary)
+                rf = _raw_stem(cand_file) + f"_w3roll{i}.png"
+                Image.fromarray(final_arr).save(os.path.join(review_dir, rf))
+                roll_files.append(rf)
+            sidecar = {
+                "wrist": wrist, "rung": rung,
+                "roi_bbox": list(roi.bbox) if roi.bbox else None,
+                "fallback": None, "outside_mask_identical": True,
+                "min_conf": min_conf, "strengths": list(w3_strengths),
+                "verdict": "REVIEW", "reason": "clip_gate_dead",
+                "gate_mode": gate_mode, "asset": asset.file,
+                "ip_adapter": {"scale": ipa_cfg["scale"],
+                               "weight": ipa_cfg["weight_name"]},
                 "rolls_tried": len(roll_files), "review_files": roll_files,
                 "meta": getattr(out, "meta", {}) or {},
             }

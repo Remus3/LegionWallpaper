@@ -60,11 +60,14 @@
     "T_wblur": 150.0,
     "rolls": 4,
     "w2_strength": [0.35, 0.45, 0.5],
+    "w3_strength": [0.55, 0.65, 0.75],
     "assets": "tools/models/weapon_assets/vayne",
-    "ip_adapter_path": null,
+    "ip_adapter_path": "tools/models/ip-adapter",
+    "ip_adapter_scale": 0.7,
     "weapon_lora_path": null
   },
   "_note_weapon": "M1 weapon-region CLIP gate (design_weapon.md sec 6). gate_mode='operator' is the SHIPPED default because the ViT-L-14 CLIP region gate is a DEAD GATE: the 2026-07-12 calibration (scratchpad/weapon_calib.py; results in docs/research/GEN_RETUNE.md) could NOT separate canonical-crossbow crops (19 official skins) from wrong-weapon crops (all localizable gen candidates) across 3 configs (wide/full 1/9, wide/clean-top2 2/9, tight/clean-top2 3/9 good-PASS). Margin (crossbow-positives - distractors) is NEGATIVE on every crop - CLIP ranks generic weapon/hand text above 'repeating crossbow' on stylized art; the canonical DEFAULT skin fails a floor 6 bad candidates clear. This is the T_aes-dead-gate precedent + the operator-lane fallback GOLDEN_DEFINITION.md:120 mandates. In 'operator' mode W1 runs the rolls and saves EVERY attempt to weapon_review/ for operator blessing (no auto-advance). T_weapon/T_wmargin are DORMANT placeholders used only if gate_mode is flipped to 'clip' for a future SEPARATING scorer (weapon-concept LoRA / fine-tuned CLIP); do NOT treat them as calibrated. T_wblur mirrors the QA blur floor but is REGION-local. Positives/distractors default to WEAPON_POSITIVES/WEAPON_DISTRACTORS in lw_gen_qa.py. rolls is the W1 re-roll budget.",
+  "_note_w3": "W3 rung (design_weapon.md sec 3 W3 / sec 5) = the W2 reference transplant PLUS IP-Adapter concept guidance on the masked inpaint. ip_adapter_path points at the tools/models/ip-adapter root (layout: sdxl_models/ip-adapter_sdxl_vit-h.safetensors + models/image_encoder/); a null path routes each candidate to review with a no_ip_adapter fallback. The picked crossbow crop is composited onto a neutral field and fed as ip_adapter_image at ip_adapter_scale (0.5-0.8 useful; 0.7 default). w3_strength is the transplant-harmonize ladder - higher than w2_strength because the IP concept guidance holds STRUCTURE while denoise blends the seam. subfolder/weight/encoder carry code defaults (sdxl_models / ip-adapter_sdxl_vit-h.safetensors / models/image_encoder). Operator lane only (the CLIP gate is dead, LEDGER 21): every roll saves to weapon_review/, cand[file] never advances.",
   "venvs": {
     "gen": ".venv-gen",
     "metrics": ".venv-metrics"

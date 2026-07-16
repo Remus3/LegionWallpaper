@@ -592,6 +592,139 @@ def test_w2_accepts_injected_assets_param(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# W3 IP-Adapter rung (mechanism C): the W2 reference-transplant geometry PLUS
+# IP-Adapter concept guidance on the masked inpaint (design_weapon.md sec 3 W3 /
+# sec 5). Operator lane only (the CLIP gate is dead, LEDGER 21): every strength
+# roll saves to weapon_review/, cand[file] never advances. A stub inpainter that
+# accepts + records ip_adapter_image keeps the suite torch-free (no CLIP encoder,
+# no SDXL pipeline is ever loaded).
+# ---------------------------------------------------------------------------
+def _ipa_recording_inpainter(color=(0, 255, 0), record=None):
+    """Stub inpainter (W3): records the image + the ip_adapter_image it got."""
+    from PIL import Image
+
+    def inpainter(image, mask_image, prompt, negative_prompt, strength, seed,
+                  ip_adapter_image=None):
+        if record is not None:
+            record.append({
+                "seed": seed, "strength": strength,
+                "ip_adapter_image": ip_adapter_image,
+                "image": np.asarray(image.convert("RGB")).copy(),
+            })
+        return Image.new("RGB", image.size, color)
+
+    return inpainter
+
+
+def test_inpaint_roll_threads_ip_adapter_image():
+    from PIL import Image
+
+    cand_img = Image.new("RGB", (12, 10), (10, 20, 30))
+    mask_pil = Image.new("L", (12, 10), 255)
+    cand_arr = np.asarray(cand_img)
+    mask_binary = np.ones((10, 12), dtype=bool)
+    ip_img = Image.new("RGB", (8, 8), (128, 128, 128))
+    record = []
+
+    wp._inpaint_roll(
+        _ipa_recording_inpainter(record=record),
+        cand_img, mask_pil, cand_arr, mask_binary,
+        "p", "n", 0.6, 42, ip_adapter_image=ip_img)
+
+    assert len(record) == 1
+    assert record[0]["ip_adapter_image"] is ip_img  # threaded through verbatim
+
+
+def test_w3_transplants_ip_guides_and_saves_rolls(tmp_path):
+    from PIL import Image
+
+    batch = _make_batch(tmp_path, seed=800)
+    adir = tmp_path / "assets"
+    _write_weapon_asset(str(adir))
+    record = []
+    cfg = {"weapon": {"gate_mode": "operator", "assets": str(adir),
+                      "w3_strength": [0.55, 0.65, 0.75],
+                      "ip_adapter_path": str(tmp_path / "ip-adapter"),
+                      "ip_adapter_scale": 0.7}}
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w3",
+        backend=_right_forearm_backend(),
+        inpainter=_ipa_recording_inpainter(record=record),
+        config=cfg,
+    )
+
+    # (a) the w3_strength ladder is used, in order, with base+i seeds.
+    assert [round(r["strength"], 2) for r in record] == [0.55, 0.65, 0.75]
+    assert [r["seed"] for r in record] == [800, 801, 802]
+
+    # (b) the inpainter RECEIVED a non-None ip_adapter_image, an RGB PIL image.
+    for r in record:
+        assert r["ip_adapter_image"] is not None
+        assert isinstance(r["ip_adapter_image"], Image.Image)
+        assert r["ip_adapter_image"].mode == "RGB"
+
+    # (c) transplant applied before the inpaint (image differs from the raw cand).
+    raw = np.asarray(Image.open(batch / "cand_00.png").convert("RGB"))
+    assert not np.array_equal(record[0]["image"], raw)
+
+    # (d) N review rolls saved as _w3roll{i}.png.
+    for i in range(3):
+        assert (batch / "weapon_review" / f"cand_00_w3roll{i}.png").exists()
+
+    # (e) cand[file] never advances (operator lane).
+    cand = manifest["candidates"][0]
+    assert cand["file"] == "cand_00.png"
+    assert cand.get("stage", "raw") == "raw"
+    assert not (batch / "cand_00_wfix.png").exists()
+
+    # (f) sidecar: REVIEW verdict, rung w3, ip_adapter block, asset + strengths.
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["rung"] == "w3"
+    assert sidecar["verdict"] == "REVIEW"
+    assert sidecar["reason"] == "clip_gate_dead"
+    assert sidecar["outside_mask_identical"] is True
+    assert sidecar["asset"] == "cb.png"
+    assert sidecar["strengths"] == [0.55, 0.65, 0.75]
+    assert len(sidecar["review_files"]) == 3
+    assert sidecar["ip_adapter"]["scale"] == 0.7
+    assert sidecar["ip_adapter"]["weight"] == "ip-adapter_sdxl_vit-h.safetensors"
+
+
+def test_w3_default_strengths_when_config_omits(tmp_path):
+    batch = _make_batch(tmp_path, seed=20)
+    adir = tmp_path / "assets"
+    _write_weapon_asset(str(adir))
+    record = []
+    wp.weapon_pass(
+        str(batch), wrist="right", rung="w3",
+        backend=_right_forearm_backend(),
+        inpainter=_ipa_recording_inpainter(record=record),
+        config={"weapon": {"assets": str(adir),
+                           "ip_adapter_path": str(tmp_path / "ipa")}},
+    )
+    assert [round(r["strength"], 2) for r in record] == [0.55, 0.65, 0.75]
+
+
+def test_w3_no_ip_adapter_routes_to_review(tmp_path):
+    batch = _make_batch(tmp_path)
+    adir = tmp_path / "assets"
+    _write_weapon_asset(str(adir))
+    record = []
+    manifest = wp.weapon_pass(
+        str(batch), wrist="right", rung="w3",
+        backend=_right_forearm_backend(),
+        inpainter=_ipa_recording_inpainter(record=record),
+        config={"weapon": {"assets": str(adir), "ip_adapter_path": None}},
+    )
+    assert record == []  # ip_adapter absent -> nothing inpainted
+    assert manifest["candidates"][0]["file"] == "cand_00.png"
+    assert not (batch / "cand_00_wfix.png").exists()
+    sidecar = json.loads((batch / "cand_00.weapon.json").read_text(encoding="utf-8"))
+    assert sidecar["fallback"] == "no_ip_adapter"
+    assert sidecar["rung"] == "w3"
+
+
+# ---------------------------------------------------------------------------
 # 9. GPU acceptance (real DWPose + real SDXL inpaint) - SKIPPED unless LW_GEN_E2E=1.
 #    The orchestrator runs this on the box; CI never loads onnx/torch.
 # ---------------------------------------------------------------------------
