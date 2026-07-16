@@ -11,6 +11,18 @@
 
 ---
 
+# 2026-07-16 (Stage-2 cleaning pipeline built: harness + gate-v2 + SDXL engine; watermark-removal R&D -> glyph15 interim, Dekel deferred)
+
+Very long session; 2 commits (bf94629 cleaning harness, 07b7e30 SDXL worker) + living-docs. Cleaning stack provisioned (C:\Tools\lw-clean\venv, gitignored) - was ABSENT at start (verified live). Cleaning-suite green (500 collected; 33 pure + 5 integration for lw_clean_pass, 17 pure for lw_clean_sdxl); ruff + ASCII clean; independent re-verify each subagent merge. Operator drove the fill-engine decision via framed forks + rejected two engines before landing the current-best interim.
+
+- **Shipped:** tools/lw_clean_pass.py (detect YOLO11x+EasyOCR -> gate v2 -> mask -> LaMa -> G2 verify -> PRINT lw_pipeline save-working/submit; single-writer, lazy ML imports CI-safe; bf94629). Gate v2 (build subagent, TDD): bottom-edge banners -> auto, LEAGUE OF LEGENDS wordmark excluded (is_lol_logo), OCR URL/handle match (is_watermark_text), reduction-based residue. tools/lw_clean_sdxl.py (SDXL reconstruction, .venv-gen, dual-format loader [single-file Animagine XL 4.0 + folder DreamShaper/RealVis], --checkpoint, paste-back outside-identity, VAE tiling; 07b7e30). DreamShaper XL downloaded (gitignored).
+- **Triage of 228 firstdones (read-only):** 190 clean / 17 QA / 21 auto (watermark). LaMa batch: 21 -> 17 submitted, 0 discards, outside_ssim=1.0. Operator REJECTED LaMa (dark-blurs content). Reprocessed 21 via SDXL (Animagine beat DreamShaper on a sample). Operator REJECTED block-SDXL (dilated-box mask hallucinates + hard seam).
+- **Watermark R&D, 9 methods (docs/research/WATERMARK_REMOVAL_RND.md):** the halo ghost is an ALPHA-ESTIMATION problem (precise masks -> faint edge halo; block -> hallucinate). glyph15+SDXL (accurate cross-image glyph matte dilated 15px + SDXL) = current-best interim (text gone, faithful, minor dense-line smudge). Research subagent verdict: proper Dekel (Levin matting-Laplacian alpha + sub-pixel alignment + IRLS + matting-equation inversion) is the only zero-halo FAITHFUL path (~1-2 sessions, pure numpy, no cu128 risk); SLBR/WDNet out-of-distribution (256px logos).
+
+**NEXT / do-not-redo (operator: Dekel is a FRESH session):** build proper Dekel per WATERMARK_REMOVAL_RND.md section 3 (fork rohitrango scaffold; add matting-Laplacian + sub-pixel alignment + IRLS; pool ALL same-artist images). Reprocess the 21 (staged in 3.Cleaning Scratch, block-SDXL needauth already rejected) + pebano1/vexxsoul/namakx clusters. Tighten gate false-positives (caitlyn `@`-only, vayne3 carved-stone, the-ruined-king-viego LoL logo). Then clean-scan the 190. Do NOT re-try LaMa erase / block-SDXL / tight-glyph fill / pragmatic joint-opt / SLBR-WDNet. Session R&D scripts are scratchpad-temp (logic captured in the doc). Committed code green + pushed.
+
+---
+
 # 2026-07-16 (W4 M3 rung==w4 SHIPPED; LoRA trained; weapon-quality investigation -> CEILING, PARKED)
 
 Long session; 1 commit (0c255d8 M3) + docs. Full suite 458 passed / 4 skipped (+5 W4); CI green; ruff + ASCII clean; pushed. Ran the queued handoff to completion, then an operator-driven investigation into weapon quality that concluded NEGATIVE (a measured ceiling).

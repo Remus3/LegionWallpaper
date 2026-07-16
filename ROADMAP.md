@@ -46,10 +46,21 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   (analogous to the ADR-006 lap_ratio ruling). One data point so far - not yet
   actionable.
 
-- **Cleaning pass downstream (LATER).** dark-cosmic-ahri + the approved first-pass
-  set flow to Stage-2 cleaning (`/cleaning-pass`). The G3 Haiku side-by-side "win
-  or tie" check + the V3denoise per-image halftone alternative stay documented
-  TODOs gated on the vision-audit stage.
+- **Stage-2 cleaning - PIPELINE BUILT, watermark engine IN PROGRESS (2026-07-16, LEDGER 27).**
+  Harness (`tools/lw_clean_pass.py`: detect -> gate v2 -> mask -> verify) + SDXL
+  reconstruction worker (`tools/lw_clean_sdxl.py`) SHIPPED (bf94629, 07b7e30);
+  dedicated `C:\Tools\lw-clean\venv` provisioned. Triage of the 228: 190 clean /
+  17 QA / 21 auto (watermark) slugs. BLOCKER on finishing the watermarks:
+  semi-transparent watermark removal is hard - LaMa blurs content, block-SDXL
+  hallucinates, glyph15+SDXL is a faithful interim with a minor dense-line smudge.
+  **NEXT (fresh session): build proper Dekel** (Levin matting-Laplacian alpha +
+  sub-pixel alignment + IRLS + matting-equation inversion) for zero-halo faithful
+  recovery - full plan + methods-tried + do-not-redo in
+  `docs/research/WATERMARK_REMOVAL_RND.md`. Then reprocess the 21 (staged in
+  `3.Cleaning Scratch`) + the pebano1/vexxsoul/namakx clusters; tighten gate
+  false-positives (caitlyn `@`-only, vayne3 carved-stone, the-ruined-king-viego
+  LoL logo). The 190 clean + dark-cosmic-ahri still need clean-scan flow-through;
+  the G3 Haiku side-by-side + V3denoise halftone alt stay gated on the vision stage.
 
 ## Open items - Medium priority
 
