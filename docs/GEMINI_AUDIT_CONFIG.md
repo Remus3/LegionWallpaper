@@ -130,13 +130,16 @@ research / orchestration assistant** for autonomous LW development:
 - Used in normal sessions AND headless-upgrade runs for find/research/
   orchestrate tasks. Still read-only - Gemini never writes source or commits.
 
-### AHK self-drive primitive (prototype in the RC ancestor, NOT ported, NOT auto-wired)
+### AHK self-drive primitive (PORTED 2026-07-16: ops/loop/claude_gui_bridge.ahk)
 
-An AutoHotkey script that focuses the Claude prompt window, types a command
-(e.g. `/clear`), and presses Enter - so a headless loop can self-clear context
-between tasks. Claude Code (terminal) can call it directly; Gemini can too.
-SAFETY before any autonomous wiring: verify the target window title BEFORE
-typing, a kill-switch hotkey, a dry-run mode, a fired-commands log. OPEN: target
-= Claude.ai desktop app (which exe/title?) or Claude Code in a terminal?
-The RC ancestor prototype (`tools/claude_send.ahk`, AHK v2, DRY-RUN default +
-window-verify + kill-switch Ctrl+Alt+Q) is the reference if/when LW ports it.
+An AutoHotkey script that focuses the target Claude window, types the
+directive lines, and presses Enter - so a headless loop can self-clear and
+self-continue between tasks. Ported from the RC ancestor under the
+multi-project collision contract (RC commit 81636382): live targeting is
+PID-ONLY via `control\target_pid.txt` (no title fallback; bridge aborts
+without a pid), the launcher pid-binds to exactly ONE `claude` window whose
+title equals config `claude_window_title` ("Image"), each repo's launcher
+kills only its own cmdline-scoped `AutoHotkey64` instances, and RC's launcher
+self-defers while any LegionWallpaper bridge is alive (LW may start first).
+Dry-run mode types into a Notepad window titled `LW-LOOP-DRYRUN`; fired lines
+log to `control\ahk_bridge.log`; kill = `control\STOP`.

@@ -15,11 +15,18 @@ $stub = "$root\ops\loop\claude_stub.py"
 $env:GEMINI_API_KEY = [Environment]::GetEnvironmentVariable("GEMINI_API_KEY", "User")
 if (-not $Cfg) { $Cfg = if ($Mode -eq "live") { "$root\ops\loop\config.json" } else { "$root\ops\loop\config.dry.json" } }
 
+New-Item -ItemType Directory -Force $ctl | Out-Null
 # pre-clean stale sentinels so a prior run's STOP cannot early-kill this one
 "STOP", "gemini.ready", "typed.flag", "claude.done", "cycle.txt" | ForEach-Object {
   Remove-Item "$ctl\$_" -Force -ErrorAction SilentlyContinue
 }
-Get-Process AutoHotkey64 -ErrorAction SilentlyContinue | ForEach-Object { $_.Kill() }; Start-Sleep -Milliseconds 300
+# Kill ONLY THIS repo's bridge instances (cmdline-scoped). A bare AutoHotkey64
+# kill would murder the sibling Riot Commander loop's bridge mid-run; RC holds
+# the mirror-image guard (RC commit 81636382). taskkill per repo rule.
+Get-CimInstance Win32_Process -Filter "Name='AutoHotkey64.exe'" -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -like "*LegionWallpaper\ops\loop*" } |
+  ForEach-Object { & taskkill /F /PID $_.ProcessId | Out-Null }
+Start-Sleep -Milliseconds 300
 
 if ($Mode -eq "dry") {
   $sa = @("`"$stub`"")
@@ -29,19 +36,24 @@ if ($Mode -eq "dry") {
   Write-Host "dry: claude_stub launched (regress=$Regressions hang=$($Hang.IsPresent))"
 }
 else {
-  # LW: the AHK GUI bridge (claude_gui_bridge.ahk) is NOT yet ported - see the
-  # "AHK self-drive primitive ... NOT ported" caveat in docs/GEMINI_AUDIT_CONFIG.md.
-  # Fail loud instead of launching a missing script.
   if (-not (Test-Path $bridge)) {
-    Write-Error "live mode unavailable: $bridge not yet ported to LW (see docs/GEMINI_AUDIT_CONFIG.md)"
+    Write-Error "live mode unavailable: $bridge missing"
     exit 1
   }
-  $win = Get-Process claude -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1
-  if (-not $win) { Write-Error "no Claude window with a title found - open the executor session first"; exit 1 }
-  Set-Content "$ctl\target_pid.txt" -Value $win.Id -Encoding ascii
+  # STRICT pid-bind: exactly ONE claude window whose title EQUALS the config
+  # claude_window_title ("Image"). Zero or ambiguous = refuse to arm; the
+  # bridge itself aborts on a missing pid (no title fallback, RC 81636382).
+  $title = (Get-Content $Cfg -Raw | ConvertFrom-Json).claude_window_title
+  $wins = @(Get-Process claude -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq $title })
+  if ($wins.Count -ne 1) {
+    $seen = (Get-Process claude -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | ForEach-Object { $_.MainWindowTitle }) -join " | "
+    Write-Error "need exactly ONE claude window titled '$title' (found $($wins.Count)); titles seen: [$seen]"
+    exit 1
+  }
+  Set-Content "$ctl\target_pid.txt" -Value $wins[0].Id -Encoding ascii
   Set-Content "$ctl\ahk_mode.txt" -Value "live" -Encoding ascii
   Start-Process $ahk -ArgumentList "`"$bridge`""
-  Write-Host "live: AHK bridge -> Claude pid $($win.Id)"
+  Write-Host "live: AHK bridge -> claude pid $($wins[0].Id) title '$title'"
 }
 Start-Process $py -ArgumentList "`"$ctrl`"", "`"$Cfg`"" -WorkingDirectory $root -WindowStyle Hidden
 Write-Host "controller launched cfg=$(Split-Path $Cfg -Leaf)"
