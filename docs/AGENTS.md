@@ -1,10 +1,11 @@
 # Legion Wallpaper - Agent Framework (inherited PATTERN)
 
 > **THIS IS THE INHERITED PATTERN, NOT A RUNNING SYSTEM.** No agent code exists
-> in this repo yet - every module path below is TBD until the product is
-> defined (ADR-002) and an operator directive wires the framework in. The
-> pattern is recorded now so the eventual wiring copies a proven shape instead
-> of inventing one. For operating rules see `CLAUDE.md`.
+> in this repo yet. The product is now defined (ADR-002 - the restoration
+> pipeline); every module path below stays TBD until an operator directive
+> wires the framework in. The pattern is recorded now so the eventual wiring
+> copies a proven shape instead of inventing one. For operating rules see
+> `CLAUDE.md`.
 
 ## Two-supervisor architecture pattern
 
