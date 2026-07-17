@@ -208,6 +208,36 @@ def test_is_watermark_text_matches_hosts_and_urls():
         assert cp.is_watermark_text(miss) is False
 
 
+def test_bare_at_glyph_is_not_watermark():
+    # caitlyn-love-confession + vayne3 false positive: OCR reads a LONE "@" glyph
+    # from the art (not a social handle). A bare @ tripped both classify_ocr_string
+    # and is_watermark_text -> auto/watermark_ocr. It must not be a watermark now.
+    assert cp.classify_ocr_string("@") is False
+    assert cp.is_watermark_text(["@"]) is False
+    v, _reason = cp.gate_decision(1, 0.0, False, 0.5, _MID, _W, _H, ["@"])
+    assert v != "auto"
+    # a REAL handle (@ + name) must still read as a watermark (non-regression).
+    assert cp.classify_ocr_string("@namakxin") is True
+    assert cp.is_watermark_text(["@namakxin"]) is True
+    assert cp.classify_ocr_string("user@email.com") is True
+
+
+def test_is_lol_logo_matches_diluted_wordmark():
+    # the-ruined-king-viego: the LEAGUE OF LEGENDS wordmark is buried in the
+    # splash-quote OCR ("I AM NOT A KING ... LEAGUEor LEGENDS"); the fuzzy-join
+    # was diluted -> is_lol_logo missed it -> it fell through to bottom_banner
+    # AUTO. The wordmark must be caught by substring even when diluted -> KEEP.
+    ruined = ["TH E", "R U ] N E D", "KiN G", "50 VEREIG N", "0F",
+              "SHAD0 WS", "A KING", "RUINED.\"", "LEAGUEor LEGENDS"]
+    assert cp.is_lol_logo(ruined) is True
+    assert cp.is_watermark_text(ruined) is False
+    v, reason = cp.gate_decision(1, 0.76, False, 0.45, _BOTTOM, _W, _H, ruined)
+    assert (v, reason) == ("clean", "lol_logo")
+    # non-regression: an artist host is NOT a lol logo, plain art is not either.
+    assert cp.is_lol_logo(["PEBANO1.DEVIANTART"]) is False
+    assert cp.is_lol_logo(["Ahri"]) is False
+
+
 # ===========================================================================
 # 12. masked_identity
 # ===========================================================================

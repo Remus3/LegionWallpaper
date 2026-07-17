@@ -96,16 +96,20 @@ CHANGE_SSIM_MAX = 0.90       # inside change must drop SSIM to <= this
 SEAM_SSIM_MIN = 0.92         # seam-ring floor; below -> FLAG (not discard)
 
 _WATERMARK_TOKENS = (
-    ".com", ".net", ".org", ".io", "www", "http", "://", "@",
+    ".com", ".net", ".org", ".io", "www", "http", "://",
     "artstation", "deviantart", "uhdpaper", "patreon", "pixiv",
     "instagram", "behance", "twitter", "wallhaven",
 )
+# A social HANDLE is @ + at least 2 handle chars (e.g. @namakxin). A BARE "@"
+# glyph read out of art (caitlyn-love-confession, vayne3) is NOT a watermark, so
+# "@" was removed from the literal token sets above and below in favour of this.
+_HANDLE_RE = re.compile(r"@[A-Za-z0-9_]{2,}")
 # gate v2 fuzzy discrimination (operator-tunable): the LoL wordmark is a false
 # positive we KEEP; artist-credit hosts are the true REMOVE signal.
 _LOL_TARGET = "LEAGUEOFLEGENDS"     # the game wordmark - keep, never inpaint
 _LOL_WORDS = ("LEGENDS", "LEAGUE")
 _WM_HOSTS = ("DEVIANTART", "PATREON", "ARTSTATION", "BEHANCE")
-_WM_LITERALS = (".COM", "WWW", "@", "PATREON", "DEVIANT")
+_WM_LITERALS = (".COM", "WWW", "PATREON", "DEVIANT")
 _WORKING_RE = re.compile(r"_cleanworking_(\d+)\.png$", re.IGNORECASE)
 
 
@@ -174,7 +178,9 @@ def classify_ocr_string(text) -> bool:
     if not text:
         return False
     t = str(text).lower()
-    return any(tok in t for tok in _WATERMARK_TOKENS)
+    if any(tok in t for tok in _WATERMARK_TOKENS):
+        return True
+    return bool(_HANDLE_RE.search(t))
 
 
 def _norm_alnum_upper(text) -> str:
@@ -199,7 +205,13 @@ def is_lol_logo(ocr_texts) -> bool:
     toks = [t for t in toks if t]
     if not toks:
         return False
-    if _fuzzy_ratio("".join(toks), _LOL_TARGET) >= 0.5:
+    joined = "".join(toks)
+    if _fuzzy_ratio(joined, _LOL_TARGET) >= 0.5:
+        return True
+    # The wordmark can be DILUTED among splash-quote OCR (the-ruined-king-viego:
+    # "... LEAGUEor LEGENDS"), sinking the whole-join fuzzy ratio. A substring
+    # presence of BOTH wordmark halves is a precise KEEP signal.
+    if "LEAGUE" in joined and "LEGENDS" in joined:
         return True
     return any(_fuzzy_ratio(t, w) >= 0.7 for t in toks for w in _LOL_WORDS)
 
@@ -218,6 +230,8 @@ def is_watermark_text(ocr_texts) -> bool:
         return True
     raw_upper = " ".join(str(t) for t in ocr_texts).upper()
     if any(lit in raw_upper for lit in _WM_LITERALS):
+        return True
+    if _HANDLE_RE.search(raw_upper):
         return True
     for t in ocr_texts:
         nt = _norm_alnum_upper(t)
