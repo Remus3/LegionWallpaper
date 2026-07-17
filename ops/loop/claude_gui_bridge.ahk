@@ -25,6 +25,10 @@ MODEF := CTL "\ahk_mode.txt"
 HWNDF := CTL "\target_hwnd.txt"
 DRY_TITLE := "LW-LOOP-DRYRUN"
 LINE_PAUSE := 1500
+; Extra settle AFTER a /clear commits: the session reset repaints the TUI, and a
+; follow-up slash-send at bare LINE_PAUSE raced it - /gemini-headless-upgrade could
+; land mid-clear and get eaten (operator 2026-07-16).
+CLEAR_PAUSE := 4000
 
 LogMsg(s) {
     global CTL
@@ -85,6 +89,8 @@ Loop {
             Send("{Enter}")
             typed += 1
             Sleep LINE_PAUSE
+            if (Trim(lineText) = "/clear")
+                Sleep CLEAR_PAUSE
         }
         FileDelete(READY)              ; READY consumed = the "typed" signal the controller waits on
         LogMsg("typed " typed " lines into [" win "]")
