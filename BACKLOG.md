@@ -2,13 +2,13 @@
 
 _Aspirational / longer-term items. When an item moves to active work, migrate it to `ROADMAP.md` "Open items"._
 _Shipped items live in git log + `docs/LEDGER.md`; this file is for things NOT yet done._
-_Product is not yet defined - lanes below are the inherited skeleton; fill them as the product takes shape._
+_Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipeline); sections fill as aspirational items emerge._
 
 ---
 
-## Product (TBD - product not yet defined)
+## Product
 
-- _No items yet. Populated after the ADR-002 wallpaper engine scope decision._
+- _No aspirational product items yet; active work lives in `ROADMAP.md`._
 
 ## Platform / observability
 
@@ -16,7 +16,7 @@ _Product is not yet defined - lanes below are the inherited skeleton; fill them 
 
 ## Data pipeline
 
-- _No items yet. TBD - depends entirely on what data (if any) the wallpaper engine consumes._
+- _No items yet. Candidates: image manifests, provenance records, gate-metric retention._
 
 ## Developer experience
 
