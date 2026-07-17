@@ -2,7 +2,8 @@
 
 Date: 2026-07-03. Status: ACTIVE - this is THE operational plan for the LW
 product. Supersedes the operator's v1 plan (archived verbatim at
-`docs/RESTORATION_PLAN_v1.md`; originally authored 2026-06-14 on the Desktop).
+`docs/_archive/RESTORATION_PLAN_v1.md`; originally authored 2026-06-14 on the
+Desktop).
 Decisions behind this plan: `docs/adr/ADR-002-restoration-pipeline-product.md`
 (product + architecture) and `docs/adr/ADR-003-pipeline-folder-scheme.md`
 (folder/state scheme). Research substrate: `docs/research/UPSCALE_TOOLCHAIN.md`,
