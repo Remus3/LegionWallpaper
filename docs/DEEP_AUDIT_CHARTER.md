@@ -1,9 +1,11 @@
 # DEEP AUDIT CHARTER - LW full-project audit/refactor program
 
 > **DORMANT TEMPLATE - NOT ARMED.** This charter arms ONLY by explicit operator
-> directive, and only once the product has code worth auditing. Until both are
-> true, no audit loop runs, no authorization below is granted, and nothing in
-> this file overrides `CLAUDE.md` defaults. Ported as a template from the Riot
+> directive. The code-worth-auditing precondition is now met (product defined
+> per ADR-002/ADR-003; tools/ holds 40 modules incl. lw_pipeline.py) - the
+> operator directive is the sole remaining gate. Until it is given, no audit
+> loop runs, no authorization below is granted, and nothing in this file
+> overrides `CLAUDE.md` defaults. Ported as a template from the Riot
 > Commander charter (authored there 2026-06-11) so the eventual program starts
 > from a proven shape.
 
@@ -23,9 +25,9 @@ COMPLETION across as many sessions as needed.
 ## Model / harness
 
 - Fable 5, MAX effort (effortLevel xhigh set in .claude/settings.json), 1M
-  context: first cycle PROBE the 1M model id (claude-fable-5[1m]) and set it in
-  .claude/settings.json "model" ONLY after verifying the session accepts it (a
-  bad id strands the unattended run).
+  context: the probe-and-set step is DONE ahead of arming - .claude/settings.json
+  already sets "model": "claude-fable-5[1m]" and headless cycles run on it; no
+  first-cycle probe needed.
 - Adjust claude mode usage as required (caveman stays default; drop to normal
   only where the charter demands readable reporting).
 
@@ -45,8 +47,9 @@ this charter is armed. None are granted today.
 4. [UNSET] Relocate files (largest to smallest), alter folder structure,
    archive/remove redundant files, remove scrap files.
 5. [UNSET] PRUNE ENTIRELY: (slot for product-specific stale-caveat sweeps -
-   TBD, product not yet defined; the origin charter used this slot to purge
-   retired-hardware and stale-warning classes).
+   product now defined per ADR-002/ADR-003; name the LW caveat classes at arm
+   time; the origin charter used this slot to purge retired-hardware and
+   stale-warning classes).
 6. [UNSET] BOM/encoding retro-sweep the ENTIRE project (smart-quote sweep
    folds in).
 7. [UNSET] No spend limit. Many session loops expected (not 1, not 10). Do not
@@ -70,11 +73,12 @@ this charter is armed. None are granted today.
   assumptions; re-probe everything live.
 - P3 PRUNE SWEEPS: stale-caveat classes out; BOM/smart-quote/encoding
   retro-sweep; em-dash drift check.
-- P4 [TBD - product not yet defined] (the origin charter used this phase to
-  retire live LLM call sites to precomputed/deterministic paths; define the
-  LW analogue when the product has LLM surfaces, else strike).
-- P5 [TBD - product not yet defined] (origin: complete a product surface to
-  end-of-need; define at arm time).
+- P4 [TBD - define at arm time (product now defined per ADR-002/ADR-003)] (the
+  origin charter used this phase to retire live LLM call sites to
+  precomputed/deterministic paths; define the LW analogue when the product has
+  LLM surfaces, else strike).
+- P5 [TBD - define at arm time (product now defined per ADR-002/ADR-003)]
+  (origin: complete a product surface to end-of-need).
 - P6 ROADMAP/BACKLOG + NEW LIFTS: drain remaining viable items; research new
   lifts; implement.
 - P7 UI/UX END-TO-END: full UI & UX audit agents end to end against the real
@@ -86,7 +90,8 @@ this charter is armed. None are granted today.
 ## Loop mechanics (variant of gemini-headless-upgrade - NOT the stock skill)
 
 - Driver: ops/loop (controller + AHK) clears the Claude window each cycle and
-  feeds the directive; config directive_suffix points HERE. Gemini =
+  feeds the directive; repoint config directive_suffix HERE at arm time (today
+  it carries the operator's current run focus, not this charter). Gemini =
   director/auditor/consultant for scope+direction questions; avoid stale
   handoffs (timestamp + sha-stamp every handoff; a handoff older than the
   current HEAD's committed state is STALE - re-derive, don't trust).
