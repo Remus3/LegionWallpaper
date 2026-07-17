@@ -18,6 +18,18 @@ rewritten - relocations are verbatim, newest batch first.
 
 ---
 
+## Relocated 2026-07-16 (keep last 2 sessions: md-hygiene R3 pruned the 2026-07-16 W4-M3 weapon-parked session - quest PARKED, mirrored in docs/LEDGER.md item 26)
+
+# 2026-07-16 (W4 M3 rung==w4 SHIPPED; LoRA trained; weapon-quality investigation -> CEILING, PARKED)
+
+Long session; 1 commit (0c255d8 M3) + docs. Full suite 458 passed / 4 skipped (+5 W4); CI green; ruff + ASCII clean; pushed. Ran the queued handoff to completion, then an operator-driven investigation into weapon quality that concluded NEGATIVE (a measured ceiling).
+
+- **W4 M3 (LEDGER 26, 0c255d8):** ran the full ~15-min LoRA train (93MB, loss 0.03, peak 7.33GB) FIRST, then wired rung=="w4" in weapon_pass (build subagent, TDD RED-first, first-party full-suite verify + full-diff read). _build_real_inpainter gains weapon_lora (load_lora_weights adapter_name=vayne_weapon + set_adapters 0.8 + offload re-apply + pass-scoped .unload_lora handle); rung==w4 block = W1-style masked rolls + "vaynecrossbow" prompt prepend + no_lora fallback; unload after the loop. config weapon_lora_path/scale/trigger + _note_w4. +5 tests. CLI needed zero change. E2e seed22/33/800 clean (LoRA loads/guides/unloads, outside_mask_identical, seed33 face_intersect).
+- **Weapon-quality investigation (all NEGATIVE):** (a) v1 e2e = plateau (dark-bat-wing/silver-shard, best seed800). (b) LoRA-scale 0.8->1.1 = no change. (c) splash pool EXHAUSTED for clean crossbow crops (re-checked all 19 + auto-crops; even demoncursed = a blade). (d) research + POC: modelviewer.lol is Cloudflare/blob-blocked; CommunityDragon serves the raw .skn -> built + PROVED a 3D crossbow-render pipeline (pyritofile parse + bone-set isolation + moderngl headless render on the 5070, pip-only; docs/research/crossbow_render_poc.md) -> 4 clean base crossbow renders (themed skins isolate poorly). (e) v2 LoRA on 10 crops (6+4 renders) = v2 == v1, no improvement.
+- **Verdict:** the crossbow-adjacent read is a CEILING of masked-inpaint + thin-LoRA on stylized art, not a data gap. Operator PARKED the weapon-quality quest; rung=="w4" stays wired + available.
+
+**NEXT / do-not-redo:** weapon-pass quest is PARKED - do NOT re-run any rung/scale (plateau measured 5x), re-mine splashes (exhausted), or build the full 20-skin render pipeline (base geometry proven not to help). rung=="w4" is available for hand-picked per-wallpaper use. LOCAL-only (gitignored, not in repo): tools/models/lora_datasets/vayne_weapon_train now holds 10 crops (6 + render_base_*.png); vayne_weapon (v1) + vayne_weapon_v2 LoRAs; .venv-poc; images/_gen_scratch/w4_* batches. The 3D-render pipeline is reusable for OTHER champions/purposes only (per docs/research/crossbow_render_poc.md). Stray untracked style.jpg/style2.jpg at repo root are pre-existing, NOT from this session.
+
 ## Relocated 2026-07-16 (md-hygiene night run cycle 1: ROADMAP shipped/parked entry -> LEDGER 26 holds the record; prose preserved verbatim below)
 
 - **lw-gen: weapon pass - SHIPPED end to end + PARKED at a quality ceiling (2026-07-16, LEDGER 26).**
