@@ -11,3 +11,4 @@ Columns: ID | Title | Status (WIP / DONE / BLOCKED) | Commit | Notes
 | R1 | Hygiene ROADMAP.md | DONE | 7afb92f | 2026-07-16 md-hygiene night run, cycle 1 |
 | R2 | Hygiene BACKLOG.md | DONE | 8562788 | 2026-07-16 md-hygiene night run, cycle 2 |
 | R3 | Hygiene WAKEUP_NOTES.md | DONE | 58b30c4 | 2026-07-16 md-hygiene night run, cycle 3 |
+| R4 | Hygiene README.md | DONE | none (CLEAN) | 2026-07-16 cycle 4 - no-change: all 14 cross-refs exist, gitignore claim true, ASCII_OK, no DONE/expired/redundant content |
