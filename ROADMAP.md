@@ -6,92 +6,66 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
-_Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
+_Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
-- **Stage-2 watermark cleaning: IOPaint-emulation cleaner SHIPPED; batch reprocess IN PROGRESS (2026-07-16, LEDGER 30, commit bc5fc19).**
-  `tools/lw_clean_iopaint.py` auto-cleans calm-background marks faithfully (masked
-  simple-lama with a COMPLETE fill + dark-edge mask; namakx proven near-clean). Busy-art
-  marks (pebano-like) smear -> operator's MANUAL IOPaint lane (recovered launch:
-  `& "$env:LOCALAPPDATA\Python\pythoncore-3.11-64\python.exe" -m iopaint start --model=lama --device=cuda --port=8080`,
-  or `--model=Sanster/PowerPaint-V1-stable-diffusion-inpainting` for the heavier removals;
-  http://127.0.0.1:8080). Dekel algebraic approach PARKED (LEDGER 29, bad25c8 - proven cap,
-  dark ghost). Gate false-positives fixed (LEDGER 28, bd7521e: caitlyn / vayne3 /
-  the-ruined-king-viego now KEEP, not auto-clean). **NEXT:** run the batch triage across the
-  ~18 staged non-FP slugs in `images\3.Cleaning Scratch` (auto-clean the calm-bg ones ->
-  save-working --tool iopaint + submit for needauth; flag busy-art for the manual lane),
-  improve the passes per the triage, then clean-scan the 190 clean firstdones. **Do-not-redo:**
-  Dekel / pure algebraic (measured cap); the mask MUST cover the dark edge (a white-only mask
-  ghosts).
+- **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS.**
+  Next: land the 3 pass-improvements from the triage (full-width banner band;
+  chroma-thr ~12 default; namakx template-mask / adaptive dark_thr) -> re-run
+  the worker over the 9 CLEAN-AUTO + cleared PARTIALs -> `save-working --tool
+  iopaint` + submit needauth -> route fantasy-design + prestige-coven-xayah
+  (+ fury-sona if fidelity demands) to the manual IOPaint lane -> clean-scan
+  the 190 clean firstdones + dark-cosmic-ahri (G3 Haiku 2AFC + V3denoise
+  halftone alt stay gated on the vision stage).
+  Evidence: LEDGER 30 (bc5fc19) + `docs/research/IOPAINT_TRIAGE.md` (9 auto /
+  7 partial / 2 manual); manual-lane launch cmd in
+  `docs/research/CLEANING_INPAINT.md` + `.claude/commands/cleaning-pass.md`.
+  Do-not-redo: Dekel / pure algebraic (LEDGER 29 measured cap); white-only
+  masks (mask MUST cover the dark edge).
 
-- **lw-gen: weapon pass - SHIPPED end to end + PARKED at a quality ceiling (2026-07-16, LEDGER 26).**
-  Full rung ladder is wired + shipped: W1 (LEDGER 20) + W2 transplant (22) + W3 IP-Adapter (23) +
-  **W4 weapon-concept LoRA (26, commit 0c255d8: real train + rung=="w4" wired/tested/e2e'd)**.
-  DONE-not-open. Weapon QUALITY plateaus at a crossbow-ADJACENT mechanical device (never a
-  textbook repeating crossbow) - a measured CEILING of masked-inpaint + thin-LoRA on stylized
-  splash art, confirmed 5x (W2, W3, W4-v1, W4-v2, LoRA-scale sweep). Data levers are exhausted:
-  the splash pool has no more clean crossbow crops, and a proven 3D geometry-render pipeline
-  (docs/research/crossbow_render_poc.md) added 4 clean base renders that did NOT move the needle
-  (v2 == v1). Operator PARKED it here; rung=="w4" stays available. **Do NOT re-litigate:** no
-  re-run of any rung/scale, no re-mining splashes, no full 20-skin render build (all measured
-  dead ends). If ever revisited, the open lever is a non-inpaint mechanism or a separating weapon
-  scorer to revive `gate_mode="clip"` - NOT more crop data.
+- **golden-sec6-ratify - GOLDEN_DEFINITION sec 6 Q1-Q4 - OPERATOR-BLOCKED.**
+  Next: operator ratifies glasses shape / style-band steer / dodge lane /
+  scorecard. Champion labels already DONE.
+  Evidence: LEDGER 17 (open questions) + LEDGER 18 (labels done).
 
-- **OPERATOR-BLOCKED: ratify `GOLDEN_DEFINITION.md` sec 6 Q1-Q4** (glasses shape /
-  style-band steer / dodge lane / scorecard). Champion labels are DONE this session
-  (LEDGER 18) - only the sec-6 ratifications remain.
+- **resource-4-messups - re-source 4 ingest messups - MANUAL (NOW).**
+  Next: drop clean 1920x1080+ Battle Academia splashes for `xayah1` /
+  `camille1` / `kaisa1` / `fiora1` into `0.Originals` + re-intake (originals
+  are 1920x1173 with a ~210px foreign strip pasted on top). Fallback only if
+  the manual grab is skipped: bottom-anchored crop -> ~1712x960 -> ~1.5x
+  upscale (lossy; not preferred).
+  Evidence: operator ruling 2026-07-07 (LEDGER 13); Tier-0 pHash found no
+  local twin (423-file corpus), no source token for auto-fetch.
 
-- **Corpus crop-redo (LATER).** `docs/research/corpus/CROP_REDO_QUEUE.md` - #115
-  Hwei / #247 Shyvana / #253 Soraka: champion label correct, image has a leftover
-  top artifact to crop + reprocess.
+- **corpus-crop-redo - 3 slugs crop + reprocess - LATER.**
+  Next: #115 Hwei / #247 Shyvana / #253 Soraka - champion label correct,
+  crop the leftover top artifact, then reprocess.
+  Evidence: `docs/research/corpus/CROP_REDO_QUEUE.md`.
 
-- **Re-source the 4 ingest messups - MANUAL (NOW).** `xayah1`, `camille1`,
-  `kaisa1`, `fiora1` (1920x1173, a ~210px strip of a different image pasted on
-  top; the clean Battle Academia splash below is ~1920x960). Operator ruling
-  2026-07-07: re-source a clean full 16:9 splash, crop only if that fails.
-  Tier-0 pHash found NO local twin (423-file corpus) and there is no source
-  token for an auto-fetch, so PARKED for a manual grab (these are identifiable
-  Battle Academia splashes - drop a clean 1920x1080+ into `0.Originals` and
-  re-intake). Fallback if you skip the manual grab: bottom-anchored crop off the
-  strip -> ~1712x960 -> upscale ~1.5x (lossy; not preferred).
-
-- **Possible G1 downscale-only lpips calibration (LATER, watch).** `elise-8k`
-  FAILed on `lpips 0.224 > 0.2` for a visually-clean 8K downscale; operator
-  force-submitted + approved it 2026-07-07. If more synthetic-8K downscales trip
-  the same spurious lpips fail, calibrate the downscale-only lpips threshold
-  (analogous to the ADR-006 lap_ratio ruling). One data point so far - not yet
-  actionable.
-
-- **Stage-2 cleaning - PIPELINE BUILT, watermark engine IN PROGRESS (2026-07-16, LEDGER 27).**
-  Harness (`tools/lw_clean_pass.py`: detect -> gate v2 -> mask -> verify) + SDXL
-  reconstruction worker (`tools/lw_clean_sdxl.py`) SHIPPED (bf94629, 07b7e30);
-  dedicated `C:\Tools\lw-clean\venv` provisioned. Triage of the 228: 190 clean /
-  17 QA / 21 auto (watermark) slugs. BLOCKER on finishing the watermarks:
-  semi-transparent watermark removal is hard - LaMa blurs content, block-SDXL
-  hallucinates, glyph15+SDXL is a faithful interim with a minor dense-line smudge.
-  **NEXT (fresh session): build proper Dekel** (Levin matting-Laplacian alpha +
-  sub-pixel alignment + IRLS + matting-equation inversion) for zero-halo faithful
-  recovery - full plan + methods-tried + do-not-redo in
-  `docs/research/WATERMARK_REMOVAL_RND.md`. Then reprocess the 21 (staged in
-  `3.Cleaning Scratch`) + the pebano1/vexxsoul/namakx clusters; tighten gate
-  false-positives (caitlyn `@`-only, vayne3 carved-stone, the-ruined-king-viego
-  LoL logo). The 190 clean + dark-cosmic-ahri still need clean-scan flow-through;
-  the G3 Haiku side-by-side + V3denoise halftone alt stay gated on the vision stage.
+- **g1-lpips-downscale-watch - downscale-only lpips threshold - LATER (watch).**
+  Next: only if more synthetic-8K downscales trip a spurious `lpips > 0.2`
+  FAIL, calibrate a downscale-only lpips threshold (ADR-006-style ruling).
+  One datapoint so far - not actionable.
+  Evidence: `elise-8k` operator force-submit + approve 2026-07-07 (LEDGER 12
+  session).
 
 ## Open items - Medium priority
 
-- **Autonomy phases B/C (LATER).** After the Phase A shadow window
-  accumulates >= 50 operator-reviewed images: promote per the calibration
-  ladder (`docs/RESTORATION_PLAN.md` section 5). Never skip the ladder.
+- **autonomy-phases-bc - promote autonomy per calibration ladder - LATER.**
+  Next: after the Phase A shadow window accumulates >= 50 operator-reviewed
+  images, promote per the ladder. Never skip the ladder.
+  Evidence: `docs/RESTORATION_PLAN.md` section 5.
 
-- **Shareability packaging (LATER).** The process is the public deliverable
-  (pipeline code, gate ladder, rubric, golden-set protocol, manifests) -
-  never the cleaned third-party images. Prereq: licensing re-check on
-  detector/LaMa weights (queued in `docs/RESTORATION_PLAN.md` section 9).
-- **Arm the audit/hygiene scheduled tasks (operator-gated).** The standard
-  roster (`LW-Supervisor`, `LW-GeminiAudit`, `LW-WeeklyHygiene`,
-  `LW-CIWatchdog`) stays documented in `docs/OPERATIONS.md`, NOT YET
-  REGISTERED, until the operator explicitly directs it. Same gate for the
-  deep-audit program (`docs/DEEP_AUDIT_CHARTER.md` - DORMANT).
+- **shareability-packaging - package the process as the deliverable - LATER.**
+  Next: package pipeline code, gate ladder, rubric, golden-set protocol,
+  manifests - never the cleaned third-party images. Prereq: licensing
+  re-check on detector/LaMa weights.
+  Evidence: `docs/RESTORATION_PLAN.md` section 9.
+
+- **arm-scheduled-tasks - register the LW-* roster - OPERATOR-GATED.**
+  Next: register `LW-Supervisor` / `LW-GeminiAudit` / `LW-WeeklyHygiene` /
+  `LW-CIWatchdog` ONLY on explicit operator direction; same gate for the
+  deep-audit program (DORMANT).
+  Evidence: `docs/OPERATIONS.md` + `docs/DEEP_AUDIT_CHARTER.md`.
 
 ## Status at a glance
 

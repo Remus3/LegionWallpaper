@@ -18,6 +18,21 @@ rewritten - relocations are verbatim, newest batch first.
 
 ---
 
+## Relocated 2026-07-16 (md-hygiene night run cycle 1: ROADMAP shipped/parked entry -> LEDGER 26 holds the record; prose preserved verbatim below)
+
+- **lw-gen: weapon pass - SHIPPED end to end + PARKED at a quality ceiling (2026-07-16, LEDGER 26).**
+  Full rung ladder is wired + shipped: W1 (LEDGER 20) + W2 transplant (22) + W3 IP-Adapter (23) +
+  **W4 weapon-concept LoRA (26, commit 0c255d8: real train + rung=="w4" wired/tested/e2e'd)**.
+  DONE-not-open. Weapon QUALITY plateaus at a crossbow-ADJACENT mechanical device (never a
+  textbook repeating crossbow) - a measured CEILING of masked-inpaint + thin-LoRA on stylized
+  splash art, confirmed 5x (W2, W3, W4-v1, W4-v2, LoRA-scale sweep). Data levers are exhausted:
+  the splash pool has no more clean crossbow crops, and a proven 3D geometry-render pipeline
+  (docs/research/crossbow_render_poc.md) added 4 clean base renders that did NOT move the needle
+  (v2 == v1). Operator PARKED it here; rung=="w4" stays available. **Do NOT re-litigate:** no
+  re-run of any rung/scale, no re-mining splashes, no full 20-skin render build (all measured
+  dead ends). If ever revisited, the open lever is a non-inpaint mechanism or a separating weapon
+  scorer to revive `gate_mode="clip"` - NOT more crop data.
+
 ## Relocated 2026-07-16 (keep last 3 sessions: WAKEUP added the 2026-07-16 W3-IP-Adapter / W4-LoRA session)
 
 # 2026-07-12 (M1 weapon-region CLIP gate - CLIP is DEAD, operator-lane shipped)
