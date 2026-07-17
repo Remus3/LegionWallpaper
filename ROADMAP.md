@@ -8,6 +8,21 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first._
 
+- **Stage-2 watermark cleaning: IOPaint-emulation cleaner SHIPPED; batch reprocess IN PROGRESS (2026-07-16, LEDGER 30, commit bc5fc19).**
+  `tools/lw_clean_iopaint.py` auto-cleans calm-background marks faithfully (masked
+  simple-lama with a COMPLETE fill + dark-edge mask; namakx proven near-clean). Busy-art
+  marks (pebano-like) smear -> operator's MANUAL IOPaint lane (recovered launch:
+  `& "$env:LOCALAPPDATA\Python\pythoncore-3.11-64\python.exe" -m iopaint start --model=lama --device=cuda --port=8080`,
+  or `--model=Sanster/PowerPaint-V1-stable-diffusion-inpainting` for the heavier removals;
+  http://127.0.0.1:8080). Dekel algebraic approach PARKED (LEDGER 29, bad25c8 - proven cap,
+  dark ghost). Gate false-positives fixed (LEDGER 28, bd7521e: caitlyn / vayne3 /
+  the-ruined-king-viego now KEEP, not auto-clean). **NEXT:** run the batch triage across the
+  ~18 staged non-FP slugs in `images\3.Cleaning Scratch` (auto-clean the calm-bg ones ->
+  save-working --tool iopaint + submit for needauth; flag busy-art for the manual lane),
+  improve the passes per the triage, then clean-scan the 190 clean firstdones. **Do-not-redo:**
+  Dekel / pure algebraic (measured cap); the mask MUST cover the dark edge (a white-only mask
+  ghosts).
+
 - **lw-gen: weapon pass - SHIPPED end to end + PARKED at a quality ceiling (2026-07-16, LEDGER 26).**
   Full rung ladder is wired + shipped: W1 (LEDGER 20) + W2 transplant (22) + W3 IP-Adapter (23) +
   **W4 weapon-concept LoRA (26, commit 0c255d8: real train + rung=="w4" wired/tested/e2e'd)**.

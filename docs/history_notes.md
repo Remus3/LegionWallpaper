@@ -101,6 +101,63 @@ LongPathsEnabled (deferred).
 
 ---
 
+# 2026-07-16 (M2 weapon pass - W3 IP-Adapter SHIPPED + swept, escalated to W4 LoRA; W4 M1 curation + M2 trainer built + smoke-proven)
+
+Big session; 3 commits (0204cfa W3, 7657356 curation tool, 70838da LoRA trainer); full suite 453 passed / 4 skipped (+17); ruff + ASCII clean; all pushed. Operator drove the weapon-pass decision ladder via framed forks; I built + FIRST-PARTY-verified each rung (re-ran suites + read diffs + ran my own smoke, never trusting subagent counts).
+
+- **W3 IP-Adapter (LEDGER 23, 0204cfa):** operator picked W3 at the M2 bless fork. Built the rung (mirrors W2 + an ip_adapter_image concept image) after grounding load_ip_adapter/set_ip_adapter_scale against installed diffusers 0.39. Downloaded h94 vit-h (~3.2GB, gitignored). Found + fixed a real OFFLOAD BUG at e2e: the base pipe gets enable_model_cpu_offload BEFORE load_ip_adapter registers the image_encoder -> encoder stuck on CPU -> re-run offload after load (idempotent). E2e-proven. HONEST: default scale-0.7 PLATEAUS like W2 (ornate mechanical props); an operator-directed sweep (default crop + scale 0.9 + str 0.6) is the best-yet on seed22 (reads as a mechanical weapon rig) but still not a textbook repeating crossbow, and meh on seed800.
+- **Escalation to W4 LoRA:** operator chose W4 (mechanism D) over bless / mask-widen / skip. Plan subagent spec'd it; I re-verified: NO trainer exists in-repo (the "proven path" was RC-inherited) -> build it; peft 0.19.1 present, bitsandbytes absent -> adamw; single-file model -> from_single_file path b (zero downloads).
+- **W4 M1 curation (LEDGER 24, 7657356):** built tools/lw_gen_curate_weapon_crops.py (DWPose auto-crop + asset composite + object-only captions). E2e over 19 splashes yielded 8 localized (mostly junk on stylized art - faces/Poros/wrong-hands/blades) + 5 assets; truly-clean = 6 (5 hand-made assets + dragonslayer). Operator chose "probe-train the clean core + augment". Assembled tools/models/lora_datasets/vayne_weapon_train/ (6 crops).
+- **W4 M2 trainer (LEDGER 25, 70838da):** built tools/lw_gen_train_weapon_lora.py (in-house UNet-only SDXL LoRA, path b). SMOKE proven twice (subagent + my independent re-run, matching numbers): 2 steps no OOM/NaN, 93MB pytorch_lora_weights.safetensors, round-trip load+set_adapters+unload. Peak 7.33/12GB, ~1.0s/step -> full 1000-step run ~17 min.
+
+**NEXT / do-not-redo (operator: the real train is a FRESH session):** (1) run the ~17-min full train: `.venv-gen python tools/lw_gen_train_weapon_lora.py` -> tools/models/loras/vayne_weapon. (2) M3 = wire rung=="w4" in weapon_pass (W1-style masked reroll + LoRA on the inpaint pipe + "vaynecrossbow" trigger prepend + unload after; mirror the W3 _build_real_inpainter seam; config weapon_lora_path/scale/trigger; no_lora review fallback) + TDD (mirror the W3 tests) + e2e on seed22/33/800 -> operator bless. If the thin-data probe LoRA underperforms: hand-crop ~10-15 clean crossbows + retrain. Do NOT rebuild the trainer / curation tool / dataset; do NOT re-run W2/W3 (plateau measured), retune ViT-L-14 (dead), or re-attempt SDPose (mmcv/Blackwell-blocked). Stray untracked at repo root (style.jpg, style2.jpg, data/dropped_20260715/) are pre-existing, NOT from this session.
+
+---
+
+# 2026-07-15 (first-pass throughput - reprocess 5 + intake 47 + contamination-strip 4 + Pictures export)
+
+Operational session; NO code changes (all pipeline data ops, gitignored). First Pass Done 179 -> 228; First Pass Scratch now EMPTY.
+- **Reprocessed 5** (vayne3/morgana1/hwei1/shyvana1/soraka1): operator dropped corrected `_firstinitial` (Jul-12 re-crops removing a composite top-strip contamination); regenerated 2560x1440 firstdones. No reverse command exists -> reopen dance (stage scratch + move stale Done to a backup + lw_first_pass + approve). Backup deleted (operator eyeballed). See memory `project-reprocess-done-slug`.
+- **Intake 47** new originals -> first-pass: 34 PASS + 11 FLAG (borderline halo, spot-checked clean) = 45 approved; 2 HELD dropped (seasonal-key-art/viktor: low-res + off-aspect; DA originals quota-blocked) to `data/dropped_20260715/`.
+- **4 remaining** (camille1/fiora1/kaisa1/xayah1): SAME top-strip contamination (seam row 242, batch-consistent), operator-rejected pending re-crop but never re-cropped. Auto-stripped + subject-aware 16:9 + processed + approved.
+- **Pictures export:** copied all 228 firstdones to Pictures (operator moved them flat to root).
+
+**NEXT / do-not-redo:** lw-gen M2 bless remains the top ROADMAP item (unchanged - this session did not touch lw-gen). Downstream stages (cleaning/final) still empty. Recovery campaign for the ~82 sub-1280px sources deferred until the DeviantArt weekly download quota resets. Do NOT re-fetch the 2 dropped (DA has nothing better quota-free). New memories: `project-reprocess-done-slug`, `reference-deviantart-recovery`.
+
+---
+
+# 2026-07-12 (M2 W2 reference-transplant rung - SHIPPED + e2e-proven; canonical bless DEFERRED)
+
+Shipped + pushed (commit 44cb0f2); CI green; full suite 436 passed / 4 skipped; ruff + hygiene clean.
+- **Built (subagent-first, 2 disjoint parallel slices, TDD, first-party verifier gate):**
+  forearm_frame(kp_map,wrist,img_wh) extracted in lw_gen_weaponfix (weapon_roi delegates, mask
+  byte-identical). NEW tools/lw_gen_weapon_assets.py = AssetMeta + load_assets/pick_asset/
+  affine_transplant (pure PIL, torch-free; anchor tracked through PIL y-down expand-rotate).
+  lw_gen_weaponpass rung=="w2": forearm_frame -> pick_asset -> ROI mask -> affine-paste crop ->
+  masked SDXL inpaint over w2_strength [0.35,0.45,0.5] -> paste-back into the ORIGINAL (outside-mask
+  identical) -> operator lane saves every roll; no_forearm/no_asset -> review. +24 tests.
+- **Assets (gitignored tools/models/weapon_assets/vayne/):** 5 feathered RGBA crossbow crops +
+  meta.json (default/dragonslayer/sentinel/project/aristocrat), geometry spot-checked on previews.
+- **E2e (real DWPose+SDXL, seed22/seed33/seed800):** pipeline proven; seed800(default)+seed22 = 3
+  rolls each, outside_mask_identical=True; seed33 correct face_intersect skip. Artifacts:
+  images/_gen_scratch/w2_e2e/ + w2_e2e_default/ (gitignored).
+
+**OPERATOR-DEFERRED (the M2 exit):** operator reviewed the rolls, "not sure", did NOT bless. Honest
+first-party read: the transplant harmonizes (strength 0.35-0.50) into a generic silver MECHANICAL
+hand-device - crossbow-adjacent, not an unambiguous bat-wing repeating crossbow - and the original
+wrong weapon persists OUTSIDE the wrist-only mask. One operator-directed escalation (force the
+canonical default crop on seed22, replacing the weak dragonslayer auto-pick) only marginally changed
+the read: the low-strength harmonize plateaus.
+
+**NEXT / do-not-redo:** operator to bless a current roll (M2 exit met) OR authorize a design lever -
+W3 IP-Adapter (mechanism C, ~3.2GB one-time downloads; injects the crossbow CONCEPT - the design's
+intended fix for exactly this "pasted-on / wrong-read" case) and/or a mask-widen to remove the 2nd
+weapon (old_weapon_coverage scaffolding exists in lw_gen_weaponfix). Do NOT rebuild W2 / assets /
+rung / forearm_frame; do NOT re-run the force-default-crop experiment (measured plateau); do NOT
+retune the dead ViT-L-14 CLIP gate. Still operator-blocked: GOLDEN_DEFINITION.md sec 6 Q1-Q4.
+
+---
+
 # 2026-07-12 (M1 weapon pass W1 - DWPose-wrist masked SDXL inpaint SHIPPED)
 
 Shipped + pushed (commit 834b74e); full 3-suite 55 passed / 1 skipped; e2e green.
