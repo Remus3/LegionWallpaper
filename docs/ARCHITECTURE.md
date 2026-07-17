@@ -81,8 +81,12 @@ append-only JSONL under `docs/audit/` (created at first calibration run).
 
 ML environments (plan section 6-7): `.venv-upscale` (torch cu128 + spandrel +
 IllustrationJaNai), `C:\Tools\lw-clean\venv` (ultralytics + easyocr +
-simple-lama-inpainting), `C:\Tools\iopaint\venv` (pinned iopaint 1.6.0 QA UI),
-ComfyUI portable later for the final-stage inpaint service.
+simple-lama-inpainting; hosts the lw_clean_iopaint.py stage-2 cleaner,
+LEDGER 30), manual IOPaint QA lane via the operator's local py3.11 install
+(`%LOCALAPPDATA%\Python\pythoncore-3.11-64\python.exe -m iopaint start
+--model=lama --device=cuda` - the planned `C:\Tools\iopaint\venv` was never
+created; WAKEUP 2026-07-16), ComfyUI portable later for the final-stage
+inpaint service.
 
 ---
 
