@@ -8,4 +8,4 @@ Columns: ID | Title | Status (WIP / DONE / BLOCKED) | Commit | Notes
 
 | ID | Title | Status | Commit | Notes |
 |----|-------|--------|--------|-------|
-| R1 | Hygiene ROADMAP.md | WIP | - | 2026-07-16 md-hygiene night run, cycle 1 |
+| R1 | Hygiene ROADMAP.md | DONE | 7afb92f | 2026-07-16 md-hygiene night run, cycle 1 |
