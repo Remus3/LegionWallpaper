@@ -19,8 +19,8 @@ to a pymanager runtime (`AppData\Local\Python\pythoncore-3.14-64`) with ZERO
 third-party packages, so a launcher-spelled pytest run silently executes a
 pytest-less interpreter (a past incident on this machine zeroed a test suite).
 Always spell the canonical absolute path (quoted) in commands, hooks, docs, and
-scheduled tasks. Guard test: TBD - add `tests/test_bare_py_ban.py` once the
-test suite exists.
+scheduled tasks. Guard test: not yet written - add `tests/test_bare_py_ban.py`
+(the test suite exists as of 2026-07-17; the guard file is still absent).
 
 Use `pythonw.exe` for background daemons and hooks (no console window). Use
 `python.exe` for scripts that need stdout.
@@ -76,12 +76,13 @@ operator directive. Do not register any of them speculatively.
 | Task | Trigger | Context | Description | Status |
 |---|---|---|---|---|
 | `LW-Supervisor` | At logon | Administrator / HIGHEST | Runs `pythonw.exe ops/lw_supervisor.py` - owns the main process lifecycle, PID lock, restart trigger (supervisor script TBD) | NOT YET REGISTERED |
-| `LW-GeminiAudit` | Daily | Administrator | Gemini read-only auditor pass over the repo (`tools/gemini_audit.ps1` - TBD) | NOT YET REGISTERED |
-| `LW-WeeklyHygiene` | Weekly Sunday | Administrator | Unattended `/weekly-hygiene` pass via headless Claude (`tools/weekly_hygiene_run.ps1` - TBD) | NOT YET REGISTERED |
+| `LW-GeminiAudit` | Daily | Administrator | Gemini read-only auditor pass over the repo (`tools/gemini_audit.ps1` - exists) | NOT YET REGISTERED |
+| `LW-WeeklyHygiene` | Weekly Sunday | Administrator | Unattended `/weekly-hygiene` pass via headless Claude (`tools/weekly_hygiene_run.ps1` - exists) | NOT YET REGISTERED |
 | `LW-CIWatchdog` | At startup + periodic (PT2M) | Administrator | Unattended headless-claude red-main CI auto-fixer; self-gates the merge on the ci-fix PR's OWN green CI; isolated worktree. Kill switch: create `ops\runtime\ci_watchdog\HALT` or `Disable-ScheduledTask LW-CIWatchdog` | NOT YET REGISTERED |
 
-Example registration commands (for LATER - do not run today; scripts referenced
-do not exist yet):
+Example registration commands (for LATER - do not run today; the supervisor and
+ci_watchdog scripts do not exist yet; the gemini_audit and weekly_hygiene
+scripts exist but registration stays operator-gated):
 
 ```
 REM NOT YET REGISTERED - example only
