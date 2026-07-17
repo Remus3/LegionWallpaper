@@ -8,9 +8,13 @@ SetTitleMatchMode 2
 ; only its own cmdline-scoped bridge instances.
 ; Polls control\gemini.ready; types its lines into the TARGET window; ack =
 ; deleting gemini.ready. Target is FILE-DRIVEN (config not code):
-;   control\ahk_mode.txt   = "dry" (type into Notepad LW-LOOP-DRYRUN) or "live"
-;   control\target_pid.txt = PID of the dedicated Claude window titled "Image"
-; Live mode with a missing/empty target_pid.txt ABORTS the bridge outright.
+;   control\ahk_mode.txt    = "dry" (type into Notepad LW-LOOP-DRYRUN) or "live"
+;   control\target_hwnd.txt = HWND of the Claude window titled "Image". ONE
+;                             claude.exe process owns MULTIPLE project windows
+;                             (Image/RC/...), so pid alone is AMBIGUOUS - the
+;                             hwnd pins the exact window. target_pid.txt is
+;                             informational only (launcher writes both).
+; Live mode with a missing/empty target_hwnd.txt ABORTS the bridge outright.
 ; Exits when control\STOP appears.
 
 CTL := "C:\LegionWallpaper\ops\loop\control"
@@ -18,7 +22,7 @@ READY := CTL "\gemini.ready"
 TYPED := CTL "\typed.flag"
 STOPF := CTL "\STOP"
 MODEF := CTL "\ahk_mode.txt"
-PIDF := CTL "\target_pid.txt"
+HWNDF := CTL "\target_hwnd.txt"
 DRY_TITLE := "LW-LOOP-DRYRUN"
 LINE_PAUSE := 1500
 
@@ -28,16 +32,16 @@ LogMsg(s) {
 }
 
 Target() {
-    global MODEF, PIDF, DRY_TITLE
+    global MODEF, HWNDF, DRY_TITLE
     mode := FileExist(MODEF) ? Trim(FileRead(MODEF)) : "live"
     if (mode = "dry")
         return DRY_TITLE
-    pid := FileExist(PIDF) ? Trim(FileRead(PIDF)) : ""
-    if (pid = "") {
-        LogMsg("ABORT: live mode with no target_pid.txt (pid-only policy, no title fallback)")
+    hwnd := FileExist(HWNDF) ? Trim(FileRead(HWNDF)) : ""
+    if (hwnd = "") {
+        LogMsg("ABORT: live mode with no target_hwnd.txt (hwnd-only policy, no title/pid fallback)")
         ExitApp
     }
-    return "ahk_pid " pid
+    return "ahk_id " hwnd
 }
 
 LogMsg("ahk bridge start (LW)")
