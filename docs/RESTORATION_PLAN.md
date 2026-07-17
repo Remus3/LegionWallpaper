@@ -91,9 +91,12 @@ Flow per file: detect -> gate -> mask -> inpaint -> verify (see
 - VERIFY: outside-mask identity (SSIM >= 0.995 hard gate - the single most
   important inpaint check), inside-mask change-happened + text-residue + seam
   checks, per-file JSON log.
-- HUMAN QA QUEUE: IOPaint web UI (`iopaint start --model=lama --device=cuda`)
-  - operator draws the mask in the browser; output re-enters the same verify
-  step. IOPaint is archived upstream - pin 1.6.0, isolate its venv.
+- HUMAN QA QUEUE: IOPaint web UI, launched from the operator's local py3.11
+  install (`%LOCALAPPDATA%\Python\pythoncore-3.11-64\python.exe -m iopaint
+  start --model=lama --device=cuda` - the planned dedicated venv was never
+  created; WAKEUP 2026-07-16). Operator draws the mask in the browser; output
+  re-enters the same verify step. IOPaint is archived upstream - 1.6.0 pinned
+  in that install (verified 2026-07-17).
 
 ### 2.3 final = polish (faces, eyes, banding, conformance)
 
@@ -227,33 +230,24 @@ threshold config).
 - Do not depend on torch.compile/Triton (Windows + sm_120 issues); eager
   inference is all spandrel needs.
 
-## 7. Install checklist (next QA session)
+## 7. Install status (checklist complete except ComfyUI; verified on disk 2026-07-17)
 
-Consolidated from the research docs' install-now lists. Order matters.
+The original 8-item install checklist is archived verbatim in
+`docs/history_notes.md` (2026-07-17 entry). Live environment map:
+`docs/ARCHITECTURE.md` "ML environments". Status:
 
-1. `winget install Python.Python.3.12` (side-install; does not touch 3.14).
-2. Upscale venv (`C:\LegionWallpaper\.venv-upscale`, py 3.12 preferred; 3.14
-   acceptable for torch itself if cp314 cu128 wheels resolve):
-   - `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128`
-   - `pip install spandrel pillow numpy`
-   - smoke test: `torch.cuda.is_available()` True + device name contains 5070;
-     spandrel load + 64x64 forward pass per downloaded model.
-3. Models to `C:\LegionWallpaper\tools\models\`: 4x IllustrationJaNai V3detail
-   (DAT2), V3denoise (DAT2), 4x AnimeSharp (cross-check). V3detail DAT2 is the
-   PRIMARY first-pass upscaler as of ADR-004 (spandrel-loaded, sha eb9faf6a);
-   4x_IllustrationJaNai_V1_DAT2_190k.pth is the spandrel-confirmed fallback.
-4. Cleaning venv (`C:\Tools\lw-clean\venv`, py 3.12): torch cu128, then
-   `ultralytics easyocr simple-lama-inpainting opencv-python pillow`; download
-   `yolo11x-train28-best.pt` watermark weights (115 MB, HuggingFace
-   fancyfeast space).
-5. IOPaint in its OWN venv (`C:\Tools\iopaint\venv`, py 3.12): torch cu128 +
-   `iopaint==1.6.0` (archived project - pin and isolate).
-6. Orchestration deps on 3.14: `pip install gallery-dl imagehash pillow`.
-7. Later (final stage bring-up): ComfyUI portable for Blackwell (embedded py
-   3.12 + torch cu128) + Impact Pack + anime YOLO detectors + FBCNN node.
-8. API keys to project root (gitignored `API-Key-*.txt` convention):
-   `API-Key-SauceNAO.txt`, `API-Key-DeviantArt.txt` (client-id/secret +
-   refresh-token via `gallery-dl oauth:deviantart`).
+- DONE: py 3.12 side-install; `.venv-upscale` (torch 2.11.0+cu128 + spandrel,
+  CUDA verified on the 5070); models in `tools/models/` (V3detail DAT2 primary
+  per ADR-004 + V1 DAT2 spandrel-confirmed fallback); `C:\Tools\lw-clean\venv`
+  (ultralytics + easyocr + simple-lama + yolo11x watermark weights); py 3.14
+  orchestration deps (gallery-dl, imagehash); API keys
+  (`API-Key-SauceNAO.txt`, `API-Key-DeviantArt.txt`).
+- CHANGED: the planned dedicated IOPaint venv (`C:\Tools\iopaint\venv`) was
+  never created; the manual QA lane runs the operator's local py3.11 install
+  (`%LOCALAPPDATA%\Python\pythoncore-3.11-64\python.exe -m iopaint start
+  --model=lama --device=cuda`, iopaint 1.6.0 pinned there; WAKEUP 2026-07-16).
+- PENDING: ComfyUI portable for Blackwell (embedded py 3.12 + torch cu128) +
+  Impact Pack + anime YOLO detectors + FBCNN node (final-stage bring-up).
 
 ## 8. DeviantArt quota urgency (run the recovery campaign EARLY)
 

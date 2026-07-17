@@ -613,3 +613,41 @@ Riot API, match DB, tailnet topology, etc.) were dropped or replaced with
 explicit "TBD - product not yet defined" placeholders - if a ported rule reads
 oddly abstract, that is why; the rule itself is intact. (2) The frozen-file
 list starts EMPTY; files earn freeze status as the product stabilizes.
+
+---
+
+## 2026-07-17 - RESTORATION_PLAN section 7 install checklist (relocated on completion, R8 hygiene)
+
+Relocated verbatim from `docs/RESTORATION_PLAN.md` section 7 after on-disk
+verification 2026-07-17: every item DONE except 7 (ComfyUI, still pending) and
+5 (superseded - the dedicated IOPaint venv was never created; the manual QA
+lane runs the operator's local py3.11 iopaint 1.6.0 install, WAKEUP
+2026-07-16). Original text:
+
+> ## 7. Install checklist (next QA session)
+>
+> Consolidated from the research docs' install-now lists. Order matters.
+>
+> 1. `winget install Python.Python.3.12` (side-install; does not touch 3.14).
+> 2. Upscale venv (`C:\LegionWallpaper\.venv-upscale`, py 3.12 preferred; 3.14
+>    acceptable for torch itself if cp314 cu128 wheels resolve):
+>    - `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128`
+>    - `pip install spandrel pillow numpy`
+>    - smoke test: `torch.cuda.is_available()` True + device name contains 5070;
+>      spandrel load + 64x64 forward pass per downloaded model.
+> 3. Models to `C:\LegionWallpaper\tools\models\`: 4x IllustrationJaNai V3detail
+>    (DAT2), V3denoise (DAT2), 4x AnimeSharp (cross-check). V3detail DAT2 is the
+>    PRIMARY first-pass upscaler as of ADR-004 (spandrel-loaded, sha eb9faf6a);
+>    4x_IllustrationJaNai_V1_DAT2_190k.pth is the spandrel-confirmed fallback.
+> 4. Cleaning venv (`C:\Tools\lw-clean\venv`, py 3.12): torch cu128, then
+>    `ultralytics easyocr simple-lama-inpainting opencv-python pillow`; download
+>    `yolo11x-train28-best.pt` watermark weights (115 MB, HuggingFace
+>    fancyfeast space).
+> 5. IOPaint in its OWN venv (`C:\Tools\iopaint\venv`, py 3.12): torch cu128 +
+>    `iopaint==1.6.0` (archived project - pin and isolate).
+> 6. Orchestration deps on 3.14: `pip install gallery-dl imagehash pillow`.
+> 7. Later (final stage bring-up): ComfyUI portable for Blackwell (embedded py
+>    3.12 + torch cu128) + Impact Pack + anime YOLO detectors + FBCNN node.
+> 8. API keys to project root (gitignored `API-Key-*.txt` convention):
+>    `API-Key-SauceNAO.txt`, `API-Key-DeviantArt.txt` (client-id/secret +
+>    refresh-token via `gallery-dl oauth:deviantart`).
