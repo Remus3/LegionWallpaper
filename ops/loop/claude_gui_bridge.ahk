@@ -82,6 +82,12 @@ Loop {
                 SendText("/")
                 Sleep 400
                 SendText(SubStr(lineText, 2))
+                ; Trailing space: with the command palette open, Enter is captured by the
+                ; dropdown (no-op when nothing is highlighted) so a bare "/clear" never
+                ; submits - observed idle-window at 2026-07-17 00:03. A space after the
+                ; token closes the palette; Enter then submits and the command parses at
+                ; submit time. Lines with args already carry spaces and always submitted.
+                SendText(" ")
             } else {
                 SendText(lineText)
             }
