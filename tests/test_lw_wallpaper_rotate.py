@@ -486,8 +486,29 @@ def test_install_shells_out_to_schtasks_and_registers_nothing_live(tmp_path, mon
     assert "<LogonTrigger>" in xml
     assert f"<Interval>PT{cfg['interval_minutes']}M</Interval>" in xml
     assert "lw_wallpaper_rotate.py" in xml
-    assert "pythonw" in xml.lower()
+    # The resolved interpreter must be the one wired into the task. Asserting
+    # a literal "pythonw" here only holds on Windows - on Linux CI there is no
+    # pythonw.exe beside sys.executable and the fallback is correct behavior.
+    assert rot._pythonw() in xml
     assert "tick" in xml
+
+
+def test_pythonw_is_preferred_when_it_exists(tmp_path, monkeypatch):
+    # The no-console-flash rule: a tick every 3 minutes must not pop a window.
+    # Platform-independent - a fake interpreter dir stands in for a real one.
+    fake = tmp_path / "python.exe"
+    fake.write_text("", encoding="ascii")
+    (tmp_path / "pythonw.exe").write_text("", encoding="ascii")
+    monkeypatch.setattr(sys, "executable", str(fake))
+    assert rot._pythonw() == str(tmp_path / "pythonw.exe")
+
+
+def test_pythonw_falls_back_to_the_running_interpreter(tmp_path, monkeypatch):
+    # No pythonw.exe beside it (every non-Windows runner, including CI).
+    fake = tmp_path / "python"
+    fake.write_text("", encoding="ascii")
+    monkeypatch.setattr(sys, "executable", str(fake))
+    assert rot._pythonw() == str(fake)
 
 
 def test_task_xml_carries_a_time_trigger_so_rotation_starts_without_a_logon():
