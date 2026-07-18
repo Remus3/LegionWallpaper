@@ -8,6 +8,21 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
+- **refs-46-first-pass - process the 46 intaken reference_pictures - NEXT.**
+  Next: first pass the 46 slugs now staged in `1.First Pass Scratch` (intaken
+  2026-07-18, LEDGER 36), then route them to stage-2 cleaning - 35 were
+  gate-flagged (13 auto / 22 qa) and 11 were held on manual OCR review, so
+  the watermark work happens at `3.Cleaning Scratch`, NOT before first pass.
+  Recovery waterfall is still OWED for this set: every manifest carries
+  `source_url: null` (Tier 0/1/2 deliberately skipped at operator direction),
+  and 112 of the novel refs are still source-recoverable.
+  Evidence: LEDGER 35 + 36 (63cc35b, 3b8e0f1); per-file verdict + reason
+  table in `docs/refs_cleaning_queue.md`.
+  Do-not-redo: the 226 clean refs are already delivered to Pictures as
+  `ref_*.png` (sha-verified) - do not re-triage or re-copy them. If any of
+  the 112 recoverable ones later gets restored, REMOVE its raw `ref_*` copy
+  from Pictures or rotation gains a near-duplicate.
+
 - **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS.**
   Next: land the 3 pass-improvements from the triage (full-width banner band;
   chroma-thr ~12 default; namakx template-mask / adaptive dark_thr) -> re-run
