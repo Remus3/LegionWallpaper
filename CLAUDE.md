@@ -85,7 +85,7 @@ Enforcement (hooks in `.claude/settings.json`): PostToolUse `tools/pytest_guard.
 
 ## Scheduled tasks (Legion)
 
-Naming convention: `LW-*` (e.g. `LW-Supervisor`). None registered yet - the product is TBD. Full list lives in `docs/OPERATIONS.md` once tasks exist.
+Naming convention: `LW-*` (e.g. `LW-Supervisor`). Registered: `LW-Wallpaper` (desktop deck rotator, 2026-07-18). Full list + registration commands live in `docs/OPERATIONS.md`.
 
 ## Where to find current state
 

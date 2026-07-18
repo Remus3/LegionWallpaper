@@ -68,13 +68,15 @@ schtasks /Run /TN "LW-Supervisor"   # NOT YET REGISTERED - see roster below
 
 ## Scheduled tasks (Legion)
 
-Naming convention: every LW scheduled task is named `LW-*`. **NONE ARE
-REGISTERED YET** - the standard roster below is the plan to arm LATER, each
-gated on (a) the product having code + a test suite and (b) an explicit
-operator directive. Do not register any of them speculatively.
+Naming convention: every LW scheduled task is named `LW-*`. **One is
+registered** (`LW-Wallpaper`, 2026-07-18). The rest of the roster below is
+the plan to arm LATER, each gated on (a) the product having code + a test
+suite and (b) an explicit operator directive. Do not register any of the
+NOT YET REGISTERED rows speculatively.
 
 | Task | Trigger | Context | Description | Status |
 |---|---|---|---|---|
+| `LW-Wallpaper` | At logon + time trigger, repeat PT3M | Administrator / LeastPrivilege | Runs `pythonw.exe tools/lw_wallpaper_rotate.py tick` - desktop wallpaper deck rotator, every image once before any repeat (LEDGER 34) | REGISTERED 2026-07-18 |
 | `LW-Supervisor` | At logon | Administrator / HIGHEST | Runs `pythonw.exe ops/lw_supervisor.py` - owns the main process lifecycle, PID lock, restart trigger (supervisor script TBD) | NOT YET REGISTERED |
 | `LW-GeminiAudit` | Daily | Administrator | Gemini read-only auditor pass over the repo (`tools/gemini_audit.ps1` - exists) | NOT YET REGISTERED |
 | `LW-WeeklyHygiene` | Weekly Sunday | Administrator | Unattended `/weekly-hygiene` pass via headless Claude (`tools/weekly_hygiene_run.ps1` - exists) | NOT YET REGISTERED |
@@ -102,8 +104,23 @@ schtasks /Create /TN "LW-CIWatchdog" /SC ONSTART /RI 2 /F ^
   /TR "\"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe\" C:\LegionWallpaper\tools\ci_watchdog.py"
 ```
 
+`LW-Wallpaper` is registered by its own tool, not by hand:
+
+```
+"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe" C:\LegionWallpaper\tools\lw_wallpaper_rotate.py install
+"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe" C:\LegionWallpaper\tools\lw_wallpaper_rotate.py uninstall
+```
+
+It writes a Task Scheduler XML (`ops/runtime/lw_wallpaper_task.xml`) and
+feeds it to `schtasks /Create /XML`, because bare flags cannot express the
+trigger - `/RI` is rejected for `/SC ONLOGON`. Note that a `LogonTrigger`'s
+`Repetition` only starts when that trigger FIRES, so the XML also carries a
+`TimeTrigger` at install time; a logon-only task registers `Ready` with
+`Next Run Time: N/A` and sits idle until the next logon. This applies to any
+future `LW-*` task that wants a repeat from the moment it is armed.
+
 Check state: `Get-ScheduledTask -TaskName "LW-*" | Select TaskName, State`
-(expected today: no results).
+(expected today: `LW-Wallpaper` Ready, and nothing else).
 
 ---
 
