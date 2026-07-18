@@ -11,6 +11,45 @@
 
 ---
 
+# 2026-07-18 (14-image first-pass batch delivered; G1 DISTS OOM root-caused + 63-manifest backfill; suite green again)
+
+Two commits, both CI green: b14b688 (G1 common-scale cap + backfill), 7d1796b
+(torch-free test isolation). Started as a routine batch, turned up two real
+defects.
+
+- **Batch (no code):** 14 uhdpaper originals intaken -> first pass -> approved
+  -> copied to `C:\Users\Administrator\Pictures\` (sha256-verified, all
+  2560x1440). Pictures 228 -> 242. All downscale-only (sources >= target, one
+  Lanczos, no AI upscale). G1: 4 PASS / 10 FLAG (halo only) / 0 fail. Approved
+  on evidence that flag-then-approve is the norm: 86 of 215 prior approvals
+  carried FLAG, 83 over the halo line, max 0.2112 vs this batch's max 0.1291.
+  Recovery: Tier 0 no match (nearest Hamming 15), Tier 1 n/a (no DA tokens),
+  Tier 2 skipped (uhdpaper direct is already best-grade).
+- **G1 DISTS OOM (b14b688, LEDGER 32):** DISTS was UNCOMPUTABLE at 8K, not
+  slow - OOMs 12GB VRAM and system RAM both. 63 of 230 first-pass images had
+  silently lost the metric. Fixed at the chokepoint both consumers share:
+  `MAX_COMMON_PIXELS` (3840x2160) + `common_scale_for()` in lw_g1_gate, budget
+  on pixel COUNT not side length, plus empty_cache between metrics. Backfilled
+  all 63; coverage now 244/244, zero LPIPS-bad/DISTS-fine divergences.
+- **Test isolation (7d1796b, LEDGER 33):** the 7 permanently-red
+  `test_import_is_torch_free` failures were ambient-`sys.modules` reads, not
+  real. `tests/_import_probe.py` probes a clean interpreter. Suite 529+7 ->
+  536 passed / 11 skipped / 0 failed - first fully green suite in a while.
+
+**NEXT / do-not-redo:** `iopaint-batch-drain` is still the top item, unchanged.
+The 14 new firstdones need a clean-scan pass like the other 190. OPEN QUESTION
+for the operator: ratify the 3840x2160 cap as ADR-007 or pick a different value
+(rationale is in AUDIT_GATES 1.2 point 6 + the code comment). Do NOT re-run
+DISTS at native 8K (measured impossible on this box, both devices). Do NOT
+"fix" lap_ratio reading 0.14-0.39 on 8K downscale-only slugs - that is geometry,
+already ungated per ADR-006. 4 slugs (3 gothic + coven-ashe) use
+`source_choice=fullview`: their gate source is the fetched fullview under
+`data/recovery/fetched/`, NOT the `_firstinitial` preview - any future metric
+recompute must reproduce that or it silently compares against a zero-padded
+image (cost me a wrong 0.78 DISTS before the MS-SSIM cross-check caught it).
+
+---
+
 # 2026-07-16 (Stage-2 watermark cleaning SOLVED via IOPaint-emulation; Dekel built + CAPPED; gate FPs fixed)
 
 Long session; 3 commits (bd7521e gate FPs, bad25c8 Dekel engine, bc5fc19 lw_clean_iopaint) + living-docs. All 3 CI green. The semi-transparent-watermark blocker is SOLVED - by emulating the operator's OWN manual IOPaint method, not by Dekel.

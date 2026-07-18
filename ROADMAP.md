@@ -14,13 +14,22 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   the worker over the 9 CLEAN-AUTO + cleared PARTIALs -> `save-working --tool
   iopaint` + submit needauth -> route fantasy-design + prestige-coven-xayah
   (+ fury-sona if fidelity demands) to the manual IOPaint lane -> clean-scan
-  the 190 clean firstdones + dark-cosmic-ahri (G3 Haiku 2AFC + V3denoise
+  the 190 clean firstdones + dark-cosmic-ahri + the 14 uhdpaper firstdones
+  landed 2026-07-18 (LEDGER 32 session) (G3 Haiku 2AFC + V3denoise
   halftone alt stay gated on the vision stage).
   Evidence: LEDGER 30 (bc5fc19) + `docs/research/IOPAINT_TRIAGE.md` (9 auto /
   7 partial / 2 manual); manual-lane launch cmd in
   `docs/research/CLEANING_INPAINT.md` + `.claude/commands/cleaning-pass.md`.
   Do-not-redo: Dekel / pure algebraic (LEDGER 29 measured cap); white-only
   masks (mask MUST cover the dark edge).
+
+- **g1-dists-cap-ratify - ratify the FR common-scale pixel budget - OPERATOR-GATED.**
+  Next: ratify `MAX_COMMON_PIXELS` (3840x2160) as ADR-007, or set a different
+  value. Shipped and documented, but it changes the G1 measurement basis
+  corpus-wide (ADR-006-scale), so the value itself is an operator call.
+  Evidence: LEDGER 32 (b14b688); `docs/research/AUDIT_GATES.md` 1.2 point 6
+  (budget, rationale, proven-good ceiling 4096x2306 = 9.4 MPix).
+  Do-not-redo: native-8K DISTS (measured impossible on this box, both devices).
 
 - **golden-sec6-ratify - GOLDEN_DEFINITION sec 6 Q1-Q4 - OPERATOR-BLOCKED.**
   Next: operator ratifies glasses shape / style-band steer / dodge lane /
