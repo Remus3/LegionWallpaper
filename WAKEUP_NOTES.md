@@ -11,6 +11,39 @@
 
 ---
 
+# 2026-07-18 (wallpaper deck rotator shipped - Windows slideshow replaced; LW-Wallpaper task live)
+
+Three commits: b93ddc7 (spec), d220e6e (feat), 17693cb (time-trigger fix).
+Operator asked why the Windows slideshow repeats constantly. It is not a
+perception problem - the algorithm has no memory.
+
+- **Root cause (probed live, not assumed):** `HKCU\Control Panel\Personalization\Desktop Slideshow`
+  has `Shuffle=1`, `Interval=60000`, `LastTickLow=LastTickHigh=0`. Zeroed
+  LastTick = no deck, no cursor, no shown-set: sampling WITH replacement,
+  re-seeded on wake/logon. At 242 images the expected first repeat is ~19
+  picks (~19 min). Verifier corroborated by catching the wallpaper registry
+  value change between two probes while LastTick stayed 0.
+- **Shipped:** `tools/lw_wallpaper_rotate.py` - persisted permutation +
+  cursor in `ops/runtime/wallpaper_deck.json`. Deck logic is pure so the
+  once-per-cycle guarantee is testable; win32 SPI call is an isolated shim.
+  Mid-cycle corpus churn handled (new pipeline deliveries join the current
+  cycle; deletions are never set). Cycle-seam swap stops the last pick of
+  cycle N opening cycle N+1.
+- **Two defects caught, both worth remembering.** (1) My spec's step-2
+  reconcile ran unconditionally, splicing everything into an empty deck on
+  fresh state, so `cursor >= len(deck)` never fired and the seam swap was
+  dead code - found by the build agent. (2) The task registered `Ready` with
+  `Next Run Time: N/A`: a LogonTrigger's Repetition only starts when the
+  trigger FIRES, so it would have idled until the next logon. Found by LIVE
+  probe after install, NOT by the suite - the task XML had no trigger-level
+  test. Both fixed, both now covered.
+- **Live state:** task `LW-Wallpaper` Ready, NextRun populated, both triggers
+  PT3M, `Shuffle=0` (built-in disarmed), `WallpaperStyle=10` preserved, deck
+  242 entries / 242 unique. Interval 3 min = ~12.1h per full cycle.
+- Suite 575 passed / 11 skipped, ruff clean. Detail: `docs/LEDGER.md` item 34.
+
+---
+
 # 2026-07-18 (14-image first-pass batch delivered; G1 DISTS OOM root-caused + 63-manifest backfill; suite green again)
 
 Two commits, both CI green: b14b688 (G1 common-scale cap + backfill), 7d1796b

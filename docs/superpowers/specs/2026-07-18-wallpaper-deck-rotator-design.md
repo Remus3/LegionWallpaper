@@ -229,6 +229,32 @@ Required cases:
 8. `--dry-run` does not advance the cursor.
 9. A single-image corpus does not infinite-loop at the seam swap.
 
+## As-built deltas
+
+Three corrections found during implementation. Recorded here so this
+document does not drift from the shipped tool.
+
+1. **Tick step 2 is conditional.** Taken literally, reconcile ran before the
+   roll check on every tick, which spliced all present files into an empty
+   deck on fresh state. `cursor >= len(deck)` was then never true, `cycle`
+   stayed 0, and the seam swap in step 3 was unreachable. Reconcile is now
+   skipped when no cycle is in progress. It still runs before the roll check
+   for in-progress cycles, which is load-bearing: deleting the last owed file
+   must roll the cycle rather than pick a deleted file.
+2. **The task carries a TimeTrigger as well as a LogonTrigger.** A
+   `LogonTrigger`'s `Repetition` only begins when that trigger fires, so a
+   logon-only task registers `Ready` with `Next Run Time: N/A` and sits idle
+   until the next logon. `task_xml` emits a `TimeTrigger` whose
+   `StartBoundary` is install time, so rotation starts immediately; the
+   `LogonTrigger` remains so the task survives reboots.
+3. **A failed `SystemParametersInfoW` persists nothing at all**, rather than
+   persisting state with the cursor held back. Same invariant, less state to
+   reason about: the image stays owed and the next tick re-derives.
+
+Scheduling is a Task Scheduler XML fed to `schtasks /Create /XML` rather
+than bare `schtasks` flags, because `/RI` is rejected for `/SC ONLOGON`.
+The XML is written to `ops/runtime/lw_wallpaper_task.xml` for review.
+
 ## Verification tier
 
 Tier-1 (new module, local logic, no schema or core-contract change):
