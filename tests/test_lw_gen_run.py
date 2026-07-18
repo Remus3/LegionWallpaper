@@ -15,6 +15,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from tools import lw_gen_run as gr  # noqa: E402
 
+from _import_probe import assert_import_free  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers.
@@ -67,9 +69,8 @@ def _cli(**over):
 # Import safety (lazy torch proof).
 # ---------------------------------------------------------------------------
 def test_import_is_torch_free():
-    # Importing the module must not have pulled torch/diffusers into sys.modules.
-    assert "torch" not in sys.modules
-    assert "diffusers" not in sys.modules
+    # Importing the module must not pull torch/diffusers into sys.modules.
+    assert_import_free("tools.lw_gen_run", ("torch", "diffusers"))
     # The lazy loader references them only inside the function body.
     assert callable(gr._load_pipeline)
 

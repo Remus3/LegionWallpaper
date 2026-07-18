@@ -16,15 +16,16 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa: E402
 
 from tools import lw_gen_qa  # noqa: E402
+
+from _import_probe import assert_import_free  # noqa: E402
 from tools.lw_gen_qa import RawScore, grade  # noqa: E402
 
 THRESH = {"T_subj": 0.26, "T_margin": 0.05, "T_aes": 0.45, "T_blur": 100.0}
 
 
 def test_module_imports_without_torch():
-    """Proves the heavy deps are lazy - base python has no torch/open_clip/cv2."""
-    for banned in ("torch", "open_clip", "cv2"):
-        assert banned not in sys.modules
+    """Proves the heavy deps are lazy - importing must not pull torch/open_clip/cv2."""
+    assert_import_free("tools.lw_gen_qa", ("torch", "open_clip", "cv2"))
 
 
 def test_clean_pass():
@@ -198,7 +199,12 @@ def test_laplacian_variance_numpy_only(tmp_path):
     noisy = tmp_path / "noisy.png"
     Image.fromarray(rng.integers(0, 256, (32, 32, 3), dtype=np.uint8)).save(noisy)
     assert lw_gen_qa.laplacian_variance(str(noisy)) > 0.0
-    assert "cv2" not in sys.modules
+    # Stronger than import-time: CALLING it must not reach for cv2 either, so
+    # the probe runs the call in the clean interpreter before checking.
+    assert_import_free(
+        "tools.lw_gen_qa", ("cv2",),
+        after=f"tools.lw_gen_qa.laplacian_variance({str(noisy)!r})",
+    )
 
 
 # --- M0 (a)/(e): sidecar model + rewritten cand[file] regression locks -----

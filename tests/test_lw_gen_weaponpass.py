@@ -26,6 +26,8 @@ from tools import lw_gen_qa  # noqa: E402
 from tools import lw_gen_run as gr  # noqa: E402
 from tools import lw_gen_weaponfix as lgw  # noqa: E402
 from tools import lw_gen_weaponpass as wp  # noqa: E402
+
+from _import_probe import assert_import_free  # noqa: E402
 from tools.lw_gen_qa import RawScore, WeaponScore  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -126,8 +128,8 @@ def _make_batch(tmp_path, name="batch", w=672, h=384, base=(40, 0, 0),
 # 0. Import safety: the heavy backends stay lazy (torch/cv2/onnx/diffusers-free).
 # ---------------------------------------------------------------------------
 def test_import_is_lazy_and_torch_free():
-    for banned in ("torch", "diffusers", "cv2", "onnxruntime"):
-        assert banned not in sys.modules
+    assert_import_free("tools.lw_gen_weaponpass",
+                       ("torch", "diffusers", "cv2", "onnxruntime"))
     assert callable(wp.weapon_pass)
     assert callable(wp.paste_back)
     assert callable(wp.select_wrist_inputs)

@@ -20,6 +20,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from tools import lw_gen_localizer_eval as lle  # noqa: E402
 from tools import lw_gen_weaponfix as lgw  # noqa: E402
 
+from _import_probe import assert_import_free  # noqa: E402
+
 IMG_WH = (1000, 500)  # round dims so pixel/normalized math is exact
 
 
@@ -49,9 +51,8 @@ GOOD_BODY = {
 
 
 def test_import_is_torch_free():
-    assert "torch" not in sys.modules
-    assert "cv2" not in sys.modules
-    assert "controlnet_aux" not in sys.modules
+    assert_import_free("tools.lw_gen_localizer_eval",
+                       ("torch", "cv2", "controlnet_aux"))
     assert callable(lle.cocowb_to_kp_map)
 
 

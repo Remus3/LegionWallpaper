@@ -17,6 +17,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from tools import lw_gen_weapon_assets as lwa  # noqa: E402
 
+from _import_probe import assert_import_free  # noqa: E402
+
 # The magenta marker is the unique anchor color; the blue field is the opaque
 # crop body. A flat 15x15 marker block keeps the anchor pixel exact under BICUBIC.
 MARKER = (255, 0, 255, 255)
@@ -61,8 +63,8 @@ def _is_magenta(p):
 # 0. Import safety: torch-free (PIL lazy).
 # ---------------------------------------------------------------------------
 def test_import_is_torch_free():
-    for banned in ("torch", "diffusers", "cv2", "onnxruntime"):
-        assert banned not in sys.modules
+    assert_import_free("tools.lw_gen_weapon_assets",
+                       ("torch", "diffusers", "cv2", "onnxruntime"))
     assert callable(lwa.load_assets)
     assert callable(lwa.pick_asset)
     assert callable(lwa.affine_transplant)

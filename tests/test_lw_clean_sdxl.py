@@ -18,6 +18,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from tools import lw_clean_sdxl as cs  # noqa: E402
 
+from _import_probe import assert_import_free  # noqa: E402
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -25,8 +27,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # 0. Import safety: torch / diffusers stay lazy; the pure surface is callable.
 # ---------------------------------------------------------------------------
 def test_import_is_lazy_and_torch_free():
-    for banned in ("torch", "diffusers"):
-        assert banned not in sys.modules
+    assert_import_free("tools.lw_clean_sdxl", ("torch", "diffusers"))
     assert callable(cs.resolve_checkpoint)
     assert callable(cs.paste_back)
     assert callable(cs.assert_outside_identity)

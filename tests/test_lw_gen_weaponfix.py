@@ -23,6 +23,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from tools import lw_gen_weaponfix as lgw  # noqa: E402
 
+from _import_probe import assert_import_free  # noqa: E402
+
 IMG_WH = (1344, 768)
 
 # ---------------------------------------------------------------------------
@@ -58,10 +60,8 @@ def hot(mask, x, y):
 # 1. Import safety (numpy + PIL only; no heavy libs).
 # ---------------------------------------------------------------------------
 def test_import_is_torch_free():
-    assert "torch" not in sys.modules
-    assert "cv2" not in sys.modules
-    assert "controlnet_aux" not in sys.modules
-    assert "scipy" not in sys.modules
+    assert_import_free("tools.lw_gen_weaponfix",
+                       ("torch", "cv2", "controlnet_aux", "scipy"))
     assert callable(lgw.weapon_roi_from_keypoints)
     assert callable(lgw.old_weapon_coverage)
     # Slice-2 raw-pose adapter is importable + torch-free too.

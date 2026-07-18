@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from tools import lw_gen_pose as lgp  # noqa: E402
 
+from _import_probe import assert_import_free  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Fakes - mirror the real NamedTuple shapes without importing controlnet_aux.
@@ -48,8 +50,7 @@ class RecordingDetector:
 # 1. Import safety (lazy torch/controlnet_aux proof).
 # ---------------------------------------------------------------------------
 def test_import_is_torch_free():
-    assert "torch" not in sys.modules
-    assert "controlnet_aux" not in sys.modules
+    assert_import_free("tools.lw_gen_pose", ("torch", "controlnet_aux"))
     assert callable(lgp.detect_candidate)
 
 

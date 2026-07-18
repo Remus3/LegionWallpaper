@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from tools import lw_gen_localizer_eval as loc  # noqa: E402
 from tools import lw_gen_curate_weapon_crops as cur  # noqa: E402
 
+from _import_probe import assert_import_free  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Stub factories: a known right-forearm backend + tiny splash / asset writers.
@@ -71,8 +73,8 @@ def _write_asset_dir(adir, file="cb_right.png"):
 # 0. Import safety: the heavy backend stays lazy (torch/cv2/onnx/diffusers-free).
 # ---------------------------------------------------------------------------
 def test_import_is_lazy_and_torch_free():
-    for banned in ("torch", "diffusers", "cv2", "onnxruntime"):
-        assert banned not in sys.modules
+    assert_import_free("tools.lw_gen_curate_weapon_crops",
+                       ("torch", "diffusers", "cv2", "onnxruntime"))
     assert callable(cur.curate)
     assert callable(cur.letterbox_to_square)
     assert callable(cur.build_caption)
