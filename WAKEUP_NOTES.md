@@ -42,6 +42,34 @@ perception problem - the algorithm has no memory.
   242 entries / 242 unique. Interval 3 min = ~12.1h per full cycle.
 - Suite 575 passed / 11 skipped, ruff clean. Detail: `docs/LEDGER.md` item 34.
 
+**Second half - corpus expansion (LEDGER 35 + 36).** Operator asked for the
+missing "properly sized and QA'd" images from `9.Image Backup` and
+`reference_pictures`. Premise was wrong on both and the wrong half mattered.
+
+- `9.Image Backup` REJECTED: raw intake inputs. The 183 absent slugs are 8K
+  sources or sub-720p DeviantArt previews, not outputs.
+- `reference_pictures`: 272 of 292 genuinely novel (slug matching is useless
+  here - dedupe ran on sha256-vs-manifest + pHash; 20 were already restored).
+  All 2560x1440, no internal dupes. But NOT QA'd - `AUDIT_GATES.md:126` and
+  `CLEANING_INPAINT.md:37` document baked-in artist credit strips.
+- Triaged all 272 through the PRODUCTION gate (`detect_image` :660 +
+  `gate_decision` :352, clean venv, 105s, 0 errors) -> 237 clean / 22 qa /
+  13 auto. Gate validated against ground truth: it correctly caught
+  `170_cleanup.png`, the one file the repo proves is watermarked.
+- Held 11 more that the gate called clean but whose OCR could not be cleared.
+  A fuzzy threshold flagged only 2 and MISSED `124f.png` (reads as
+  DEVIANTART.COM) - evidence the threshold was the wrong instrument, so all 12
+  long-OCR files got bounded manual review instead. Only `278f.png` cleared
+  (in-art splash lore typography).
+- Delivered 226 as `ref_<name>.png`, sha256-verified. Pictures 242 -> 468.
+  Rotator reconciled live: deck 242 -> 468, all unique, new files joined the
+  CURRENT cycle (`ref_302f.png` picked on that very tick).
+- The 46 held were then intaken (operator directive): `first_scratch=0 -> 46`,
+  anomalies=0, verifier CONFIRMED 9/9 + 4/4 harm checks. Queue + per-file
+  reasons in `docs/refs_cleaning_queue.md`.
+- **NEXT SESSION:** first pass the 46, then cleaning. Their manifests carry
+  `source_url: null` - the recovery waterfall is still OWED for that set.
+
 ---
 
 # 2026-07-18 (14-image first-pass batch delivered; G1 DISTS OOM root-caused + 63-manifest backfill; suite green again)

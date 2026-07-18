@@ -5,9 +5,18 @@ reference_pictures NOT delivered to Pictures: either the production
 watermark gate flagged them, or a manual review of their OCR text could
 not rule out a site or signature watermark.
 
-Entry point is 0.Originals plus `lw_pipeline intake`, NOT a hand-move into
-3.Cleaning Scratch - every file staged there carries a manifest.json and a
-hand-move would bypass provenance.
+**STATUS 2026-07-18: all 46 are INTAKEN and staged in `1.First Pass Scratch`,
+awaiting processing next session.** They entered via `0.Originals` plus
+`lw_pipeline intake` - not a hand-move into `3.Cleaning Scratch`, which would
+have bypassed the manifest provenance every staged file carries. Slugs took
+the grammar-2.5 hyphen form (`107_cleanup.png` -> `107-cleanup`) while the
+backup copy under `9.Image Backup` kept the verbatim underscored filename.
+Source recovery was NOT run (operator call), so every manifest carries
+`source_url: null` - the recovery waterfall is still owed for these 46.
+
+Order of work next session is first pass THEN cleaning: these sit in
+`1.First Pass Scratch`, and the watermark removal this list was built for
+happens at stage 2 once they reach `3.Cleaning Scratch`.
 
 ## Gate-flagged (35)
 
