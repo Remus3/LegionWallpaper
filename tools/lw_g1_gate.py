@@ -372,6 +372,41 @@ def banding_delta(source_gray: np.ndarray, output_common_gray: np.ndarray) -> fl
 # --------------------------------------------------------------------------
 # 1.x full-reference metrics (LAZY pyiqa/torch - not importable in CI)
 # --------------------------------------------------------------------------
+# Common-scale pixel budget. DISTS allocates ~2 GiB of VGG activations at
+# 7680x4320 on top of whatever ssim/ms_ssim/lpips still hold, which OOMs a
+# 12GB card - and OOMs system RAM on the cpu fallback too, so the metric was
+# simply uncomputable for 8K sources. Observed on 63 of 230 first-pass images
+# (2026-07-18); every failure was DISTS, at scales from 5376x3024 up, while
+# the largest scale that ever succeeded corpus-wide was 4096x2306 (9.4 MPix).
+#
+# 3840x2160 sits below that proven ceiling with headroom and is the scale 26
+# existing corpus measurements already used natively, so capped values stay
+# comparable with them. A capped value is NOT interchangeable with a native
+# one (capping hides high-frequency difference) - fr_metrics reports which
+# it produced via the "capped" / "native_scale" keys.
+MAX_COMMON_PIXELS = 3840 * 2160
+
+
+def common_scale_for(src_w, src_h, max_pixels=MAX_COMMON_PIXELS):
+    """Pick the common scale for a source, honouring the pixel budget.
+
+    Returns (w, h, capped). Under budget the source size passes through
+    untouched. Over budget both sides shrink by sqrt(budget/pixels), which
+    preserves aspect and guarantees the result is smaller than the source -
+    so the reference is only ever downscaled, never upscaled.
+
+    The budget is on PIXEL COUNT, not side length: the allocation that OOMs
+    scales with area, so a square 4096x4096 must be capped even though a
+    max-side rule would wave it through.
+    """
+    src_w, src_h = int(src_w), int(src_h)
+    pixels = src_w * src_h
+    if pixels <= max_pixels:
+        return src_w, src_h, False
+    ratio = (max_pixels / pixels) ** 0.5
+    return max(1, int(src_w * ratio)), max(1, int(src_h * ratio)), True
+
+
 def fr_metrics(
     dist_path,
     ref_path,
@@ -407,19 +442,29 @@ def fr_metrics(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Downscale the OUTPUT to the SOURCE resolution (never upscale the ref).
+    # Bring the OUTPUT to the SOURCE resolution (never upscale the ref), but
+    # clamp that scale to the pixel budget so large sources stay computable.
     with Image.open(source_path) as src_img:
-        common_w, common_h = src_img.size
+        native_w, native_h = src_img.size
+    common_w, common_h, capped = common_scale_for(native_w, native_h)
+
     out_img = Image.open(dist_path).convert("RGB")
     if out_img.size != (common_w, common_h):
         out_ds = out_img.resize((common_w, common_h), Image.LANCZOS)
     else:
         out_ds = out_img
 
-    results: Dict[str, Any] = {"common_scale": [int(common_w), int(common_h)]}
+    results: Dict[str, Any] = {
+        "common_scale": [int(common_w), int(common_h)],
+        "native_scale": [int(native_w), int(native_h)],
+        "capped": capped,
+    }
 
     tmp_fd, tmp_name = tempfile.mkstemp(suffix=".png", prefix="lw_g1_ds_")
     os.close(tmp_fd)
+    # When capped, the reference no longer sits at the common scale either, so
+    # it needs its own downscaled temp; uncapped it is used in place as before.
+    ref_tmp = None
     try:
         # Atomic-ish: write to a sibling temp then replace the target path.
         tmp_write = tmp_name + ".part"
@@ -427,15 +472,38 @@ def fr_metrics(
         os.replace(tmp_write, tmp_name)
         out_img.close()
 
+        ref_for_metric = str(ref_path)
+        if capped:
+            ref_fd, ref_tmp = tempfile.mkstemp(suffix=".png", prefix="lw_g1_ref_")
+            os.close(ref_fd)
+            with Image.open(ref_path) as ref_img:
+                ref_ds = ref_img.convert("RGB")
+                if ref_ds.size != (common_w, common_h):
+                    ref_ds = ref_ds.resize((common_w, common_h), Image.LANCZOS)
+                ref_write = ref_tmp + ".part"
+                ref_ds.save(ref_write, format="PNG")
+                os.replace(ref_write, ref_tmp)
+            ref_for_metric = ref_tmp
+
         for name in names:
             try:
                 metric = pyiqa.create_metric(name, device=device)
-                val = float(metric(str(tmp_name), str(ref_path)))
+                val = float(metric(str(tmp_name), ref_for_metric))
                 results[name] = round(val, 6)
             except Exception as exc:  # noqa: BLE001 - one bad metric != batch death
                 results[name] = f"ERR {type(exc).__name__}: {exc}"
+            finally:
+                # Release the metric's weights before building the next one so
+                # DISTS (built last, and the heaviest) does not inherit a card
+                # already full of its predecessors' activations.
+                metric = None
+                if device == "cuda":
+                    torch.cuda.empty_cache()
     finally:
-        for leftover in (tmp_name, tmp_name + ".part"):
+        leftovers = [tmp_name, tmp_name + ".part"]
+        if ref_tmp:
+            leftovers += [ref_tmp, ref_tmp + ".part"]
+        for leftover in leftovers:
             try:
                 os.remove(leftover)
             except OSError:

@@ -63,6 +63,20 @@ so the comparison protocol matters more than the metric:
    reference. A GOOD artifact cleanup will lower SSIM vs the artifacted source. Therefore
    FR gates are "drift alarms" with generous bands, not tight approval gates - the tight
    gates live in the targeted checks (section 3) and vision audit (section 4).
+6. COMPUTE BUDGET: the common scale is capped at `MAX_COMMON_PIXELS` (3840x2160 =
+   8.29 MPix, `lw_g1_gate.common_scale_for`). Over budget, BOTH sides are Lanczos-
+   resampled down to fit, preserving aspect; under budget the source scale is used
+   verbatim, so the rule above is unchanged for the common case. Rationale: DISTS
+   allocates ~2 GiB of VGG activations at 7680x4320 on top of what the earlier metrics
+   still hold, which OOMs a 12GB card - and OOMs system RAM on the CPU fallback, so the
+   metric was simply uncomputable for 8K sources. Measured 2026-07-18: 63 of 230
+   first-pass images had lost DISTS this way (every failure was DISTS; scales 5376x3024
+   and up), while the largest scale that ever succeeded corpus-wide was 4096x2306.
+   The budget sits below that proven ceiling for headroom and matches the 26 corpus
+   images already measured natively at 3840x2160. The cap only ever DOWNSCALES the
+   reference, so caveat 2 still holds. A capped value is NOT interchangeable with a
+   native-scale one (capping hides high-frequency difference): `fr_metrics` reports
+   `capped` + `native_scale` alongside `common_scale` so the two are never conflated.
 
 ### 1.3 Inpainting QA is a split-domain problem
 

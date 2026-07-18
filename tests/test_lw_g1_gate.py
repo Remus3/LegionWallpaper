@@ -226,8 +226,100 @@ def test_default_thresholds_shape():
 
 
 # --------------------------------------------------------------------------
+# common-scale pixel budget (pure - real CI coverage, no torch/pyiqa needed)
+#
+# Regression: DISTS at an uncapped common scale OOMs both a 12GB GPU and
+# system RAM. Observed on 63 of 230 first-pass images (2026-07-18): every
+# failure was DISTS, at common scales from 5376x3024 (16.3 MPix) up. The
+# largest scale that ever succeeded corpus-wide was 4096x2306 (9.4 MPix).
+# --------------------------------------------------------------------------
+def test_common_scale_under_budget_is_untouched():
+    """Below the budget the source scale is used verbatim - no behaviour change."""
+    for w, h in [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)]:
+        cw, ch, capped = g1.common_scale_for(w, h)
+        assert (cw, ch) == (w, h)
+        assert capped is False
+
+
+def test_common_scale_caps_gently_just_over_budget():
+    """4096x2306 (9.4 MPix) computed natively before, so its cap must be mild.
+
+    The budget sits below this deliberately - it buys OOM headroom and keeps
+    every capped value on the same 3840x2160 footing as the 26 corpus images
+    already measured natively there. The cost is that scales in this band get
+    re-based on a future recompute, so the cap must stay gentle enough that
+    almost no resolution is lost.
+    """
+    cw, ch, capped = g1.common_scale_for(4096, 2306)
+    assert capped is True
+    assert cw * ch >= 0.85 * (4096 * 2306)  # gentle: keeps most of the pixels
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        (7680, 4320),  # 57 of the 63 observed failures
+        (5376, 3024),  # smallest observed failure
+        (7000, 3964),
+        (7680, 4324),  # off-by-4 height variant
+    ],
+)
+def test_common_scale_caps_every_observed_failing_scale(src):
+    """Each scale that OOMed in the corpus must be capped under budget."""
+    w, h = src
+    cw, ch, capped = g1.common_scale_for(w, h)
+    assert capped is True
+    assert cw * ch <= g1.MAX_COMMON_PIXELS
+    assert cw <= w and ch <= h  # never upscale the reference
+    assert abs((cw / ch) - (w / h)) < 0.01  # aspect preserved
+
+
+def test_common_scale_budget_is_pixel_based_not_side_based():
+    """A square 4096x4096 busts the budget even though its sides are small.
+
+    A max-side cap would wave this through; the allocation that OOMs scales
+    with pixel count, so the budget must too.
+    """
+    cw, ch, capped = g1.common_scale_for(4096, 4096)
+    assert capped is True
+    assert cw * ch <= g1.MAX_COMMON_PIXELS
+
+
+def test_common_scale_never_returns_zero_dimension():
+    """Extreme aspect ratios must not collapse a side to 0 (invalid resize)."""
+    for w, h in [(30000, 8), (8, 30000)]:
+        cw, ch, _ = g1.common_scale_for(w, h)
+        assert cw >= 1 and ch >= 1
+
+
+def test_max_common_pixels_within_proven_good_range():
+    """Budget must sit at or below the largest corpus-proven scale (9.4 MPix)."""
+    assert g1.MAX_COMMON_PIXELS <= 4096 * 2306
+    assert g1.MAX_COMMON_PIXELS >= 1920 * 1080  # not so tight it destroys signal
+
+
+# --------------------------------------------------------------------------
 # fr_metrics smoke - SKIPS wherever pyiqa is unavailable (CI + system python)
 # --------------------------------------------------------------------------
+def test_fr_metrics_reports_capped_scale_honestly(tmp_path):
+    """A capped run records the scale actually used plus the native one."""
+    pytest.importorskip("pyiqa")
+    from PIL import Image
+
+    # 4200x2400 = 10.1 MPix, just over the budget -> must cap.
+    ref = np.random.default_rng(0).integers(0, 256, (2400, 4200, 3), dtype=np.uint8)
+    ref_p = tmp_path / "ref.png"
+    dist_p = tmp_path / "dist.png"
+    Image.fromarray(ref).save(ref_p)
+    Image.fromarray(ref).resize((2560, 1440), Image.LANCZOS).save(dist_p)
+
+    out = g1.fr_metrics(dist_p, ref_p, ref_p, names=("psnr",))
+    assert out["capped"] is True
+    assert out["native_scale"] == [4200, 2400]
+    assert out["common_scale"][0] * out["common_scale"][1] <= g1.MAX_COMMON_PIXELS
+    assert not isinstance(out["psnr"], str)  # computed, not an "ERR ..." string
+
+
 def test_fr_metrics_smoke(tmp_path):
     pytest.importorskip("pyiqa")
     from PIL import Image
