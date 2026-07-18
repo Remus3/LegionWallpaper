@@ -423,13 +423,18 @@ def _task_user_id() -> str:
     return user
 
 
-def task_xml(interval_minutes: int) -> str:
+def task_xml(interval_minutes: int, start_boundary: str = "") -> str:
     """Task Scheduler XML: at logon, repeating every interval_minutes forever.
 
     XML rather than plain schtasks flags because schtasks rejects /RI for an
     ONLOGON schedule, and the Task Scheduler UI only offers preset repetition
     intervals - an arbitrary 3 minute repeat has to be set programmatically.
     """
+    # A LogonTrigger's Repetition only starts when that trigger fires, so a
+    # logon-only task sits idle until the next logon. The TimeTrigger below
+    # starts the repeat at install time; the LogonTrigger keeps it alive
+    # across reboots. Local time, not UTC - schtasks reads it as local.
+    boundary = start_boundary or datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     script = str(Path(__file__).resolve())
     command = _xml_escape(_pythonw())
     arguments = _xml_escape(f'"{script}" tick')
@@ -462,6 +467,14 @@ def task_xml(interval_minutes: int) -> str:
         "        <StopAtDurationEnd>false</StopAtDurationEnd>\n"
         "      </Repetition>\n"
         "    </LogonTrigger>\n"
+        "    <TimeTrigger>\n"
+        "      <Enabled>true</Enabled>\n"
+        f"      <StartBoundary>{_xml_escape(boundary)}</StartBoundary>\n"
+        "      <Repetition>\n"
+        f"        <Interval>PT{int(interval_minutes)}M</Interval>\n"
+        "        <StopAtDurationEnd>false</StopAtDurationEnd>\n"
+        "      </Repetition>\n"
+        "    </TimeTrigger>\n"
         "  </Triggers>\n"
         + principals +
         "  <Settings>\n"
@@ -549,8 +562,8 @@ def install(config, runner=None, registry_fn=None, xml_path=None) -> int:
     except OSError as exc:
         # The task is registered and will run; the registry tidy-up is best effort.
         _log(f"slideshow registry tidy-up failed: {type(exc).__name__}: {exc}")
-    print(f"install: registered {TASK_NAME} - every {interval} min at logon "
-          f"({xml_path})")
+    print(f"install: registered {TASK_NAME} - every {interval} min, starting now "
+          f"and again at every logon ({xml_path})")
     return 0
 
 

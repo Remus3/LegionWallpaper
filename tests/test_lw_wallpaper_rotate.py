@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -486,6 +488,28 @@ def test_install_shells_out_to_schtasks_and_registers_nothing_live(tmp_path, mon
     assert "lw_wallpaper_rotate.py" in xml
     assert "pythonw" in xml.lower()
     assert "tick" in xml
+
+
+def test_task_xml_carries_a_time_trigger_so_rotation_starts_without_a_logon():
+    # A LogonTrigger's Repetition only begins when the trigger fires, so a
+    # logon-only task sits idle until the next logon. A TimeTrigger starting
+    # at install time is what makes the rotator run on the day it is set up.
+    xml = rot.task_xml(3, start_boundary="2026-07-18T18:30:00")
+
+    assert "<TimeTrigger>" in xml
+    assert "<StartBoundary>2026-07-18T18:30:00</StartBoundary>" in xml
+    assert "<LogonTrigger>" in xml, "logon trigger must survive reboots"
+    # Both triggers repeat, otherwise the time trigger fires exactly once.
+    assert xml.count("<Interval>PT3M</Interval>") == 2
+    assert xml.count("<StopAtDurationEnd>false</StopAtDurationEnd>") == 2
+
+
+def test_task_xml_defaults_the_start_boundary_to_now():
+    xml = rot.task_xml(3)
+    match = re.search(r"<StartBoundary>(.+?)</StartBoundary>", xml)
+    assert match, "a default start boundary must be emitted"
+    # Must parse as a local ISO timestamp schtasks will accept.
+    datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%S")
 
 
 def test_install_reports_a_schtasks_failure(tmp_path, monkeypatch):
