@@ -348,10 +348,31 @@ the controller's same-sha no-progress guard, which is the loop's runaway backsto
 still recorded on failed cycles - the spend was real.
 Suite `tests/` 629 passed / 11 skipped.
 
-**P3 - slots + mutexes.** `slots.py`, `winmutex.py`, `RUNNING.lock`, `run_id`.
-ACCEPT: `tests/test_loop_concurrency.py` - N=8 threads against `max_slots=2` never exceed
-2 concurrent holders; a lock whose pid is dead is reaped within one backoff; abandoned
-mutex logs and proceeds; two controllers in one repo -> second exits nonzero.
+**P3 - slots + mutexes. DONE 2026-07-26.** `ops/loop/slots.py`, `ops/loop/winmutex.py`,
+`RUNNING.lock`, `run_id`. Scopes, which are the whole point: the SLOT is held only around
+`EXEC.run` (never around git or the adjudicator, so a long merge here cannot starve the
+other repo); `GEMINI_MUTEX` wraps `gemini()` itself; `RUNNING.lock` is claimed once per
+run at controller start.
+Two guards that are easy to get backwards: everything fails OPEN except one. A stale slot
+is reclaimed rather than respected forever, an abandoned mutex is acquired with a warning,
+an un-creatable mutex proceeds unserialized with a loud log - a crashed process in one
+repo must never deadlock the other. The single exception is `SlotTimeout`, which the
+caller treats as a FAILED CYCLE and never as permission to run unslotted.
+`pid_alive()` treats an unqueryable pid as ALIVE (one loop may run as a scheduled task and
+the other interactively, so access-denied is not death) - it would rather wait than
+double-book.
+ACCEPT: `tests/test_loop_concurrency.py`, 17 tests. 8 threads against `max_slots=2` peak
+at exactly 2 (sampled continuously, never 3); slot released on exception; timeout raises
+instead of proceeding; dead-pid lock reaped and its slot reused; live holder NOT reaped;
+corrupt lock falls back to mtime so it cannot wedge the bucket; mutex serializes 4 threads
+to peak 1 and is reentrant for one thread; second controller in the same repo exits
+nonzero; dead controller lock is reclaimed. Runtime 1.09s (a first cut took 121s by
+letting a cycle run to its AHK-handshake timeout - the reclaim test now polls for the
+claim and kills).
+`drift_guard.check_shared_loop_files()` hashes both shared files against RC: NOTE while RC
+has not adopted them, BREACH the moment both copies exist and differ.
+Suite `tests/` 646 passed / 11 skipped. Live smoke confirms acquire/release around a real
+cycle and an empty bucket afterwards.
 
 **P4 - live single-repo run.** LW only, `channel: sdk`, `max_cycles: 2`, cheap directive
 (docs Tier-0).

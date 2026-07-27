@@ -13,6 +13,7 @@ ancestor loop - process mechanics unchanged, product references TBD.
 import importlib.util
 import json
 import os
+import uuid
 import subprocess
 import sys
 import time
@@ -20,15 +21,23 @@ from pathlib import Path
 
 # ops/loop is never on sys.path (the controller is launched by absolute path);
 # bind the sibling executor module explicitly, same pattern as the adjudicator.
-_EXEC_MODNAME = "lw_loop_executor"
-if _EXEC_MODNAME in sys.modules:
-    executor = sys.modules[_EXEC_MODNAME]
-else:
-    _exec_spec = importlib.util.spec_from_file_location(
-        _EXEC_MODNAME, Path(__file__).resolve().parent / "executor.py")
-    executor = importlib.util.module_from_spec(_exec_spec)
-    sys.modules[_EXEC_MODNAME] = executor
-    _exec_spec.loader.exec_module(executor)
+def _bind(modname, filename):
+    if modname in sys.modules:
+        return sys.modules[modname]
+    spec = importlib.util.spec_from_file_location(
+        modname, Path(__file__).resolve().parent / filename)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[modname] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+executor = _bind("lw_loop_executor", "executor.py")
+# slots.py + winmutex.py are BYTE-IDENTICAL across LW and RC by contract - they
+# coordinate the two repos' runs with each other through ProgramData and the OS
+# mutex namespace, so a divergence is a silent concurrency bug, not a conflict.
+slots = _bind("lw_loop_slots", "slots.py")
+winmutex = _bind("lw_loop_winmutex", "winmutex.py")
 
 _CFG_ARG = (sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].endswith(".json")
             else r"C:\LegionWallpaper\ops\loop\config.json")
@@ -45,6 +54,7 @@ CTL = Path(CFG.get("control_dir", Path(__file__).resolve().parent / "control"))
 CTL.mkdir(parents=True, exist_ok=True)
 DRY = bool(CFG.get("dry_run", False))
 GEMINI_USD = 0.0  # cumulative estimated Gemini spend - THIS is the capped budget (not Claude)
+RUN_ID = ""  # minted in main(); namespaces logs + slot payloads across concurrent runs
 
 def log(m):
     line = f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {m}"
@@ -319,6 +329,16 @@ def _err_summary(txt, cap=400):
     return (" | ".join(hits) if hits else txt)[:cap]
 
 def gemini(prompt_body, instruction):
+    """Serialized machine-wide: Gemini is ONE metered account. Two concurrent
+    director calls burn quota in parallel and can trip RESOURCE_EXHAUSTED, which
+    the failover logic would misread as real credit exhaustion and stickily swap
+    the backend for the rest of the run. Director calls are seconds, so the
+    serialization costs nothing."""
+    with winmutex.hold(winmutex.GEMINI_MUTEX, log=log):
+        return _gemini_call(prompt_body, instruction)
+
+
+def _gemini_call(prompt_body, instruction):
     global GEMINI_USD
     prompt_body = cap_stdin(prompt_body)
     infile = CTL / "_gemini_in.txt"
@@ -525,9 +545,38 @@ def stall_recovery_directive(cycle):
         f"\"{py}\" ops/loop/done_sentinel.py --tests <pass_count> --regressions <0|1>"
     )
 
+def claim_single_controller():
+    """One controller per repo. A second one would interleave two runs through
+    the SAME control_dir - the handshake files are not namespaced, so both would
+    consume each other's gemini.ready and claude.done. Concurrency ACROSS repos
+    is the goal; concurrency within one repo is corruption.
+
+    Returns the run_id. Exits nonzero if another live controller holds the repo.
+    """
+    lock = CTL / "RUNNING.lock"
+    if lock.exists():
+        rec = rjson(lock, {})
+        holder = int(rec.get("pid", 0) or 0)
+        if holder and holder != os.getpid() and slots.pid_alive(holder):
+            sys.stderr.write(
+                f"another controller is already running in this repo "
+                f"(pid={holder} run_id={rec.get('run_id')} since {rec.get('ts')}). "
+                f"Stop it first, or delete {lock} if it is a stale leftover.\n")
+            sys.exit(2)
+        log(f"reclaiming stale RUNNING.lock (pid={holder} not alive)")
+    run_id = uuid.uuid4().hex[:8]
+    awrite(lock, json.dumps({"pid": os.getpid(), "run_id": run_id,
+                             "ts": time.time(), "repo": str(ROOT)}))
+    awrite(CTL / "run_id.txt", run_id)
+    return run_id
+
+
 def main():
+    global RUN_ID
     for f in ("STOP", "gemini.ready", "typed.flag", "claude.done", "cycle.txt"):
         (CTL / f).unlink(missing_ok=True)
+    RUN_ID = claim_single_controller()
+    log(f"run_id={RUN_ID}")
     start_ts = time.time()
     # persistent-session model: pin the session active at launch (the executor being
     # driven via /clear) so the meter bills it for the whole run, not whatever is newest.
@@ -590,7 +639,11 @@ def main():
         # AHK; one `claude -p` call for sdk in P2) lives behind the executor seam.
         # Artifacts both channels share stay here: directive.md, cycle.txt,
         # budget.json and the metering below.
-        rec = EXEC.run(cycle, body, src)
+        # Slot held ONLY around the executor call - never around git or the
+        # adjudicator, so a long merge in this repo cannot starve the other one.
+        with slots.hold(int(CFG.get("max_concurrent_lanes", 2)),
+                        repo=str(ROOT), run_id=RUN_ID, cycle=cycle, log=log):
+            rec = EXEC.run(cycle, body, src)
         done = rec.raw
         last_done = done
         new_sha = rec.sha or head()

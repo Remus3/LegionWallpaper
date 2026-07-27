@@ -190,6 +190,36 @@ def check_cited_shas() -> None:
             notes.append(f"cited SHA {sha} does not resolve (worktree slice?)")
 
 
+SHARED_LOOP_FILES = ("ops/loop/slots.py", "ops/loop/winmutex.py")
+SIBLING_REPO = pathlib.Path(r"C:\Riot Commander")
+
+
+def check_shared_loop_files() -> None:
+    """slots.py + winmutex.py must be BYTE-IDENTICAL in LW and RC.
+
+    They coordinate the two repos' concurrent runs with each other through
+    C:\\ProgramData\\lw-loop and the OS mutex namespace, so a divergence is not a
+    merge conflict anyone notices - it is a silent concurrency bug (two loops
+    each believing they hold the only slot). A NOTE while RC has not adopted
+    them yet; a BREACH the moment both copies exist and differ.
+    """
+    import hashlib
+
+    for rel in SHARED_LOOP_FILES:
+        mine, theirs = ROOT / rel, SIBLING_REPO / rel
+        if not mine.is_file():
+            continue
+        if not theirs.is_file():
+            notes.append(f"{rel} not yet ported to RC (shared-file contract pending)")
+            continue
+        h1 = hashlib.sha256(mine.read_bytes()).hexdigest()
+        h2 = hashlib.sha256(theirs.read_bytes()).hexdigest()
+        if h1 != h2:
+            problems.append(
+                f"{rel} DIVERGED from RC ({h1[:8]} vs {h2[:8]}) - the two loops "
+                f"coordinate through it; a divergence is a silent concurrency bug")
+
+
 def check_git_hooks() -> None:
     """The authoritative glyph/ruff gate lives in .git/hooks, which git does NOT
     track - so without this check it silently un-installs itself on a fresh clone.
@@ -219,6 +249,7 @@ def main() -> int:
     check_untracked_authored()
     check_cited_shas()
     check_git_hooks()
+    check_shared_loop_files()
 
     for n in notes:
         print(f"  note   : {n}")
