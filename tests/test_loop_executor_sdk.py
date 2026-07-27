@@ -207,12 +207,30 @@ def test_budget_exhaustion_surfaces_as_a_failed_cycle(tmp_path: Path):
 
 
 def test_timeout_kills_the_tree_and_reports(tmp_path: Path):
+    """The teardown must be reported by its PLATFORM'S mechanism.
+
+    This asserted `taskkill` unconditionally, which was true only because the
+    old code called taskkill on every platform - including POSIX, where it is a
+    missing executable whose OSError was swallowed. So the assertion passed on
+    a Linux runner while the child it claimed to kill was still running. Fixing
+    the teardown to use killpg off Windows is what made the test's real premise
+    visible.
+
+    `Stop-Process` stays banned outright (CLAUDE.md hard rule) - that half was
+    always right and is now asserted on every platform rather than implied by
+    the taskkill check.
+    """
+    import os as _os
     logs: list = []
     out = json.dumps({"structured_output": OK_STRUCT})
     cfg = _cfg(tmp_path, _shim(tmp_path, stdout=out, sleep=10), cycle_deadline_sec=1)
     rec = _build(cfg, tmp_path, logs).run(1, "b", "fixed")
     assert rec.error and "timeout" in rec.error
-    assert any("taskkill" in m for m in logs), "must taskkill, never Stop-Process"
+    expected = "taskkill" if _os.name == "nt" else "killpg"
+    assert any(expected in m for m in logs), (
+        f"the teardown must report {expected} on {_os.name}; got {logs!r}")
+    assert not any("Stop-Process" in m for m in logs), \
+        "Stop-Process hangs the MCP pipe - taskkill / killpg only"
 
 
 # ---- the session id has to reach the log on EVERY path --------------------
