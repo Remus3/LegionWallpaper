@@ -145,6 +145,7 @@ ALLOWED_ABSOLUTES = {
     # FUTURE: executor.py's copy pins an interpreter and would be wrong in a
     # venv - worth deriving, but it is instruction text, not a resolved path.
     ("ops/loop/done_sentinel.py", "docstring"),
+    ("ops/loop/loop_controller.py", "docstring"),
     ("ops/loop/executor.py", "FINAL STEP"),
 }
 _BANNED_PREFIXES = (r"C:\LegionWallpaper", r"C:\Users" + "\\")
@@ -161,16 +162,28 @@ def _hardcoded_path_sites():
             tree = _ast.parse(py.read_text(encoding="utf-8", errors="replace"))
         except SyntaxError:
             continue
-        docstrings = {id(_ast.get_docstring(n, clean=False))
-                      for n in _ast.walk(tree)
-                      if isinstance(n, (_ast.Module, _ast.FunctionDef,
-                                        _ast.AsyncFunctionDef, _ast.ClassDef))}
+        # Identify docstrings by NODE identity, not by id() of the string value.
+        # id() on equal str objects is not a reliable identity test - Python may
+        # intern or not - and the first version of this guard used it, which
+        # made it report a docstring as code the moment one was added. A guard
+        # whose own classifier is unsound produces exactly the false red that
+        # gets it deleted.
+        docstrings = set()
+        for n in _ast.walk(tree):
+            if not isinstance(n, (_ast.Module, _ast.FunctionDef,
+                                  _ast.AsyncFunctionDef, _ast.ClassDef)):
+                continue
+            body = getattr(n, "body", None)
+            if (body and isinstance(body[0], _ast.Expr)
+                    and isinstance(body[0].value, _ast.Constant)
+                    and isinstance(body[0].value.value, str)):
+                docstrings.add(id(body[0].value))
         for node in _ast.walk(tree):
             if not (isinstance(node, _ast.Constant) and isinstance(node.value, str)):
                 continue
             if not any(p in node.value for p in _BANNED_PREFIXES):
                 continue
-            kind = "docstring" if id(node.value) in docstrings else "code"
+            kind = "docstring" if id(node) in docstrings else "code"
             if kind == "docstring" and (rel, "docstring") in ALLOWED_ABSOLUTES:
                 continue
             if any(rel == f and tag in ("FINAL STEP",) and tag.lower().replace(" ", "") in

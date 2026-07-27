@@ -57,8 +57,29 @@ except (FileNotFoundError, OSError, json.JSONDecodeError):
     # Genuinely absent or unreadable config: the pure helpers under unit test
     # never read CFG, and a live launch always passes a real config path.
     CFG = {}
-ROOT = Path(CFG.get("repo_root", Path(__file__).resolve().parents[2]))
-CTL = Path(CFG.get("control_dir", Path(__file__).resolve().parent / "control"))
+def _cfg_path(key, default):
+    """Adopt a config-supplied path ONLY when it is absolute on THIS platform.
+
+    A drive-letter string is absolute on Windows and a RELATIVE single-component
+    name on POSIX: Path("C:\\LegionWallpaper").is_absolute() is False there, and
+    the name keeps its backslashes. Adopting one would make the mkdir below mint
+    a literal `C:\\LegionWallpaper\\ops\\loop\\control` directory inside whatever
+    CWD imported this module.
+
+    That became reachable only when the config started loading off Legion. While
+    _CFG_ARG was a hardcoded absolute, the read failed everywhere else and
+    CFG = {} meant these defaults always applied - so fixing that path exposed
+    this one. Second-order effect of my own fix, caught by RC flagging the same
+    is_absolute() rule on their side before it reached a runner here.
+    """
+    raw = CFG.get(key)
+    if raw and Path(raw).is_absolute():
+        return Path(raw)
+    return Path(default)
+
+
+ROOT = _cfg_path("repo_root", Path(__file__).resolve().parents[2])
+CTL = _cfg_path("control_dir", Path(__file__).resolve().parent / "control")
 CTL.mkdir(parents=True, exist_ok=True)
 DRY = bool(CFG.get("dry_run", False))
 GEMINI_USD = 0.0  # cumulative estimated Gemini spend - THIS is the capped budget (not Claude)
