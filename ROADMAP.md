@@ -51,8 +51,14 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `fbf744f5`, both trees re-hashed clean to `slots.py 95077a62...` and
   `winmutex.py f1b4b011...` (the latter supersedes `c21bfe4f...`). (1) is done
   on both sides too - RC's exec bits landed as `19b680cc`.
-  Next: LW takes (3) log `sid` on every SdkExecutor path and (12) `not
-  evaluated` vs `queued`; RC keeps (2), (4), (5), (7), (10), (11).
+  (3) is DONE on LW (`549f52c`): `build_argv` now retains the session id it
+  mints or resumes, so all five `SdkExecutor` paths log it - including timeout
+  and unparseable stdout, which never parse a payload and so previously had no
+  id to log at all. Same commit repairs the CI red that `202cef3` introduced
+  (the `directive_suffix` guard keyworded `done_sentinel`, which the phase-6
+  DO-NOT-REDO line legitimately names).
+  Next: LW takes (12) `not evaluated` vs `queued`; RC keeps (2), (4), (5), (7),
+  (10), (11).
   Cross-repo channel is the gitignored `moon_sync_inbox/` in each repo.
   Evidence: LEDGER 41 + 40; `docs/specs/2026-07-26-f1-sdk-executor-channel.md`.
 

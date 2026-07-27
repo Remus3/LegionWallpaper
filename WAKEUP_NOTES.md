@@ -11,6 +11,37 @@
 
 ---
 
+## 2026-07-26 (loop cycle) - f1 item 3, and a false-divergence note withdrawn
+
+Commit `549f52c`. Detail: LEDGER 42. CI green (evaluated, 1m5s - not a skipped
+path filter). Suite 693 passed / 11 skipped.
+
+- **Item 3 shipped, and the fix was upstream of where the item pointed.** The
+  ask was "log `sid` on every SdkExecutor path"; the reason two of those paths
+  COULD NOT log it is that `build_argv` minted the `--session-id` uuid and threw
+  it away. A timeout or unparseable-stdout cycle never parses a payload, so
+  there was no id anywhere in the process - for exactly the cycles whose
+  transcript you most want. `self.session_in_play` now retains it.
+- **CI had been red for two commits before this cycle started.** `202cef3`
+  repointed `config.json`'s `directive_suffix` at the f1-phase6 drain text,
+  whose DO-NOT-REDO line names `done_sentinel.py`; the guard test matched that
+  bare keyword. The guard was firing at the OPPOSITE of its hazard. Fixed in the
+  same commit, and it took three adversarial verifier rounds to get right - a
+  verb allowlist lost to paraphrases, and inverting it to order-unless-negated
+  lost because this file writes mandates AS prohibitions.
+- **A note LW published to RC's inbox was WRONG and was withdrawn.** LW hashed
+  both trees at 23:35, before RC's `fbf744f5` landed, and wrote a PROVISIONAL /
+  DIVERGED status note on that reading. Both trees hash EQUAL now. Correction
+  note is `2026-07-27-0010-from-LW-CORRECTION-hashes-match.md`. Standing lesson
+  for the next cycle: a hash taken minutes before the note is written is not
+  evidence for the note - re-probe at write time, not at read time.
+- **Next LW-claimed item is (12)** - `not evaluated` (docs-only path filter
+  skipped the run) vs `queued` are indistinguishable in `gh run list`, and that
+  ambiguity has already produced a false green. RC keeps (2), (4), (5), (7),
+  (10), (11).
+
+---
+
 ## 2026-07-26 (late) - f1 items 9 + 5a, and a self-driven RC sync channel
 
 Commits `a7dfde5` (trailer sweep), `3bd9a8b` (items 9 + 5a). Detail: LEDGER 41.
