@@ -15,6 +15,7 @@ does not trip the very gate it tests.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -178,9 +179,15 @@ def wired(repo: Path) -> Path:
     (repo / ".githooks").mkdir()
     (repo / "tools").mkdir()
     for name in ("pre-commit", "commit-msg"):
-        (repo / ".githooks" / name).write_text(
-            (ROOT / ".githooks" / name).read_text(encoding="utf-8"),
-            encoding="utf-8", newline="\n")
+        dst = repo / ".githooks" / name
+        dst.write_text((ROOT / ".githooks" / name).read_text(encoding="utf-8"),
+                       encoding="utf-8", newline="\n")
+        # write_text creates 0644, but a real clone checks these out 0755 from
+        # the index mode, and git SILENTLY skips a hook that is not executable.
+        # Without this the end-to-end tests below pass on Windows (no exec bit
+        # at all) while the gate they claim to prove is dead on every Linux
+        # clone, CI included. Mirror the real checkout, not a weaker one.
+        os.chmod(dst, 0o755)
     for tool in ("precommit_gate.py", "precommit_msg_check.py"):
         src = ROOT / "tools" / tool
         if src.is_file():
