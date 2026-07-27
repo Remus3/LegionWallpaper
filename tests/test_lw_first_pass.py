@@ -425,3 +425,113 @@ def test_downscale_only_still_fails_corrupt_msssim():
     v = fp.verdict(fp.gate_metrics(metrics, "downscale-only"),
                    DEFAULT_G1_THRESHOLDS)
     assert v["verdict"] == "FAIL"
+
+
+# ---------------------------------------------------------------------------
+# usm_applied provenance.
+#
+# lw_upscale.first_pass reports usm_applied=False when the source was already
+# exactly 2560x1440, so first pass resampled nothing and therefore ran no
+# unsharp mask. The driver must carry that fact into BOTH the save-working
+# params and the G1 annotate payload, otherwise a reviewer cannot tell whether
+# halo_pct measured a real sharpening pass or a no-op passthrough.
+#
+# These tests stub run_upscale, so they do NOT depend on the lw_upscale change
+# landing first.
+# ---------------------------------------------------------------------------
+UPSCALE_AUDIT_KEYS = {"backend", "model", "scale", "src_dims", "up_dims",
+                      "out_dims", "usm_applied"}
+
+
+def _drive_process_slug(monkeypatch, tmp_path, audit):
+    """Run process_slug with every subprocess boundary stubbed.
+
+    Returns {'params': ..., 'payload': ..., 'result': ...} captured from the
+    lw_pipeline calls. No torch / pyiqa / GPU: run_upscale, run_fr_metrics and
+    compute_numpy_metrics are all monkeypatched, and the only real image work is
+    the aspect read of a small 16:9 PNG written into tmp_path.
+    """
+    from PIL import Image
+
+    slug = "usm-provenance-slug-pre"
+    src = tmp_path / f"{slug}_firstinitial.png"
+    Image.new("RGB", (1920, 1080), (40, 60, 80)).save(src, format="PNG")
+
+    captured = {}
+    monkeypatch.setattr(fp, "slug_state", lambda s: "editing")
+    monkeypatch.setattr(fp, "select_source",
+                        lambda s, d, *a, **k: (str(src), "firstinitial"))
+    monkeypatch.setattr(fp, "run_upscale",
+                        lambda conditioned, out, **k: dict(audit))
+    monkeypatch.setattr(fp, "run_fr_metrics",
+                        lambda out, srcp: {"ms_ssim": 0.99, "lpips": 0.05})
+    monkeypatch.setattr(fp, "compute_numpy_metrics",
+                        lambda srcp, out: (1.5, 0.01, 0.0))
+
+    def fake_save_working(s, from_png, params):
+        captured["params"] = params
+        return "saved"
+
+    def fake_annotate(s, url, payload):
+        captured["payload"] = payload
+        return "annotated"
+
+    monkeypatch.setattr(fp, "pipeline_save_working", fake_save_working)
+    monkeypatch.setattr(fp, "pipeline_annotate", fake_annotate)
+    monkeypatch.setattr(fp, "pipeline_submit", lambda s: "submitted")
+
+    captured["result"] = fp.process_slug(slug, {}, str(tmp_path))
+    return captured
+
+
+def _spandrel_audit():
+    return {"backend": "spandrel", "model": "m.safetensors", "scale": 4,
+            "src_dims": [1920, 1080], "up_dims": [7680, 4320],
+            "out_dims": [2560, 1440], "usm_applied": True}
+
+
+def _downscale_audit():
+    return {"backend": "downscale-only", "model": None, "scale": 1,
+            "src_dims": [2560, 1440], "up_dims": [2560, 1440],
+            "out_dims": [2560, 1440], "usm_applied": False}
+
+
+def test_annotate_upscale_audit_carries_usm_applied(monkeypatch, tmp_path):
+    """A real resample records usm_applied True in the annotate provenance."""
+    cap = _drive_process_slug(monkeypatch, tmp_path, _spandrel_audit())
+    ua = cap["payload"]["upscale_audit"]
+    assert ua["usm_applied"] is True
+
+
+def test_annotate_upscale_audit_keeps_every_preexisting_key(monkeypatch,
+                                                            tmp_path):
+    """Adding usm_applied must not drop any pre-existing provenance key."""
+    cap = _drive_process_slug(monkeypatch, tmp_path, _spandrel_audit())
+    ua = cap["payload"]["upscale_audit"]
+    assert set(ua) == UPSCALE_AUDIT_KEYS
+    assert ua["backend"] == "spandrel"
+    assert ua["model"] == "m.safetensors"
+    assert ua["scale"] == 4
+    assert ua["src_dims"] == [1920, 1080]
+    assert ua["up_dims"] == [7680, 4320]
+    assert ua["out_dims"] == [2560, 1440]
+
+
+def test_annotate_records_usm_not_applied_for_no_resample(monkeypatch,
+                                                          tmp_path):
+    """usm_applied False survives - the halo metric measured no sharpening."""
+    cap = _drive_process_slug(monkeypatch, tmp_path, _downscale_audit())
+    assert cap["payload"]["upscale_audit"]["usm_applied"] is False
+    # ADR-006 wiring is untouched by this addition.
+    assert cap["payload"]["lap_ratio_gated"] is False
+
+
+def test_save_working_params_carry_usm_applied(monkeypatch, tmp_path):
+    """The saved-working provenance carries usm_applied alongside the rest."""
+    cap = _drive_process_slug(monkeypatch, tmp_path, _downscale_audit())
+    params = cap["params"]
+    assert params["usm_applied"] is False
+    for key in ("backend", "model", "scale", "source_choice", "aspect_class",
+                "crop_box"):
+        assert key in params
+    assert params["backend"] == "downscale-only"

@@ -509,9 +509,13 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
     up_out = os.path.join(str(tmp_dir), slug + "_firstpass_up.png")
     audit = run_upscale(conditioned, up_out)
 
+    # usm_applied: False means first_pass resampled nothing (source was already
+    # exactly 2560x1440) and so ran no unsharp mask - a reviewer needs that to
+    # read halo_pct correctly.
     params = {"backend": audit.get("backend"), "model": audit.get("model"),
               "scale": audit.get("scale"), "source_choice": kind,
-              "aspect_class": cls, "crop_box": box}
+              "aspect_class": cls, "crop_box": box,
+              "usm_applied": audit.get("usm_applied")}
     pipeline_save_working(slug, up_out, params)
 
     # G1 gate against the conditioned source (the real upscale input).
@@ -528,9 +532,11 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
         "verdict": v["verdict"], "reasons": v["reasons"],
         "source_choice": kind, "aspect_class": cls, "crop_box": box,
         "area_loss": round(area_loss, 6), "cropped": cplan.get("cropped"),
+        # usm_applied tells a reviewer whether halo_pct measured a real
+        # sharpening pass or a no-resample passthrough (see params above).
         "upscale_audit": {k: audit.get(k) for k in
                           ("backend", "model", "scale", "src_dims",
-                           "up_dims", "out_dims")},
+                           "up_dims", "out_dims", "usm_applied")},
     }
     pipeline_annotate(slug, source_url, annotate_payload)
 
