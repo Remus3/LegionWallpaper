@@ -27,6 +27,53 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+52. DONE **2026-07-27 (refs-46-first-pass cycle 7; docs-only).** Batched the
+    next five slugs - `239f`, `245f`, `254f`, `258-cleanup`, `259f` - through
+    best-source -> save-working -> G1 -> submit via
+    `tools/lw_first_pass.py --batch`. 5/5 G1 PASS with an empty `reasons` list,
+    so the R16 no-resample-no-USM fix now holds across THIRTY consecutive
+    slugs. Premise VERIFIED before mutating: the dry run reported
+    `src=firstinitial aspect=ok mode=downscale-only box=None` for all five and
+    every source measured exactly 2560x1440, so each ran at scale=1 with
+    `usm_applied=false`. Pixel-identity MEASURED: sha256 over the decoded RGB
+    buffer is EQUAL src vs out for every pair (`1a4538721e06`, `3c5b04aaf770`,
+    `327d9bcea2dc`, `c365ad6deccf`, `0e832d32028f`).
+    NEW, and the reason this cycle is not a repeat of the last five: two of the
+    five sources are RGBA - the first in the arc - and they produced the first
+    outputs to shrink by more than a rounding error, `258-cleanup` -40.6 pct
+    and `259f` -42.5 pct, against +1.2 to +2.0 pct for the three RGB slugs. The
+    cause is an alpha-channel DROP on the RGB re-encode, not compression. Both
+    transparent regions are full-width letterbox bars whose underlying RGB is
+    ALREADY pure black: `258-cleanup` rows 0-79 and 1360-1439 (160 rows, 11.11
+    percent of the frame - the real artwork is 2560x1280, an exact 2:1 plate
+    letterboxed into a 16:9 canvas), `259f` rows 0-2 and 1437-1439 (0.42
+    percent, a 3px hairline). Both outputs bake those rows to pure black
+    (verified max channel value 0). That exposes an AUDIT GAP rather than a
+    first-pass bug: G1 compares RGB only, and black-vs-black under alpha=0
+    scores a perfect 1.0, so a letterboxed source is structurally invisible to
+    the gate - `aspect_class=ok` on `258-cleanup` is satisfied by the
+    transparent bars, not by the artwork, and it would approve as a wallpaper
+    with an 80px black bar top and bottom. Logged to `ROADMAP.md` as
+    `first-pass-alpha-letterbox` and deliberately NOT acted on in-cycle: what
+    to do with a letterboxed source (crop to content, re-source, accept) is an
+    aspect-policy call, and a wrong automatic answer is worse than the queue.
+    All five stop at `FIRST_SCRATCH/NEEDAUTH` with the chain exactly
+    INTAKE/SAVE_WORKING/ANNOTATE/SUBMIT, zero APPROVE or REJECT lines in
+    `PIPELINE_LOG.md`, and none present in `2.First Pass Done` (243 entries /
+    242 slug dirs, unchanged).
+    Built by a single data-run agent in the MAIN tree (a worktree cannot see
+    the gitignored `images/`), gated by a read-only verifier: CONFIRM 11/11,
+    with the alpha claim re-probed hardest via numpy over the alpha plane -
+    exact transparent row ranges reproduced, zero PARTIALLY-transparent rows in
+    either file, output bar pixels max=0. Two probe corrections for the next
+    cycle, both cheap but real: `lw_pipeline` is not importable from the
+    project root (needs `sys.path.insert(0, r"C:\LegionWallpaper\tools")`;
+    fails loud, not silent), and a `scan_tree` record's `files` value is a list
+    of DICTS, so `sorted(r["files"])` raises TypeError - extract `f["name"]`
+    first. Suite 808 passed / 11 skipped, ruff clean. Auth queue now 31 slugs
+    deep, 15 unprocessed remain, 0 approved - approval stays operator-only.
+    Plan row R22.
+
 51. DONE **2026-07-27 (refs-46-first-pass cycle 6; docs-only).** Batched the
     next five slugs - `219-cleanup`, `221-cleanup`, `225f`, `229f`,
     `230-cleanup` - through best-source -> save-working -> G1 -> submit via

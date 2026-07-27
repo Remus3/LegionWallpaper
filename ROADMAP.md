@@ -88,8 +88,10 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   9-10 primitives sharing one POSITION accessor - drops most triangles); the
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
-- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (26 of 46 submitted, 0 approved).**
-  Next: batch the remaining 20 - cycle 6 (LEDGER 51, plan row R21) ran
+- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (31 of 46 submitted, 0 approved).**
+  Next: batch the remaining 15 - cycle 7 (LEDGER 52, plan row R22) ran
+  `239f` `245f` `254f` `258-cleanup` `259f`,
+  cycle 6 (LEDGER 51, plan row R21) ran
   `219-cleanup` `221-cleanup` `225f` `229f` `230-cleanup`,
   cycle 5 (LEDGER 50, plan row R20) ran
   `186-cleanup` `190-cleanup` `193-cleanup` `196f` `209-cleanup`,
@@ -99,12 +101,14 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `123f` `124f` `127-cleanup` `134-cleanup` `14-cleanup`, cycle 2 (LEDGER 47,
   plan row R17) ran `105-cleanup` `106-cleanup` `107-cleanup` `110-cleanup`
   `122`, and all five took 5/5 G1 PASS with an empty reasons list. That is the
-  R16 fix measured in production over 25 consecutive slugs: cycle 1 FLAGGED on
-  halo, cycles 2-6 flag nothing. Cycles 3-6 also MEASURED the pixel-identity
+  R16 fix measured in production over 30 consecutive slugs: cycle 1 FLAGGED on
+  halo, cycles 2-7 flag nothing. Cycles 3-7 also MEASURED the pixel-identity
   claim (sha256 over the decoded RGB buffers per pair) instead of inferring it
-  from equal dimensions; the PNG bytes differ only because SUBMIT re-encodes,
-  and cycle 5's `186-cleanup` is the only output so far to SHRINK on that
-  re-encode rather than grow. Probe notes for the next cycle: the audit block
+  from equal dimensions; the PNG bytes otherwise differ only because SUBMIT
+  re-encodes, and cycle 5's `186-cleanup` is the only RGB output so far to
+  SHRINK on that re-encode rather than grow. Cycle 7's two big shrinks are a
+  different mechanism entirely - see `first-pass-alpha-letterbox` below.
+  Probe notes for the next cycle: the audit block
   is NOT at manifest top level - it is `transitions[i].audit` for the
   `ANNOTATE` transition, and a top-level read silently returns empty for every
   field. `manifest.json` carries no `state` key at all; state/substate is
@@ -139,6 +143,30 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `ref_*.png` (sha-verified) - do not re-triage or re-copy them. If any of
   the 112 recoverable ones later gets restored, REMOVE its raw `ref_*` copy
   from Pictures or rotation gains a near-duplicate.
+
+- **first-pass-alpha-letterbox - G1 is blind to a transparent letterbox - OPEN
+  (found cycle 7, LEDGER 52, plan row R22; NOT yet acted on).**
+  Two of the 46 refs are RGBA with a genuinely non-opaque alpha, and their
+  transparent regions are full-width top/bottom bars whose underlying RGB is
+  already pure black: `258-cleanup` rows 0-79 + 1360-1439 (160 rows, 11.11
+  percent of the frame - the actual artwork is 2560x1280, an exact 2:1 plate
+  letterboxed into a 16:9 canvas) and `259f` rows 0-2 + 1437-1439 (0.42
+  percent, a 3px hairline). First pass writes RGB, so the bars bake to pure
+  black (verified max channel value 0) and the file shrinks ~40 percent on the
+  alpha drop - the only reason this was noticed at all.
+  The gap: G1 compares RGB only, so black-vs-black under alpha=0 scores a
+  perfect 1.0 and a letterboxed source is structurally invisible to the gate.
+  `aspect_class=ok` on `258-cleanup` is satisfied by the transparent bars, not
+  by the artwork, so it would approve as a 2560x1440 wallpaper with an 80px
+  black bar top and bottom.
+  Decide the POLICY before writing any detector - crop to the content box and
+  re-run the aspect logic against that, re-source a full-bleed original, or
+  accept the bars as authored intent. A wrong automatic answer is worse than
+  the current queue, so both slugs sit at NEEDAUTH untouched. Only two of 46
+  are affected, so this gates nothing; it is a correctness hole in the audit,
+  not a blocker. Scan the remaining 15 unprocessed refs for alpha when the
+  policy lands, and note the same blindness applies to any future letterbox in
+  a solid non-black colour, where the RGB metrics would ALSO score clean.
 
 - **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS.**
   Next: land the 3 pass-improvements from the triage (full-width banner band;

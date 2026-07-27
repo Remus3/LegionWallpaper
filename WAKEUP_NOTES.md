@@ -11,6 +11,25 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 7
+
+Docs-only (images are gitignored). Detail: LEDGER 52, plan row R22. Five slugs
+batched - `239f`, `245f`, `254f`, `258-cleanup`, `259f` - 5/5 G1 PASS,
+`reasons: []`. The R16 no-USM fix now holds over 30 consecutive slugs.
+Pixel-identity measured per pair (decoded RGB sha256 equal).
+The find: `258-cleanup` and `259f` are the first RGBA sources in the arc, and
+the first outputs to shrink hard (-40.6 and -42.5 pct) - that is an alpha DROP,
+not compression. Their transparent regions are letterbox bars over pure black,
+11.11 pct of the frame on `258-cleanup` (real art 2560x1280, a 2:1 plate in a
+16:9 canvas). G1 compares RGB only, so black-vs-black scores 1.0 and the
+letterbox is invisible to the gate - `aspect_class=ok` is satisfied by the
+bars, not the artwork. Opened as ROADMAP `first-pass-alpha-letterbox` and NOT
+acted on: crop / re-source / accept is an aspect-policy call, and both slugs
+are parked at NEEDAUTH rather than guessed at. Queue: 31 NEEDAUTH, 15 EDITING,
+0 approved. Verifier CONFIRM 11/11, alpha claim re-probed with numpy over the
+alpha plane. Next cycle: `lw_pipeline` needs `tools/` on `sys.path`, and a
+scan_tree record's `files` is a list of dicts, not strings.
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 6
 
 Docs-only (images are gitignored). Detail: LEDGER 51, plan row R21. Five slugs
