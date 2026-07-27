@@ -29,6 +29,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPORT = ROOT / "ops" / "runtime" / "truth_gate_report.json"
+WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+
+# Only these triggers honour paths-ignore. A schedule run fires whatever the
+# commit touched, so its existence says nothing about the commit's own files.
+_PATH_FILTERED_EVENTS = ("push", "pull_request")
 
 # CREATE_NO_WINDOW: 0 on non-Windows so the module still imports/tests in CI.
 # Under a pythonw.exe parent a console child allocates its OWN window. Applies
@@ -110,8 +115,119 @@ def check_git():
             "head": head}
 
 
-def check_ci(sha="HEAD"):
-    """Authoritative CI status via gh. 'unavailable' if gh/runs absent."""
+def parse_paths_ignore(text):
+    """Map every `on:` trigger to its paths-ignore globs ([] when it has none).
+
+    Stdlib parse rather than PyYAML: requirements.txt is the CI install list,
+    and a gate whose job is to read six lines of its own workflow must not be
+    able to fail on a third-party import.
+    """
+    events = {}
+    on_indent = None
+    trigger_indent = None
+    event = None
+    collecting = False
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip())
+        key = stripped.split(":", 1)[0].strip().strip("\"'")
+        if on_indent is None:
+            if indent == 0 and key == "on":
+                on_indent = indent
+            continue
+        if indent <= on_indent:
+            break
+        if trigger_indent is None:
+            trigger_indent = indent
+        if indent == trigger_indent and not stripped.startswith("-"):
+            event = key
+            events.setdefault(event, [])
+            collecting = False
+        elif event is None:
+            continue
+        elif stripped.startswith("-"):
+            if collecting:
+                events[event].append(stripped[1:].strip().strip("\"'"))
+        else:
+            collecting = key == "paths-ignore"
+    return events
+
+
+def _glob_to_regex(pattern):
+    """GitHub filter-pattern semantics: `**` spans separators, `*` does not.
+
+    Measured against the live repo 2026-07-27: '**/*.md' suppressed the run for
+    a commit whose only files were root-level ROADMAP.md / WAKEUP_NOTES.md, so
+    a leading `**/` matches zero segments as well as many.
+    """
+    out = []
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif pattern.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif pattern[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif pattern[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out) + r"\Z")
+
+
+def workflow_ignores_commit(changed_files, workflow=WORKFLOW):
+    """True only when EVERY path-filtered trigger ignores EVERY changed file.
+
+    Each unknown resolves to False on purpose: "no run will ever exist" is the
+    one answer that can turn a run still waiting to start into a green light,
+    so it is only ever returned on positive evidence from the workflow itself.
+    """
+    if not changed_files:
+        return False
+    try:
+        events = parse_paths_ignore(Path(workflow).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    filters = [events[e] for e in _PATH_FILTERED_EVENTS if e in events]
+    if not filters or not all(filters):
+        return False
+    for globs in filters:
+        matchers = [_glob_to_regex(g) for g in globs]
+        if not all(any(m.match(f) for m in matchers) for f in changed_files):
+            return False
+    return True
+
+
+def _changed_files(sha):
+    """Files touched by <sha>, or [] when unknowable.
+
+    A merge commit lists none under --name-only, which must not be mistaken for
+    a commit that changed nothing CI cares about.
+    """
+    r = subprocess.run(["git", "show", "--name-only", "--pretty=format:", sha],
+                       cwd=str(ROOT), capture_output=True, text=True,
+                       creationflags=NO_WINDOW)
+    if r.returncode != 0:
+        return []
+    return [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+
+
+def check_ci(sha="HEAD", workflow=WORKFLOW):
+    """Authoritative CI status via gh. 'unavailable' if gh/runs absent.
+
+    An empty run list is two different facts wearing one face: 'not-evaluated'
+    (paths-ignore covers every changed file, so no run was ever coming) and
+    'queued' (a run is owed but GitHub has not registered it yet). Reporting
+    both as one string let a race with the API read as a settled verdict.
+    """
     try:
         if sha == "HEAD":
             r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
@@ -128,7 +244,9 @@ def check_ci(sha="HEAD"):
                     "sha": sha}
         runs = json.loads(r.stdout or "[]")
         if not runs:
-            return {"status": "no-runs", "sha": sha, "runs": []}
+            ignored = workflow_ignores_commit(_changed_files(sha), workflow)
+            return {"status": "not-evaluated" if ignored else "queued",
+                    "sha": sha, "runs": []}
         if any(x["status"] != "completed" for x in runs):
             return {"status": "pending", "sha": sha, "runs": runs}
         if all(x["conclusion"] == "success" for x in runs):
