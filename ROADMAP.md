@@ -159,7 +159,8 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   and G1 is blind to it - OPEN (found cycle 7, LEDGER 52, plan row R22;
   widened by cycle 8, LEDGER 53, plan row R23; sub-shape B identified by
   cycle 9, LEDGER 54, plan row R24; CENSUS CLOSED by cycle 10, LEDGER 55, plan
-  row R25; NOT yet acted on).**
+  row R25; audit hygiene SHIPPED by cycle 11, LEDGER 56, plan row R26; the
+  POLICY call is still open).**
   The census is now complete over all 46 refs, so the numbers below are final
   rather than a running tally: FIFTEEN of the 46 are RGBA with a genuinely
   non-opaque alpha, 31 are RGB, none is any other mode. Cycles 8 and 9 both
@@ -224,13 +225,19 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   automatic answer is worse than the current queue, so all fifteen slugs sit at
   NEEDAUTH untouched. Nothing downstream is blocked; this is a correctness hole
   in the audit, not a gate.
-  Cheapest first step, and it needs no policy call: first pass should RECORD
-  the source PIL mode and the flatten in `upscale_audit` so the drop stops
-  being silent - today only a file-size anomaly reveals it. The "scan the
-  remaining unprocessed refs" step is DONE (cycle 10 swept all 46); what is
-  still owed is the policy call itself, and the note that the same blindness
-  applies to any future letterbox in a solid non-black colour, where the RGB
-  metrics would ALSO score clean.
+  Cheapest first step, and it needs no policy call: DONE cycle 11 (LEDGER 56,
+  plan row R26, commit `ef67c49`). `first_pass` now reads the source PIL mode
+  off the existing probe BEFORE any `convert("RGB")` and records `source_mode`
+  + `alpha_flattened` in `upscale_audit`, so every future run self-reports the
+  drop instead of leaving a file-size anomaly as the only tell.
+  `alpha_flattened` is True for palette-with-transparency sources too, not
+  just mode RGBA - a `P` + `tRNS` source flattens identically and would
+  otherwise read clean. NOTE the 15 already-processed refs predate the field
+  and carry no such key; their flatten is documented here, not in their
+  audits. The "scan the remaining unprocessed refs" step is DONE (cycle 10
+  swept all 46); what is still owed is the POLICY call itself (per sub-shape),
+  and the note that the same blindness applies to any future letterbox in a
+  solid non-black colour, where the RGB metrics would ALSO score clean.
 
 - **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS.**
   Next: land the 3 pass-improvements from the triage (full-width banner band;

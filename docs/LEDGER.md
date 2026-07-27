@@ -27,6 +27,44 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+56. DONE **2026-07-27 (first-pass alpha audit hygiene; ef67c49 slice, 191742a
+    merge).** Four cycles of investigation (LEDGER 52-55) established that 15
+    of the 46 refs carry an alpha channel that first pass discards without a
+    word; this ships the cheapest half of the fix - the half that needs no
+    policy call. `first_pass()` in `tools/lw_upscale.py` now records
+    `source_mode` (the raw PIL mode string) and `alpha_flattened` (bool) in
+    the returned audit, and `tools/lw_first_pass.py:537` carries both into the
+    per-slug annotate payload. Two placement decisions did the real work.
+    FIRST, the capture reuses the probe `Image.open(src_path)` that already
+    exists for the `_covers_target` G0 check and sits OUTSIDE that branch -
+    every one of the 46 refs took the downscale-only path, so a capture nested
+    inside the AI-upscale branch would have missed precisely the population
+    that produced the finding. SECOND, `_has_alpha` is wider than
+    `mode == "RGBA"`: it also fires on `"transparency" in img.info`, i.e. a
+    palette `P` + `tRNS` source, which flattens exactly the same way but would
+    otherwise report a clean `alpha_flattened: false`. That blind spot has its
+    own test. Built TDD RED-first in a worktree slice: 5 failing assertions
+    observed before any implementation (3x `KeyError: 'source_mode'` in
+    `tests/test_lw_upscale.py`, 1 in `tests/test_lw_first_pass.py`, plus the
+    exact-set-equality guard breaking on the two extra keys). The slice agent
+    widened the module-level `UPSCALE_AUDIT_KEYS` set to 9 and froze the
+    original 7 as `PREEXISTING_UPSCALE_AUDIT_KEYS` so the "nothing was
+    dropped" guard keeps an immutable reference. The verifier gate did not
+    take the diff on eyeball: it ran `first_pass()` in BOTH trees against one
+    identical synthetic source and diffed the audit JSON, showing the only
+    delta was `+source_mode` / `+alpha_flattened` with all 14 pre-existing
+    keys byte-identical, then probed live behaviour (RGBA -> True, RGB ->
+    False, P+tRNS -> True, `out_dims` unchanged in all three). CONFIRM 9/9,
+    merged. Full suite 814 passed / 11 skipped on main post-merge; the slice's
+    lone worktree failure was the known `core.hooksPath` absolute-path
+    artifact (verified passing in the main tree - same shape as R14). Scope
+    deliberately held: zero pixels change and the flatten still happens. The
+    15 already-processed refs predate the field and their audits stay silent -
+    the record of their flatten lives in ROADMAP, not in their JSON. Still
+    open: the per-sub-shape POLICY call (crop / re-source / accept for A,
+    almost certainly accept-and-record for B), which is an operator ruling,
+    not a code change. Plan row R26.
+
 55. DONE **2026-07-27 (refs-46-first-pass cycle 10, FINAL; docs-only).**
     Batched the last 5 slugs (`280f` `281-cleanup` `286f` `32-cleanup` `84f`)
     through best-source -> save-working -> G1 -> submit. That CLOSES the
