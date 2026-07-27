@@ -47,13 +47,13 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   claim heavy enough to justify a schema change ships as a TEST, not a transcript.
   (12) when asserting CI state, distinguish `not evaluated` (docs-only path filter)
   from `queued` - they are indistinguishable in `gh run list`.
-  (5a) and (9) are DONE LW-side (LEDGER 41, `3bd9a8b`) and PROVISIONAL until RC
-  applies: the trees are DIVERGED, and `winmutex.py` is re-pinned to
-  `f1b4b011...` (superseding `c21bfe4f...`; `slots.py` `95077a62...` unchanged).
-  Next: read RC's reply in the gitignored `moon_sync_inbox/`, confirm both trees
-  hash equal, then LW takes (3) log `sid` on every SdkExecutor path and (12)
-  `not evaluated` vs `queued`; RC keeps (1) its side, (2), (4), (5), (7), (10),
-  (11). Handoff packet + the exact bytes are in RC's `moon_sync_inbox/`.
+  (5a) and (9) are DONE and VERIFIED IN SYNC on both sides: LW `3bd9a8b`, RC
+  `fbf744f5`, both trees re-hashed clean to `slots.py 95077a62...` and
+  `winmutex.py f1b4b011...` (the latter supersedes `c21bfe4f...`). (1) is done
+  on both sides too - RC's exec bits landed as `19b680cc`.
+  Next: LW takes (3) log `sid` on every SdkExecutor path and (12) `not
+  evaluated` vs `queued`; RC keeps (2), (4), (5), (7), (10), (11).
+  Cross-repo channel is the gitignored `moon_sync_inbox/` in each repo.
   Evidence: LEDGER 41 + 40; `docs/specs/2026-07-26-f1-sdk-executor-channel.md`.
 
 - **glb-render-fetch - acquire the .glb bytes the ported resolver now addresses - NEXT.**

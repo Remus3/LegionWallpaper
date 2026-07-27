@@ -21,10 +21,17 @@ Commits `a7dfde5` (trailer sweep), `3bd9a8b` (items 9 + 5a). Detail: LEDGER 41.
   gitignored on its side too, so neither channel can pollute either repo's git.
   RC's inbox holds `2026-07-26-2340-from-LW-f1-items-9-and-5a.md` plus the exact
   `winmutex.py` bytes as `winmutex.py.from-lw`.
-- **FIRST THING NEXT SESSION: read `moon_sync_inbox/` for RC's reply.** The
-  shared files are DIVERGED right now - LW landed item 9, RC had not applied at
-  commit time - so RC's `test_shared_modules_are_byte_identical_to_lw` is RED
-  against the LW tree BY DESIGN. Not a defect; the guard doing its job.
+- **RESOLVED same night: the shared files are VERIFIED IN SYNC.** RC applied the
+  handed-over bytes and committed them as `fbf744f5`; item 1 landed as
+  `19b680cc`. Both trees re-hashed clean to `slots.py 95077a62...` /
+  `winmutex.py f1b4b011...`, so the `SHARED_SHA256` pin is no longer provisional.
+- **A wrong inference to not repeat:** LW probed for an RC LOOP process, found
+  `STOP: max_cycles 1 reached` from 22:57:59, and concluded "nobody is on RC" -
+  then nearly restarted RC's loop on top of a LIVE interactive RC session that
+  was mid-apply. Absence of the loop is not absence of a driver. Probe for BOTH
+  before acting on another repo. The launch was aborted and a stand-down note
+  left in RC's inbox naming the one commit LW had already made there
+  (`8986418f`, launcher channel fix, pathspec-scoped).
 - Item 9: the POSIX branch of `winmutex.hold` yielded silently, so every
   serialization test passes vacuously off Windows and the log carries no trace.
   It now emits the same `winmutex: UNSERIALIZED` marker as the two Windows
