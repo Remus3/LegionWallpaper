@@ -30,6 +30,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPORT = ROOT / "ops" / "runtime" / "truth_gate_report.json"
 
+# CREATE_NO_WINDOW: 0 on non-Windows so the module still imports/tests in CI.
+# Under a pythonw.exe parent a console child allocates its OWN window. Applies
+# to the shell=True suite run too - there it suppresses the cmd.exe console.
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 # The bare "py" launcher can resolve to a pytest-less interpreter (e.g. the
 # python-manager pythoncore-3.14-64 install), which zeroes the suite and turns
 # every gate into a blanket REFUSE. Pin the canonical project interpreter;
@@ -67,7 +72,8 @@ def run_suite_fresh(cmd, out_path):
     out_path = Path(out_path)
     with open(out_path, "w", encoding="utf-8", errors="replace") as fh:
         proc = subprocess.run(cmd, shell=True, cwd=str(ROOT),
-                              stdout=fh, stderr=subprocess.STDOUT)
+                              stdout=fh, stderr=subprocess.STDOUT,
+                              creationflags=NO_WINDOW)
     text = out_path.read_text(encoding="utf-8", errors="replace")
     obs = parse_pytest_summary(text)
     obs["exit_code"] = proc.returncode
@@ -95,7 +101,8 @@ def check_file_claims(file_claims):
 def check_git():
     def _git(*args):
         r = subprocess.run(["git", *args], cwd=str(ROOT),
-                           capture_output=True, text=True)
+                           capture_output=True, text=True,
+                           creationflags=NO_WINDOW)
         return r.stdout.strip()
     status = _git("status", "-s")
     head = _git("log", "--oneline", "-1")
@@ -108,12 +115,14 @@ def check_ci(sha="HEAD"):
     try:
         if sha == "HEAD":
             r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
-                               capture_output=True, text=True)
+                               capture_output=True, text=True,
+                               creationflags=NO_WINDOW)
             sha = r.stdout.strip()
         r = subprocess.run(
             ["gh", "run", "list", "--commit", sha, "--limit", "10",
              "--json", "status,conclusion,name"],
-            cwd=str(ROOT), capture_output=True, text=True, timeout=30)
+            cwd=str(ROOT), capture_output=True, text=True, timeout=30,
+            creationflags=NO_WINDOW)
         if r.returncode != 0:
             return {"status": "unavailable", "detail": r.stderr.strip()[:200],
                     "sha": sha}

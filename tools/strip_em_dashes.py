@@ -56,6 +56,10 @@ REPL = {EM: "-", EN: "-", LSQ: "'", RSQ: "'", LDQ: '"', RDQ: '"'}
 _PREFILTER = b"\xe2\x80"
 ROOT = Path(__file__).resolve().parent.parent
 
+# CREATE_NO_WINDOW: 0 on non-Windows so the module still imports/tests in CI.
+# Under a pythonw.exe parent a console child allocates its OWN window.
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 # git-tracked enumeration already excludes everything gitignored
 # (.pyc, ops/runtime state, .venv, ...). These are the additional
 # tracked-but-immutable / non-project carve-outs; the walk fallback
@@ -101,7 +105,7 @@ def _tracked_files() -> list[Path]:
     try:
         out = subprocess.run(
             ["git", "ls-files", "-z"], cwd=ROOT,
-            capture_output=True, check=True,
+            capture_output=True, check=True, creationflags=NO_WINDOW,
         ).stdout
         files = [ROOT / p for p in out.decode("utf-8").split("\0") if p]
         if files:

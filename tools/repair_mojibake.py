@@ -118,6 +118,10 @@ MOJIBAKE_SIGS: tuple[bytes, ...] = (MOJIBAKE_SIG, MOJIBAKE_SIG_B)
 EM_DASH_BYTES = b"\xe2\x80\x94"
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# CREATE_NO_WINDOW: 0 on non-Windows so the module still imports/tests in CI.
+# Under a pythonw.exe parent a console child allocates its OWN window.
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _SELF = Path(__file__).resolve()
 
 # HARD SKIP: paths in this set are NEVER rewritten, even when listed in
@@ -181,7 +185,7 @@ def _tracked_files() -> list[Path]:
     out = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         cwd=ROOT,
-        capture_output=True, check=True,
+        capture_output=True, check=True, creationflags=NO_WINDOW,
     ).stdout
     return [ROOT / p for p in out.decode("utf-8").split("\0") if p]
 

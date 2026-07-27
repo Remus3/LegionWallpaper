@@ -22,6 +22,11 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
+# CREATE_NO_WINDOW: 0 on non-Windows so the module still imports/tests in CI.
+# Under a pythonw.exe parent (every hook + scheduled task here) a console child
+# allocates its OWN window and flashes over the desktop.
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 # ---- CONFIG - the only per-project section -------------------------------
 # CLAUDE.md budget is real and CI-enforced (CLAUDE.md: "CI size-budgeted < 60KB").
 # ROADMAP.md is advisory here - LW states no hard budget for it.
@@ -160,7 +165,7 @@ def check_untracked_authored() -> None:
         rel = f.relative_to(ROOT).as_posix()
         r = subprocess.run(
             ["git", "-C", str(ROOT), "ls-files", "--error-unmatch", rel],
-            capture_output=True, text=True,
+            capture_output=True, text=True, creationflags=NO_WINDOW,
         )
         if r.returncode != 0:
             bad.append(rel)
@@ -172,14 +177,14 @@ def check_cited_shas() -> None:
     """SHAs cited in staged docs must resolve (worktree-slice SHAs often do not)."""
     r = subprocess.run(
         ["git", "-C", str(ROOT), "diff", "--cached", "-U0"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, creationflags=NO_WINDOW,
     )
     added = [ln for ln in r.stdout.splitlines() if ln.startswith("+")]
     shas = set(re.findall(r"\b([0-9a-f]{7,8})\b", "\n".join(added)))
     for sha in sorted(shas)[:40]:
         ok = subprocess.run(
             ["git", "-C", str(ROOT), "cat-file", "-e", f"{sha}^{{commit}}"],
-            capture_output=True,
+            capture_output=True, creationflags=NO_WINDOW,
         )
         if ok.returncode != 0:
             notes.append(f"cited SHA {sha} does not resolve (worktree slice?)")

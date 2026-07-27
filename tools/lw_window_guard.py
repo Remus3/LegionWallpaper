@@ -47,6 +47,22 @@ CONSOLE_BINS = {
     "ruby.exe", "perl.exe", "git.exe", "claude.cmd", "claude.ps1", "npm.cmd",
 }
 HIDDEN_MARKERS = ("-windowstyle hidden", "-w hidden", "-windowstyle=hidden", "//b")
+
+# Tasks that MUST stay in the operator's interactive session because they touch
+# per-session Win32 surfaces that do not exist in session 0. Reported as
+# "expected" rather than as drift - a guard that flags the same 3 rows forever
+# is a guard people learn to ignore. Source: RC's own S4U sweep 2026-07-26
+# (13 tasks flipped, these 3 deliberately held).
+#   RC-HotkeyListener  - RegisterHotKey + overlay, needs a window station
+#   RC-LiveFlipWatcher - toast notifications, per-session
+#   RC-Supervisor      - Win32 + overlay ownership
+# Add a row here ONLY with the reason; an entry without one is drift wearing a
+# costume.
+EXPECTED_INTERACTIVE = {
+    "RC-HotkeyListener": "RegisterHotKey + overlay (per-session window station)",
+    "RC-LiveFlipWatcher": "toast notifications (per-session)",
+    "RC-Supervisor": "Win32 + overlay ownership",
+}
 SCAN_DIRS = ("tools", "ops")
 SPAWN_RE = re.compile(r"subprocess\.(?:run|Popen|call|check_output|check_call)\s*\(")
 
@@ -76,12 +92,12 @@ def check_tasks():
     """A - scheduled tasks that could pop a console in the operator's session."""
     out = _run(["schtasks", "/query", "/fo", "csv", "/v"], timeout=20)
     if not out:
-        return None, []
+        return None, [], []
     try:
         rows = list(csv.DictReader(io.StringIO(out)))
     except csv.Error:
-        return None, []
-    seen, risky, total = set(), [], 0
+        return None, [], []
+    seen, risky, expected, total = set(), [], [], 0
     for r in rows:
         name = (r.get("TaskName") or "").strip()
         if not name or name.startswith("\\Microsoft") or name in seen:
@@ -98,8 +114,12 @@ def check_tasks():
         low = cmd.lower()
         if any(m in low for m in HIDDEN_MARKERS):
             continue
-        risky.append((name.lstrip("\\"), cmd[:110]))
-    return total, risky
+        short = name.lstrip("\\")
+        if short in EXPECTED_INTERACTIVE:
+            expected.append(short)
+            continue
+        risky.append((short, cmd[:110]))
+    return total, risky, expected
 
 
 def check_spawns():
@@ -151,7 +171,7 @@ def check_bridge():
 
 
 def main():
-    total, risky = check_tasks()
+    total, risky, expected = check_tasks()
     misses = check_spawns()
     bridge = check_bridge()
 
@@ -166,7 +186,8 @@ def main():
         print("  - fix: add `-WindowStyle Hidden`, use `pythonw.exe`, or set the")
         print("    principal to S4U (session 0, no window possible)")
     else:
-        print(f"- tasks: clean ({total} non-Microsoft tasks, none window-capable)")
+        note = f", {len(expected)} expected-interactive" if expected else ""
+        print(f"- tasks: clean ({total} non-Microsoft, no unexpected window-capable{note})")
 
     if misses:
         print(f"- subprocess sites missing CREATE_NO_WINDOW: **{len(misses)}**")

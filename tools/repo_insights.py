@@ -34,6 +34,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# CREATE_NO_WINDOW: 0 on non-Windows so the module still imports/tests in CI.
+# Under a pythonw.exe parent a console child allocates its OWN window.
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 
 # --------------------------------------------------------------------------
 # git helpers
@@ -44,6 +48,7 @@ def _git(*args: str) -> str:
         out = subprocess.run(
             ["git", *args], cwd=str(ROOT), capture_output=True,
             text=True, encoding="utf-8", errors="replace", timeout=120,
+            creationflags=NO_WINDOW,
         )
         return out.stdout or ""
     except (subprocess.SubprocessError, OSError):

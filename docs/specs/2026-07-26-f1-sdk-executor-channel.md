@@ -229,14 +229,25 @@ This makes phase-5 acceptance condition 1 mechanically checkable instead of a cl
 concurrent LW+RC run is only clean if the guard reports zero window-capable tasks and no
 live bridge on both machines' session starts during the run.
 
-Baseline at build time: tasks clean (36 non-Microsoft, none window-capable, after the
+An EXPECTED_INTERACTIVE allowlist carries tasks that must stay in the operator's session
+because they touch per-session Win32 surfaces that do not exist in session 0. Seeded from
+RC's own S4U sweep (2026-07-26: 13 tasks flipped, 3 deliberately held) - `RC-HotkeyListener`
+(RegisterHotKey + overlay), `RC-LiveFlipWatcher` (toasts), `RC-Supervisor` (Win32 +
+overlay). Each row carries its reason; a row without one is drift wearing a costume.
+Measured nuance worth keeping: on this box all three already run `pythonw.exe`, which is
+not in the console-binary allowlist, so they never trip check A in the first place. The
+allowlist is therefore currently INERT and purely defensive - it earns its keep only if one
+of those tasks is ever re-registered against `python.exe`.
+
+Baseline: tasks clean (36 non-Microsoft, none unexpectedly window-capable, after the
 2026-07-26 RC-GeminiAudit / RC-WeeklyHygiene S4U fix); gui bridge n/a (channel key not yet
-present, pre-F1); **13 subprocess sites missing the flag** across `tools/drift_guard.py`,
-`tools/repair_mojibake.py`, `tools/repo_insights.py`, `tools/strip_em_dashes.py`,
-`tools/strip_smart_quotes.py`, `tools/truth_gate.py` and `ops/loop/claude_stub.py`. Those
-are PRE-EXISTING and unrelated to F1; they are logged here as a known-dirty baseline, to be
-cleared in a separate per-site sweep (a blanket mechanical edit is not appropriate - each
-site needs a read to confirm the flag is correct for that call).
+present, pre-F1); subprocess sites **CLEARED 2026-07-26** - all 13 (`tools/drift_guard.py`
+x3, `tools/repair_mojibake.py`, `tools/repo_insights.py`, `tools/strip_em_dashes.py`,
+`tools/strip_smart_quotes.py`, `tools/truth_gate.py` x4, `ops/loop/claude_stub.py`,
+`ops/loop/done_sentinel.py`) now pass `creationflags=NO_WINDOW`. Every site was read before
+editing rather than swept mechanically; all 13 turned out to be capture-only spawns (git,
+gh, pytest) where suppressing the console is unambiguously correct. The `shell=True` suite
+run in `truth_gate.py` takes the flag on its `cmd.exe`. Guard now reports two clean lines.
 
 ## 5. What gets deleted, and when
 
@@ -251,6 +262,17 @@ green live runs on `channel: sdk`:
 - `claude_stub.py` stays forever: it is the dry-run test double for BOTH channels
 
 ## 6. Build phases + acceptance
+
+**P0 - move precommit_gate into `.git/hooks/pre-commit`. BLOCKS P1**, because P1 ships the
+channel that loses the PreToolUse gate (section 7, first risk). Committed installer +
+drift_guard parity check, since `.git/hooks/` is untracked. ACCEPT: with an em-dash staged,
+a nested `claude -p --permission-mode bypassPermissions` told to commit is BLOCKED, and the
+same commit from an ordinary terminal is blocked identically.
+
+**P0b - clear the guard's known-dirty baseline** (13 subprocess sites). DONE 2026-07-26,
+see section 4d. Ordered ahead of P1 deliberately: a guard that prints ~15 lines at every
+session start is one people learn to ignore, which is worse than the drift it watches for.
+
 
 Each phase is one session, TDD, commit + push. No phase claims done without the stated
 evidence run fresh.
@@ -296,11 +318,37 @@ Then, and only then, phase 6 deletes the ahk-only code listed in section 5.
   trivial call). The AHK channel amortized that across one long-lived window. Mitigation:
   `--resume` when `clear_each_cycle: false`; measure both at P4 before choosing the
   default. This is a real regression on one axis and should not be papered over.
-- **`bypassPermissions` is a genuine authority grant.** The executor writes, commits and
-  pushes unattended - it already did via AHK, but the GUI at least had a human-visible
-  window. Compensating control: `--max-budget-usd` per cycle, the pre-existing truth_gate
-  and precommit_gate hooks (which run under `-p` too), and the same-sha / no-progress
-  guards.
+- **P0 - `bypassPermissions` SILENTLY REMOVES THE REPO'S OWN GATE.** An earlier draft of
+  this section called it "a genuine authority grant" and assumed the precommit_gate hook
+  "runs under `-p` too". RC measured that assumption on 2026-07-26 and it is FALSE.
+  RC's method, and the discriminator that makes it unambiguous: control first - invoked
+  `tools/precommit_gate.py` directly with an em-dash staged, exit 2 BLOCKED. Then a nested
+  `claude -p --permission-mode bypassPermissions` told to `git commit`: the commit landed
+  WITH the banned glyph, on main. The run printed "Running Share/ mirror sync
+  (precommit-gated)...", which looks like the gate firing but is `.git/hooks/pre-commit` -
+  a GIT hook, which runs regardless of Claude; `grep precommit_gate .git/hooks/pre-commit`
+  returns 0 matches. So: git hooks ran, Claude PreToolUse hooks did not. RC reset the
+  commit; tree clean at `f5ec4089`.
+  RC explicitly did NOT eliminate one confound and neither should this spec: it cannot yet
+  separate "bypassPermissions skips hooks" from "headless `-p` does not load project hooks
+  at all" (its isolated temp-dir attempt was invalid - settings never loaded there in any
+  mode - and was discarded). The actionable conclusion is robust under either reading: the
+  SDK executor does not inherit the repo's PreToolUse gate.
+  **LW is worse off than RC here.** RC at least had a `.git/hooks/pre-commit` doing the
+  Share sync. LW has NO active git hooks at all (`.git/hooks/` holds only `.sample`
+  files, verified 2026-07-26), and `precommit_gate.py` exists ONLY as a PreToolUse hook in
+  `.claude/settings.json`. Under `channel: sdk` LW's glyph + ruff backstop would be
+  entirely absent - unattended, no window, no operator, which is exactly when it is most
+  needed.
+  **Fix, and it is cheap because the same experiment already proved it:** move the gate
+  into `.git/hooks/pre-commit`. Git hooks demonstrably survive `bypassPermissions`, which
+  makes the gate channel-independent - AHK, SDK, a human at a terminal, or CI all get it.
+  Keep the PreToolUse copy for the fast in-session signal; the git hook is the one that
+  must be AUTHORITATIVE. Because `.git/hooks/` is not tracked by git, this needs a
+  committed installer (`tools/install_git_hooks.py`) plus a drift_guard check asserting the
+  installed hook matches, or it silently un-installs itself on every fresh clone.
+  Remaining compensating controls once the gate is restored: `--max-budget-usd` per cycle,
+  truth_gate, and the same-sha / no-progress guards.
 - **Hooks and MCP load per call.** Each `claude -p` pays MCP server startup. If P4 shows
   the startup tax is material, add `--strict-mcp-config` with a lane-specific
   `--settings` file trimming MCP to what a loop cycle actually needs.
