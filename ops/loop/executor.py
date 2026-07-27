@@ -23,6 +23,7 @@ for AHK that is the gemini.ready typing handshake and the claude.done sentinel.
 from __future__ import annotations
 
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -107,7 +108,7 @@ class DoneRecord:
     raw: dict = field(default_factory=dict)
 
 
-def failure_raw(cycle: int, error: str, session_id) -> dict:
+def failure_raw(cycle: int, error: str, session_id, findings=None) -> dict:
     """The payload a FAILED cycle hands the next director call.
 
     loop_controller does `done = rec.raw` and feeds exactly that forward as
@@ -127,7 +128,105 @@ def failure_raw(cycle: int, error: str, session_id) -> dict:
     rec = {"cycle": cycle, "error": error}
     if session_id:
         rec["session_id"] = session_id
+    if findings:
+        rec["premise_findings"] = findings
     return rec
+
+
+# ---- PREMISE-CHECK: make the director's own stamp load-bearing --------------
+#
+# director_prompt.md requires every directive to open with
+#   PREMISE-CHECK: <claim> [from-digest] | [UNVERIFIED]
+# and nothing read it, so the director could declare its own premise unknown and
+# the executor would act on it regardless.
+#
+# The two tags need OPPOSITE handling and that is the whole subtlety:
+#   [UNVERIFIED]  - PROPAGATE. Do not adjudicate the claim; the director already
+#                   called it unknown, and an unknown is never a pass anywhere
+#                   else in this seam. Propagating its verdict is not inventing
+#                   one.
+#   [from-digest] - means "I read this in context", NOT "this is true". The
+#                   digest can be fabricated upstream: RC's audit invented a
+#                   file:line AND a literal, and the director relayed both in
+#                   good faith. So a claim naming a CHECKABLE referent gets
+#                   checked; unfalsifiable prose does not, and is not guessed at.
+
+_PREMISE_LINE = re.compile(r"^\s*PREMISE-CHECK\s*:(.*)$", re.MULTILINE)
+_PREMISE_TAG = re.compile(r"\[(UNVERIFIED|from-digest)\]", re.IGNORECASE)
+# A referent worth checking: a repo-ish path with a known extension, optional :line.
+_REFERENT = re.compile(
+    r"(?<![\w/\\.])((?:[\w.-]+[/\\])*[\w.-]+\.(?:py|md|json|ya?ml|ps1|txt|ahk|cfg))"
+    r"(?::(\d+))?")
+
+
+def premise_findings(directive: str, *, root=None) -> list[dict]:
+    """Findings for every PREMISE-CHECK claim that must not be acted on as-is.
+
+    Claims are split on TAG boundaries, never on sentence boundaries. Sentence
+    splitting looks right and silently drops any claim opening with e.g. / i.e. /
+    cf. / etc. / vs. / no. - RC's verifier found that on the third round.
+    """
+    root = Path(root) if root is not None else Path(__file__).resolve().parents[2]
+    out: list[dict] = []
+    # EVERY occurrence, not just the first and not only line-anchored ones: an
+    # indented block-quote of a prior directive above the live field silenced
+    # RC's first cut entirely, and both loops quote prior directives constantly.
+    for m in _PREMISE_LINE.finditer(directive):
+        body = m.group(1)
+        pos = 0
+        for tag in _PREMISE_TAG.finditer(body):
+            claim = body[pos:tag.start()].strip().strip(",;").strip()
+            pos = tag.end()
+            if not claim:
+                continue
+            kind = tag.group(1).lower()
+            if kind == "unverified":
+                # Tag precedence: the director's own doubt outranks any lookup
+                # we could do. Never downgrade a self-declared unknown.
+                out.append({"kind": "unverified", "claim": claim})
+                continue
+            ref = _REFERENT.search(claim)
+            if not ref:
+                continue
+            path, line = ref.group(1), ref.group(2)
+            target = root / path.replace("\\", "/")
+            if not target.is_file():
+                out.append({"kind": "digest-cites-missing-path",
+                            "claim": claim, "path": path})
+            elif line is not None:
+                try:
+                    n = sum(1 for _ in target.open(encoding="utf-8", errors="replace"))
+                except OSError:
+                    n = 0
+                if int(line) > n:
+                    out.append({"kind": "digest-cites-missing-line",
+                                "claim": claim, "path": path, "line": int(line)})
+    return out
+
+
+def premise_correction(findings: list[dict]) -> str:
+    """The text prepended to the prompt. An ORDER, not a request.
+
+    'State this deviation in your summary line' is not a mechanism - a model
+    that silently complies teaches the director nothing and it re-issues the
+    same broken shape next cycle. This tells the session what to do instead.
+    """
+    if not findings:
+        return ""
+    lines = ["DIRECTIVE PREMISE CORRECTION - the directive's own PREMISE-CHECK "
+             "flags claims that were not established. VERIFY each against the "
+             "repo before acting on it; if one is false, say so and do the work "
+             "the true state implies rather than the work the directive assumed."]
+    for f in findings:
+        if f["kind"] == "unverified":
+            lines.append(f"- the director marked this UNVERIFIED: {f['claim']}")
+        elif f["kind"] == "digest-cites-missing-path":
+            lines.append(f"- claimed [from-digest] but {f['path']} is NOT on "
+                         f"disk: {f['claim']}")
+        else:
+            lines.append(f"- claimed [from-digest] but {f['path']} has no line "
+                         f"{f['line']}: {f['claim']}")
+    return "\n".join(lines) + "\n\n"
 
 
 def directive_payload(cycle: int, body: str, src: str, clear_each_cycle: bool = True) -> str:
@@ -298,6 +397,7 @@ class SdkExecutor:
     """
 
     name = "sdk"
+    premise: list = []
 
     def __init__(self, cfg, ctl, *, log, stop, awrite, **_ignored):
         self.cfg = cfg
@@ -362,7 +462,16 @@ class SdkExecutor:
         import subprocess as _sp
 
         argv = self.build_argv(cycle)
-        prompt = sdk_prompt(cycle, body, src)
+        # The directive's own PREMISE-CHECK stamp, made load-bearing. Findings
+        # go BOTH to the executing session (as a correction it must act on) and
+        # onto the payload the DIRECTOR reads, because asking a model to mention
+        # a deviation in prose is not a mechanism - one that silently complies
+        # teaches the director nothing and it re-issues the same shape.
+        findings = premise_findings(body, root=self.cfg.get("repo_root"))
+        self.premise = findings
+        for f in findings:
+            self.log(f"cycle {cycle}: premise {f['kind']}: {f['claim'][:120]}")
+        prompt = premise_correction(findings) + sdk_prompt(cycle, body, src)
         timeout = float(self.cfg.get("cycle_deadline_sec", 5400))
         self.log(f"cycle {cycle}: sdk executor starting ({len(body)} chars, timeout {timeout:.0f}s)")
 
@@ -400,7 +509,8 @@ class SdkExecutor:
             err = f"timeout after {timeout:.0f}s"
             return DoneRecord(cycle=cycle, session_id=self.session_in_play,
                               error=err,
-                              raw=failure_raw(cycle, err, self.session_in_play))
+                              raw=failure_raw(cycle, err, self.session_in_play,
+                                              self.premise))
 
         try:
             res = _json.loads(out.strip() or "{}")
@@ -411,7 +521,8 @@ class SdkExecutor:
             err = f"unparseable result: {head}"
             return DoneRecord(cycle=cycle, session_id=self.session_in_play,
                               error=err,
-                              raw=failure_raw(cycle, err, self.session_in_play))
+                              raw=failure_raw(cycle, err, self.session_in_play,
+                                              self.premise))
 
         cost = float(res.get("total_cost_usd") or 0.0)
         # A payload sid supersedes the retained one, but never leaves us blind:
@@ -426,7 +537,7 @@ class SdkExecutor:
                      f"(rc={proc.returncode} sid={sid}): {detail}")
             err = detail or f"exit {proc.returncode}"
             return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
-                              error=err, raw=failure_raw(cycle, err, sid))
+                              error=err, raw=failure_raw(cycle, err, sid, self.premise))
 
         so = res.get("structured_output")
         if not isinstance(so, dict) or not all(k in so for k in DONE_SCHEMA["required"]):
@@ -437,7 +548,7 @@ class SdkExecutor:
             self.log(f"cycle {cycle}: sdk returned no valid structured_output (sid={sid})")
             err = "missing or incomplete structured_output"
             return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
-                              error=err, raw=failure_raw(cycle, err, sid))
+                              error=err, raw=failure_raw(cycle, err, sid, self.premise))
 
         self.log(f"cycle {cycle}: sdk done cost=${round(cost, 4)} sid={sid} "
                  f"sha={str(so.get('sha'))[:8]} tests={so.get('tests_pass')}")
@@ -448,7 +559,7 @@ class SdkExecutor:
             regressions=bool(so.get("regressions")),
             cost_usd=cost,
             session_id=sid,
-            raw=dict(so),
+            raw=(dict(so) | {"premise_findings": findings}) if findings else dict(so),
         )
 
 

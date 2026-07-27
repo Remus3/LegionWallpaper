@@ -60,16 +60,25 @@ def test_a_missing_session_id_is_omitted_not_nulled():
     assert "session_id" not in raw
 
 
-@pytest.mark.parametrize("site", [
-    'raw=failure_raw(cycle, err, self.session_in_play))',
-    'raw=failure_raw(cycle, err, sid))',
-])
-def test_the_failure_paths_actually_use_it(site):
+def test_every_failure_path_passes_the_premise_findings_through():
     """Item 10: the fix is only real if EVERY instance carries it. Four sdk
     failure paths exist - timeout, unparseable stdout, is_error/returncode, and
-    missing structured_output."""
+    missing structured_output.
+
+    Asserts the ARGUMENT is threaded, not an exact call string. The first cut
+    pinned two verbatim call sites and broke the moment failure_raw gained a
+    parameter - a test pinning source text rather than behaviour reports a
+    change as a defect.
+    """
+    import re as _re
     src = (ROOT / "ops" / "loop" / "executor.py").read_text(encoding="utf-8")
-    assert site in src
+    calls = _re.findall(r"failure_raw\((?:[^()]|\([^()]*\))*\)", src)
+    calls = [c for c in calls if not c.startswith("failure_raw(cycle: ")]
+    assert len(calls) == 4, f"expected 4 failure_raw call sites, found {len(calls)}"
+    for c in calls:
+        assert "self.premise" in c, (
+            f"a failure path drops the premise findings, so a cycle that "
+            f"deviated AND died hides the deviation: {c}")
 
 
 def test_every_sdk_failure_return_carries_a_raw():
@@ -93,8 +102,15 @@ def test_the_clean_payload_shape_is_unchanged():
     src = (ROOT / "ops" / "loop" / "executor.py").read_text(encoding="utf-8")
     sdk = src[src.index("class SdkExecutor"):]
     tail = sdk[sdk.rindex("return DoneRecord("):]
-    assert "raw=dict(so)" in tail, (
-        "the success path must hand through structured_output untouched - it "
-        "copies rather than aliases, which is the shape verified on disk rather "
-        "than the one I first assumed")
+    assert "dict(so)" in tail, (
+        "the success path must hand through structured_output - it copies "
+        "rather than aliases, which is the shape verified on disk rather than "
+        "the one I first assumed")
     assert "failure_raw" not in tail, "a clean cycle must not carry a failure payload"
+    # The premise stamp is allowed here, but ONLY conditionally: adding a key on
+    # every clean cycle is the `"summary": ""` shape change RC already paid for,
+    # which alters the director's context on good cycles while recording nothing.
+    if "premise_findings" in tail:
+        assert "if findings" in tail, (
+            "the premise stamp must be conditional - an unconditional key "
+            "changes the seam's shape on every clean cycle")
