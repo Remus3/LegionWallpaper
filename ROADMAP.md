@@ -25,6 +25,31 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   DreamUp step4 prompts (superseded by the render path). Match on EVERY axis -
   provenance and resolution both slipped in while palette was being tuned.
 
+- **f1-phase6-queue - 12 follow-ups from the sdk-channel migration - NEXT (joint with RC).**
+  Phase 6 DELETIONS remain HELD by operator call (flip yes, delete no); both repos
+  default to `channel: sdk` and rollback is one config key. The gate for revisiting
+  deletion is satisfied on both sides (LW 24-min / RC 71-min full-length cycles).
+  Queue, agreed with RC and unstarted: (1) `chmod +x .githooks/*` - DONE on LW,
+  open on RC. (2) `gate_inactive_reason` must check the exec bit on POSIX, not just
+  presence. (3) log `sid` on EVERY `SdkExecutor` path incl. success - a cycle's
+  transcript is currently unfindable once the process exits. (4) `ENGINE-IMPACT:
+  BUMP` must require a numbered step naming every anchor site (RC found a FIFTH
+  anchor: two changelogs, `agents/daemon_slayer/CHANGELOG.md` != `Share/CHANGELOG.md`).
+  (5) `skipif` audit - skip when the CAPABILITY is absent, never when the thing under
+  test is. (5a) pin the shared-file sha256s as constants so each repo's CI enforces
+  parity alone. (6) CI arms the gate then asserts it - DONE on LW. (7) directives
+  naming N parallel agents must assert disjoint files; executor serializes AND
+  RECORDS the deviation. (9) POSIX `winmutex` branch must emit `UNSERIALIZED` -
+  today it is unserialized AND untraced, so every guard we built passes vacuously
+  off-Windows; joint edit + re-sync. (10) enumerate every instance of a defect class
+  IN THE FILE before committing the fix, then across the codebase - CLAUDE.md:171
+  says this but points outward, and it was missed twice in one function. (11) a
+  claim heavy enough to justify a schema change ships as a TEST, not a transcript.
+  (12) when asserting CI state, distinguish `not evaluated` (docs-only path filter)
+  from `queued` - they are indistinguishable in `gh run list`.
+  Next: land 5a + 9 jointly with RC (byte-identical shared files, needs re-sync).
+  Evidence: LEDGER 40; `docs/specs/2026-07-26-f1-sdk-executor-channel.md`.
+
 - **glb-render-fetch - acquire the .glb bytes the ported resolver now addresses - NEXT.**
   Next: the addressing + filtering half shipped 2026-07-26 (LEDGER 38, 1dbfc2d) -
   `glb_model_url` / `glb_skin_id` / `is_weapon_joint` / `weapon_joint_indices` /
