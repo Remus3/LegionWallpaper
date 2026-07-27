@@ -25,21 +25,20 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   DreamUp step4 prompts (superseded by the render path). Match on EVERY axis -
   provenance and resolution both slipped in while palette was being tuned.
 
-- **glb-render-pipeline - port the weapon renderer to .glb named joints - READY.**
-  Next: fold the verified `.glb` path into the existing renderer. Unblocks the
-  documented ceiling in `docs/research/crossbow_render_poc.md` (".skl 404 ->
-  bone NAMES unavailable"), which forced base-skin-only isolation and manual
-  curation. `cdn.modelviewer.lol/lol/models/<champ>/<skinId>/model.glb`
-  (skinId = championId*1000 + skinIndex) ships fully named joints; name-based
-  isolation renders clean on 4/5 Vayne skins including aristocrat, the POC's
-  wine-bottle failure. Rule: match `weapon` case-insensitively, exclude
-  `buffbone`, `b_weapon*`, `*wings*`, `*ult*`.
-  Evidence: LEDGER 37; `scratchpad/glb_render/` (110 renders),
-  `scratchpad/glb_weapon_isolate.py`.
+- **glb-render-fetch - acquire the .glb bytes the ported resolver now addresses - NEXT.**
+  Next: the addressing + filtering half shipped 2026-07-26 (LEDGER 38, 1dbfc2d) -
+  `glb_model_url` / `glb_skin_id` / `is_weapon_joint` / `weapon_joint_indices` /
+  `mesh_primitives` live in `tools/lw_gen_weapon_assets.py` and are pure, so the
+  module stays torch-free AND network-free. What is still OWED is the I/O half:
+  fetch the URL, parse the GLB container, skin the mesh against the surviving
+  joints, and render the crop that `load_assets` consumes. That half needs a
+  network dependency and a render backend, so it is a separate slice by design.
+  Evidence: LEDGER 38 (1dbfc2d); LEDGER 37 for the live CDN verification.
   Do-not-redo: scraping the modelviewer.lol WEBSITE (Cloudflare + in-app blobs,
   POC-measured); any fixed bone-INDEX set (two rig conventions exist, so indices
   cannot port); reading `primitives[0]` alone (newer skins split mesh 0 into
-  9-10 primitives sharing one POSITION accessor - drops most triangles).
+  9-10 primitives sharing one POSITION accessor - drops most triangles); the
+  `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
 - **refs-46-first-pass - process the 46 intaken reference_pictures - NEXT.**
   Next: first pass the 46 slugs now staged in `1.First Pass Scratch` (intaken

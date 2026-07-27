@@ -19,3 +19,11 @@ Columns: ID | Title | Status (WIP / DONE / BLOCKED) | Commit | Notes
 | R9 | Archive docs/RESTORATION_PLAN_v1.md | DONE | 973838f | 2026-07-17 cycle 9 - superseded-by-v2 verified (v2 header names v1 as archived predecessor), git mv verbatim to docs/_archive/, repointed the one scope-IN ref (RESTORATION_PLAN.md header); LEDGER/ADR-002/history_notes/FABLE5_PLAYBOOK/loop-config mentions left (scope-OUT immutable) |
 | R10 | Hygiene docs/AGENTS.md | DONE | 4a1cc3a | 2026-07-17 cycle 10 - fixed stale header conditional (product now defined per ADR-002; wiring still operator-gated); all TBDs verified true on disk (agents/ + ops/lw_supervisor.py absent, LEDGER has no framework work); no DONE/redundant/history content (pattern reference doc, pointers elsewhere already one-line); roster table kept as-is (reference doc, not an open-items list - item grammar N/A); ASCII_OK; history_notes untouched |
 | R11 | Hygiene docs/DEEP_AUDIT_CHARTER.md | DONE | 6cebfd7 | 2026-07-17 cycle 11 - fixed stale header conditional (product+code now exist per ADR-002/003, 40 tools/*.py; operator directive = sole arm gate), probe-and-set model note (settings.json already carries claude-fable-5[1m] + xhigh, verified :107-:108), slot 5 + P4/P5 "product not yet defined" -> define-at-arm-time, directive_suffix claim reworded (exists but carries md-hygiene focus, repoint at arm time); DORMANT banner + 7 UNSET slots + hard floors untouched; grammar N/A (template, no open-items list); history_notes untouched; ASCII_OK; verifier CONFIRM pre-merge |
+
+## DIRECTOR REFILL
+
+Rows the headless-loop director opened after the curated R1-R11 hygiene chain.
+
+| ID | Title | Status | Commit | Notes |
+|----|-------|--------|--------|-------|
+| R12 | Port weapon renderer to glb | DONE | 1dbfc2d | 2026-07-26 - ROADMAP glb-render-pipeline. Premise CORRECTED: no live `.skl` scraper existed to replace, so this ADDED the addressing + bone-filter + primitive-aggregation layer rather than porting one. TDD RED-first (14 red -> 27 green in file; suite 680 passed / 11 skipped). Verifier CONFIRM incl. tamper diff + 3-way sabotage. The fetch/render half is re-opened as ROADMAP `glb-render-fetch`. |
