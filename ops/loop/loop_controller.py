@@ -558,7 +558,12 @@ def stall_recovery_directive(cycle):
     running the done_sentinel final step, so the controller gets its claude.done either
     way (recovered or blocked). Line 1 is the CYCLE header the AHK bridge skips. Pure +
     unit-testable; the main() wiring extends the deadline once around it."""
-    py = r"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe"
+    # sys.executable, not a hardcoded interpreter path: the recovery directive
+    # must name the SAME python that is running this controller. A pinned path
+    # is wrong the moment the interpreter moves or a venv is in play, and it
+    # would send the stall-recovery step - the one that runs when things are
+    # already broken - at an interpreter that may not exist.
+    py = sys.executable
     return (
         f"CYCLE={cycle}\n"
         "/diagnose the loop stall: run git status, read the newest pytest result file, read "

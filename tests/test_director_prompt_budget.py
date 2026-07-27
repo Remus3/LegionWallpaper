@@ -121,3 +121,71 @@ def test_the_no_argv_config_fallback_is_module_relative():
 def test_the_tracked_config_is_where_that_fallback_points():
     """The fallback is only useful if it names a file the repo actually ships."""
     assert (ROOT / "ops" / "loop" / "config.json").is_file()
+
+
+# ---- the hardcoded-path CLASS, not the one line ----------------------------
+#
+# f1 item 10: enumerate every instance of a defect class IN THE FILE before
+# committing the fix, then across the codebase. The no-argv config fallback was
+# fixed one commit before this guard existed, and a second site in the SAME file
+# (the recovery directive's interpreter path) was visible in the same grep
+# output and went unfixed. RC hit the identical thing at f0f3fd32 - "the
+# hardcoded repo root was a class, not the one line just fixed". This test is
+# what stops the third round.
+
+# Absolutes that are DELIBERATE. Each needs a reason, or it is drift in costume.
+ALLOWED_ABSOLUTES = {
+    # The machine-wide slot root is the cross-repo contract itself: LW and RC
+    # coordinate through ONE path, so it cannot be repo-relative. slots.py is
+    # also byte-identical-by-contract and must never be edited unilaterally.
+    ("ops/loop/slots.py", "ProgramData"),
+    ("ops/loop/p5_probe.py", "ProgramData"),
+    # Prose, not a path the code opens: usage text and the directive's FINAL
+    # STEP instruction, both consumed on Legion by a human or an executor.
+    # FUTURE: executor.py's copy pins an interpreter and would be wrong in a
+    # venv - worth deriving, but it is instruction text, not a resolved path.
+    ("ops/loop/done_sentinel.py", "docstring"),
+    ("ops/loop/executor.py", "FINAL STEP"),
+}
+_BANNED_PREFIXES = (r"C:\LegionWallpaper", r"C:\Users" + "\\")
+
+
+def _hardcoded_path_sites():
+    import ast as _ast
+    hits = []
+    for py in sorted((ROOT / "ops").rglob("*.py")):
+        if "__pycache__" in py.parts:
+            continue
+        rel = py.relative_to(ROOT).as_posix()
+        try:
+            tree = _ast.parse(py.read_text(encoding="utf-8", errors="replace"))
+        except SyntaxError:
+            continue
+        docstrings = {id(_ast.get_docstring(n, clean=False))
+                      for n in _ast.walk(tree)
+                      if isinstance(n, (_ast.Module, _ast.FunctionDef,
+                                        _ast.AsyncFunctionDef, _ast.ClassDef))}
+        for node in _ast.walk(tree):
+            if not (isinstance(node, _ast.Constant) and isinstance(node.value, str)):
+                continue
+            if not any(p in node.value for p in _BANNED_PREFIXES):
+                continue
+            kind = "docstring" if id(node.value) in docstrings else "code"
+            if kind == "docstring" and (rel, "docstring") in ALLOWED_ABSOLUTES:
+                continue
+            if any(rel == f and tag in ("FINAL STEP",) and tag.lower().replace(" ", "") in
+                   node.value.lower().replace(" ", "")
+                   for f, tag in ALLOWED_ABSOLUTES):
+                continue
+            hits.append(f"{rel}:{node.lineno}")
+    return hits
+
+
+def test_no_module_resolves_a_path_only_this_machine_has():
+    """A hardcoded root is not one line - it is every line that shares the
+    assumption, and the ones that stay behind fail only off Legion."""
+    hits = _hardcoded_path_sites()
+    assert hits == [], (
+        f"hardcoded machine paths in ops/: {hits}. Derive from "
+        f"Path(__file__) or sys.executable, or add an entry to "
+        f"ALLOWED_ABSOLUTES with the reason it must be absolute.")

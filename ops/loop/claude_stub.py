@@ -17,8 +17,12 @@ import subprocess
 import time
 from pathlib import Path
 
-ROOT = r"C:\LegionWallpaper"
-CTL = Path(ROOT) / "ops" / "loop" / "control"
+# Module-relative: this file lives at <root>/ops/loop/, so the root is two
+# parents up. A hardcoded absolute root resolves on exactly one machine and
+# silently points at nothing everywhere else (RC f0f3fd32 - the hardcoded
+# root was a CLASS, not the single line first fixed).
+ROOT = Path(__file__).resolve().parents[2]
+CTL = ROOT / "ops" / "loop" / "control"
 # CREATE_NO_WINDOW: 0 on non-Windows so the module still imports/tests in CI.
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
