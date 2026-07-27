@@ -11,6 +11,38 @@
 
 ---
 
+## 2026-07-27 (post-loop) - the two filed items, shipped on operator call
+
+Commits `6c0423c` + `711f5f9`. Detail: LEDGER 57. Both CI green (evaluated, by
+conclusion + head sha). 831 passed / 14 skipped.
+
+- **refs-46-first-pass is DONE: 46/46 submitted, 0 approved.** The 46
+  `_firstneedauth` files sit in `1.First Pass Scratch`. Approval is operator-only
+  and the loop never touched it. The loop stopped clean on `max_cycles 12`.
+- **Docs-only pushes ran no CI** while guards read docs off disk. `paths-ignore`
+  dropped; the style drift gate MOVED from nightly to push (a nightly gate does
+  not block, it reports up to 24h later). LW deliberately did NOT copy RC's
+  docs-guard complement: their skipped suite carries playwright/mypy/Share sync,
+  LW's is 28s, so the complement costs more than the filter saved.
+- **`check_ci`'s not-evaluated logic KEPT**, against my own phrasing of the
+  option the operator approved. It never fires with no globs declared, and
+  deleting it would let a re-added filter silently revive item 12's ambiguity.
+  The drift guard is inverted instead - it now asserts NO filter.
+- **The PREMISE-CHECK stamp is now load-bearing.** `[UNVERIFIED]` is propagated
+  (the director already declared the unknown; propagating is not inventing).
+  `[from-digest]` means "I read this in context", not "this is true" - the digest
+  can be fabricated upstream, so a claim naming a checkable referent is checked
+  against disk. Three parser traps came from RC's verifier rounds, not from
+  rediscovery: scan EVERY field (block-quotes silence a first-only scan), split
+  on TAG not sentence boundaries (`e.g.`/`i.e.` zero the findings), never fold
+  two tags on one line.
+- **NEXT:** approve or reject the 46. Nothing else is claimed. The standing
+  question both repos deferred is still open: which assertion in a file could
+  never have gone red - LW's measured blind spot is 3 win32-only tests CI never
+  runs and 14 `importorskip` ML tests green-by-absence everywhere.
+
+---
+
 ## 2026-07-27 (loop cycle 11) - the alpha drop stops being silent
 
 Code slice, not docs. Detail: LEDGER 56, plan row R26, commit `ef67c49`
