@@ -25,7 +25,7 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   DreamUp step4 prompts (superseded by the render path). Match on EVERY axis -
   provenance and resolution both slipped in while palette was being tuned.
 
-- **f1-phase6-queue - 12 follow-ups from the sdk-channel migration - NEXT (joint with RC).**
+- **f1-phase6-queue - 12 follow-ups from the sdk-channel migration - RC-SIDE REMAINDER (LW's share is DONE).**
   Phase 6 DELETIONS remain HELD by operator call (flip yes, delete no); both repos
   default to `channel: sdk` and rollback is one config key. The gate for revisiting
   deletion is satisfied on both sides (LW 24-min / RC 71-min full-length cycles).
@@ -57,8 +57,19 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   id to log at all. Same commit repairs the CI red that `202cef3` introduced
   (the `directive_suffix` guard keyworded `done_sentinel`, which the phase-6
   DO-NOT-REDO line legitimately names).
-  Next: LW takes (12) `not evaluated` vs `queued`; RC keeps (2), (4), (5), (7),
-  (10), (11).
+  (12) is DONE on LW (`07ed5bc`): `check_ci` split the single `no-runs` outcome
+  into `not-evaluated` and `queued`. The `paths-ignore` globs are PARSED from
+  `.github/workflows/ci.yml` rather than hardcoded, so the check cannot drift
+  from the workflow, and every unknown - unreadable workflow, no `paths-ignore`
+  key, failed `git show`, merge commit - falls to `queued`. `not-evaluated`
+  requires positive evidence. `reconcile()` still REFUSEs only on `failure`:
+  making `queued` refuse would wedge an unattended run on GitHub API lag.
+  Residual, adjacent and NOT item 12: `check_ci` only rev-parses when
+  `sha == "HEAD"`, so an abbreviated sha reaches `gh run list --commit` and
+  returns `[]`. The conservative fallback answers `queued`, so it is not a false
+  green, but the abbreviation gap is real - `check_ci("549f52c")` -> `queued`
+  while the full sha -> `success`.
+  LW's share of the queue is now empty; RC keeps (2), (4), (5), (7), (10), (11).
   Cross-repo channel is the gitignored `moon_sync_inbox/` in each repo.
   Evidence: LEDGER 41 + 40; `docs/specs/2026-07-26-f1-sdk-executor-channel.md`.
 

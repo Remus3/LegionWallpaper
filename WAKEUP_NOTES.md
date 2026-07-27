@@ -11,6 +11,19 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - f1 item 12, the last LW-owned phase-6 item
+
+Commit `07ed5bc` (slice `d8f5bc8`). Detail: LEDGER 43, plan row R14. `check_ci`
+no longer answers `no-runs` to two different questions: `not-evaluated` needs
+positive evidence that every changed file is covered by a `paths-ignore` glob
+parsed live from `ci.yml`, and every unknown falls to `queued`. `reconcile()`
+still refuses on `failure` alone - on purpose. Suite 718 passed / 11 skipped,
+ruff clean, verifier CONFIRM 9/9 with an independently reproduced tamper.
+LW's share of the f1-phase6 queue is now EMPTY; RC keeps (2), (4), (5), (7),
+(10), (11). Cross-repo pin re-hashed equal in both trees (RC HEAD `50f0e826`).
+Carry-forward: an abbreviated sha into `check_ci` still answers `queued`
+(fails safe) - logged in ROADMAP, not patched inside an unrelated item.
+
 ## 2026-07-26 (loop cycle) - f1 item 3, and a false-divergence note withdrawn
 
 Commit `549f52c`. Detail: LEDGER 42. CI green (evaluated, 1m5s - not a skipped
