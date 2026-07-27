@@ -7,22 +7,31 @@
 name: ci
 
 on:
+  # NO paths-ignore, deliberately. It carried `**/*.md` from 2026-06-30 as a
+  # MINUTE SAVER, and the justification written here was that the ASCII-hygiene
+  # guard is backstopped by precommit_gate.py so "nothing authored slips past on
+  # a docs-only push". That is true of GLYPHS and false of everything else: the
+  # git hook checks staged lines for banned characters, it does not run the
+  # tests. Guards that read tracked .md off disk and assert on its CONTENT were
+  # skipped by the exact commits most likely to break them.
+  #
+  # RC hit it twice in a row on 2026-07-27 with this filter in place: a docs-only
+  # commit pushed a plan row past a director-context byte cap and turned a .py
+  # guard RED with no CI run, and the docs-only FIX for that also ran no CI, so
+  # its own green was never machine-confirmed.
+  #
+  # LW deliberately diverges from RC's fix here. RC added a separate docs-guard
+  # workflow plus a selector, because its skipped suite includes playwright,
+  # mypy and a Share sync and docs-only commits are ~55% of its history. LW's
+  # whole suite is ~28s with none of that, so the complement would cost more
+  # complexity than the filter ever saved. Dropping the filter also retires the
+  # not-evaluated ambiguity that only existed because of it (f1 item 12).
   push:
     branches: [main]
-    # MINUTE SAVER (carried from RC 2026-06-30): docs-only commits (the
-    # per-session LEDGER/WAKEUP notes sync dominates a young repo's history)
-    # skip CI entirely. Any non-.md change in the same commit still triggers
-    # the full run. The ASCII-hygiene guard that scans .md is backstopped
-    # locally by the precommit_gate.py PreToolUse hook (blocks banned glyphs
-    # on staged lines), so nothing authored slips past on a docs-only push.
-    paths-ignore:
-      - '**/*.md'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
   schedule:
-    - cron: '0 8 * * *'  # Nightly run (paths-ignore does not apply to schedule)
+    - cron: '0 8 * * *'  # Nightly full run (also covers a quiet day with no pushes)
   workflow_dispatch:       # manual trigger to verify the full suite on demand
 
 # MINUTE SAVER (carried from RC 2026-06-30): cancel a superseded in-progress
@@ -84,15 +93,11 @@ jobs:
           # nightly can absorb slow/full product suites (TBD - product not
           # yet defined) without slowing per-push CI.
           pytest tests/ -q --tb=short
-      - name: style drift gate
-        run: |
-          # tools/strip_em_dashes.py --check is the dry-run drift gate: it
-          # exits 1 if any em/en dash or smart quote is present in tracked
-          # authored text (git ls-files enumeration = tracked files only).
-          # Pure stdlib. Nightly-only: the .md-scanning surface is excluded
-          # from per-push CI by the docs-only paths-ignore, so this catches
-          # any glyph drift that rode in on a docs-only push.
-          python tools/strip_em_dashes.py --check
+      # The style drift gate used to live here, nightly-only, because the .md
+      # surface it scans was excluded from per-push CI. That filter is gone, so
+      # the gate moved to the `check` job where it can block rather than report.
+      # Not duplicated here: a nightly copy would only ever re-check a tree that
+      # the push gate already refused to let land.
 
   check:
     if: github.event_name != 'schedule'
@@ -165,3 +170,16 @@ jobs:
           # drift at PR time so it is never dismissed as "pre-existing / not
           # in CI".
           pytest tests/ -q --tb=line
+
+      - name: style drift gate
+        run: |
+          # tools/strip_em_dashes.py --check is the dry-run drift gate: it exits
+          # 1 if any em/en dash or smart quote is present in tracked authored
+          # text (git ls-files enumeration = tracked files only). Pure stdlib.
+          #
+          # MOVED here from the nightly job. It was nightly-only for exactly one
+          # reason - the .md surface it scans was excluded from per-push CI by
+          # the docs-only paths-ignore - and that filter is gone, so the gate now
+          # runs where it can actually block. A nightly gate does not block; it
+          # reports, up to 24h after the drift is already on main.
+          python tools/strip_em_dashes.py --check

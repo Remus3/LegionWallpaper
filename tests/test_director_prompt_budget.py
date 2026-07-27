@@ -75,11 +75,28 @@ def test_directive_suffix_is_emitted_under_its_own_section_header():
         "the header must say the live sections outrank the static text")
 
 
-@pytest.mark.skipif(not LIVE_PROMPT.is_file(),
-                    reason="no director prompt artifact on this machine (CI)")
+def _live_director_text():
+    """The live prompt artifact, but ONLY when it is a DIRECTOR prompt.
+
+    `_gemini_in.txt` is reused by BOTH gemini calls - director and auditor - so
+    whichever ran last owns it. These tests assumed director unconditionally and
+    passed for hours purely because the loop happened to be stopped after a
+    director call; the moment a run ended on an audit they went red with nothing
+    wrong. Same class as everything else this session: a check reading an
+    artifact it had never been exercised against.
+    """
+    if not LIVE_PROMPT.is_file():
+        pytest.skip("no gemini prompt artifact on this machine (CI)")
+    text = LIVE_PROMPT.read_text(encoding="utf-8", errors="replace")
+    if "You are the AUDITOR" in text or "=== ROADMAP.md" not in text:
+        pytest.skip("last gemini call was the AUDITOR - not a director prompt")
+    return text
+
+
 def test_live_director_prompt_keeps_headroom_under_the_cap():
     """Fails at 90 percent, not at 100. At 100 the damage is already done and
     silent; the whole point is to be told while there is still room to act."""
+    _live_director_text()
     size = LIVE_PROMPT.stat().st_size
     assert size < 54_000, (
         f"director prompt is {size} bytes of the 60,000 cap. Past the cap the "
@@ -88,11 +105,9 @@ def test_live_director_prompt_keeps_headroom_under_the_cap():
         f"ignoring instructions. Trim a component cap before that happens.")
 
 
-@pytest.mark.skipif(not LIVE_PROMPT.is_file(),
-                    reason="no director prompt artifact on this machine (CI)")
 @pytest.mark.parametrize("marker", DEDUP_MARKERS)
 def test_live_director_prompt_still_carries_its_dedup_evidence(marker):
-    text = LIVE_PROMPT.read_text(encoding="utf-8", errors="replace")
+    text = _live_director_text()
     assert "STDIN CAP" not in text, "the cut already fired on the last real prompt"
     assert marker in text, f"{marker} missing from the assembled director prompt"
 
