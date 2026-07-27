@@ -34,12 +34,14 @@ def _shim(tmp_path: Path, *, stdout: str = "", exit_code: int = 0,
           sleep: float = 0.0, echo_argv: bool = True) -> list:
     """A fake `claude` that prints canned stdout and exits with a chosen code."""
     script = tmp_path / "fake_claude.py"
+    # argv is echoed BEFORE the sleep on purpose: the timeout tests need to know
+    # which --session-id the executor minted for a cycle that never returns.
     script.write_text(
         "import sys, time, json, pathlib\n"
-        f"time.sleep({sleep})\n"
         + ("pathlib.Path(r'" + str(tmp_path / "argv.json") +
            "').write_text(json.dumps(sys.argv[1:]), encoding='utf-8')\n"
            if echo_argv else "")
+        + f"time.sleep({sleep})\n"
         + "sys.stdin.read()\n"
         f"sys.stdout.write({stdout!r})\n"
         f"sys.exit({exit_code})\n",
@@ -211,6 +213,82 @@ def test_timeout_kills_the_tree_and_reports(tmp_path: Path):
     rec = _build(cfg, tmp_path, logs).run(1, "b", "fixed")
     assert rec.error and "timeout" in rec.error
     assert any("taskkill" in m for m in logs), "must taskkill, never Stop-Process"
+
+
+# ---- the session id has to reach the log on EVERY path --------------------
+# This channel runs unattended. When a cycle wedges or dies, controller.log is
+# the only breadcrumb an operator has, and without the session id there is no
+# way to pick that cycle's transcript JSONL out of all the others on disk.
+
+
+def _minted_sid(tmp_path: Path) -> str:
+    argv = json.loads((tmp_path / "argv.json").read_text(encoding="utf-8"))
+    return argv[argv.index("--session-id") + 1]
+
+
+def test_success_path_logs_the_session_id(tmp_path: Path):
+    logs: list = []
+    out = json.dumps({"is_error": False, "total_cost_usd": 0.42,
+                      "session_id": "sess-1", "structured_output": OK_STRUCT})
+    rec = _build(_cfg(tmp_path, _shim(tmp_path, stdout=out)),
+                 tmp_path, logs).run(1, "b", "fixed")
+    assert rec.error is None
+    assert any("sess-1" in m for m in logs), logs
+
+
+def test_is_error_path_logs_the_session_id(tmp_path: Path):
+    logs: list = []
+    out = json.dumps({"is_error": True, "result": "rate limited",
+                      "total_cost_usd": 0.1, "session_id": "sess-err"})
+    rec = _build(_cfg(tmp_path, _shim(tmp_path, stdout=out)),
+                 tmp_path, logs).run(1, "b", "fixed")
+    assert rec.error
+    assert any("sess-err" in m for m in logs), logs
+
+
+def test_missing_structured_output_path_logs_the_session_id(tmp_path: Path):
+    logs: list = []
+    out = json.dumps({"is_error": False, "total_cost_usd": 1.0,
+                      "session_id": "sess-noso", "result": "text only"})
+    rec = _build(_cfg(tmp_path, _shim(tmp_path, stdout=out)),
+                 tmp_path, logs).run(1, "b", "fixed")
+    assert rec.error and "structured_output" in rec.error
+    assert any("sess-noso" in m for m in logs), logs
+
+
+def test_unparseable_stdout_logs_the_session_id(tmp_path: Path):
+    """No payload to read a session_id out of - but the executor minted one."""
+    logs: list = []
+    rec = _build(_cfg(tmp_path, _shim(tmp_path, stdout="not json at all")),
+                 tmp_path, logs).run(1, "b", "fixed")
+    sid = _minted_sid(tmp_path)
+    assert rec.error and "unparseable" in rec.error
+    assert any(sid in m for m in logs), logs
+    assert rec.session_id == sid
+
+
+def test_timeout_logs_the_minted_session_id(tmp_path: Path):
+    """The worst gap: `res` never exists, so a payload-sourced sid is impossible.
+    The executor chose the id itself, so the transcript is already on disk under
+    a name the loop knows - a timed-out cycle is exactly the one to go read."""
+    logs: list = []
+    out = json.dumps({"structured_output": OK_STRUCT})
+    cfg = _cfg(tmp_path, _shim(tmp_path, stdout=out, sleep=10), cycle_deadline_sec=1)
+    rec = _build(cfg, tmp_path, logs).run(1, "b", "fixed")
+    sid = _minted_sid(tmp_path)
+    assert rec.error and "timeout" in rec.error
+    assert any(sid in m for m in logs), logs
+    assert rec.session_id == sid
+
+
+def test_resume_mode_logs_the_resumed_session_id_on_cycle_two(tmp_path: Path):
+    logs: list = []
+    out = json.dumps({"session_id": "sess-keep", "structured_output": OK_STRUCT})
+    ex = _build(_cfg(tmp_path, _shim(tmp_path, stdout=out), clear_each_cycle=False),
+                tmp_path, logs)
+    ex.run(1, "b", "fixed")
+    ex.run(2, "b", "fixed")
+    assert any("cycle 2" in m and "sess-keep" in m for m in logs), logs
 
 
 # ---- channel selection ----------------------------------------------------

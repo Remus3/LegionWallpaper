@@ -9,6 +9,7 @@ separately by a hermetic 2-cycle dry run diffed before/after
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -128,12 +129,107 @@ def test_director_prompt_has_no_hardcoded_final_step():
         "a hardcoded sentinel command contradicts the sdk channel")
 
 
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?;])\s+")
+# A hold note names the file to say it is NOT going away.
+_HOLD_NOTE = re.compile(
+    r"\b(do not|don't|never|stays?|held|hold|no longer|instead of|retired?)\b",
+    re.IGNORECASE)
+# A command names it to say RUN IT: an invocation shape (path, flags, python) or
+# an imperative. Bare "call" is deliberately absent - the live suffix says
+# "by operator call - done_sentinel.py", where call is a noun.
+_ORDER_EVIDENCE = re.compile(
+    r"(final step"
+    r"|done_sentinel\S*\s+--"
+    r"|[\w.\\/]*[\\/]done_sentinel"
+    r"|python[^.]{0,40}done_sentinel"
+    r"|\b(run|runs|running|execute|executes|invoke|invoking|calling|emit|emitting"
+    r"|finish|conclude|wrap up|end (?:the |every |each )?cycle with)\b)",
+    re.IGNORECASE)
+# The sdk FINAL STEP (executor.py) is itself "do NOT run done_sentinel.py" - an
+# order-shaped sentence whose whole point is the opposite. Exempt a negation
+# that governs the verb DIRECTLY, never one reaching past without/until/unless
+# ("do not end a cycle WITHOUT running it" is a mandate wearing a negation).
+_NEGATED_ORDER = re.compile(r"\b(do(?:es)? ?n(?:o|')t|never)\s+"
+                            r"(run|execute|invoke|call|emit)\b", re.IGNORECASE)
+_DOUBLE_NEGATIVE = re.compile(r"\b(without|until|unless)\b", re.IGNORECASE)
+
+
+def _orders_the_sentinel(text: str) -> bool:
+    """True when text INSTRUCTS the executor to run the sentinel.
+
+    Not a bare `done_sentinel` keyword match: the hazard is a suffix that
+    hardcodes a channel-specific FINAL STEP, and naming the file in a
+    do-not-delete note is the opposite of that hazard - a keyword guard turns
+    every such note into a false red (it did - 202cef3 repointed the suffix at
+    the phase-6 drain, whose DO-NOT-REDO line lists the held files by name).
+
+    Also not a verb allowlist: the first attempt matched run/execute/call and a
+    verifier broke it with one-word paraphrases ("End THE cycle with the
+    done_sentinel FINAL STEP"). Inverting it - order unless negated - lost to
+    the same verifier on needle collision: this file writes its mandates AS
+    prohibitions ("never edit either unilaterally"), so "Do not end a cycle
+    without running done_sentinel.py" is an order wearing a hold note's clothes.
+
+    Hence three layers, in order: a sentence with no mention is ignored;
+    invocation shape or an imperative makes it an ORDER whatever else it says;
+    only then can a hold needle exempt it. Anything unclassified defaults to
+    ORDER - rewording an innocuous mention costs a minute, a missed hardcoded
+    FINAL STEP silently contradicts the sdk channel on every cycle."""
+    for sentence in _SENTENCE_SPLIT.split(text):
+        if "done_sentinel" not in sentence.lower():
+            continue
+        if (_NEGATED_ORDER.search(sentence)
+                and not _DOUBLE_NEGATIVE.search(sentence)):
+            continue
+        if _ORDER_EVIDENCE.search(sentence):
+            return True
+        if not _HOLD_NOTE.search(sentence):
+            return True
+    return False
+
+
 def test_directive_suffix_names_no_channel_specific_step():
     """config.json's directive_suffix was LW's SECOND source of the
     contradiction - it also ended every cycle with the sentinel."""
     import json as _json
     cfg = _json.loads((ROOT / "ops" / "loop" / "config.json").read_text(encoding="utf-8"))
-    assert "done_sentinel" not in cfg.get("directive_suffix", "")
+    assert not _orders_the_sentinel(cfg.get("directive_suffix", ""))
+
+
+def test_the_suffix_guard_still_catches_a_real_hardcoded_sentinel():
+    """Narrowing a guard is only safe with the hazard pinned - this is that pin."""
+    for hazard in (
+        # the real pre-c1170ad suffix, then the paraphrase family a verifier
+        # used to break the first (verb-allowlist) version of this guard.
+        "End every cycle with the done_sentinel FINAL STEP.",
+        "End the cycle with the done_sentinel FINAL STEP.",
+        "Finish every cycle with the done_sentinel FINAL STEP.",
+        "FINAL STEP: python ops/loop/done_sentinel.py",
+        "FINAL STEP: python ops/loop/done_sentinel.py --regressions 0 --tests 5",
+        "Finish by calling done_sentinel with the observed count.",
+        # round two: an order that also carries a hold-note needle. This file
+        # writes mandates as prohibitions, so this register is the likely drift.
+        "Run ops/loop/done_sentinel.py --tests <N> instead of the JSON payload.",
+        "Do not end a cycle without running ops/loop/done_sentinel.py --tests <N>.",
+        "Never finish a cycle without ops/loop/done_sentinel.py --tests <N>.",
+        "End every cycle with the done_sentinel FINAL STEP and never skip it.",
+        "Don't call the cycle done until you run ops/loop/done_sentinel.py.",
+        "The done_sentinel FINAL STEP stays mandatory: run it every cycle.",
+        "Run ops/loop/done_sentinel.py at the end and hold the cycle open.",
+        "The sdk JSON is no longer used - run ops/loop/done_sentinel.py --tests 5.",
+        "The ahk bridge is retired but done_sentinel.py is still the FINAL STEP.",
+    ):
+        assert _orders_the_sentinel(hazard), hazard
+    assert not _orders_the_sentinel(
+        "DO NOT REDO: deletions are HELD - done_sentinel.py and meter() both STAY.")
+    # the sdk FINAL STEP itself must be writable into the suffix without a red.
+    assert not _orders_the_sentinel(
+        "FINAL STEP: do NOT run ops/loop/done_sentinel.py; return the JSON object.")
+    # the exact live mention, verbatim - the one shape that must stay exempt.
+    assert not _orders_the_sentinel(
+        "DO NOT REDO (settled, LEDGER 40 + 41): phase-6 DELETIONS are HELD by "
+        "operator call - done_sentinel.py, meter(), claude_gui_bridge.ahk and "
+        "claude_window_title all STAY.")
 
 
 # ---- build(): channel selection ------------------------------------------

@@ -228,6 +228,7 @@ class SdkExecutor:
         self.stop = stop
         self.awrite = awrite
         self.session_id: str | None = None
+        self.session_in_play: str | None = None
 
     def _argv_prefix(self) -> list:
         """`claude_cmd` may be a string or an argv list (tests inject a shim)."""
@@ -266,9 +267,16 @@ class SdkExecutor:
         # is cheaper (no cold re-read of CLAUDE.md + living docs each cycle).
         if self.cfg.get("clear_each_cycle", True) or not self.session_id:
             import uuid
-            argv += ["--session-id", str(uuid.uuid4())]
+            sid = str(uuid.uuid4())
+            argv += ["--session-id", sid]
         else:
-            argv += ["--resume", self.session_id]
+            sid = self.session_id
+            argv += ["--resume", sid]
+        # Retain the id in play (minted OR resumed). On a timeout or an
+        # unparseable-stdout cycle no result payload ever exists, so this is the
+        # only handle on that cycle's transcript JSONL - and those are precisely
+        # the cycles an operator has to go read.
+        self.session_in_play = sid
         return argv
 
     def run(self, cycle: int, body: str, src: str) -> DoneRecord:
@@ -289,7 +297,8 @@ class SdkExecutor:
         except _sp.TimeoutExpired:
             # NEVER Stop-Process (CLAUDE.md hard rule); taskkill /T so the whole
             # tree dies - a `claude -p` that wedged has child tool processes.
-            self.log(f"cycle {cycle}: sdk timeout after {timeout:.0f}s - taskkill /F /T")
+            self.log(f"cycle {cycle}: sdk timeout after {timeout:.0f}s "
+                     f"(sid={self.session_in_play}) - taskkill /F /T")
             try:
                 _sp.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
                         capture_output=True, timeout=30,
@@ -297,23 +306,29 @@ class SdkExecutor:
             except (OSError, _sp.SubprocessError):
                 pass
             proc.wait(timeout=30)
-            return DoneRecord(cycle=cycle, error=f"timeout after {timeout:.0f}s")
+            return DoneRecord(cycle=cycle, session_id=self.session_in_play,
+                              error=f"timeout after {timeout:.0f}s")
 
         try:
             res = _json.loads(out.strip() or "{}")
         except ValueError:
             head = (out or err or "").strip().replace("\n", " ")[:200]
-            self.log(f"cycle {cycle}: sdk returned unparseable stdout: {head}")
-            return DoneRecord(cycle=cycle, error=f"unparseable result: {head}")
+            self.log(f"cycle {cycle}: sdk returned unparseable stdout "
+                     f"(sid={self.session_in_play}): {head}")
+            return DoneRecord(cycle=cycle, session_id=self.session_in_play,
+                              error=f"unparseable result: {head}")
 
         cost = float(res.get("total_cost_usd") or 0.0)
-        sid = res.get("session_id")
+        # A payload sid supersedes the retained one, but never leaves us blind:
+        # the log line is the operator's only route to the transcript file.
+        sid = res.get("session_id") or self.session_in_play
         if sid:
             self.session_id = sid
 
         if res.get("is_error") or proc.returncode != 0:
             detail = str(res.get("result") or err or "").strip().replace("\n", " ")[:200]
-            self.log(f"cycle {cycle}: sdk reported error (rc={proc.returncode}): {detail}")
+            self.log(f"cycle {cycle}: sdk reported error "
+                     f"(rc={proc.returncode} sid={sid}): {detail}")
             return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
                               error=detail or f"exit {proc.returncode}")
 
@@ -323,11 +338,11 @@ class SdkExecutor:
             # without producing one (hit a limit, refused, wandered off). Treat it
             # as a failed cycle rather than inventing fields - a fabricated sha
             # would defeat the controller's same-sha no-progress guard.
-            self.log(f"cycle {cycle}: sdk returned no valid structured_output")
+            self.log(f"cycle {cycle}: sdk returned no valid structured_output (sid={sid})")
             return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
                               error="missing or incomplete structured_output")
 
-        self.log(f"cycle {cycle}: sdk done cost=${round(cost, 4)} "
+        self.log(f"cycle {cycle}: sdk done cost=${round(cost, 4)} sid={sid} "
                  f"sha={str(so.get('sha'))[:8]} tests={so.get('tests_pass')}")
         return DoneRecord(
             cycle=cycle,
