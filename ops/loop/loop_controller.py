@@ -428,7 +428,16 @@ def build_director_context(last_done, last_audit, *, root=None, ctl=None):
             ctx += ("\n\n=== EXECUTOR ESCALATION (resolve FIRST; the directive MUST encode this "
                     "decision + instruct the scaffolding + any ROADMAP/BACKLOG reshape) ===\n" + q)
         ask.unlink(missing_ok=True)
-    ctx += "\n\n" + CFG.get("directive_suffix", "")
+    # Its OWN section header, not a bare blank line after the audit body.
+    # Unlabelled prose adjacent to a live section gets attributed to that
+    # section: RC caught its director quoting a months-old static suffix back
+    # as the current work order in its own PREMISE-CHECK (RC 2026-07-27). The
+    # header says both what this is and that live sections outrank it.
+    suffix = CFG.get("directive_suffix", "")
+    if suffix:
+        ctx += ("\n\n=== OPERATOR STANDING ORDERS (STATIC config text, not a live "
+                "signal - every === section above reflects the CURRENT tree and "
+                "outranks anything here that disagrees) ===\n" + suffix)
     return ctx
 
 def director(last_done, last_audit):
