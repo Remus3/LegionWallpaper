@@ -95,3 +95,29 @@ def test_live_director_prompt_still_carries_its_dedup_evidence(marker):
     text = LIVE_PROMPT.read_text(encoding="utf-8", errors="replace")
     assert "STDIN CAP" not in text, "the cut already fired on the last real prompt"
     assert marker in text, f"{marker} missing from the assembled director prompt"
+
+
+# ---- the config the controller loads when nobody passes one -----------------
+
+def test_the_no_argv_config_fallback_is_module_relative():
+    """A hardcoded C:\LegionWallpaper path resolves on exactly one machine.
+
+    Everywhere else the read throws and the module runs with CFG = {}, so every
+    import-time consumer of CFG tests a configuration that never runs in
+    production - silently, and only in the environment nobody watches. The old
+    comment justified that branch with "a clean checkout has no config.json",
+    which is false: all four ops/loop/config*.json are tracked. RC hit the same
+    thing at 261aeb30 and its CI had been running configless.
+    """
+    src = CONTROLLER.read_text(encoding="utf-8")
+    i = src.index("_CFG_ARG = (")
+    window = src[i:i + 400]
+    assert "Path(__file__).resolve().parent" in window, (
+        "the no-argv config fallback must resolve module-relative")
+    assert "C:\LegionWallpaper" not in window, (
+        "a machine-specific absolute path here means CI loads no config at all")
+
+
+def test_the_tracked_config_is_where_that_fallback_points():
+    """The fallback is only useful if it names a file the repo actually ships."""
+    assert (ROOT / "ops" / "loop" / "config.json").is_file()

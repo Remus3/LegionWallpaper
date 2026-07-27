@@ -39,15 +39,23 @@ executor = _bind("lw_loop_executor", "executor.py")
 slots = _bind("lw_loop_slots", "slots.py")
 winmutex = _bind("lw_loop_winmutex", "winmutex.py")
 
+# Module-RELATIVE, not an absolute path only this machine has. The previous
+# fallback hardcoded C:\LegionWallpaper\...\config.json, and the comment below
+# justified the empty-CFG branch with "a clean checkout has no config.json" -
+# which is false: all four ops/loop/config*.json are tracked. The file was
+# always there; it was addressed by a path that only resolves on Legion. So a
+# Linux runner silently took the CFG = {} branch and every import-time consumer
+# of CFG tested a configuration that never runs in production, while the same
+# tests passed here against the real one. Same environment-dependent-truth
+# family as f1 item 12. Resolves identically on Legion, so this is not a
+# behaviour change where the loop actually runs. Found by RC 261aeb30.
 _CFG_ARG = (sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].endswith(".json")
-            else r"C:\LegionWallpaper\ops\loop\config.json")
+            else str(Path(__file__).resolve().parent / "config.json"))
 try:
     CFG = json.loads(Path(_CFG_ARG).read_text(encoding="utf-8"))
-except (FileNotFoundError, OSError):
-    # Import-only fallback: a clean checkout on another machine (e.g. a Linux
-    # CI nightly) has no config.json, and the pure helpers under unit test never
-    # read CFG. A live launch always passes a real --config path, so production
-    # never reaches this branch.
+except (FileNotFoundError, OSError, json.JSONDecodeError):
+    # Genuinely absent or unreadable config: the pure helpers under unit test
+    # never read CFG, and a live launch always passes a real config path.
     CFG = {}
 ROOT = Path(CFG.get("repo_root", Path(__file__).resolve().parents[2]))
 CTL = Path(CFG.get("control_dir", Path(__file__).resolve().parent / "control"))
