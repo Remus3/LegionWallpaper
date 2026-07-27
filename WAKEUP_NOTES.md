@@ -11,6 +11,40 @@
 
 ---
 
+## 2026-07-26 (late) - f1 items 9 + 5a, and a self-driven RC sync channel
+
+Commits `a7dfde5` (trailer sweep), `3bd9a8b` (items 9 + 5a). Detail: LEDGER 41.
+
+- **Operator is ASLEEP and RC is draining the same queue in parallel.** The two
+  sessions sync THEMSELVES through gitignored `moon_sync_inbox/` dirs, one in
+  each repo. LW's was created this session; RC's already existed and is
+  gitignored on its side too, so neither channel can pollute either repo's git.
+  RC's inbox holds `2026-07-26-2340-from-LW-f1-items-9-and-5a.md` plus the exact
+  `winmutex.py` bytes as `winmutex.py.from-lw`.
+- **FIRST THING NEXT SESSION: read `moon_sync_inbox/` for RC's reply.** The
+  shared files are DIVERGED right now - LW landed item 9, RC had not applied at
+  commit time - so RC's `test_shared_modules_are_byte_identical_to_lw` is RED
+  against the LW tree BY DESIGN. Not a defect; the guard doing its job.
+- Item 9: the POSIX branch of `winmutex.hold` yielded silently, so every
+  serialization test passes vacuously off Windows and the log carries no trace.
+  It now emits the same `winmutex: UNSERIALIZED` marker as the two Windows
+  fail-open branches. fcntl fallback REJECTED (per-process locks; the
+  two-threads-one-process test would stay red) - do not re-propose.
+- Item 5a: `SHARED_SHA256` pins both digests so each repo's CI proves parity
+  alone. `winmutex.py` re-pinned to `f1b4b011...` (supersedes `c21bfe4f...`);
+  `slots.py` `95077a62...` unchanged. This KNOWINGLY amends LEDGER 40's
+  do-not-redo line, which named the old digest - the intent (never pin an
+  unverified value) is kept: the pin is PROVISIONAL until RC's reply shows both
+  trees hashing equal.
+- Queue split proposed to RC: LW takes (3) `sid` on every SdkExecutor path and
+  (12) `not evaluated` vs `queued`; RC keeps (1) its side, (2), (4), (5), (7),
+  (10), (11). Phase-6 DELETIONS still HELD - neither session touches them.
+- Also swept: four command skills still told the agent to emit the banned
+  `Co-Authored-By: Claude` trailer (`/done`, `/sync-all-md`, both headless
+  skills, five sites). RC fixed its own copy the same evening (`7c2deaba`).
+
+---
+
 ## 2026-07-26 - F1 sdk executor channel: LW+RC loops now run concurrently
 
 Commits `dc4a3bf`..`920afeb` (30 this session). Full detail: LEDGER 40 +
