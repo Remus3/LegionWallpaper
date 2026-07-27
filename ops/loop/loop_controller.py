@@ -542,6 +542,14 @@ def main():
     last_done, last_audit = {}, ""
     same_sha_streak = 0
     log(f"loop start dry_run={DRY} ceiling={CFG['ceiling_usd']} head={prev_sha[:8]}")
+    # core.hooksPath is LOCAL config and is not cloned, so a fresh clone runs with
+    # NO commit gate while the tracked .githooks sits there looking installed. An
+    # unattended run in that state pushes ungated and no one reads a session
+    # report, so refuse to start instead.
+    gate_gap = executor.gate_inactive_reason(ROOT)
+    if gate_gap:
+        stop(f"commit gate not active - refusing to run ungated: {gate_gap} "
+             f"(fix: python tools/install_git_hooks.py)")
     EXEC = executor.build(
         CFG, CTL, log=log, stop=stop, awrite=awrite, wait_for=wait_for,
         wait_gone=wait_gone, rjson=rjson, stall_action=stall_action,

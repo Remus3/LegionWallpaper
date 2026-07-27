@@ -85,6 +85,33 @@ def test_build_rejects_sdk_until_p2(tmp_path: Path):
         executor.build({"channel": "sdk"}, tmp_path, **_deps())
 
 
+# ---- gate preflight: the fresh-clone gap ----------------------------------
+# core.hooksPath is LOCAL config and is NOT cloned, so a tracked .githooks dir
+# buys nothing on a fresh clone until someone sets it. Verified empirically:
+# a clone of this repo reports core.hooksPath unset and the gate INERT.
+
+def test_gate_reason_is_none_in_this_repo():
+    """LW itself has the gate active - the loop must not refuse to start here."""
+    assert executor.gate_inactive_reason(ROOT) is None
+
+
+def test_gate_reason_reports_a_repo_with_no_hookspath(tmp_path: Path):
+    import subprocess
+    clone = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", str(ROOT), str(clone)],
+                   capture_output=True, text=True)
+    if not (clone / ".git").exists():
+        pytest.skip("clone unavailable in this environment")
+    reason = executor.gate_inactive_reason(clone)
+    assert reason, "a fresh clone has no hooks and must be reported, not assumed fine"
+    assert "hooksPath" in reason
+
+
+def test_gate_reason_stays_silent_when_the_repo_has_no_installer(tmp_path: Path):
+    """Do not invent a blocker for a tree that never had this tooling."""
+    assert executor.gate_inactive_reason(tmp_path) is None
+
+
 # ---- AhkExecutor.run ------------------------------------------------------
 
 class _Ctl:

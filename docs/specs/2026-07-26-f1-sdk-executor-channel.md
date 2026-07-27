@@ -249,6 +249,26 @@ editing rather than swept mechanically; all 13 turned out to be capture-only spa
 gh, pytest) where suppressing the console is unambiguously correct. The `shell=True` suite
 run in `truth_gate.py` takes the flag on its `cmd.exe`. Guard now reports two clean lines.
 
+## 4e. The bootstrap gap: a tracked hooks dir is NOT a cloned gate
+
+`core.hooksPath` is LOCAL config and is NOT cloned. VERIFIED empirically 2026-07-26 by
+cloning this repo: the clone has `.githooks/pre-commit` and `.githooks/commit-msg` on disk
+and `core.hooksPath` UNSET, so git uses `.git/hooks` (empty) and the tracked gate is inert.
+Tracking the hook bodies fixes reviewability and drift, but buys ZERO enforcement until
+someone runs the installer. This is a third false-green on top of the two in section 4d -
+the hooks are present, correct, and readable in the tree, and they do not run.
+
+Three runners, because a check nobody executes is not a control:
+- `tools/drift_guard.py` -> `check_git_hooks()` (per-session, breach not note)
+- SessionStart hook -> `install_git_hooks.py --check` (surfaces on a fresh clone at the
+  first session rather than at the first `/done`)
+- `loop_controller.main()` -> `executor.gate_inactive_reason(ROOT)`, which STOPS the run.
+  This is the one that matters: an unattended headless run on a fresh clone would
+  otherwise commit and push with no glyph / ruff / trailer gate at all, and nobody reads a
+  session-start report during an unattended run. Failing loud beats degrading quietly
+  exactly here. It stays silent for a tree with no installer, so it never invents a
+  blocker for a repo that never had this tooling.
+
 ## 5. What gets deleted, and when
 
 Nothing is deleted in the same change that adds the seam. Deletion is phase 5, after two

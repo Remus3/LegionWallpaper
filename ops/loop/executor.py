@@ -22,8 +22,10 @@ for AHK that is the gemini.ready typing handshake and the claude.done sentinel.
 """
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -132,6 +134,33 @@ class AhkExecutor:
             regressions=bool(done.get("regressions")),
             raw=done,
         )
+
+
+def gate_inactive_reason(repo_root) -> str | None:
+    """Why the commit gate is not active, or None if it is.
+
+    `core.hooksPath` is LOCAL config and is NOT cloned. A fresh clone therefore
+    has the tracked `.githooks/` on disk and NO hooks running - the tracked dir
+    buys nothing until someone sets the config. An unattended headless run in
+    that state commits and pushes with no glyph / ruff / trailer gate at all,
+    and nobody is watching a session-start report. So the loop refuses to start
+    rather than run ungated: this is the one place where failing loud beats
+    degrading quietly.
+    """
+    import subprocess as _sp
+    installer = Path(repo_root) / "tools" / "install_git_hooks.py"
+    if not installer.is_file():
+        return None  # not this repo's concern - do not invent a blocker
+    try:
+        r = _sp.run([sys.executable, str(installer), "--check", "--repo", str(repo_root)],
+                    capture_output=True, text=True, timeout=30,
+                    creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0))
+    except (OSError, _sp.SubprocessError) as e:
+        return f"could not verify the commit gate: {e}"
+    if r.returncode != 0:
+        detail = (r.stderr or r.stdout).strip().replace("\n", " ")[:200]
+        return detail or "commit gate not active"
+    return None
 
 
 def build(cfg, ctl, **deps):
