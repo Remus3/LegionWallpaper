@@ -49,6 +49,11 @@ _BANNED = {
 _FROZEN_SKIP = ("logs/", "docs/_archive/", ".pyc", ".git/", "__pycache__/")
 _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
+# Operator policy 2026-06-03: never emit the Claude co-author trailer.
+# Matches any casing of the trailer key, and only when the value names Claude or
+# anthropic.com - a human co-author trailer is legitimate and must survive.
+_CLAUDE_TRAILER = re.compile(r"^\s*co-authored-by:.*(claude|anthropic)", re.IGNORECASE)
+
 
 def _is_commit(command: str) -> bool:
     s = command.strip()
@@ -143,24 +148,8 @@ def _compile_errors(pyfiles: list[str], root: str) -> list[str]:
     return out
 
 
-def main() -> int:
-    raw = sys.stdin.read() if not sys.stdin.isatty() else ""
-    # PowerShell 5.1 pipes prepend a UTF-8 BOM; json.loads rejects it and the
-    # raw-string fallback then never regex-matches -> silent pass. Strip it.
-    raw = raw.lstrip("\ufeff").strip()
-    command = ""
-    try:
-        command = (json.loads(raw).get("tool_input") or {}).get("command", "")
-    except (ValueError, AttributeError):
-        command = raw
-    if not _is_commit(command):
-        return 0
-
-    root = (
-        _root_from_command(command)
-        or _git(["rev-parse", "--show-toplevel"], os.getcwd()).strip()
-        or _LW_ROOT
-    )
+def _staged_violations(root: str) -> list[str]:
+    """Every check that reads STAGED CONTENT (shared by both entry points)."""
     staged = _staged_added(root)
     violations: list[str] = []
 
@@ -171,12 +160,7 @@ def main() -> int:
             if hits:
                 violations.append(f"  {path}:{lineno}  banned glyph: {', '.join(hits)}")
 
-    # 2. commit-message glyphs (the -m text lives in the command string)
-    msg_hits = _glyph_hits(command)
-    if msg_hits:
-        violations.append(f"  commit message  banned glyph: {', '.join(msg_hits)}")
-
-    # 3. net-new ruff errors on staged .py
+    # 2. net-new ruff errors + py_compile on staged .py
     pyfiles = [
         p for p in staged if p.endswith(".py") and os.path.isfile(os.path.join(root, p))
     ]
@@ -210,14 +194,111 @@ def main() -> int:
                 violations.append(
                     f"  {rel}:{row}  ruff {f.get('code', '?')}: {f.get('message', '')}"
                 )
+    return violations
+
+
+def _report(violations: list[str], what: str) -> int:
+    sys.stderr.write(
+        f"precommit_gate BLOCKED commit - {what}:\n"
+        + "\n".join(violations)
+        + "\n\nFix the staged lines (ruff check --fix / strip the glyph) and re-commit.\n"
+    )
+    return 2
+
+
+def _git_hook_mode() -> int:
+    """Entry point for .git/hooks/pre-commit - see tools/install_git_hooks.py.
+
+    THIS is the authoritative gate. The PreToolUse copy below is only the fast
+    in-session signal: RC measured 2026-07-26 that a nested
+    `claude -p --permission-mode bypassPermissions` commits without PreToolUse
+    hooks firing at all, while git hooks ran normally. A git hook is the only
+    placement that survives every channel (AHK, SDK, a human, CI).
+    """
+    root = _git(["rev-parse", "--show-toplevel"], os.getcwd()).strip() or os.getcwd()
+    violations = _staged_violations(root)
+    if violations:
+        return _report(violations, "net-new violations in staged files")
+    return 0
+
+
+def _message_mode(path: str) -> int:
+    """Entry point for .git/hooks/commit-msg.
+
+    Separate from pre-commit on purpose, and this is not a style choice: at
+    pre-commit time .git/COMMIT_EDITMSG does not exist yet (verified), so a
+    single pre-commit hook would silently LOSE the commit-message glyph check
+    the PreToolUse gate performs on the `-m` text.
+    """
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return 0  # nothing readable to gate - never wedge a commit on this
+
+    # Operator policy 2026-06-03: never emit the Claude co-author trailer.
+    # STRIP rather than block: the trailer is appended by the tool, not typed by
+    # the operator, so blocking would wedge an unattended run over a line the
+    # human never wrote. Only the Claude/Anthropic trailer is policy - a real
+    # human co-author is legitimate and stays.
+    kept = [ln for ln in text.splitlines() if not _CLAUDE_TRAILER.match(ln)]
+    if len(kept) != len(text.splitlines()):
+        # Collapse the blank run the removed trailer leaves behind.
+        while len(kept) > 1 and not kept[-1].strip():
+            kept.pop()
+        new = "\n".join(kept) + "\n"
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(new)
+        os.replace(tmp, path)
+        sys.stderr.write("precommit_gate: stripped the Claude co-author trailer "
+                         "(operator policy 2026-06-03)\n")
+        text = new
+
+    # git strips '#' lines before the message is stored, so a glyph there never
+    # ships; scanning them would block on git's own template comments.
+    body = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+    hits = _glyph_hits(body)
+    if hits:
+        return _report([f"  commit message  banned glyph: {', '.join(hits)}"],
+                       "banned glyph in the commit message")
+    return 0
+
+
+def main() -> int:
+    argv = sys.argv[1:]
+    if "--git-hook" in argv:
+        return _git_hook_mode()
+    if "--message-file" in argv:
+        i = argv.index("--message-file")
+        return _message_mode(argv[i + 1]) if i + 1 < len(argv) else 0
+
+    raw = sys.stdin.read() if not sys.stdin.isatty() else ""
+    # PowerShell 5.1 pipes prepend a UTF-8 BOM; json.loads rejects it and the
+    # raw-string fallback then never regex-matches -> silent pass. Strip it.
+    raw = raw.lstrip("\ufeff").strip()
+    command = ""
+    try:
+        command = (json.loads(raw).get("tool_input") or {}).get("command", "")
+    except (ValueError, AttributeError):
+        command = raw
+    if not _is_commit(command):
+        return 0
+
+    root = (
+        _root_from_command(command)
+        or _git(["rev-parse", "--show-toplevel"], os.getcwd()).strip()
+        or _LW_ROOT
+    )
+    violations = _staged_violations(root)
+
+    # The -m text lives in the command string here. (In the git-hook placement
+    # this check belongs to commit-msg instead - see _message_mode.)
+    msg_hits = _glyph_hits(command)
+    if msg_hits:
+        violations.append(f"  commit message  banned glyph: {', '.join(msg_hits)}")
 
     if violations:
-        sys.stderr.write(
-            "precommit_gate BLOCKED commit - net-new violations in staged files:\n"
-            + "\n".join(violations)
-            + "\n\nFix the staged lines (ruff check --fix / strip the glyph) and re-commit.\n"
-        )
-        return 2
+        return _report(violations, "net-new violations in staged files")
     return 0
 
 

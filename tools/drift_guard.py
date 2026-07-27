@@ -190,6 +190,25 @@ def check_cited_shas() -> None:
             notes.append(f"cited SHA {sha} does not resolve (worktree slice?)")
 
 
+def check_git_hooks() -> None:
+    """The authoritative glyph/ruff gate lives in .git/hooks, which git does NOT
+    track - so without this check it silently un-installs itself on a fresh clone.
+    That matters more than it sounds: RC measured that a headless
+    `claude -p --permission-mode bypassPermissions` run bypasses the Claude
+    PreToolUse gate entirely, leaving the git hook as the only backstop.
+    """
+    installer = ROOT / "tools" / "install_git_hooks.py"
+    if not installer.is_file():
+        return
+    r = subprocess.run(
+        [sys.executable, str(installer), "--check", "--repo", str(ROOT)],
+        capture_output=True, text=True, creationflags=NO_WINDOW,
+    )
+    if r.returncode != 0:
+        problems.append((r.stderr or r.stdout).strip().splitlines()[0][:160]
+                        if (r.stderr or r.stdout).strip() else "git-hook gate drift")
+
+
 def main() -> int:
     old_version = sys.argv[1] if len(sys.argv) > 1 else None
     check_doc_budgets()
@@ -199,6 +218,7 @@ def main() -> int:
     check_counted_claims()
     check_untracked_authored()
     check_cited_shas()
+    check_git_hooks()
 
     for n in notes:
         print(f"  note   : {n}")
