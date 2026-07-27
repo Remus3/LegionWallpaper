@@ -128,6 +128,19 @@ LongPathsEnabled (deferred).
 
 ---
 
+# 2026-07-16 (Stage-2 watermark cleaning SOLVED via IOPaint-emulation; Dekel built + CAPPED; gate FPs fixed)
+
+Long session; 3 commits (bd7521e gate FPs, bad25c8 Dekel engine, bc5fc19 lw_clean_iopaint) + living-docs. All 3 CI green. The semi-transparent-watermark blocker is SOLVED - by emulating the operator's OWN manual IOPaint method, not by Dekel.
+
+- **Dekel (bad25c8, LEDGER 29):** built proper Dekel (fork rohitrango; Py3; Levin matting-Laplacian + IRLS + the genuinely-missing sub-pixel alignment + filled cross-image alpha). Corrected the R&D doc (its claim that the IRLS/matte core was absent was WRONG - verified vs source). Root-cause-fixed a rainbow-explosion collapse (W_init DC scale). VERDICT = CAP: leaves a legible dark-stroke ghost (the white-fill + dark-outline mark is inseparable by single-achromatic-W algebra; residual entangled with art). Parked as R&D; NOT wired.
+- **Pivot (operator insight):** operator had cleaned it manually in a LOCAL IOPaint (LaMa) piece-by-piece. Recovered their launch code from PS history: `& "$env:LOCALAPPDATA\Python\pythoncore-3.11-64\python.exe" -m iopaint start --model=lama|Sanster/PowerPaint-V1-stable-diffusion-inpainting --device=cuda --port=8080` (the doc's C:\Tools\iopaint\venv is stale/never-created). Proved emulation: the trick is MASK COMPLETENESS - cover the dark OUTLINE, not just the white fill.
+- **lw_clean_iopaint (bc5fc19, LEDGER 30):** masked simple-lama cleaner (complete fill+dark-edge mask, optional chroma/cross-image matte). namakx auto-cleans near-clean + faithful (cov 31.7%). Busy-art (pebano one-off) smears -> manual lane. TDD 17 pure + 1 ML; 52 passed both clean suites.
+- **Gate FPs (bd7521e, LEDGER 28):** bare '@' (caitlyn/vayne3) + diluted LoL wordmark (the-ruined-king-viego) now KEEP, not auto-clean. +2 TDD tests on the exact captured OCR.
+
+**NEXT / do-not-redo:** batch triage DONE - see `docs/research/IOPAINT_TRIAGE.md` (18 staged non-FP slugs eyeballed: **9 CLEAN-AUTO / 7 PARTIAL / 2 MANUAL**; the doc has the per-slug table + the 6 concrete pass-improvements + the next-session plan). Next: land improvements 3+4 (full-width banner band + chroma-on default; clears 3 PARTIALs) and improvement 1 (namakx template-mask / adaptive dark_thr; clears the 3 namakx dark-outline ghosts), re-run the worker over the CLEAN-AUTO 9 + cleared PARTIALs -> save-working --tool iopaint + submit for needauth, route fantasy-design + prestige-coven-xayah to the MANUAL IOPaint lane, then clean-scan the 190. Do NOT re-try Dekel / pure-algebraic (measured cap), a white-only mask (dark-edge ghost), or `--progressive` for the namakx ghost (verified no help). The cross-image matte path is BROKEN (4.5% cov - debug align_rois + MATTE_ALPHA_THR). The 3 FP slugs (caitlyn / vayne3 / the-ruined-king-viego) = KEEP. NOTE: this session's scratchpad candidates do NOT persist - re-run the worker to regenerate.
+
+---
+
 # 2026-07-16 (Stage-2 cleaning pipeline built: harness + gate-v2 + SDXL engine; watermark-removal R&D -> glyph15 interim, Dekel deferred)
 
 Very long session; 2 commits (bf94629 cleaning harness, 07b7e30 SDXL worker) + living-docs. Cleaning stack provisioned (C:\Tools\lw-clean\venv, gitignored) - was ABSENT at start (verified live). Cleaning-suite green (500 collected; 33 pure + 5 integration for lw_clean_pass, 17 pure for lw_clean_sdxl); ruff + ASCII clean; independent re-verify each subagent merge. Operator drove the fill-engine decision via framed forks + rejected two engines before landing the current-best interim.
