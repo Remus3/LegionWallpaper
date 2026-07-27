@@ -25,6 +25,23 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   DreamUp step4 prompts (superseded by the render path). Match on EVERY axis -
   provenance and resolution both slipped in while palette was being tuned.
 
+- **ci-loop-reds - two pre-existing CI failures the loop directive fenced off - NEXT.**
+  Next: both are Linux-only and both live in `ops/loop/**`, which the 2026-07-26
+  directive explicitly forbade touching, so they are diagnosed but NOT fixed.
+  (1) `test_loop_concurrency.py::test_mutex_serializes_two_threads` fails
+  `mutex allowed 4 concurrent holders` - the mutex almost certainly fails OPEN on
+  Linux (Windows named-mutex path), which is the dangerous direction for a
+  concurrency guard; verify whether the governor is a no-op off-Windows.
+  (2) `test_loop_executor.py::test_gate_reason_is_none_in_this_repo` asserts the
+  hook gate is ACTIVE in this repo, but `core.hooksPath` is local config and is
+  never cloned, so CI reports `.git/hooks` and the tracked gate INERT. Fix is
+  probably one `git config core.hooksPath .githooks` step in the CI workflow,
+  which also genuinely arms the gate for CI rather than only satisfying the test.
+  Evidence: run 30232862780 (5 failed / 658 passed); the other 3 of those 5 were
+  the non-executable `.githooks` mode bits, fixed 2026-07-26 (LEDGER 38).
+  Do-not-redo: do not "fix" (2) by relaxing the assertion - the test is correct
+  and is the exact false-green trap CLAUDE.md warns about.
+
 - **glb-render-fetch - acquire the .glb bytes the ported resolver now addresses - NEXT.**
   Next: the addressing + filtering half shipped 2026-07-26 (LEDGER 38, 1dbfc2d) -
   `glb_model_url` / `glb_skin_id` / `is_weapon_joint` / `weapon_joint_indices` /
