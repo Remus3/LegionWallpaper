@@ -27,6 +27,36 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+48. DONE **2026-07-27 (refs-46-first-pass cycle 3; docs-only).** Batched the
+    next five slugs - `123f`, `124f`, `127-cleanup`, `134-cleanup`,
+    `14-cleanup` - through best-source -> save-working -> G1 -> submit via
+    `tools/lw_first_pass.py --batch`. 5/5 G1 PASS with an empty `reasons` list,
+    identical in shape to cycle 2, so the R16 no-resample-no-USM fix now holds
+    across 10 consecutive slugs rather than 5. Premise VERIFIED: the dry run
+    reported `mode=downscale-only` for all five before anything mutated.
+    Metrics saturate by construction (msssim 1.0, lpips 0.0, dists 0.0,
+    lap_ratio 1.0, halo_pct 0.0, band_delta 0.0) - the correct result for an
+    identity transform. NEW evidence this cycle, beyond cycle 2's dimension
+    check: the verifier sha256'd the DECODED RGB pixel buffers per pair, so
+    pixel-identity is now MEASURED, not inferred from equal dimensions plus
+    `usm_applied=false`. The PNG files themselves differ in size (123f 3548825
+    vs 3598868 bytes) because SUBMIT re-encodes; the pixels do not. Two schema
+    nits recorded so future probes stop guessing: the audit key is `backend`,
+    there is no `upscale_mode` key, and `dists` lives under `audit.fr_all`, not
+    `audit.metrics`. Built as ONE data-run agent in the MAIN tree - unlike R17
+    this cycle deliberately skipped worktree isolation, because `images/**` is
+    gitignored and therefore does not exist in a worktree at all; the agent was
+    barred from `approve` and from `git add`. Verifier CONFIRM 8/8 on
+    independent probes: no `_firstworking_*` survives submit, `lw_pipeline.py
+    status` reads FIRST_SCRATCH/NEEDAUTH for all five, manifests re-read for the
+    G1 block, `PIPELINE_LOG.md` carries SAVE_WORKING/ANNOTATE/SUBMIT x5 and zero
+    APPROVE/REJECT for these slugs, and `2.First Pass Done` still holds 242
+    entries (incl. `.gitkeep`) with zero of the five present. Suite 808 passed /
+    11 skipped, ruff clean. Docs-only again: `images/**`, `PIPELINE_LOG.md` and
+    `ops/runtime/` are gitignored. Plan row R18. FUTURE: 35 slugs remain and
+    nothing gates them; the operator auth queue is 11 deep and is the real
+    bottleneck.
+
 47. DONE **2026-07-27 (refs-46-first-pass cycle 2; docs-only).** Batched five
     slugs - `105-cleanup`, `106-cleanup`, `107-cleanup`, `110-cleanup`, `122` -
     through best-source -> save-working -> G1 -> submit via

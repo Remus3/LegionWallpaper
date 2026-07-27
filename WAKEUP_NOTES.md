@@ -11,6 +11,32 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 3
+
+Docs-only (images are gitignored). Detail: LEDGER 48, plan row R18. Five slugs
+batched - `123f`, `124f`, `127-cleanup`, `134-cleanup`, `14-cleanup` - 5/5 G1
+PASS, `reasons: []`, identical in shape to cycle 2. The R16 no-USM fix now holds
+over 10 consecutive slugs.
+
+What this cycle added that cycle 2 did not: pixel-identity is now MEASURED. The
+verifier sha256'd the decoded RGB buffers per `_firstinitial`/`_firstneedauth`
+pair and they match; the PNG files differ in size (123f 3548825 vs 3598868
+bytes) only because SUBMIT re-encodes. Cycle 2 had inferred identity from equal
+dimensions plus `usm_applied=false`. Two schema nits for future probes: the
+audit key is `backend`, NOT `upscale_mode`, and `dists` sits under
+`audit.fr_all`, not `audit.metrics`.
+
+Run as ONE data-run agent in the MAIN tree, deliberately WITHOUT worktree
+isolation - `images/**` is gitignored, so a worktree does not contain the corpus
+at all and R17's worktree bought nothing. Agent barred from `approve` and `git
+add`; verifier CONFIRM 8/8. Suite 808 passed / 11 skipped, ruff clean.
+
+NEXT: 35 slugs remain and nothing gates them, but the auth queue is now 11 deep
+and approval is operator-only - processing more only deepens an unattended
+queue.
+
+---
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 2
 
 Docs-only (images are gitignored). Detail: LEDGER 47, plan row R17. Five slugs

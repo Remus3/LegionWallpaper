@@ -88,11 +88,16 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   9-10 primitives sharing one POSITION accessor - drops most triangles); the
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
-- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (6 of 46 submitted, 0 approved).**
-  Next: batch the remaining 40 - cycle 2 (LEDGER 47, plan row R17) ran
-  `105-cleanup` `106-cleanup` `107-cleanup` `110-cleanup` `122` and took 5/5 G1
-  PASS with an empty reasons list, which is the R16 fix measured in production:
-  cycle 1 FLAGGED on halo, cycle 2 flags nothing. All 6 processed slugs sit at
+- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (11 of 46 submitted, 0 approved).**
+  Next: batch the remaining 35 - cycle 3 (LEDGER 48, plan row R18) ran
+  `123f` `124f` `127-cleanup` `134-cleanup` `14-cleanup`, cycle 2 (LEDGER 47,
+  plan row R17) ran `105-cleanup` `106-cleanup` `107-cleanup` `110-cleanup`
+  `122`, and both took 5/5 G1 PASS with an empty reasons list. That is the R16
+  fix measured in production over 10 consecutive slugs: cycle 1 FLAGGED on halo,
+  cycles 2 and 3 flag nothing. Cycle 3 also MEASURED the pixel-identity claim
+  (sha256 over the decoded RGB buffers per pair) instead of inferring it from
+  equal dimensions; the PNG bytes differ only because SUBMIT re-encodes. All 11
+  processed slugs sit at
   `FIRST_SCRATCH/NEEDAUTH` - approval is operator-only and is the real queue.
   Cycle 1 proved the chain on slug `0`
   (`_firstneedauth`, G1 FLAG on halo only, LEDGER 45) and corrected the premise:
