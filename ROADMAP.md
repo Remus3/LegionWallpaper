@@ -88,12 +88,21 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   9-10 primitives sharing one POSITION accessor - drops most triangles); the
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
-- **refs-46-first-pass - process the 46 intaken reference_pictures - SUBMITTED
-  46 of 46, 0 approved. The batching is DONE; the only remaining step is
-  operator approval, which no agent can perform.**
-  Next: operator reviews the 46-deep `FIRST_SCRATCH/NEEDAUTH` queue. Nothing
-  downstream moves until then, and `first-pass-alpha-letterbox` below should be
-  ruled on BEFORE approval since 15 of the 46 carry a silently dropped alpha.
+- **refs-46-first-pass - process the 46 intaken reference_pictures - DONE
+  2026-07-27. 46 of 46 APPROVED by the operator; `1.First Pass Scratch` is
+  empty and `2.First Pass Done` holds 288 slugs (242 prior + these 46).**
+  **A PROCESS MISS ON APPROVAL, recorded because the ruling it skipped is still
+  open:** this entry said `first-pass-alpha-letterbox` should be ruled on BEFORE
+  approval, and the session did not surface that to the operator - it raised the
+  pixel-identity caveat instead. The pixel-identity evidence was itself blind to
+  the issue: identity was measured as sha256 over decoded RGB buffers, which
+  cannot see an alpha plane being dropped. NOTHING IS LOST - `approve`
+  safe-copies `_firstinitial` next to `_firstdone`, verified on `258-cleanup`
+  (`_firstinitial` RGBA, `_firstdone` RGB), and `9.Image Backup` holds a third
+  copy - so the 15 affected slugs remain reprocessable via the reopen dance once
+  the policy call lands. What was actually spent is the operator's chance to
+  decide before staging, not the data.
+  Next: stage-2 cleaning on the 46 (operator direction 2026-07-27).
   Cycle 10 (LEDGER 55, plan row R25) ran the last 5,
   `280f` `281-cleanup` `286f` `32-cleanup` `84f`,
   cycle 9 (LEDGER 54, plan row R24) ran
@@ -161,6 +170,14 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   cycle 9, LEDGER 54, plan row R24; CENSUS CLOSED by cycle 10, LEDGER 55, plan
   row R25; audit hygiene SHIPPED by cycle 11, LEDGER 56, plan row R26; the
   POLICY call is still open).**
+  **STILL OPEN AND NOW POST-APPROVAL.** All 46 were approved on 2026-07-27
+  without this ruling - see the miss recorded under `refs-46-first-pass`. That
+  does not close it and does not lose anything: every `_firstinitial` is
+  preserved RGBA beside its RGB `_firstdone` in `2.First Pass Done` and again in
+  `9.Image Backup`. It does change the shape of acting on it - a ruling that
+  says "keep the alpha" now needs the reopen dance for the affected slugs
+  instead of a re-run before staging. Rule on it BEFORE stage-2 cleaning, since
+  cleaning writes on top of `_firstdone`.
   The census is now complete over all 46 refs, so the numbers below are final
   rather than a running tally: FIFTEEN of the 46 are RGBA with a genuinely
   non-opaque alpha, 31 are RGB, none is any other mode. Cycles 8 and 9 both
@@ -239,7 +256,11 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   and the note that the same blindness applies to any future letterbox in a
   solid non-black colour, where the RGB metrics would ALSO score clean.
 
-- **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS.**
+- **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS, and
+  the NEXT SESSION'S focus (operator direction 2026-07-27).** The 46 refs
+  approved this session join this queue. Rule on `first-pass-alpha-letterbox`
+  FIRST: cleaning writes on top of `_firstdone`, so a later "keep the alpha"
+  ruling would mean redoing cleaning as well as first pass for those 15.
   Next: land the 3 pass-improvements from the triage (full-width banner band;
   chroma-thr ~12 default; namakx template-mask / adaptive dark_thr) -> re-run
   the worker over the 9 CLEAN-AUTO + cleared PARTIALs -> `save-working --tool
