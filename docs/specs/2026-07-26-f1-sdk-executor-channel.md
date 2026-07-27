@@ -433,9 +433,18 @@ Cost, under the P4-amended criterion (present, positive, bounded by `cycle_budge
 NOT reconciled against the scraper): LW $0.6476 + $0.6877, RC $0.6622 + $0.56; all four
 well under the $10 per-cycle budget.
 RC independently reproduced the P4 meter defect in the wild: its controller pinned
-`2a46fcf7-...jsonl`, this operator's interactive session, not the executor's. On the sdk
-channel that number gates nothing (`executor_usd` carries the CLI receipt), which is
-further argument for deleting the pin in phase 6 rather than repairing it.
+`2a46fcf7-...jsonl`, this operator's interactive session, not the executor's, reading a
+flat $43.69 across both cycles. On the sdk channel that number gates nothing
+(`executor_usd` carries the CLI receipt), which is further argument for deleting the pin
+in phase 6 rather than repairing it.
+
+EVIDENCE LOCATION: `docs/_archive/2026-07-26-p5-lw-run.log`, `-p5-rc-run.log` and
+`-p5-samples.jsonl` are LOCAL ONLY - `docs/_archive/` is gitignored (.gitignore:26) by the
+dated-artifact convention, so they are not in the repo. Commit `19b5848`'s message says
+"Evidence archived" without that qualifier, which overstates it; the numbers quoted in
+this section are the durable record. Only
+`docs/_archive/2026-07-26-p5-concurrent-smoke.md` is tracked, because the two executors
+committed it explicitly as their directed work.
 
 ORIGINAL SPEC TEXT for this phase: LW loop and RC loop
 started within 60s of each other, both `channel: sdk`, 2 cycles each, disjoint Tier-0
