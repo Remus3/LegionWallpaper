@@ -57,6 +57,60 @@ def test_payload_first_line_is_always_the_cycle_header():
         assert executor.directive_payload(9, "b", src).splitlines()[0] == "CYCLE=9"
 
 
+# ---- FINAL STEP must match the channel -----------------------------------
+# The directive told Claude to end by running done_sentinel.py while the sdk
+# prompt appended "do NOT run done_sentinel.py, return JSON". FINAL_STEP is
+# appended last so it probably won, but "probably" is not a contract, and with
+# sdk now the DEFAULT the next director-authored cycle is the first to exercise
+# it. One source of truth, selected by channel.
+
+def test_final_step_for_ahk_is_the_sentinel():
+    s = executor.final_step_instruction("ahk")
+    assert "done_sentinel.py" in s
+    assert "--tests" in s and "--regressions" in s
+    assert "do NOT" not in s
+
+
+def test_final_step_for_sdk_is_the_json_return():
+    s = executor.final_step_instruction("sdk")
+    assert "do NOT" in s and "done_sentinel" in s
+    assert "JSON" in s
+    # the ahk sentinel COMMAND must not appear - that is the contradiction
+    assert "--tests" not in s
+
+
+def test_final_step_defaults_to_ahk_when_unset():
+    assert executor.final_step_instruction(None) == executor.final_step_instruction("ahk")
+    assert executor.final_step_instruction("") == executor.final_step_instruction("ahk")
+
+
+def test_final_step_rejects_an_unknown_channel():
+    with pytest.raises(ValueError):
+        executor.final_step_instruction("sdkk")
+
+
+def test_sdk_prompt_uses_the_same_source_of_truth():
+    """If these ever drift, the directive body and the appended instruction
+    disagree again - which is the whole defect."""
+    assert executor.final_step_instruction("sdk") in executor.sdk_prompt(1, "b", "fixed")
+
+
+def test_director_prompt_has_no_hardcoded_final_step():
+    """The template must carry the placeholder, not a channel-specific command."""
+    tmpl = (ROOT / "ops" / "loop" / "director_prompt.md").read_text(encoding="utf-8")
+    assert "{{FINAL_STEP}}" in tmpl, "director_prompt must defer to the executor"
+    assert "done_sentinel.py --tests" not in tmpl, (
+        "a hardcoded sentinel command contradicts the sdk channel")
+
+
+def test_directive_suffix_names_no_channel_specific_step():
+    """config.json's directive_suffix was LW's SECOND source of the
+    contradiction - it also ended every cycle with the sentinel."""
+    import json as _json
+    cfg = _json.loads((ROOT / "ops" / "loop" / "config.json").read_text(encoding="utf-8"))
+    assert "done_sentinel" not in cfg.get("directive_suffix", "")
+
+
 # ---- build(): channel selection ------------------------------------------
 
 def _deps(**over):

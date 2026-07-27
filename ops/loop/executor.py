@@ -154,6 +154,40 @@ FINAL_STEP = (
     "if you could not reach green), summary (one line)."
 )
 
+_AHK_FINAL_STEP = (
+    "FINAL STEP: run  \"C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python"
+    "\\Python314\\python.exe\" ops/loop/done_sentinel.py --tests <PASS_COUNT> "
+    "--regressions <0_or_1>\n"
+    "  where Claude substitutes the real passing-test count and 1 only if it could not "
+    "get green."
+)
+
+
+def final_step_instruction(channel: str | None) -> str:
+    """THE single source of truth for how a cycle reports completion.
+
+    It has to be one function because the two channels need OPPOSITE
+    instructions, and for a while both were hardcoded in prompt text that the
+    executor then contradicted at runtime:
+
+      ahk - done_sentinel.py writing control/claude.done IS the completion
+            signal; the controller blocks on that file.
+      sdk - the process returns a schema-validated JSON object, so running the
+            sentinel is wrong (it writes a file nobody reads and costs a turn).
+
+    `director_prompt.md` used to hardcode the AHK line and `config.json`'s
+    `directive_suffix` repeated it, while `sdk_prompt()` appended the opposite.
+    FINAL_STEP was appended last so it probably won, but "probably" is not a
+    contract - and with sdk as the default the next director-authored cycle is
+    the first to actually exercise it. Both prompt sources now defer here.
+    """
+    ch = (channel or "ahk").strip().lower()
+    if ch == "ahk":
+        return _AHK_FINAL_STEP
+    if ch == "sdk":
+        return FINAL_STEP
+    raise ValueError(f"unknown executor channel {ch!r} (known: 'ahk', 'sdk')")
+
 
 def sdk_prompt(cycle: int, body: str, src: str) -> str:
     """The prompt piped to `claude -p` on stdin.

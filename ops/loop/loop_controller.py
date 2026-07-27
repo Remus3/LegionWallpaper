@@ -433,6 +433,12 @@ def build_director_context(last_done, last_audit, *, root=None, ctl=None):
 
 def director(last_done, last_audit):
     tmpl = (ROOT / "ops/loop/director_prompt.md").read_text(encoding="utf-8")
+    # The FINAL STEP is channel-specific and the two channels want OPPOSITE
+    # instructions, so it is injected from the live config rather than hardcoded
+    # in the template (which used to name done_sentinel.py unconditionally and
+    # contradict the sdk executor's own appended instruction).
+    tmpl = tmpl.replace("{{FINAL_STEP}}",
+                        executor.final_step_instruction(CFG.get("channel")))
     ctx = build_director_context(last_done, last_audit)
     return gemini(tmpl + ctx, "Output ONLY the directive markdown for the next cycle. No preamble.")
 

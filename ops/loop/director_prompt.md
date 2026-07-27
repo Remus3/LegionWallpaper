@@ -79,9 +79,11 @@ HARD RULES for the directive you emit:
 - The directive MUST instruct Claude to COMMIT with a descriptive message, PUSH to origin/main,
   then run the /done ritual (append docs/LEDGER.md, sync ROADMAP.md + docs/ORCHESTRATION_PLAN.md),
   before the FINAL STEP, so the auditor has a diff to review.
-- The directive MUST end with this exact FINAL STEP line:
-    FINAL STEP: run  "C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe" ops/loop/done_sentinel.py --tests <PASS_COUNT> --regressions <0_or_1>
-  where Claude substitutes the real passing-test count and 1 only if it could not get green.
+- The directive MUST end with this exact FINAL STEP text, reproduced byte-for-byte. It is
+  substituted by the controller from the LIVE executor channel, so do not rewrite, reword
+  or "correct" it - the two channels require OPPOSITE completion steps and only the
+  controller knows which one is active:
+    {{FINAL_STEP}}
 - OUTPUT DIALECT = CAVEMAN ULTRA (operator 2026-06-27 in the RC ancestor, reverted from the
   same-day WENYAN-FULL experiment): write the directive's HUMAN PROSE / rationale in maximum
   caveman terseness - plain 7-bit ASCII English, drop articles + filler, short clauses, no
