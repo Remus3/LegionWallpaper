@@ -269,6 +269,40 @@ Three runners, because a check nobody executes is not a control:
   exactly here. It stays silent for a tree with no installer, so it never invents a
   blocker for a repo that never had this tooling.
 
+## 4f. Phase 6 status: FLIP DONE, DELETIONS HELD (operator decision 2026-07-26)
+
+Both repos now default to `channel: sdk` (RC `0949721f`, LW this commit). NOTHING has been
+deleted. Rollback is one key in each repo.
+
+GATE FOR REVISITING THE DELETIONS: one FULL-LENGTH cycle on sdk. P5's cycles were 33-70
+seconds on a one-line doc append. A real cycle runs hours with worktree agents, a large
+suite and a UI audit. The spec's original "two green sdk runs" was written before anyone
+knew the P5 scopes would be that small, so four green cycles is NOT the evidence that
+sentence intended.
+
+Prerequisites, verified per-repo rather than assumed to transfer - and LW's differ from
+RC's in both directions:
+
+- **`done_sentinel.py` has live callers outside the AHK path (both repos).** LW:
+  `.claude/commands/gemini-headless-upgrade.md`, `.claude/commands/orchestrated-run.md`,
+  `ops/loop/director_prompt.md`, `ops/loop/config.json` (its `directive_suffix` ends every
+  cycle with the sentinel), `config.p5.json`, plus the loop code and tests. Deleting the
+  script strands every directive that still names it.
+- **Removing `meter()` is a UI migration in RC, a clean delete in LW.** RC renders
+  `claude_usd_info` from `routes_loop_monitor.py`, `routes_loop_status.py` and
+  `web/js/panels/dev.js`. LW's only consumer is `loop_controller.py` itself - LW has no
+  dashboard. So this prerequisite binds RC and not LW, which is exactly why it had to be
+  checked on each tree instead of copied across.
+- **A live contradiction, and LW's exposure is DOUBLE RC's.** `director_prompt.md:83` tells
+  the director to write "FINAL STEP: run done_sentinel.py" into the directive body, while
+  `executor.FINAL_STEP` appends "do NOT run done_sentinel.py, return the JSON object".
+  FINAL_STEP is appended last so it should win, but in LW the contradictory instruction
+  arrives from TWO sources - `director_prompt.md` AND `config.json`'s `directive_suffix`,
+  which also ends every cycle with the sentinel. NEITHER repo has exercised this path:
+  every sdk cycle so far used `fixed_directive` (P1, P4) or `cycle_command` (P5), both of
+  which bypass the director. With sdk now the DEFAULT, the next director-authored cycle is
+  the first to hit it. If it returns no `structured_output`, look here first.
+
 ## 5. What gets deleted, and when
 
 Nothing is deleted in the same change that adds the seam. Deletion is phase 5, after two
@@ -440,7 +474,10 @@ in phase 6 rather than repairing it.
 
 EVIDENCE LOCATION: `docs/_archive/2026-07-26-p5-lw-run.log`, `-p5-rc-run.log` and
 `-p5-samples.jsonl` are LOCAL ONLY - `docs/_archive/` is gitignored (.gitignore:26) by the
-dated-artifact convention, so they are not in the repo. Commit `19b5848`'s message says
+dated-artifact convention, so they are not in the repo. This is an LW-specific convention,
+NOT a shared one: RC's `docs/_archive/` is TRACKED (its .gitignore:16 documents archiving
+with `git mv`), so RC's half of the P5 evidence is durable in-repo. If the run artifacts
+need to survive, RC's copy of the smoke log is the one that will still be there. Commit `19b5848`'s message says
 "Evidence archived" without that qualifier, which overstates it; the numbers quoted in
 this section are the durable record. Only
 `docs/_archive/2026-07-26-p5-concurrent-smoke.md` is tracked, because the two executors
