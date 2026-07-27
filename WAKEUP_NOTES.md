@@ -11,6 +11,27 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - no resample, no unsharp mask
+
+Commits `9c14b8d` + `58dc53c`. Detail: LEDGER 46, plan row R16. Director decision
+B on the R15 escalation: the USM was the entire delta on a source that already
+measured 2560x1440, so it manufactured the halo the gate flagged. Skipped now -
+both the no-op resize and the mask. Implemented NARROWER than the directive
+worded it: keyed on the input measuring exactly the target, NOT on `scale == 1`,
+because `scale` is 1 for a genuine 4K -> 1440p downscale too and that one must
+keep its sharpening. The anti-widening test was written first and stayed green.
+Two worktree slices, verifier CONFIRM on both with the tamper reproduced
+independently. Slice A found a vacuous fixture in its own spec - a saturated
+0/255 edge is a fixed point of UnsharpMask, so the identity test passed green
+against the bug; it was the one required test that did not go red, which is how
+it surfaced. Live re-measure on slugs `0` + `105-cleanup`: halo_pct 0.0711 ->
+0.0, lap_ratio 1.965 -> 1.0, output pixel-identical to source - first pass is a
+provenance-only passthrough for this batch. Suite 808 passed / 11 skipped, ruff
+clean. Next: batch the remaining 45; nothing gates them now.
+Carry-forward: every worktree-isolated slice reports a phantom
+`test_gate_reason_is_none_in_this_repo` failure (`core.hooksPath` is absolute and
+points outside the worktree); it passes in the main tree. Not patched here.
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 1, and what the batch is not
 
 Commit `9477a7e` (docs-only). Detail: LEDGER 45, plan row R15. The proving run

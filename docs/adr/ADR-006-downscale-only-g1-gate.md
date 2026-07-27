@@ -65,3 +65,25 @@ selection, not a recalibration).
 should still be sharpness-checked, revisit the `backend == "downscale-only"`
 predicate. The upscale (spandrel/ncnn) path is unaffected - `lap_ratio` remains a
 hard floor there (the real double-resample softness guard, ADR-002).
+
+## Addendum 2026-07-27: no resample, no unsharp mask
+
+The `downscale-only` path had a second, sharper instance of the same problem this
+ADR describes. When the source measures EXACTLY the target (2560x1440), `_finish`
+performed a no-op Lanczos resize and then applied the unsharp mask anyway, so the
+USM was the entire delta between source and output - it manufactured the halo the
+gate then flagged (slug `0`, halo_pct 0.0711, LEDGER 45). `first_pass` now skips
+BOTH the resize and the USM when the image handed to `_finish` is already exactly
+the target size: no resample means nothing to re-sharpen.
+
+The predicate is `_usm_applies(img_size, target)` in `tools/lw_upscale.py`, keyed
+on the exact size and deliberately NOT on `scale == 1`. `meta["scale"]` is 1 for
+EVERY `downscale-only` case, including a genuine 3840x2160 -> 2560x1440 Lanczos
+downscale, and that case does resample and keeps its USM. The audit dict carries
+`usm_applied` so a reviewer can tell which of the two happened, and
+`lw_first_pass` forwards it into the G1 annotation and the save-working params.
+
+Consequence: for an already-at-target source, first pass is a provenance-only
+passthrough - the output is pixel-identical to the input. The `lap_ratio` drop
+this ADR made for `downscale-only` still stands; on the no-resample path
+`lap_ratio` is exactly 1.0 and `halo_pct` exactly 0.0 (measured, LEDGER 46).

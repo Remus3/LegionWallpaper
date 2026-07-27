@@ -89,17 +89,21 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
 - **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (1 of 46 done).**
-  Next: 45 remaining after the cycle-1 proving run (slug `0` -> `_firstneedauth`,
-  G1 FLAG on halo only, LEDGER 45). PREMISE CORRECTED in that run: all 46
-  `_firstinitial` files are EXACTLY 2560x1440, so every slug takes the
-  `downscale-only` branch at scale=1 - no resample happens and the ONLY
-  operation first pass applies to this batch is the unsharp mask. The AI
-  upscaler is not exercised by these 46 at all (model load verified separately:
-  spandrel DAT scale 4, torch 2.11.0+cu128, RTX 5070). Decide before batching
-  the other 45: whether a USM-only first pass is the intended treatment for
-  already-at-target sources, and whether `halo_pct` flagging on a no-resample
-  path is signal or an over-flag (same open watch as the 47/61 downscale-only
-  flags in `project-first-pass-recipe-validated`).
+  Next: batch the remaining 45 in the next cycle - the cycle-1 escalation is
+  RESOLVED and nothing gates them any more. Cycle 1 proved the chain on slug `0`
+  (`_firstneedauth`, G1 FLAG on halo only, LEDGER 45) and corrected the premise:
+  all 46 `_firstinitial` files are EXACTLY 2560x1440, so every slug takes the
+  `downscale-only` branch at scale=1, no resample happens, and the unsharp mask
+  was the ONLY operation first pass applied to this batch. The AI upscaler is
+  not exercised by these 46 at all (model load verified separately: spandrel DAT
+  scale 4, torch 2.11.0+cu128, RTX 5070). Director decision B (LEDGER 46, plan
+  row R16) fixed it at the cause: no resample, no unsharp mask. First pass is now
+  a provenance-only passthrough for an already-at-target source - measured live
+  on slugs `0` and `105-cleanup`, halo_pct 0.0711 -> 0.0 and lap_ratio 1.965 ->
+  1.0, output pixel-identical to the source. A genuine over-target downscale
+  (e.g. 4K -> 1440p) still gets its USM; the skip is keyed on the exact-target
+  size, NOT on `scale == 1`. The 47/61 downscale-only halo flags in
+  `project-first-pass-recipe-validated` stay an open watch - those DID resample.
   Then route them to stage-2 cleaning - 35 were
   gate-flagged (13 auto / 22 qa) and 11 were held on manual OCR review, so
   the watermark work happens at `3.Cleaning Scratch`, NOT before first pass.
