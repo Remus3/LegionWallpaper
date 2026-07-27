@@ -115,6 +115,16 @@ jobs:
           # just the dev toolchain and keys the setup-python pip cache.
           pip install -r requirements.txt
 
+      - name: arm the git-hook gate
+        run: |
+          # core.hooksPath is LOCAL config and is never cloned, so a CI
+          # checkout has the tracked .githooks gate INERT - the exact
+          # false-green CLAUDE.md warns about. Run the repo's own installer
+          # rather than setting the config by hand: that way CI also proves
+          # the installer works, and --check is the authoritative probe.
+          python tools/install_git_hooks.py
+          python tools/install_git_hooks.py --check
+
       - name: py_compile sweep
         run: |
           # Every .py in the checkout. A CI checkout contains tracked files
