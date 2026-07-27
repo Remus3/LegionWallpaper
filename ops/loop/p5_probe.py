@@ -147,12 +147,33 @@ def judge(lw: Path, rc: Path, samples: Path, max_slots: int, deadline: float) ->
         print("        NOTE: never observed both repos holding at once - the run may not "
               "have actually overlapped, which makes conditions 3 and 4 weak evidence")
 
-    # 4. gemini call windows never overlap across repos
+    # 4. gemini call windows never overlap across repos.
+    #
+    # Two silent-green traps guarded here, both found on review rather than by a
+    # run: (a) an UNSERIALIZED marker means the mutex FAILED to serialize that
+    # call, so the resource was shared with no lock at all - a hard fail no
+    # matter what the windows look like; (b) an ACQUIRED with no matching
+    # RELEASED is a window a pairing parser DROPS, so an unpaired count is
+    # itself a failure rather than something to quietly skip.
     gw_lw, gw_rc = gemini_windows(lwl), gemini_windows(rcl)
     bad = overlaps(gw_lw, gw_rc)
-    ok4 = not bad
+    unser = [x for x in lwl + rcl if "winmutex: UNSERIALIZED" in x]
+
+    def unpaired(lines):
+        a = len([x for x in lines if "winmutex: ACQUIRED" in x and "GEMINI" in x])
+        r = len([x for x in lines if "winmutex: RELEASED" in x and "GEMINI" in x])
+        return a - r
+
+    up_lw, up_rc = unpaired(lwl), unpaired(rcl)
+    ok4 = not bad and not unser and up_lw == 0 and up_rc == 0
     print(f"[{'PASS' if ok4 else 'FAIL'}] 4. gemini windows never overlap across repos")
     print(f"        LW windows={len(gw_lw)} RC windows={len(gw_rc)} overlaps={len(bad)}")
+    if unser:
+        print(f"        HARD FAIL: {len(unser)} UNSERIALIZED marker(s) - the mutex did "
+              f"NOT serialize that call:\n          " + "\n          ".join(unser[:3]))
+    if up_lw or up_rc:
+        print(f"        HARD FAIL: unpaired ACQUIRED (LW={up_lw} RC={up_rc}) - a window "
+              f"that never closed would be silently dropped by the pairing parser")
     if not gw_lw or not gw_rc:
         print("        NOTE: one side logged NO gemini windows - condition 4 is vacuous. "
               "A run with fixed_directive skips director AND auditor, so no gemini call "

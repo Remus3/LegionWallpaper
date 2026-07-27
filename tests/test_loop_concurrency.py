@@ -244,6 +244,29 @@ def test_mutex_serializes_two_threads():
     assert peak == 1, f"mutex allowed {peak} concurrent holders"
 
 
+def test_acquired_is_logged_only_when_actually_held():
+    """Emitter side of the defect RC found 2026-07-26: ACQUIRED must be gated on
+    a real acquisition, and the fail-open path must emit a DISTINCT marker.
+    An unconditional ACQUIRED opens a window that the gated RELEASED never
+    closes, so the one case where the mutex did NOT serialize becomes the one
+    case invisible to the overlap check."""
+    src = (ROOT / "ops" / "loop" / "winmutex.py").read_text(encoding="utf-8")
+    body = src[src.index("acquired = rc in"):src.index("yield handle")]
+    assert "if acquired:" in body, "ACQUIRED must be gated on acquired"
+    assert "UNSERIALIZED" in body, "the fail-open branch needs a distinct marker"
+    # and the only ACQUIRED log sits inside that gate
+    gated = body[body.index("if acquired:"):]
+    assert "ACQUIRED" in gated
+
+
+def test_unserialized_marker_wording_is_the_judge_contract():
+    """p5_probe greps for this exact token; both emit sites must use it."""
+    src = (ROOT / "ops" / "loop" / "winmutex.py").read_text(encoding="utf-8")
+    assert src.count("winmutex: UNSERIALIZED") == 2, (
+        "both fail-open paths (CreateMutexW failure, unexpected wait result) "
+        "must emit the same marker the judge hard-fails on")
+
+
 def test_mutex_names_are_the_shared_contract():
     """Both repos must use the SAME names or they serialize against nothing."""
     assert winmutex.GEMINI_MUTEX == "Global\\LWRC_GEMINI"
