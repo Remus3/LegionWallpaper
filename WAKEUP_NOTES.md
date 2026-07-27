@@ -11,6 +11,33 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 9
+
+Docs-only (images are gitignored). Detail: LEDGER 54, plan row R24. Five slugs
+batched - `270f`, `272-cleanup`, `274f`, `276f`, `277f` - 5/5 G1 PASS,
+`reasons: []`. The R16 no-USM fix now holds over 40 consecutive slugs.
+Pixel-identity measured per pair (decoded RGB sha256 EQUAL src vs out:
+`bae3f5852eff` `70f861fb53a2` `955c49e9d61f` `4039a90331e4` `786eb69ce31c`).
+The find, and it corrects cycle 8's own reading: all five sources are RGBA
+(12 of 41 processed refs now) and all five are sub-shape B, which is NOT a
+scattered anti-aliased edge. It is the literal 1-PIXEL OUTER BORDER of the
+frame - 7996 non-opaque px is exactly `2*2560 + 2*1440 - 4`, interior 100 pct
+opaque, alpha 220-255, zero fully transparent px. The five alpha planes are
+bit-identical to each other (`np.array_equal`, plane sha256-16
+`2d01a0afce742e26`), so it is one export-toolchain rim stamped on many files;
+cycle 8's `266f` count of 2880 is `2*1440`, the same rim minus the top/bottom
+rows. That makes sub-shape B almost certainly benign (a 1px perimeter has no
+visual consequence over any background), which is now written into the ROADMAP
+item - but the policy call is still operator/director scope and nothing was
+acted on. Verifier CONFIRM 10/10; the rim geometry is the verifier's own
+finding, not the run agent's. Suite 808 passed / 11 skipped.
+Two probe traps for cycle 10: a bare grep of `PIPELINE_LOG.md` for a short slug
+matches sha12 SUBSTRINGS (`270f` hits `sha12=6c57bc270f11` on an unrelated
+slug; 7 raw hits vs 4 real - anchor on the pipe column), and `--dry-run` prints
+no `src_dims` even though the returned dict has it.
+NEXT: cycle 10 is the LAST - `280f` `281-cleanup` `286f` `32-cleanup` `84f`.
+Auth queue 41 deep, still zero approvals (operator-only).
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 8
 
 Docs-only (images are gitignored). Detail: LEDGER 53, plan row R23, commit

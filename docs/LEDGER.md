@@ -27,6 +27,50 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+54. DONE **2026-07-27 (refs-46-first-pass cycle 9; docs-only).** Batched the
+    next 5 slugs (`270f` `272-cleanup` `274f` `276f` `277f`) through
+    best-source -> save-working -> G1 -> submit. 5/5 G1 PASS with
+    `reasons: []`, so the R16 no-resample-no-USM fix now holds across 40
+    consecutive slugs. Premise VERIFIED before any mutation: a dry run showed
+    `src=firstinitial aspect=ok mode=downscale-only box=None` for all 5, every
+    source measures exactly 2560x1440, so each ran at `scale=1` with
+    `usm_applied=false` and the metrics saturate by construction. Pixel
+    identity MEASURED, not inferred - sha256 over the PIL-decoded RGB buffer is
+    EQUAL src vs out for all 5 (`bae3f5852eff` `70f861fb53a2` `955c49e9d61f`
+    `4039a90331e4` `786eb69ce31c`).
+    THE FINDING: all five sources are RGBA and all five outputs RGB, taking the
+    running tally to 12 of 41 processed refs, and every output SHRANK 40.6 to
+    43.3 percent on the channel drop. All five are cycle 8's sub-shape B, and
+    the verifier's independent numpy probe identified what sub-shape B actually
+    IS. Cycle 8 read it as scattered anti-aliasing; it is the literal 1-pixel
+    OUTER BORDER of the frame. The non-opaque count 7996 is exactly
+    `2*2560 + 2*1440 - 4`, the interior is 100 percent opaque, alpha runs
+    min 220 max 255 with zero fully transparent pixels, and the five alpha
+    planes are `np.array_equal` BIT-IDENTICAL to one another (plane sha256-16
+    `2d01a0afce742e26` five times). So sub-shape B is one export-toolchain rim
+    artifact stamped across many files, not per-image chance - and cycle 8's
+    `266f` count of 2880 is exactly `2*1440`, the same rim with only the
+    left/right columns present. Not acted on in-cycle per directive (the policy
+    call is operator/director scope); ROADMAP `first-pass-alpha-letterbox`
+    re-worded so sub-shape B reads as a 1px rim rather than a soft edge band.
+    Negative checks all green: all 5 land at `FIRST_SCRATCH/NEEDAUTH`, the
+    transition chain is exactly INTAKE/SAVE_WORKING/ANNOTATE/SUBMIT, zero
+    APPROVE and zero REJECT lines, and `2.First Pass Done` is unchanged at 243
+    filesystem entries / 242 slug dirs with zero of the 5 present.
+    Built by a single data-run agent in the MAIN tree (a worktree cannot see
+    the gitignored `images/`); verifier CONFIRM 10/10 with two sharpenings -
+    `dists` is ABSENT from `audit["metrics"]` and exists only at
+    `audit["fr_all"]["dists"]`, plus the rim geometry above. Two new probe
+    traps for cycle 10: a bare grep of `PIPELINE_LOG.md` for a short slug
+    matches sha12 SUBSTRINGS (`270f` hits `sha12=6c57bc270f11` on unrelated
+    slug `dgfkw05-...`; 7 raw hits vs 4 real, so anchor on the pipe column),
+    and the `--dry-run` printed line drops `src_dims` even though the returned
+    dict carries it, so source dimensions need a separate PIL probe.
+    Suite 808 passed / 11 skipped. No tracked file touched by the run itself -
+    images, `PIPELINE_LOG.md` and `ops/runtime/` are gitignored, so this item
+    is docs-only. Auth queue now 41 slugs deep; 5 unprocessed remain (`280f`
+    `281-cleanup` `286f` `32-cleanup` `84f`) - one cycle left.
+
 53. DONE **2026-07-27 (refs-46-first-pass cycle 8; docs-only).** Batched the
     next 5 slugs (`261f` `262f` `264-cleanup` `266f` `269f`) through
     best-source -> save-working -> G1 -> submit. 5/5 G1 PASS with
