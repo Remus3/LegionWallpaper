@@ -158,3 +158,129 @@ def affine_transplant(cand_img, asset: AssetMeta, w_px, v_hat, L):
     oy = int(round(float(w_px[1]) - say))
     base.paste(scaled, (ox, oy), scaled)  # alpha matte = the crop's own alpha
     return base
+
+
+def glb_skin_id(champion_id: int, skin_index: int) -> int:
+    """Riot's skinId encoding: the champion owns a 1000-wide block of ids.
+
+    Base skin is index 0, so Vayne (championId 67) is 67000 and her 5th skin is
+    67005. The CDN keys every model directory by this id, which is why the asset
+    layer needs the arithmetic rather than a hand-maintained id table. Ground
+    truth: docs/LEDGER.md item 37 (verified live against 5 Vayne skins - distinct
+    Content-Lengths, bogus ids 404) and ROADMAP.md glb-render-pipeline.
+    """
+    return int(champion_id) * 1000 + int(skin_index)
+
+
+def glb_model_url(champion: str, champion_id: int, skin_index: int) -> str:
+    """Build the CDN URL of one skin's textured .glb (named joints included).
+
+    This is the capability that unblocks the whole render path: the CDN serves a
+    .glb whose joint hierarchy is FULLY NAMED, superseding the blocker recorded in
+    docs/research/crossbow_render_poc.md ("the .skl skeleton is NOT exported by
+    CDragon (404) -> bone NAMES are unavailable"), which had forced base-skin-only
+    isolation plus manual curation. The POC's separate "modelviewer.lol is not
+    scrapeable" note was true of the WEBSITE (Cloudflare + in-app blobs) and does
+    NOT apply to this CDN - do not re-litigate either half.
+
+    The champion slug is lowercased because the CDN path is case-sensitive while
+    callers carry display-cased names ("Vayne"). Pure string work: no request is
+    made here, and the module stays import-time network-free by construction.
+    Ground truth: docs/LEDGER.md item 37, ROADMAP.md glb-render-pipeline.
+    """
+    slug = str(champion).lower()
+    skin_id = glb_skin_id(champion_id, skin_index)
+    return f"https://cdn.modelviewer.lol/lol/models/{slug}/{skin_id}/model.glb"
+
+
+def is_weapon_joint(name: str) -> bool:
+    """Decide whether a joint name belongs to the HELD weapon geometry.
+
+    Name matching is mandatory, not a convenience: two rig conventions coexist in
+    the corpus (lowercase `r_weapon` on older skins, CamelCase `R_Weapon` on
+    newer), so the same logical joint sits at different indices per skin and no
+    fixed bone-INDEX set can ever port across skins. Everything here is therefore
+    case-insensitive.
+
+    The exclusions are each a measured failure mode from docs/LEDGER.md item 37:
+    `buffbone` joints are VFX attachment points that drag unrelated geometry in;
+    a name STARTING with `b_weapon` is the back-mounted bolt rather than the held
+    crossbow; `wings` and `ult` joints belong to skin-specific and ultimate-state
+    props. With this rule name-based isolation renders a clean crossbow on 4/5
+    Vayne skins including aristocrat, the POC's documented wine-bottle failure
+    (project legitimately has no crossbow geometry - its weapon is VFX).
+    """
+    low = str(name or "").lower()
+    if "weapon" not in low:
+        return False
+    if "buffbone" in low or "wings" in low or "ult" in low:
+        return False
+    return not low.startswith("b_weapon")
+
+
+def weapon_joint_indices(gltf: dict) -> list[int]:
+    """Node indices of the held-weapon joints in an already-parsed glTF dict.
+
+    Returns indices (not names) because every downstream glTF lookup - skin joint
+    lists, inverse bind matrices, JOINTS_0 vertex weights - is index-keyed. The
+    indices are derived per file from is_weapon_joint rather than hardcoded,
+    since the two rig conventions make any fixed index set unportable
+    (docs/LEDGER.md item 37, ROADMAP.md glb-render-pipeline).
+
+    A node without a "name" key is skipped, never a crash: real files carry
+    unnamed helper nodes and one of them must not take down a batch render.
+    Missing "nodes" returns [] for the same reason.
+    """
+    nodes = (gltf or {}).get("nodes") or []
+    return [i for i, node in enumerate(nodes)
+            if is_weapon_joint((node or {}).get("name", ""))]
+
+
+def weapon_joint_names(gltf: dict) -> list[str]:
+    """The surviving weapon-joint names, in node order, for logging and audit.
+
+    Kept separate from weapon_joint_indices because the two audiences differ: the
+    renderer consumes indices, while a human confirming WHY a skin isolated the
+    way it did needs to see whether this file used `r_weapon` or `R_Weapon` - the
+    exact convention split that makes index sets unportable (docs/LEDGER.md item
+    37). Same node order as weapon_joint_indices so the two zip together.
+    """
+    nodes = (gltf or {}).get("nodes") or []
+    return [str((nodes[i] or {}).get("name", "")) for i in weapon_joint_indices(gltf)]
+
+
+def mesh_primitives(gltf: dict, mesh_index: int) -> list[dict]:
+    """ALL primitives of one mesh - the fix for a measured silent-truncation trap.
+
+    Newer skins split mesh 0 into 9-10 primitives that share ONE POSITION
+    accessor, so reading `primitives[0]` alone drops most of the triangles with no
+    error and no visible parse failure - the render just comes out partial. This
+    function exists so that trap cannot be re-introduced by a caller reaching into
+    the dict itself (docs/LEDGER.md item 37, ROADMAP.md glb-render-pipeline
+    do-not-redo list).
+
+    A missing mesh, a missing "meshes" key, or an out-of-range index returns []
+    rather than raising: skin coverage across the corpus is uneven and a batch
+    render must degrade per-skin, not abort.
+    """
+    meshes = (gltf or {}).get("meshes") or []
+    if not isinstance(mesh_index, int) or mesh_index < 0 or mesh_index >= len(meshes):
+        return []
+    return list((meshes[mesh_index] or {}).get("primitives") or [])
+
+
+def mesh_primitive_index_accessors(gltf: dict, mesh_index: int) -> list[int]:
+    """Every primitive's triangle-index accessor id, in primitive order.
+
+    The shared-POSITION-accessor split (docs/LEDGER.md item 37) means the geometry
+    of a multi-primitive mesh is distinguished ONLY by these per-primitive index
+    accessors - the vertex buffer is identical across them. Collecting all of them
+    is what makes the isolated weapon mesh whole; taking the first is exactly the
+    truncation this port removes.
+
+    A primitive with no "indices" is non-indexed (draw-array) geometry and simply
+    contributes no accessor id, which keeps the return list aligned with what the
+    caller can actually dereference.
+    """
+    return [int(p["indices"]) for p in mesh_primitives(gltf, mesh_index)
+            if isinstance(p, dict) and "indices" in p]

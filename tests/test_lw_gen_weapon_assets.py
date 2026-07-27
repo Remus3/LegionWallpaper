@@ -178,3 +178,118 @@ def test_affine_transplant_larger_L_larger_footprint(tmp_path):
     foot_small = int(np.any(out_small != cand_arr, axis=2).sum())
     foot_big = int(np.any(out_big != cand_arr, axis=2).sum())
     assert foot_big > foot_small > 0
+
+
+# ---------------------------------------------------------------------------
+# 6. .glb CDN path (LEDGER 37 / ROADMAP glb-render-pipeline).
+#    skinId = championId * 1000 + skinIndex; base skin is index 0.
+# ---------------------------------------------------------------------------
+def test_glb_model_url_base_skin():
+    assert lwa.glb_model_url("vayne", 67, 0) == (
+        "https://cdn.modelviewer.lol/lol/models/vayne/67000/model.glb")
+
+
+def test_glb_model_url_skin_index_adds_to_champion_block():
+    assert lwa.glb_model_url("vayne", 67, 5) == (
+        "https://cdn.modelviewer.lol/lol/models/vayne/67005/model.glb")
+
+
+def test_glb_model_url_lowercases_champion_slug():
+    assert lwa.glb_model_url("Vayne", 67, 0) == (
+        "https://cdn.modelviewer.lol/lol/models/vayne/67000/model.glb")
+
+
+def test_glb_skin_id_is_championid_times_1000_plus_index():
+    assert lwa.glb_skin_id(67, 0) == 67000
+    assert lwa.glb_skin_id(67, 12) == 67012
+    assert lwa.glb_skin_id(103, 7) == 103007
+
+
+# ---------------------------------------------------------------------------
+# 7. Bone filter. LEDGER 37 working rule: match `weapon` case-insensitively,
+#    exclude `buffbone`, `b_weapon*`, `*wings*`, `*ult*`. Two rig conventions
+#    exist (lowercase r_weapon on older skins, CamelCase R_Weapon on newer),
+#    which is exactly why no fixed bone-INDEX set can port across skins.
+# ---------------------------------------------------------------------------
+def test_is_weapon_joint_matches_both_rig_conventions():
+    assert lwa.is_weapon_joint("r_weapon") is True
+    assert lwa.is_weapon_joint("R_Weapon") is True
+    assert lwa.is_weapon_joint("L_Weapon_01") is True
+
+
+def test_is_weapon_joint_rejects_non_weapon_joints():
+    assert lwa.is_weapon_joint("l_hand") is False
+    assert lwa.is_weapon_joint("Spine1") is False
+    assert lwa.is_weapon_joint("") is False
+
+
+def test_is_weapon_joint_excludes_buffbone():
+    assert lwa.is_weapon_joint("buffbone_glb_weapon_1") is False
+    assert lwa.is_weapon_joint("BuffBone_Glb_Weapon_1") is False
+
+
+def test_is_weapon_joint_excludes_b_weapon_back_mounted_bolt():
+    assert lwa.is_weapon_joint("b_weapon") is False
+    assert lwa.is_weapon_joint("B_Weapon_01") is False
+
+
+def test_is_weapon_joint_excludes_wings_and_ult():
+    assert lwa.is_weapon_joint("r_weapon_wings") is False
+    assert lwa.is_weapon_joint("Weapon_Wings_02") is False
+    assert lwa.is_weapon_joint("r_weapon_ult") is False
+    assert lwa.is_weapon_joint("Ult_Weapon") is False
+
+
+def test_weapon_joint_indices_picks_only_surviving_nodes():
+    gltf = {"nodes": [
+        {"name": "Root"},
+        {"name": "R_Weapon"},
+        {"name": "BuffBone_Glb_Weapon_1"},
+        {"name": "b_weapon"},
+        {"name": "l_weapon"},
+        {"name": "Weapon_Wings"},
+        {},
+    ]}
+    assert lwa.weapon_joint_indices(gltf) == [1, 4]
+
+
+def test_weapon_joint_names_returns_names_not_indices():
+    gltf = {"nodes": [{"name": "Root"}, {"name": "R_Weapon"}, {"name": "b_weapon"}]}
+    assert lwa.weapon_joint_names(gltf) == ["R_Weapon"]
+
+
+# ---------------------------------------------------------------------------
+# 8. Parser trap (LEDGER 37): newer skins split mesh 0 into 9-10 primitives that
+#    share one POSITION accessor, so reading primitives[0] alone silently drops
+#    most triangles. Aggregate ALL primitives.
+# ---------------------------------------------------------------------------
+def test_mesh_primitives_aggregates_every_primitive_not_just_the_first():
+    gltf = {"meshes": [{"primitives": [
+        {"attributes": {"POSITION": 0, "JOINTS_0": 3}, "indices": 10},
+        {"attributes": {"POSITION": 0, "JOINTS_0": 3}, "indices": 11},
+        {"attributes": {"POSITION": 0, "JOINTS_0": 3}, "indices": 12},
+    ]}]}
+    prims = lwa.mesh_primitives(gltf, 0)
+    assert len(prims) == 3
+    assert [p["indices"] for p in prims] == [10, 11, 12]
+
+
+def test_mesh_primitives_missing_mesh_returns_empty():
+    assert lwa.mesh_primitives({"meshes": []}, 0) == []
+    assert lwa.mesh_primitives({}, 0) == []
+
+
+def test_mesh_primitive_index_accessors_collects_all_index_accessors():
+    gltf = {"meshes": [{"primitives": [
+        {"attributes": {"POSITION": 0}, "indices": 10},
+        {"attributes": {"POSITION": 0}, "indices": 11},
+    ]}]}
+    assert lwa.mesh_primitive_index_accessors(gltf, 0) == [10, 11]
+
+
+# ---------------------------------------------------------------------------
+# 9. Import safety holds after the .glb port (no network dep at import time).
+# ---------------------------------------------------------------------------
+def test_glb_port_keeps_module_import_free():
+    assert_import_free("tools.lw_gen_weapon_assets",
+                       ("torch", "diffusers", "cv2", "onnxruntime", "requests"))
