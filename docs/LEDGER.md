@@ -27,6 +27,47 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+51. DONE **2026-07-27 (refs-46-first-pass cycle 6; docs-only).** Batched the
+    next five slugs - `219-cleanup`, `221-cleanup`, `225f`, `229f`,
+    `230-cleanup` - through best-source -> save-working -> G1 -> submit via
+    `tools/lw_first_pass.py --batch`. 5/5 G1 PASS with an empty `reasons` list,
+    so the R16 no-resample-no-USM fix now holds across TWENTY-FIVE consecutive
+    slugs. Premise VERIFIED before mutating: the dry run reported
+    `src=firstinitial aspect=ok mode=downscale-only box=None` for all five and
+    every source already measured exactly 2560x1440, so each ran at scale=1
+    with `usm_applied=false` and the metrics saturate by construction
+    (msssim 1.0, lpips 0.0, dists 0.0, lap_ratio 1.0, halo_pct 0.0,
+    band_delta 0.0) - the correct reading for an identity transform.
+    Pixel-identity MEASURED: sha256 over the PIL-decoded RGB buffer is EQUAL
+    src vs out for every pair (`5f6b906e8762`, `d4d9dccee133`, `ba1f58aa5a05`,
+    `a4ec6df673de`, `6140df7222ec`) while all five PNGs grew 1.2-1.6 percent on
+    the SUBMIT re-encode, so cycle 5's shrinking `186-cleanup` remains the lone
+    outlier rather than a turn in the trend.
+    All five stop at `FIRST_SCRATCH/NEEDAUTH` with the transition chain exactly
+    INTAKE/SAVE_WORKING/ANNOTATE/SUBMIT, zero APPROVE or REJECT lines in
+    `PIPELINE_LOG.md`, and none present in `2.First Pass Done`.
+    Built by a single data-run agent in the MAIN tree (a worktree cannot see
+    the gitignored `images/`), gated by a read-only verifier that independently
+    re-probed all 13 claims: CONFIRM 13/13, including a re-hash of every RGB
+    buffer and a re-count of the scratch split (26 NEEDAUTH / 20 EDITING of
+    46). Its lone nuance sharpens the R19 correction: `2.First Pass Done` holds
+    243 filesystem ENTRIES but only 242 slug DIRECTORIES - the 243rd is
+    `.gitkeep` - so "243 entries" is true and "243 slugs" is off by one.
+    Two probe traps found this cycle, both silent-empty rather than loud:
+    (1) `manifest.json` has NO top-level `state`, `status` or `audit` key - its
+    keys are exactly schema/slug/original_filename/original_sha256/source_url/
+    created_ts/delivered_as/transitions, so state must come from `scan_tree()`
+    in `tools/lw_pipeline.py` (substate logic :443-467) and the audit only from
+    `transitions[i]["audit"]` where `op == "ANNOTATE"`;
+    (2) `lw_pipeline.Ctx(root)` wants the IMAGES dir, not the project root
+    (`self.project_root = self.root.parent`, :310) - handing it the project
+    root scans 0 images and returns an all-zero result with no error, a
+    false-green trap for any future probe.
+    Suite 808 passed / 11 skipped, ruff clean, `git status` shows no tracked
+    file touched by the run itself - `images/`, `PIPELINE_LOG.md` and
+    `ops/runtime/` are all gitignored, so this row commits docs only. Auth
+    queue now 26 slugs deep; 20 unprocessed remain. Plan row R21.
+
 50. DONE **2026-07-27 (refs-46-first-pass cycle 5; docs-only).** Batched the
     next five slugs - `186-cleanup`, `190-cleanup`, `193-cleanup`, `196f`,
     `209-cleanup` - through best-source -> save-working -> G1 -> submit via

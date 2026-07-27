@@ -11,6 +11,32 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 6
+
+Docs-only (images are gitignored). Detail: LEDGER 51, plan row R21. Five slugs
+batched - `219-cleanup`, `221-cleanup`, `225f`, `229f`, `230-cleanup` - 5/5 G1
+PASS, `reasons: []`. The R16 no-USM fix now holds over 25 consecutive slugs.
+Pixel-identity measured per pair (sha256 of the decoded RGB buffers equal); all
+five PNGs GREW 1.2-1.6 pct on the SUBMIT re-encode, so cycle 5's shrinking
+`186-cleanup` stays a lone outlier rather than a turn. Queue: 26 at NEEDAUTH,
+20 still EDITING, 0 approved - approval stays operator-only. Verifier CONFIRM
+13/13, its one nuance sharpening the R19 count: `2.First Pass Done` = 243
+filesystem ENTRIES but 242 slug DIRS, `.gitkeep` being the 243rd.
+
+Carry-forward for the next probe author, two silent-empty traps (neither
+errors, both fabricate a green): `manifest.json` has NO top-level `state`,
+`status` or `audit` key - its keys are exactly schema, slug,
+original_filename, original_sha256, source_url, created_ts, delivered_as,
+transitions. State/substate comes from `scan_tree()` in `tools/lw_pipeline.py`
+(substate logic :443-467); the audit only from
+`manifest["transitions"][i]["audit"]` where `op == "ANNOTATE"`. And
+`lw_pipeline.Ctx()` takes the IMAGES dir, not the project root
+(`self.project_root = self.root.parent`, :310) - hand it the project root and
+it scans 0 images and returns an all-zero result with no error.
+Suite 808 passed / 11 skipped, ruff clean.
+
+---
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 5
 
 Docs-only (images are gitignored). Detail: LEDGER 50, plan row R20. Five slugs
