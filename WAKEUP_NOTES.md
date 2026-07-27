@@ -11,6 +11,28 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 1, and what the batch is not
+
+Commit `9477a7e` (docs-only). Detail: LEDGER 45, plan row R15. The proving run
+did what it was asked - slug `0` went save-working -> annotate -> submit,
+`0_firstneedauth.png` sits in scratch at FIRST_SCRATCH/NEEDAUTH, unapproved -
+and then the batch turned out not to need the half of the chain being proved.
+All 46 `_firstinitial` files are EXACTLY 2560x1440, so every slug takes
+`downscale-only` at scale=1 and the unsharp mask is the only operation first
+pass performs on any of them. The lone G1 FLAG (halo_pct 0.0711) is therefore
+the USM measured alone, and lap_ratio 1.965 is not the upscale-vs-source ratio
+the floor was calibrated on. The upscaler was probed directly rather than
+inferred, since no slug here loads it: torch 2.11.0+cu128, cuda True, RTX 5070,
+spandrel DAT scale 4 in 0.5s. Nothing from the run is committable - `images/`,
+`PIPELINE_LOG.md` and `ops/runtime/` are all gitignored.
+The remaining 45 are NOT batched, deliberately: whether a USM-only first pass
+is right for an already-at-target source is a director call, and batching now
+would manufacture 45 operator approvals out of one open question. Escalated in
+`ops/loop/control/gemini_ask.txt` with four options. Suite 799 passed / 11
+skipped; CI `not-evaluated` for this sha, which is the docs-only paths-ignore
+case R14 taught the tooling to name (its own `check_ci` says so on the full
+sha, and answers `queued` on the abbreviated one - the residual R14 logged).
+
 ## 2026-07-27 (loop cycle) - f1 item 12, the last LW-owned phase-6 item
 
 Commit `07ed5bc` (slice `d8f5bc8`). Detail: LEDGER 43, plan row R14. `check_ci`
