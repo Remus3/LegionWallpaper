@@ -93,6 +93,15 @@ Loop {
             }
             Sleep 350
             Send("{Enter}")
+            ; SECOND Enter (operator-observed 2026-07-26: text landed in the composer
+            ; but was never submitted). Same failure class as the slash-palette scar
+            ; above - something transient (autocomplete, paste-mode, a hint row) eats
+            ; the first Enter, so the directive sits typed-but-unsent and the whole
+            ; cycle stalls until the deadline. Sending a second Enter is SAFE because
+            ; if the first one DID submit, the composer is now empty and Enter on an
+            ; empty composer is a no-op. Cheap insurance against a silent stall.
+            Sleep 250
+            Send("{Enter}")
             typed += 1
             Sleep LINE_PAUSE
             if (Trim(lineText) = "/clear")

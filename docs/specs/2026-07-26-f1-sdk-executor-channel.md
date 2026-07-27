@@ -374,11 +374,34 @@ has not adopted them, BREACH the moment both copies exist and differ.
 Suite `tests/` 646 passed / 11 skipped. Live smoke confirms acquire/release around a real
 cycle and an empty bucket afterwards.
 
-**P4 - live single-repo run.** LW only, `channel: sdk`, `max_cycles: 2`, cheap directive
-(docs Tier-0).
-ACCEPT: 2 cycles complete with zero AHK process running (verify: no AutoHotkey in the
-process list during the run); `total_cost_usd` recorded per cycle and within 10 percent of
-the transcript-derived number computed as a one-off cross-check; both cycles commit + push.
+**P4 - live single-repo run. DONE 2026-07-26** (run_id `b555f088`, commits `b1ad327` +
+`e63a1b0`). LW only, `channel: sdk`, `max_cycles: 2`, `clear_each_cycle: true` (operator
+call), sonnet for the smoke, Tier-0 doc directive appending one line per cycle to
+`docs/_archive/2026-07-26-p4-sdk-smoke.md`.
+PASSED: 2 cycles completed, zero AutoHotkey process on the box (confirmed before the run
+and structurally impossible during it - the sdk channel never opens a window); each cycle
+committed exactly ONE file, in scope, and pushed (local HEAD == origin/main); neither
+commit carries a co-author trailer; per-cycle cost returned by the CLI ($0.6583, $0.4541,
+total $1.1124); slot acquired and released around each cycle with an empty bucket
+afterwards; zero gemini spend (fixed_directive skips director AND auditor).
+
+FAILED AS WRITTEN, and the criterion was wrong, not the channel: "within 10 percent of the
+transcript-derived number" treats the thing being RETIRED as the reference. Measured three
+ways, the scraper cannot be reconciled to the CLI receipt at all:
+- raw sum over transcript usage records: $1.2494 vs $0.6583 reported = **+90 percent**.
+  Cause: the transcript repeats usage records per message id (8 ids repeated, 10 extra
+  records; one id appears 3x with identical token counts), so the scraper multi-counts.
+- deduped by message id: $0.5108 vs $0.6583 = **-22 percent**. It now UNDERCOUNTS, because
+  it misses subagent transcripts and leans on a hand-maintained price table that has to be
+  correct for every model alias.
+- the run's own `claude_info` line read **$159.81**, because `meter()` auto-pinned the
+  newest transcript in the project dir - which was the operator's interactive session, not
+  the executor's. It billed the wrong conversation entirely.
+`total_cost_usd` comes from the CLI itself and is the authority. AMENDED CRITERION for P5:
+assert the per-cycle cost is present, positive, and plausibly bounded by
+`cycle_budget_usd`; do NOT reconcile it against the scraper. This strengthens the case for
+retiring `meter()` in phase 6 rather than weakening it - the cross-check's real result is
+that the legacy meter was wrong in three independent ways.
 
 **P5 - live concurrent run - THE acceptance test for this spec.** LW loop and RC loop
 started within 60s of each other, both `channel: sdk`, 2 cycles each, disjoint Tier-0
