@@ -27,6 +27,45 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+50. DONE **2026-07-27 (refs-46-first-pass cycle 5; docs-only).** Batched the
+    next five slugs - `186-cleanup`, `190-cleanup`, `193-cleanup`, `196f`,
+    `209-cleanup` - through best-source -> save-working -> G1 -> submit via
+    `tools/lw_first_pass.py --batch`. 5/5 G1 PASS with an empty `reasons` list,
+    so the R16 no-resample-no-USM fix now holds across TWENTY consecutive slugs.
+    Premise VERIFIED before mutating: the dry run reported
+    `src=firstinitial aspect=ok mode=downscale-only` for all five, so every slug
+    ran at scale=1 with `usm_applied=false` and the metrics saturate by
+    construction (msssim 1.0, lpips 0.0, dists 0.0, lap_ratio 1.0, halo_pct 0.0,
+    band_delta 0.0) - the correct reading for an identity transform, not a
+    broken measurement. Pixel-identity MEASURED, not inferred: sha256 over the
+    PIL-decoded RGB buffer is EQUAL src vs out for every pair while the PNG byte
+    sizes differ, i.e. SUBMIT re-encodes the same pixels. New this cycle:
+    `186-cleanup` is the first slug in the arc whose output SHRANK
+    (2553637 -> 2545178 bytes) - the other four grew, and every earlier row had
+    seen growth only, so "the re-encode always inflates" was a sample artifact
+    rather than a property.
+    All five stop at `FIRST_SCRATCH/NEEDAUTH` with the transition chain exactly
+    INTAKE/SAVE_WORKING/ANNOTATE/SUBMIT, zero APPROVE or REJECT lines in
+    `PIPELINE_LOG.md`, and none of them present in `2.First Pass Done`.
+    Built by a single data-run agent in the MAIN tree (a worktree would not
+    carry the gitignored `images/`), gated by a read-only verifier that
+    re-probed every claim: CONFIRM 10/11, with the ONE REFUTE landing on the
+    DISPATCH rather than the run. Two corrections worth carrying forward:
+    (1) the post-run scratch split was stated backwards - it is 25 slugs still
+    in EDITING and 21 in NEEDAUTH, not 21 / 25; (2) the audit block is NOT at
+    manifest top level. `manifest["audit"]` is ABSENT - the real path is
+    `manifest["transitions"][i]["audit"]` for the transition whose `op` is
+    `ANNOTATE`. A probe reading top-level `audit` silently returns empty for
+    every field and would report a false all-empty pass, which is the exact
+    failure mode the verifier gate exists to catch. `upscale_audit` likewise
+    has no `mode` key; its keys are backend, model, scale, src_dims, up_dims,
+    out_dims, usm_applied. Verification: suite 808 passed / 11 skipped
+    (re-run fresh by the verifier, exit 0), `ruff check .` clean, and
+    `git status --porcelain` proves the run added no tracked file - `images/`,
+    `PIPELINE_LOG.md` and `ops/runtime/` are all gitignored, so this row is
+    docs-only by construction. Plan row R20; ROADMAP counter advanced to
+    21 of 46 submitted, 0 approved.
+
 49. DONE **2026-07-27 (refs-46-first-pass cycle 4; docs-only).** Batched the
     next five slugs - `150-cleanup`, `153-cleanup`, `170-cleanup`,
     `177-cleanup`, `180-cleanup` - through best-source -> save-working -> G1 ->

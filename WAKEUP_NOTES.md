@@ -11,6 +11,26 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 5
+
+Docs-only (images are gitignored). Detail: LEDGER 50, plan row R20. Five slugs
+batched - `186-cleanup`, `190-cleanup`, `193-cleanup`, `196f`, `209-cleanup` -
+5/5 G1 PASS, `reasons: []`. The R16 no-USM fix now holds over 20 consecutive
+slugs. Pixel-identity measured per pair again (sha256 of the decoded RGB buffers
+equal, file sizes differ from the SUBMIT re-encode); `186-cleanup` is the first
+output that SHRANK on that re-encode, so the growth seen in every earlier row
+was a sample artifact, not a property. Queue: 21 at NEEDAUTH, 25 still EDITING,
+0 approved - approval stays operator-only.
+
+Carry-forward for the next probe author: `manifest["audit"]` DOES NOT EXIST.
+The audit block lives at `manifest["transitions"][i]["audit"]` where
+`op == "ANNOTATE"`. A top-level read returns empty for every field and reports a
+false all-empty pass - the verifier caught exactly that in the dispatch text.
+`upscale_audit` has no `mode` key either (backend, model, scale, src_dims,
+up_dims, out_dims, usm_applied). Suite 808 passed / 11 skipped, ruff clean.
+
+---
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 4
 
 Docs-only (images are gitignored). Detail: LEDGER 49, plan row R19. Five slugs
