@@ -11,6 +11,32 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 8
+
+Docs-only (images are gitignored). Detail: LEDGER 53, plan row R23, commit
+`62555c6`. Five slugs batched - `261f`, `262f`, `264-cleanup`, `266f`, `269f` -
+5/5 G1 PASS, `reasons: []`. The R16 no-USM fix now holds over 35 consecutive
+slugs. Pixel-identity measured per pair (decoded RGB sha256 equal).
+The find: cycle 7's alpha drop was NOT a two-slug outlier. All FIVE sources
+here are RGBA, making it 7 of the 36 processed refs, and every output shrank
+39.7-42.1 pct on the channel drop. Two sub-shapes, and the second one reframes
+the defect: `261f`/`262f`/`264-cleanup` carry cycle 7's hairline letterbox with
+BYTE-IDENTICAL geometry across all three (transparent rows exactly `[0-2]` +
+`[1437-1439]`, the only non-opaque pixels in each file - a shared export
+artifact, not chance), while `266f`/`269f` are not letterboxed at all: alpha
+220-255, ZERO fully transparent pixels, just a scattered anti-aliased edge. So
+the real defect is an unannounced RGBA -> RGB flatten and the letterbox is one
+special case of it - `first-pass-alpha-letterbox` understates its own scope.
+Still NOT acted on (operator policy call), but the ROADMAP item now carries a
+per-sub-shape split plus the one step needing no policy: record source mode +
+the flatten in `upscale_audit` so the drop stops being silent - today only a
+file-size anomaly reveals it. Queue: 36 NEEDAUTH, 10 EDITING, 0 approved - two
+cycles left. Verifier CONFIRM 8/8, zero discrepancies, first all-CONFIRM cycle
+of the arc. Next cycle's traps: `scan_tree()` returns a DICT and
+`tree["images"]` is a dict keyed by slug; records have `state`/`substate` and
+NO `stage` key (a `stage` split silently yields `{None: 296}`); the verdict is
+`audit["verdict"] == "PASS"`, not `audit["pass"]`.
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 7
 
 Docs-only (images are gitignored). Detail: LEDGER 52, plan row R22. Five slugs
