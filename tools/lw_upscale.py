@@ -64,6 +64,20 @@ def _sha256(path: str) -> str:
     return h.hexdigest()
 
 
+def _has_alpha(img):
+    """True iff a PIL image carries transparency of any kind.
+
+    first_pass always writes RGB, so every alpha-carrying source is flattened.
+    That flatten was invisible in the audit trail, which let a corpus-wide alpha
+    drop go unreviewed. Mode alone is not enough: a palette PNG/GIF reports mode
+    "P" yet stores real transparency in a tRNS chunk, surfaced by PIL as
+    info["transparency"], so both signals are checked.
+    """
+    return img.mode in ("RGBA", "LA", "PA", "RGBa", "La") or (
+        "transparency" in img.info
+    )
+
+
 def _clamp_usm(usm):
     """Clamp an unsharp-mask (radius, percent, threshold) triple to sane maxima.
 
@@ -349,6 +363,10 @@ def first_pass(
     # takes over.
     with Image.open(src_path) as _src_probe:
         src_w, src_h = _src_probe.size
+        # Read the source mode BEFORE any convert("RGB"). The probe opens the
+        # same file every backend re-opens, so this covers both branches.
+        source_mode = _src_probe.mode
+        source_has_alpha = _has_alpha(_src_probe)
         if _covers_target(src_w, src_h, target):
             raw = _src_probe.convert("RGB")
             meta = {
@@ -403,6 +421,9 @@ def first_pass(
             "threshold": clamped[2],
         },
         "usm_applied": usm_applied,
+        # The output is always RGB, so an alpha-carrying source IS flattened.
+        "source_mode": source_mode,
+        "alpha_flattened": source_has_alpha,
         "tile": tile,
         "overlap": overlap,
         "seconds": round(time.time() - t0, 3),

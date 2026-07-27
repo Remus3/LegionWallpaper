@@ -440,7 +440,13 @@ def test_downscale_only_still_fails_corrupt_msssim():
 # landing first.
 # ---------------------------------------------------------------------------
 UPSCALE_AUDIT_KEYS = {"backend", "model", "scale", "src_dims", "up_dims",
-                      "out_dims", "usm_applied"}
+                      "out_dims", "usm_applied", "source_mode",
+                      "alpha_flattened"}
+
+# The provenance keys that existed BEFORE the alpha-drop fields (R26) were
+# added. Frozen so a later field addition cannot quietly drop one of them.
+PREEXISTING_UPSCALE_AUDIT_KEYS = {"backend", "model", "scale", "src_dims",
+                                  "up_dims", "out_dims", "usm_applied"}
 
 
 def _drive_process_slug(monkeypatch, tmp_path, audit):
@@ -487,13 +493,15 @@ def _drive_process_slug(monkeypatch, tmp_path, audit):
 def _spandrel_audit():
     return {"backend": "spandrel", "model": "m.safetensors", "scale": 4,
             "src_dims": [1920, 1080], "up_dims": [7680, 4320],
-            "out_dims": [2560, 1440], "usm_applied": True}
+            "out_dims": [2560, 1440], "usm_applied": True,
+            "source_mode": "RGBA", "alpha_flattened": True}
 
 
 def _downscale_audit():
     return {"backend": "downscale-only", "model": None, "scale": 1,
             "src_dims": [2560, 1440], "up_dims": [2560, 1440],
-            "out_dims": [2560, 1440], "usm_applied": False}
+            "out_dims": [2560, 1440], "usm_applied": False,
+            "source_mode": "RGB", "alpha_flattened": False}
 
 
 def test_annotate_upscale_audit_carries_usm_applied(monkeypatch, tmp_path):
@@ -524,6 +532,33 @@ def test_annotate_records_usm_not_applied_for_no_resample(monkeypatch,
     assert cap["payload"]["upscale_audit"]["usm_applied"] is False
     # ADR-006 wiring is untouched by this addition.
     assert cap["payload"]["lap_ratio_gated"] is False
+
+
+def test_annotate_upscale_audit_carries_alpha_drop_fields(monkeypatch,
+                                                          tmp_path):
+    """The alpha-flatten provenance (R26) reaches the annotate payload.
+
+    first_pass always writes RGB, so an alpha-carrying source is flattened.
+    Without these two fields a corpus-wide flatten is invisible to a reviewer.
+    """
+    cap = _drive_process_slug(monkeypatch, tmp_path, _spandrel_audit())
+    ua = cap["payload"]["upscale_audit"]
+    assert ua["source_mode"] == "RGBA"
+    assert ua["alpha_flattened"] is True
+
+    cap2 = _drive_process_slug(monkeypatch, tmp_path, _downscale_audit())
+    ua2 = cap2["payload"]["upscale_audit"]
+    assert ua2["source_mode"] == "RGB"
+    assert ua2["alpha_flattened"] is False
+
+
+def test_annotate_upscale_audit_alpha_fields_keep_preexisting_keys(monkeypatch,
+                                                                   tmp_path):
+    """Adding the alpha fields must not drop any pre-existing provenance key."""
+    cap = _drive_process_slug(monkeypatch, tmp_path, _spandrel_audit())
+    ua = cap["payload"]["upscale_audit"]
+    missing = PREEXISTING_UPSCALE_AUDIT_KEYS - set(ua)
+    assert not missing, f"dropped pre-existing keys: {sorted(missing)}"
 
 
 def test_save_working_params_carry_usm_applied(monkeypatch, tmp_path):
