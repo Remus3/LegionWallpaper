@@ -26,11 +26,11 @@ Read-only. Never registers, edits or kills anything - it reports, the
 operator (or a directed session) decides. Exit is always 0: a guard that
 can block a session start is worse than the drift it watches for.
 """
+import ast
 import csv
 import io
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -64,7 +64,6 @@ EXPECTED_INTERACTIVE = {
     "RC-Supervisor": "Win32 + overlay ownership",
 }
 SCAN_DIRS = ("tools", "ops")
-SPAWN_RE = re.compile(r"subprocess\.(?:run|Popen|call|check_output|check_call)\s*\(")
 
 
 def _run(args, timeout=6):
@@ -122,37 +121,86 @@ def check_tasks():
     return total, risky, expected
 
 
+SPAWN_FUNCS = {"run", "Popen", "call", "check_call", "check_output"}
+FLAG_NAME = "CREATE_NO_WINDOW"
+FLAG_VALUE = 0x08000000
+
+
+def _module_consts(tree):
+    """Module-level NAME -> value-node bindings, so a spawn may pass a constant."""
+    out = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    out[t.id] = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.value is not None:
+                out[node.target.id] = node.value
+    return out
+
+
+def resolves_to_flag(node, consts, depth=0):
+    """True only when `node` provably carries CREATE_NO_WINDOW.
+
+    This replaced a substring test (`"creationflags" in call`) that stood in for
+    a value check. That form passed on `creationflags=0`, on the word appearing
+    in a comment inside the call, and on `getattr(subprocess, "CREATE_NO_WINDW",
+    0)` - a typo that returns the 0 default, spawns fine, and flashes anyway.
+    Fails CLOSED: an expression this cannot follow is not the flag, because a
+    guard that guesses yes is the fail-open it was written to remove.
+    Riot Commander hit the identical shape in its own copy, 2026-07-27.
+    """
+    if node is None or depth > 6:
+        return False
+    if isinstance(node, ast.Attribute):
+        return node.attr == FLAG_NAME
+    if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Name) and node.func.id == "getattr":
+            if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant):
+                return node.args[1].value == FLAG_NAME
+        return False
+    if isinstance(node, ast.Constant):
+        return node.value == FLAG_VALUE
+    if isinstance(node, ast.Name):
+        return resolves_to_flag(consts.get(node.id), consts, depth + 1)
+    if isinstance(node, ast.IfExp):
+        return (resolves_to_flag(node.body, consts, depth + 1)
+                or resolves_to_flag(node.orelse, consts, depth + 1))
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return (resolves_to_flag(node.left, consts, depth + 1)
+                or resolves_to_flag(node.right, consts, depth + 1))
+    return False
+
+
 def check_spawns():
-    """B - subprocess call sites with no CREATE_NO_WINDOW."""
+    """B - subprocess call sites whose creationflags do not resolve to the flag."""
     misses = []
     for d in SCAN_DIRS:
         base = ROOT / d
         if not base.is_dir():
             continue
-        for py in base.rglob("*.py"):
+        for py in sorted(base.rglob("*.py")):
             if "__pycache__" in py.parts:
                 continue
             try:
-                text = py.read_text(encoding="utf-8", errors="replace")
-            except OSError:
+                tree = ast.parse(py.read_text(encoding="utf-8", errors="replace"))
+            except (OSError, SyntaxError):
                 continue
-            for m in SPAWN_RE.finditer(text):
-                # The call text: from the open paren to its match, capped so a
-                # runaway paren scan cannot stall the hook.
-                depth, end = 0, m.end()
-                for i in range(m.end() - 1, min(len(text), m.end() + 1200)):
-                    if text[i] == "(":
-                        depth += 1
-                    elif text[i] == ")":
-                        depth -= 1
-                        if depth == 0:
-                            end = i
-                            break
-                call = text[m.start():end]
-                if "creationflags" in call or "CREATE_NO_WINDOW" in call:
+            consts = _module_consts(tree)
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
                     continue
-                line = text.count("\n", 0, m.start()) + 1
-                misses.append(f"{py.relative_to(ROOT).as_posix()}:{line}")
+                f = node.func
+                if not (isinstance(f, ast.Attribute) and f.attr in SPAWN_FUNCS
+                        and isinstance(f.value, ast.Name)
+                        and f.value.id == "subprocess"):
+                    continue
+                flags = next((k.value for k in node.keywords
+                              if k.arg == "creationflags"), None)
+                if flags is not None and resolves_to_flag(flags, consts):
+                    continue
+                misses.append(f"{py.relative_to(ROOT).as_posix()}:{node.lineno}")
     return misses
 
 
