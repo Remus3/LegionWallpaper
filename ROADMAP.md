@@ -88,8 +88,14 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   9-10 primitives sharing one POSITION accessor - drops most triangles); the
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
-- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (41 of 46 submitted, 0 approved).**
-  Next: batch the last 5 (`280f` `281-cleanup` `286f` `32-cleanup` `84f`) -
+- **refs-46-first-pass - process the 46 intaken reference_pictures - SUBMITTED
+  46 of 46, 0 approved. The batching is DONE; the only remaining step is
+  operator approval, which no agent can perform.**
+  Next: operator reviews the 46-deep `FIRST_SCRATCH/NEEDAUTH` queue. Nothing
+  downstream moves until then, and `first-pass-alpha-letterbox` below should be
+  ruled on BEFORE approval since 15 of the 46 carry a silently dropped alpha.
+  Cycle 10 (LEDGER 55, plan row R25) ran the last 5,
+  `280f` `281-cleanup` `286f` `32-cleanup` `84f`,
   cycle 9 (LEDGER 54, plan row R24) ran
   `270f` `272-cleanup` `274f` `276f` `277f`,
   cycle 8 (LEDGER 53, plan row R23) ran
@@ -106,8 +112,8 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `123f` `124f` `127-cleanup` `134-cleanup` `14-cleanup`, cycle 2 (LEDGER 47,
   plan row R17) ran `105-cleanup` `106-cleanup` `107-cleanup` `110-cleanup`
   `122`, and all five took 5/5 G1 PASS with an empty reasons list. That is the
-  R16 fix measured in production over 40 consecutive slugs: cycle 1 FLAGGED on
-  halo, cycles 2-9 flag nothing. Cycles 3-9 also MEASURED the pixel-identity
+  R16 fix measured in production over 45 consecutive slugs: cycle 1 FLAGGED on
+  halo, cycles 2-10 flag nothing. Cycles 3-10 also MEASURED the pixel-identity
   claim (sha256 over the decoded RGB buffers per pair) instead of inferring it
   from equal dimensions; the PNG bytes otherwise differ only because SUBMIT
   re-encodes, and cycle 5's `186-cleanup` is the only RGB output so far to
@@ -120,7 +126,7 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   derived from the filesystem by `scan_tree`, and `lw_pipeline.Ctx()` takes the
   IMAGES dir, not the project root - passing the project root scans 0 images
   and returns a silent all-zero result rather than an error.
-  All 41 processed slugs sit at
+  All 46 processed slugs sit at
   `FIRST_SCRATCH/NEEDAUTH` - approval is operator-only and is the real queue.
   Cycle 1 proved the chain on slug `0`
   (`_firstneedauth`, G1 FLAG on halo only, LEDGER 45) and corrected the premise:
@@ -152,11 +158,22 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
 - **first-pass-alpha-letterbox - first pass silently drops the alpha channel,
   and G1 is blind to it - OPEN (found cycle 7, LEDGER 52, plan row R22;
   widened by cycle 8, LEDGER 53, plan row R23; sub-shape B identified by
-  cycle 9, LEDGER 54, plan row R24; NOT yet acted on).**
-  TWELVE of the 41 processed refs are RGBA with a genuinely non-opaque alpha,
-  not the two cycle 7 found - cycles 8 and 9 both came back 5-for-5 RGBA, so
-  this is a common shape in the corpus, not a pair of outliers. Two DISTINCT
-  sub-shapes:
+  cycle 9, LEDGER 54, plan row R24; CENSUS CLOSED by cycle 10, LEDGER 55, plan
+  row R25; NOT yet acted on).**
+  The census is now complete over all 46 refs, so the numbers below are final
+  rather than a running tally: FIFTEEN of the 46 are RGBA with a genuinely
+  non-opaque alpha, 31 are RGB, none is any other mode. Cycles 8 and 9 both
+  came back 5-for-5 RGBA, which read as "most of the corpus"; cycle 10 came
+  back 3 of 5 and the full sweep settles it at 15 of 46, so this is a common
+  shape but a minority one. Final shape histogram over the 15: sub-shape B 1px
+  rim x8, sub-shape A hairline letterbox x4, the B left/right-column variant
+  x2, and `258-cleanup`'s 160-row letterbox alone x1. The alpha PLANES collapse
+  to only five distinct bitmaps (sha256-16 `2d01a0afce742e26` x8,
+  `4be64a25a2e1d11c` x4, `f47a60870653b036` x1, `8d42f440f08f26d0` x1,
+  `03a55dd42770d45d` x1), so three of them account for 14 of the 15 files -
+  export-toolchain provenance, not per-image chance. That matters for the
+  policy call: ONE ruling on sub-shape B disposes of 10 of the 15 files, and a
+  second on sub-shape A disposes of 4 more. Two DISTINCT sub-shapes:
   Sub-shape A - a fully transparent (alpha=0) full-width top/bottom letterbox
   whose underlying RGB is already pure black: `258-cleanup` rows 0-79 +
   1360-1439 (160 rows, 11.11 percent of the frame - the actual artwork is
@@ -173,7 +190,16 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   2880 = `2*1440`, the same rim with only the left/right columns. Cycle 9's
   five alpha planes are `np.array_equal` BIT-IDENTICAL to one another (plane
   sha256-16 `2d01a0afce742e26`), so this is one export-toolchain artifact
-  stamped across many files rather than per-image chance. Nothing is
+  stamped across many files rather than per-image chance - cycle 10's `280f`
+  and `286f` carry that same plane hash, making it 8 files on one bitmap.
+  One dent in the taxonomy, from cycle 10: `281-cleanup` is a 2880
+  left/right-column rim like `266f`, but its alpha min is 218, not the 220
+  every other rim carries, and its plane hash (`03a55dd42770d45d`) matches
+  nothing else. Its plane's value histogram is exactly `{218: 1440, 222: 1440}`
+  - one column at 218, the other at 222, no 220 anywhere in the file, so its
+  two columns are not even equal to each other. "alpha min 220" is a strong
+  regularity, NOT an invariant - any detector written for this must not
+  hard-code it. Nothing is
   letterboxed here; the alpha is simply discarded. The item name understates it
   - the general defect is an unannounced RGBA -> RGB flatten.
   First pass writes RGB, so sub-shape A bars bake to pure black (verified max
@@ -195,15 +221,16 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   B, most likely just record the flatten in the audit rather than change any
   pixels - and cycle 9's rim finding strengthens that read, since a 1px
   perimeter has no visual consequence composited over any background. A wrong
-  automatic answer is worse than the current queue, so all twelve slugs sit at
+  automatic answer is worse than the current queue, so all fifteen slugs sit at
   NEEDAUTH untouched. Nothing downstream is blocked; this is a correctness hole
   in the audit, not a gate.
   Cheapest first step, and it needs no policy call: first pass should RECORD
   the source PIL mode and the flatten in `upscale_audit` so the drop stops
-  being silent - today only a file-size anomaly reveals it. Scan the remaining
-  5 unprocessed refs for alpha when the policy lands, and note the same
-  blindness applies to any future letterbox in a solid non-black colour, where
-  the RGB metrics would ALSO score clean.
+  being silent - today only a file-size anomaly reveals it. The "scan the
+  remaining unprocessed refs" step is DONE (cycle 10 swept all 46); what is
+  still owed is the policy call itself, and the note that the same blindness
+  applies to any future letterbox in a solid non-black colour, where the RGB
+  metrics would ALSO score clean.
 
 - **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS.**
   Next: land the 3 pass-improvements from the triage (full-width banner band;

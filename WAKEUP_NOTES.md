@@ -11,6 +11,32 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 10 (FINAL)
+
+Docs-only (images are gitignored). Detail: LEDGER 55, plan row R25. The last
+five slugs - `280f`, `281-cleanup`, `286f`, `32-cleanup`, `84f` - 5/5 G1 PASS,
+`reasons: []`. The R16 no-USM fix now holds over 45 consecutive slugs. Pixel
+identity measured per pair (decoded RGB sha256 EQUAL src vs out: `283559d4376f`
+`ed738a012888` `f23dc80113ca` `f7fef5379aad` `95bd97a76e54`). The campaign is
+CLOSED at 46/46 submitted, 0 approved.
+The find is the corpus census, and it corrects the arc's own trajectory: cycles
+8 and 9 came back 5-for-5 RGBA and it looked like most of the corpus; cycle 10
+came back 3 of 5 and the full 46-file sweep settles it at 15 RGBA / 31 RGB / 0
+other. Shape histogram over the 15: B-rim-7996 x8, A-hairline x4, B-2880 x2,
+`258-cleanup`'s 160-row letterbox x1. The alpha planes collapse to five
+distinct bitmaps and THREE of them cover 14 of the 15, so one ruling on
+sub-shape B disposes of 10 files. One dent: `281-cleanup` is a 2880 rim with
+alpha min 218, not 220 - the "min 220" regularity is not an invariant, do not
+hard-code it in a detector. Still not acted on (operator/director policy call).
+Three probe corrections for the next worker on this data: `PIPELINE_LOG.md`
+rows have NO leading pipe (`timestamp | slug | OP | ...`) so anchor on
+` | slug | ` with spaces both sides - this supersedes cycle 9's "anchor on the
+pipe column"; `scan_tree` is a module-level function taking ctx, NOT a `Ctx`
+method; and cycle 9's `--dry-run` drops-`src_dims` trap did NOT reproduce.
+NEXT: no agent-runnable step remains on this item. The 46-deep NEEDAUTH queue
+is operator-only, and `first-pass-alpha-letterbox` wants a ruling BEFORE
+approval since 15 of the 46 carry a silently dropped alpha.
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 9
 
 Docs-only (images are gitignored). Detail: LEDGER 54, plan row R24. Five slugs

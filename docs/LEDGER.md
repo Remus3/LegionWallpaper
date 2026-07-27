@@ -27,6 +27,67 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+55. DONE **2026-07-27 (refs-46-first-pass cycle 10, FINAL; docs-only).**
+    Batched the last 5 slugs (`280f` `281-cleanup` `286f` `32-cleanup` `84f`)
+    through best-source -> save-working -> G1 -> submit. That CLOSES the
+    campaign: 46 of 46 refs submitted, 0 approved. 5/5 G1 PASS with
+    `reasons: []`, so the R16 no-resample-no-USM fix now holds across 45
+    consecutive slugs. Premise VERIFIED before any mutation: a dry run showed
+    `src=firstinitial aspect=ok mode=downscale-only box=None` for all 5, every
+    source measures exactly 2560x1440, so each ran at `scale=1` with
+    `usm_applied=false` (backend `downscale-only`) and the metrics saturate by
+    construction (msssim 1.0, lpips 0.0, lap_ratio 1.0, halo_pct 0.0,
+    band_delta 0.0). Pixel identity MEASURED, not inferred - sha256 over the
+    PIL-decoded RGB buffer is EQUAL src vs out for all 5 (`283559d4376f`
+    `ed738a012888` `f23dc80113ca` `f7fef5379aad` `95bd97a76e54`).
+
+    THE FINDING is the CORPUS CENSUS, which no per-cycle sample could give and
+    which corrects the trend cycles 8 and 9 implied. Those cycles came back
+    5-for-5 RGBA and the arc was reading as "most of the corpus"; cycle 10 came
+    back 3 RGBA (`280f` `281-cleanup` `286f`) / 2 RGB (`32-cleanup` `84f`), and
+    a sweep of all 46 `_firstinitial` sources settles it at 15 RGBA / 31 RGB /
+    0 other. Full shape histogram over the 15: sub-shape B 1px rim
+    (7996 = `2*2560 + 2*1440 - 4` non-opaque px) x8, sub-shape A hairline
+    letterbox (transparent rows `[0-2]` + `[1437-1439]`) x4, the B variant at
+    2880 = `2*1440` (left/right columns only) x2, and `258-cleanup`'s 160-row
+    letterbox alone x1. The alpha-plane sha256-16 histogram is the part worth
+    keeping: `2d01a0afce742e26` x8, `4be64a25a2e1d11c` x4,
+    `f47a60870653b036` x1, `8d42f440f08f26d0` x1, `03a55dd42770d45d` x1 - so
+    exactly THREE bit-identical planes account for 14 of the 15, which is
+    export-toolchain provenance rather than per-image chance, and it means a
+    single policy ruling on sub-shape B disposes of 10 of the 15 files.
+    One taxonomy dent, re-probed hardest: `281-cleanup` is the 2880
+    left/right-column variant but its alpha min is 218, not the 220 every other
+    rim in the corpus carries, and its plane hash matches nothing else - so
+    "min 220" is a strong regularity, not an invariant, and a detector must not
+    hard-code it. The verifier pinned it exactly: that plane's value histogram
+    is `{218: 1440, 222: 1440}`, one full column at 218 and the other at 222,
+    with no 220 anywhere in the file - so the two columns are not even equal to
+    each other, which no other rim in the corpus does. RGBA outputs shrank -38.4 to -46.8 percent on the channel
+    drop (`281-cleanup` 10548359 -> 5610551 bytes is the largest shrink of the
+    whole arc); the two RGB outputs grew +0.98 and +0.62 percent on the
+    re-encode, consistent with every prior RGB slug.
+
+    NOT acted on in-cycle per directive - the RGBA -> RGB flatten stays an
+    operator/director policy call. ROADMAP `first-pass-alpha-letterbox` updated
+    with the final census in place of the running per-cycle tally. All 5 land
+    at `FIRST_SCRATCH/NEEDAUTH`, chain exactly INTAKE/SAVE_WORKING/ANNOTATE/
+    SUBMIT, zero APPROVE or REJECT lines, zero present in `2.First Pass Done`
+    (243 entries / 242 slug dirs, unchanged). Single data-run agent in the MAIN
+    tree (a worktree cannot see gitignored `images/`), read-only verifier gate
+    before the docs commit. Suite 808 passed / 11 skipped, ruff clean,
+    py_compile clean. No tracked file touched by the run itself.
+
+    Three probe corrections for whoever works this data next. (1)
+    `PIPELINE_LOG.md` is NOT a markdown table - rows carry no leading pipe
+    (`timestamp | slug | OP | ...`), so a leading-pipe anchor matches nothing;
+    anchor on ` | <slug> | ` with spaces both sides. This SUPERSEDES cycle 9's
+    advice to "anchor on the pipe column", which was right in spirit and wrong
+    in form. (2) `scan_tree` is a MODULE-level function taking ctx, not a `Ctx`
+    method - `ctx.scan_tree()` raises AttributeError. (3) Cycle 9's trap that
+    `--dry-run` drops `src_dims` did NOT reproduce; it printed `src_dims` for
+    all 5 this cycle. Auth queue is now 46 deep and stays operator-only.
+
 54. DONE **2026-07-27 (refs-46-first-pass cycle 9; docs-only).** Batched the
     next 5 slugs (`270f` `272-cleanup` `274f` `276f` `277f`) through
     best-source -> save-working -> G1 -> submit. 5/5 G1 PASS with
