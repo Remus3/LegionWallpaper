@@ -88,9 +88,13 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   9-10 primitives sharing one POSITION accessor - drops most triangles); the
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
-- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (1 of 46 done).**
-  Next: batch the remaining 45 in the next cycle - the cycle-1 escalation is
-  RESOLVED and nothing gates them any more. Cycle 1 proved the chain on slug `0`
+- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (6 of 46 submitted, 0 approved).**
+  Next: batch the remaining 40 - cycle 2 (LEDGER 47, plan row R17) ran
+  `105-cleanup` `106-cleanup` `107-cleanup` `110-cleanup` `122` and took 5/5 G1
+  PASS with an empty reasons list, which is the R16 fix measured in production:
+  cycle 1 FLAGGED on halo, cycle 2 flags nothing. All 6 processed slugs sit at
+  `FIRST_SCRATCH/NEEDAUTH` - approval is operator-only and is the real queue.
+  Cycle 1 proved the chain on slug `0`
   (`_firstneedauth`, G1 FLAG on halo only, LEDGER 45) and corrected the premise:
   all 46 `_firstinitial` files are EXACTLY 2560x1440, so every slug takes the
   `downscale-only` branch at scale=1, no resample happens, and the unsharp mask

@@ -27,6 +27,33 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+47. DONE **2026-07-27 (refs-46-first-pass cycle 2; docs-only).** Batched five
+    slugs - `105-cleanup`, `106-cleanup`, `107-cleanup`, `110-cleanup`, `122` -
+    through best-source -> save-working -> G1 -> submit via
+    `tools/lw_first_pass.py --batch`. 5/5 G1 PASS with an empty `reasons` list.
+    That empty list is the point: cycle 1 (LEDGER 45) FLAGGED slug `0` on
+    halo_pct 0.0711, so the R16 fix (LEDGER 46) is now measured across a batch
+    rather than on a two-image spot check. Premise VERIFIED, not corrected - the
+    dry run reported `mode=downscale-only` for all five before anything mutated,
+    matching R15's finding that every `_firstinitial` in this batch is already
+    exactly 2560x1440. With `usm_applied=false` and no resample, first pass is a
+    provenance-only passthrough, so the output is pixel-identical to the source
+    and the metrics saturate BY CONSTRUCTION: msssim 1.0, lpips 0.0, dists 0.0,
+    lap_ratio 1.0, halo_pct 0.0, band_delta 0.0. Those numbers are the correct
+    result for an identity transform, not a broken measurement - do not "fix"
+    them. Built as one worktree data-run agent (trivial run, no fan-out) with
+    Claude as sole merger; the agent was barred from `approve` and from `git
+    add`. Verifier CONFIRM 10/10 on independent probes: PIL-read dimensions (all
+    ten PNGs 2560x1440), manifests re-read for the G1 block, `git status
+    --porcelain` (only the two pre-existing untracked `style*.jpg`), and a
+    negative check that `2.First Pass Done` still holds 242 entries with zero of
+    the five present. All five sit at `FIRST_SCRATCH/NEEDAUTH`; approval stays
+    operator-only, so the auth queue is now 6 slugs deep and is the real
+    bottleneck, not processing. Suite 808 passed / 11 skipped, ruff clean. The
+    run itself touched no tracked file - `images/**`, `PIPELINE_LOG.md` and
+    `ops/runtime/` are all gitignored - hence docs-only. Plan row R17. FUTURE:
+    40 slugs remain; nothing gates them.
+
 46. DONE **2026-07-27 (no resample, no unsharp mask; 9c14b8d + 58dc53c).** The
     R15 escalation resolved at the cause. All 46 refs-46 `_firstinitial` files
     measure exactly 2560x1440, so `_covers_target` sent them down

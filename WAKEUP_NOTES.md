@@ -11,6 +11,28 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 2
+
+Docs-only (images are gitignored). Detail: LEDGER 47, plan row R17. Five slugs
+batched - `105-cleanup`, `106-cleanup`, `107-cleanup`, `110-cleanup`, `122` -
+5/5 G1 PASS, `reasons: []`. Cycle 1 flagged halo on slug `0`; cycle 2 flags
+nothing, so the R16 no-USM fix now has batch evidence behind it. Every slug took
+`downscale-only` at scale=1 with `usm_applied=false`, which makes the output
+pixel-identical to the source and the metrics saturate by construction (msssim
+1.0, lpips 0.0, lap_ratio 1.0, halo 0.0). That is an identity transform reading
+correctly, NOT a broken gate - a future cycle that sees these numbers should not
+go hunting for a bug.
+
+One worktree data-run agent, explicitly barred from `approve` and `git add`;
+verifier CONFIRM 10/10 with dimensions re-read via PIL and a negative check that
+`2.First Pass Done` gained nothing. Suite 808 passed / 11 skipped, ruff clean.
+
+NEXT: 40 slugs remain and nothing gates them. The real bottleneck has moved -
+6 slugs now sit at `FIRST_SCRATCH/NEEDAUTH` and approval is operator-only, so
+processing more only deepens an unattended queue.
+
+---
+
 ## 2026-07-27 (loop cycle) - no resample, no unsharp mask
 
 Commits `9c14b8d` + `58dc53c`. Detail: LEDGER 46, plan row R16. Director decision
