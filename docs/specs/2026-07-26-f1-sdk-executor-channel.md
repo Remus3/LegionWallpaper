@@ -198,6 +198,46 @@ concurrent runs in the SAME repo (not a goal, but must not corrupt) then collide
 `control_dir`, which is guarded by a single `control/RUNNING.lock` holding pid + run_id;
 a second controller in the same repo exits with a clear message rather than interleaving.
 
+## 4d. Window-popup guard (SessionStart hook) - BUILT 2026-07-26
+
+"No GUI" is the premise of this whole migration, so it needs a standing detector rather
+than a one-time cleanup. `tools/lw_window_guard.py` runs as a SessionStart hook
+(`.claude/settings.json`, timeout 30) and prints its findings into session context.
+
+Three checks, matching the three ways the no-console-flash rule regresses:
+
+- **A. Scheduled tasks.** Risk = `Logon Mode: Interactive only` (the operator's session,
+  where a window can appear) AND a console-host binary AND no hidden marker. Calibrated
+  against live `schtasks /query /fo csv /v` output on 2026-07-26: S4U and ServiceAccount
+  tasks report `Interactive/Background` and run in session 0, where no window is possible.
+  The console-binary set is an ALLOWLIST (python.exe, powershell.exe, pwsh, cmd, cscript,
+  node, git, claude.cmd, npm.cmd), so an unknown `.exe` is assumed to be a GUI app and the
+  guard does not cry wolf on MSIAfterburner or StartIsBack.
+- **B. Subprocess call sites.** Any `subprocess.run/Popen/call/check_output/check_call` in
+  `tools/` or `ops/` without `creationflags=CREATE_NO_WINDOW`. Under a `pythonw.exe`
+  parent (every hook and every scheduled task here) a console child allocates its OWN
+  window, so a missing flag is a real flash, not a theoretical one.
+- **C. GUI-bridge drift.** An AutoHotkey process alive while `config.json` says
+  `channel: sdk`. Under the headless channel no bridge should exist at all; one that is
+  still running means a stale launcher survived the migration and may be typing into
+  whatever window currently matches.
+
+Read-only, exit 0 always - a guard that can block a session start is worse than the drift
+it watches. It reports; the operator or a directed session decides.
+
+This makes phase-5 acceptance condition 1 mechanically checkable instead of a claim: a
+concurrent LW+RC run is only clean if the guard reports zero window-capable tasks and no
+live bridge on both machines' session starts during the run.
+
+Baseline at build time: tasks clean (36 non-Microsoft, none window-capable, after the
+2026-07-26 RC-GeminiAudit / RC-WeeklyHygiene S4U fix); gui bridge n/a (channel key not yet
+present, pre-F1); **13 subprocess sites missing the flag** across `tools/drift_guard.py`,
+`tools/repair_mojibake.py`, `tools/repo_insights.py`, `tools/strip_em_dashes.py`,
+`tools/strip_smart_quotes.py`, `tools/truth_gate.py` and `ops/loop/claude_stub.py`. Those
+are PRE-EXISTING and unrelated to F1; they are logged here as a known-dirty baseline, to be
+cleared in a separate per-site sweep (a blanket mechanical edit is not appropriate - each
+site needs a read to confirm the flag is correct for that call).
+
 ## 5. What gets deleted, and when
 
 Nothing is deleted in the same change that adds the seam. Deletion is phase 5, after two
