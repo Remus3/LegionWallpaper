@@ -1,0 +1,56 @@
+{
+  "repo_root": "C:\\LegionWallpaper",
+  "control_dir": "C:\\LegionWallpaper\\ops\\loop\\control",
+  "ceiling_usd": 200.0,
+  "_ceiling_note": "ceiling_usd caps GEMINI spend only (director+auditor calls). Claude/executor spend is UNCAPPED per operator. Rail carried from the RC ancestor (operator set NO spend limit; 200 is a runaway backstop only).",
+  "max_cycles": 1,
+  "cycle_deadline_sec": 10800,
+  "poll_sec": 5,
+  "channel": "sdk",
+  "_channel_note": "sdk = headless claude -p (concurrent-safe, returns cost + structured output). ahk = legacy GUI bridge (machine-wide singleton, cannot run concurrently). ROLLBACK IS THIS ONE KEY. Flipped to sdk 2026-07-26 after F1 P5 passed; NOTHING deleted - see docs/specs/2026-07-26-f1-sdk-executor-channel.md phase 6.",
+  "executor_model": "claude-opus-5",
+  "cycle_budget_usd": 60.0,
+  "max_concurrent_lanes": 2,
+  "_lanes_note": "Machine-wide cap on concurrent executor calls across ALL callers (LW + RC), enforced via C:/ProgramData/lw-loop/slots. Both repos should agree on this number.",
+  "dry_run": false,
+  "ignore_no_progress": true,
+  "clear_each_cycle": true,
+  "session_jsonl": "",
+  "directive_suffix": "OPERATOR RUN FOCUS (2026-07-26 F1 phase-6 gate run). SUPERSEDES the stale 2026-07-16 md-hygiene focus. ONE cycle, full length, real work. WORK SOURCE in order: (1) ROADMAP.md open items, (2) BACKLOG.md, (3) unfinished goals from docs/LEDGER.md. HARD EXCLUSION: do NOT touch m1-gate-fund-or-close - it is OPERATOR-GATED and awaits a human FUND/CLOSE decision; skip it and take the next item. VERIFY-PREMISE FIRST on every unit: grep the cited file:line and re-probe live state before building; an already-shipped unit records a CLEAN no-commit with evidence, never a redo. Classify the change into a tier (R5) and run only that tier verification; a schema/engine/core-contract change is Tier-2 and needs the full tests/ suite. Scope OUT, never rewrite: docs/LEDGER.md history, PIPELINE_LOG.md, docs/adr/**, docs/_archive/**, CLAUDE.md, .claude/**, logs, and ANY path under C:/Riot Commander. Do NOT modify ops/loop/** this cycle - the loop is the thing under test and editing it mid-run invalidates the gate. 7-bit ASCII only, no em-dashes or smart quotes. Do NOT add any Co-Authored-By trailer. Commit with a conventional-commit subject and push to origin main. NEVER block on a question - auto-pick the recommended path and record the assumption.",
+  "claude_window_title": "Image",
+  "gemini_model": "gemini-3-pro-preview",
+  "gemini_cmd": "gemini",
+  "transcript_dir": "C:\\Users\\Administrator\\.claude\\projects\\C--LegionWallpaper",
+  "gemini_price_per_mtok": {
+    "input": 2.0,
+    "output": 12.0
+  },
+  "price_per_mtok": {
+    "opus": {
+      "input": 15.0,
+      "output": 75.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5
+    },
+    "sonnet": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3
+    },
+    "haiku": {
+      "input": 1.0,
+      "output": 5.0,
+      "cache_write": 1.25,
+      "cache_read": 0.1
+    },
+    "default": {
+      "input": 15.0,
+      "output": 75.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5
+    }
+  },
+  "_channel_posture_note": "sdk runs claude -p --permission-mode bypassPermissions, and PreToolUse hooks do NOT survive that mode (measured 2026-07-26 in both repos: a banned glyph committed straight through while the git hooks blocked it). On this channel .githooks IS THE ONLY COMMIT GATE. executor.gate_inactive_reason enforces it - the loop refuses to start when core.hooksPath is unset.",
+  "_gate_note": "F1 phase-6 GATE RUN. ONE full-length director-authored cycle on the sdk channel. Dual purpose: (a) does sdk hold a real hours-long workload, (b) FIRST exercise of the director path on sdk (every prior sdk cycle used fixed_directive or cycle_command, both of which bypass the director). If it fails, the discriminator is whether control/directive.md carries the JSON FINAL STEP verbatim."
+}

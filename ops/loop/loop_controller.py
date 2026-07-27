@@ -655,12 +655,23 @@ def main():
         new_sha = rec.sha or head()
         log(f"cycle {cycle}: claude.done sha={new_sha[:8]} tests={done.get('tests_pass')} regress={done.get('regressions')}")
 
-        claude_info = meter(start_ts)  # informational only - NO cap on Claude (operator directive)
+        # NO Claude dollar accounting (operator 2026-07-26). Two reasons, both
+        # measured today rather than assumed:
+        #   1. On a Claude Code Max subscription the figures are NOTIONAL
+        #      API-equivalent pricing, not what the plan is billed. Recording
+        #      them as a budget invites capping on a number unrelated to spend.
+        #   2. meter() was wrong anyway. It auto-pins the newest transcript in
+        #      the project dir, which is normally the operator's INTERACTIVE
+        #      session, so it billed this loop $329 for a conversation it never
+        #      ran. Reproduced independently in RC ($43.69, flat across cycles).
+        # gemini accounting STAYS: that vendor is genuinely metered per token,
+        # so its ceiling is a real rail rather than an accounting artifact.
+        # meter() itself is left defined - it is on the phase-6 held-deletion
+        # list and the ahk path still has no other cost signal.
         awrite(CTL / "budget.json", json.dumps(
             {"gemini_usd": round(GEMINI_USD, 4), "gemini_ceiling": CFG["ceiling_usd"],
-             "claude_usd_info": claude_info, "cycle": cycle}))
-        log(f"cycle {cycle}: gemini=${round(GEMINI_USD, 4)}/{CFG['ceiling_usd']} "
-            f"claude_info(uncapped)=${claude_info}")
+             "cycle": cycle}))
+        log(f"cycle {cycle}: gemini=${round(GEMINI_USD, 4)}/{CFG['ceiling_usd']}")
         if GEMINI_USD >= CFG["ceiling_usd"]:
             stop(f"gemini budget ceiling hit: ${round(GEMINI_USD, 4)} >= ${CFG['ceiling_usd']}")
 

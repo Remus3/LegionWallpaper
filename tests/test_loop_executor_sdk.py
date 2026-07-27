@@ -48,9 +48,9 @@ def _shim(tmp_path: Path, *, stdout: str = "", exit_code: int = 0,
 
 
 def _cfg(tmp_path: Path, argv: list, **over) -> dict:
+    # No cycle_budget_usd by default - see test_no_budget_flag_when_uncapped.
     cfg = {"channel": "sdk", "claude_cmd": argv, "repo_root": str(tmp_path),
-           "cycle_deadline_sec": 30, "executor_model": "claude-opus-5",
-           "cycle_budget_usd": 25.0}
+           "cycle_deadline_sec": 30, "executor_model": "claude-opus-5"}
     cfg.update(over)
     return cfg
 
@@ -86,7 +86,7 @@ def test_argv_carries_the_flags_the_contract_depends_on(tmp_path: Path):
     _build(cfg, tmp_path).run(1, "b", "fixed")
     argv = json.loads((tmp_path / "argv.json").read_text(encoding="utf-8"))
     for flag in ("-p", "--output-format", "--json-schema", "--permission-mode",
-                 "--add-dir", "--model", "--max-budget-usd"):
+                 "--add-dir", "--model"):
         assert flag in argv, f"{flag} missing from argv"
     assert argv[argv.index("--output-format") + 1] == "json"
     assert argv[argv.index("--permission-mode") + 1] == "bypassPermissions"
@@ -169,8 +169,33 @@ def test_incomplete_structured_output_is_rejected(tmp_path: Path):
     assert ex.run(1, "b", "fixed").error
 
 
+def test_no_budget_flag_when_uncapped(tmp_path: Path):
+    """Operator 2026-07-26: the cap is OFF by default.
+
+    On a Claude Code Max subscription total_cost_usd is NOTIONAL API-equivalent
+    pricing, not what the plan is billed, so --max-budget-usd would truncate real
+    work against a number unrelated to spend. RC's gate cycle ran to $22.01 of a
+    $25 cap - the next slightly larger scope would have been cut off by an
+    accounting artifact.
+    """
+    out = json.dumps({"structured_output": OK_STRUCT})
+    _build(_cfg(tmp_path, _shim(tmp_path, stdout=out)), tmp_path).run(1, "b", "fixed")
+    argv = json.loads((tmp_path / "argv.json").read_text(encoding="utf-8"))
+    assert "--max-budget-usd" not in argv
+
+
+def test_budget_flag_is_passed_when_explicitly_set(tmp_path: Path):
+    """The capability stays for a METERED api key, where the figure is real."""
+    out = json.dumps({"structured_output": OK_STRUCT})
+    cfg = _cfg(tmp_path, _shim(tmp_path, stdout=out), cycle_budget_usd=5.0)
+    _build(cfg, tmp_path).run(1, "b", "fixed")
+    argv = json.loads((tmp_path / "argv.json").read_text(encoding="utf-8"))
+    assert argv[argv.index("--max-budget-usd") + 1] == "5.0"
+
+
 def test_budget_exhaustion_surfaces_as_a_failed_cycle(tmp_path: Path):
-    """--max-budget-usd tripping is reported by the CLI as an error result."""
+    """--max-budget-usd tripping is reported by the CLI as an error result.
+    Only reachable when a cap is explicitly set (metered key)."""
     out = json.dumps({"is_error": True, "result": "budget exceeded: max-budget-usd",
                       "total_cost_usd": 25.0})
     ex = _build(_cfg(tmp_path, _shim(tmp_path, stdout=out)), tmp_path)

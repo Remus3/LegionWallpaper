@@ -252,6 +252,12 @@ class SdkExecutor:
         model = self.cfg.get("executor_model")
         if model:
             argv += ["--model", str(model)]
+        # OFF BY DEFAULT (operator 2026-07-26). On a Claude Code Max subscription
+        # the CLI's total_cost_usd is NOTIONAL API-equivalent pricing, not what
+        # the plan is billed - so capping on it throttles real work against a
+        # number that does not correspond to spend. Set cycle_budget_usd only on
+        # a metered API key, where the figure is real. The gemini ceiling is
+        # unaffected: that vendor IS metered per token.
         budget = self.cfg.get("cycle_budget_usd")
         if budget:
             argv += ["--max-budget-usd", str(budget)]
