@@ -403,7 +403,41 @@ assert the per-cycle cost is present, positive, and plausibly bounded by
 retiring `meter()` in phase 6 rather than weakening it - the cross-check's real result is
 that the legacy meter was wrong in three independent ways.
 
-**P5 - live concurrent run - THE acceptance test for this spec.** LW loop and RC loop
+**P5 - PASSED 2026-07-26.** LW run_id `87ca8ca0` (21:17:21-21:19:45, commits `646263d`,
+`58896c5`) and RC run_id `e8353658` (21:17:41-21:19:22, commits `4f3ee42c`, `80197c40`),
+both `channel: sdk`, 2 cycles each. Judged by `ops/loop/p5_probe.py judge`:
+
+1. PASS - both runs completed, 4 completed-cycle lines each, zero unexpected stops.
+2. PASS - worst slot wait 0s on both sides. The commit half of this condition is NOT
+   covered by the judge and was checked by hand: each of the four commits touched exactly
+   ONE file, each repo's own `docs/_archive/2026-07-26-p5-concurrent-smoke.md`. No commit
+   in either repo touched the other's paths.
+3. PASS - 125 samples at 2s, occupancy histogram {0: 57, 1: 27, 2: 41}, never 3.
+   Critically, **41 samples caught BOTH repos holding a slot at once**, a measured
+   simultaneity window of 21:17:22-21:19:14 (112 seconds), e.g. RC on `0.lock` while LW
+   held `1.lock`. RC named this caveat before the verdict and was right to: zero
+   slot-waits proves NOTHING about overlap, because with `max_slots=2` and one lane each
+   neither repo ever has to wait whether or not the other is running. The sampler is the
+   only thing that can distinguish real overlap from two runs that missed each other, and
+   it is what turns conditions 3 and 4 from vacuous into evidence.
+4. PASS - LW 2 gemini windows, RC 2, zero overlaps, zero UNSERIALIZED markers, ACQUIRED and
+   RELEASED balanced on both sides.
+
+THE STRONGEST SINGLE PIECE OF EVIDENCE is not the "no overlap" result, which a
+non-contending run would also produce. It is that RC's mutex acquire timestamp is
+**exactly** LW's release timestamp: LW held GEMINI_MUTEX 21:18:11-21:18:28, RC acquired at
+21:18:28 and held to 21:18:43. RC was genuinely BLOCKED and got the mutex the instant LW
+let go. The serialization was exercised under real contention, not merely unviolated.
+
+Cost, under the P4-amended criterion (present, positive, bounded by `cycle_budget_usd`,
+NOT reconciled against the scraper): LW $0.6476 + $0.6877, RC $0.6622 + $0.56; all four
+well under the $10 per-cycle budget.
+RC independently reproduced the P4 meter defect in the wild: its controller pinned
+`2a46fcf7-...jsonl`, this operator's interactive session, not the executor's. On the sdk
+channel that number gates nothing (`executor_usd` carries the CLI receipt), which is
+further argument for deleting the pin in phase 6 rather than repairing it.
+
+ORIGINAL SPEC TEXT for this phase: LW loop and RC loop
 started within 60s of each other, both `channel: sdk`, 2 cycles each, disjoint Tier-0
 doc scopes.
 ACCEPT, all four required:
