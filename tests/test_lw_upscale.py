@@ -12,7 +12,7 @@ import os
 import sys
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -126,6 +126,88 @@ def test_first_pass_over_target_non_16x9_still_raises(tmp_path):
 
     with pytest.raises(ValueError):
         lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+
+# ---------------------------------------------------------------------------
+# No-resample USM skip (R15): an at-target source is not re-sharpened
+# ---------------------------------------------------------------------------
+
+
+def _hard_edge_16x9(w, h):
+    """A 16:9 image with a hard mid-tone vertical edge.
+
+    A hard edge is the worst case for UnsharpMask, so a byte-identical result
+    proves the USM did not run. The two sides are mid-tones, NOT pure black and
+    white: a saturated 0/255 edge is a fixed point of UnsharpMask (the overshoot
+    clamps back to the original value) and would pass this test vacuously.
+    """
+    img = Image.new("RGB", (w, h), (40, 60, 90))
+    img.paste(Image.new("RGB", (w - w // 2, h), (200, 180, 150)), (w // 2, 0))
+    return img
+
+
+def test_usm_applies_predicate():
+    """The predicate is False ONLY at exactly the target size.
+
+    scale == 1 is NOT the condition: a genuine 3840x2160 -> 2560x1440 Lanczos
+    downscale is also scale 1 and DOES resample, so it must keep its USM.
+    """
+    assert lw_upscale._usm_applies((2560, 1440), (2560, 1440)) is False
+    assert lw_upscale._usm_applies((3840, 2160), (2560, 1440)) is True
+    # 4x spandrel output of a 1920x1080 source.
+    assert lw_upscale._usm_applies((7680, 4320), (2560, 1440)) is True
+
+
+def test_finish_at_target_is_pixel_identical():
+    """_finish on an already-target-sized image returns the RGB input unchanged.
+
+    No resample happened, so there is nothing to re-sharpen - the USM alone
+    would be the entire delta (it tripped the G1 halo_pct flag on refs-46).
+    """
+    up = _hard_edge_16x9(2560, 1440)
+    out = lw_upscale._finish(up, target=(2560, 1440))
+    assert out.size == (2560, 1440)
+    assert out.mode == "RGB"
+    assert ImageChops.difference(out, up.convert("RGB")).getbbox() is None
+
+
+def test_finish_genuine_downscale_still_sharpens():
+    """A real 4K -> 1440p downscale MUST still get its unsharp mask."""
+    up = _hard_edge_16x9(3840, 2160)
+    plain = up.convert("RGB").resize((2560, 1440), Image.LANCZOS)
+    out = lw_upscale._finish(up, target=(2560, 1440))
+    assert out.size == (2560, 1440)
+    assert ImageChops.difference(out, plain).getbbox() is not None
+
+
+def test_first_pass_at_target_skips_usm(tmp_path):
+    """An exactly-2560x1440 source round-trips byte-for-byte, usm_applied False."""
+    src = str(tmp_path / "at_target.png")
+    out = str(tmp_path / "firstworking_at_target.png")
+    _hard_edge_16x9(2560, 1440).save(src, format="PNG")
+
+    audit = lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+    assert audit["backend"] == "downscale-only"
+    assert audit["usm_applied"] is False
+    assert audit["out_dims"] == [2560, 1440]
+
+    with Image.open(src) as src_img, Image.open(out) as out_img:
+        src_rgb = src_img.convert("RGB")
+        out_rgb = out_img.convert("RGB")
+        assert ImageChops.difference(out_rgb, src_rgb).getbbox() is None
+
+
+def test_first_pass_over_target_reports_usm_applied(tmp_path):
+    """A 3840x2160 source genuinely resamples, so usm_applied is True."""
+    src = str(tmp_path / "over_target_usm.png")
+    out = str(tmp_path / "firstworking_over_target.png")
+    _hard_edge_16x9(3840, 2160).save(src, format="PNG")
+
+    audit = lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+    assert audit["backend"] == "downscale-only"
+    assert audit["usm_applied"] is True
 
 
 # ---------------------------------------------------------------------------

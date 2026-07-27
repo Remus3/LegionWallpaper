@@ -8,6 +8,10 @@ Structural rule (never double-resample): exactly ONE AI upscale (4x),
 ONE Lanczos downscale to the 2560x1440 target, ONE light unsharp mask.
 Do not add extra resamples anywhere in this module.
 
+Corollary - no resample, no sharpen: a source that is already exactly
+2560x1440 gets NEITHER the (no-op) downscale nor the unsharp mask, because
+sharpening pixels nothing touched only manufactures halos. See _usm_applies.
+
 CI constraint: only PIL + numpy + stdlib may be imported at module top
 level. torch and spandrel are LAZY-imported inside the spandrel-backend
 functions so this module imports cleanly on a torch-less Python (CI 3.12,
@@ -87,12 +91,31 @@ def _covers_target(src_w, src_h, target=TARGET):
     return src_w >= target[0] and src_h >= target[1]
 
 
+def _usm_applies(img_size, target=TARGET):
+    """True iff the image handed to _finish will actually be resampled.
+
+    The unsharp mask exists to recover the detail a resample softens. When the
+    image is ALREADY exactly the target size the Lanczos resize is a no-op, so
+    the USM would be the entire delta - it manufactures halos out of nothing and
+    trips the G1 halo_pct flag (measured 0.0711 on the refs-46 batch, whose 46
+    sources are all exactly 2560x1440).
+
+    The condition is size equality, NOT `scale == 1`: a genuine 3840x2160 ->
+    2560x1440 Lanczos downscale also reports scale 1 yet really does resample,
+    and it MUST keep its unsharp mask.
+    """
+    return tuple(img_size) != tuple(target)
+
+
 def _finish(upscaled_img, target=TARGET, usm=USM_DEFAULT):
     """Downscale a raw 4x upscale to the target and apply one unsharp mask.
 
     Pure PIL - CI-testable without torch. Performs exactly ONE Lanczos resize
     to `target` followed by exactly ONE UnsharpMask. The unsharp-mask params
     are clamped to sane maxima (radius <= 3, percent <= 150, threshold >= 0).
+
+    Exception - no resample, no sharpen: an input that is ALREADY exactly
+    `target` is returned as-is (RGB-converted only). See _usm_applies.
 
     Raises ValueError if the source aspect ratio does not match the target
     aspect within ASPECT_TOL - the pipeline must never silently squash aspect.
@@ -109,6 +132,10 @@ def _finish(upscaled_img, target=TARGET, usm=USM_DEFAULT):
         )
 
     img = upscaled_img.convert("RGB")
+    if not _usm_applies(upscaled_img.size, target):
+        # Already at target: the resize is a no-op and the USM would be the
+        # whole delta. Return the untouched pixels.
+        return img
     # ONE Lanczos downscale to target.
     img = img.resize(target, Image.LANCZOS)
     # ONE light unsharp mask (params clamped).
@@ -301,8 +328,12 @@ def first_pass(
     """Orchestrate one first-pass upscale and write the finished PNG atomically.
 
     Picks the backend, gets the raw 4x PIL image, calls _finish (one Lanczos
-    downscale to `target`, one clamped unsharp mask), and saves the PNG to
+    downscale to `target`, one clamped unsharp mask - both skipped when the raw
+    image is already exactly `target`, see _usm_applies), and saves the PNG to
     out_path atomically (write tmp, then os.replace). Returns a full audit dict.
+
+    The audit records both `usm` (the CONFIGURED recipe, always present) and
+    `usm_applied` (whether that recipe actually ran on this image).
 
     The audit dict deliberately omits a wall-clock timestamp - the caller
     stamps time (see ts_note). time.time() is used only for durations.
@@ -345,6 +376,7 @@ def first_pass(
         else:
             raise ValueError(f"unknown backend: {backend!r}")
 
+    usm_applied = _usm_applies(raw.size, target)
     finished = _finish(raw, target=target, usm=usm)
 
     # Atomic write: render to a sibling temp file, then os.replace onto out_path.
@@ -370,6 +402,7 @@ def first_pass(
             "percent": clamped[1],
             "threshold": clamped[2],
         },
+        "usm_applied": usm_applied,
         "tile": tile,
         "overlap": overlap,
         "seconds": round(time.time() - t0, 3),
