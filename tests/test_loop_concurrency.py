@@ -398,6 +398,53 @@ def test_posix_no_op_branch_is_traced_not_silent(monkeypatch):
         "a no-op must never claim ACQUIRED - it would open a window RELEASED never closes"
 
 
+def test_posix_no_op_lets_a_second_caller_in_while_the_first_holds(monkeypatch):
+    """The POSIX mirror of test_mutex_timeout_raises_when_held_elsewhere, and
+    the half that test_mutex_serializes_two_threads stops covering off Windows.
+
+    Ported from RC 2c89e2a2 - both repos converged on this shape after RC found
+    its own copy of the serialization test unguarded and failing on its nightly
+    ubuntu run. The marker assertions above prove the no-op ANNOUNCES itself;
+    only an actual second entry into a held name proves what it is announcing,
+    and it must be proven rather than assumed - a future fcntl or RLock fallback
+    would keep emitting the marker while quietly changing this behaviour, and
+    the guard that noticed would be the one deleted as redundant.
+
+    Overlap is established by events, not by timing: the first caller is parked
+    inside its block until the second has been and gone. The marker is counted
+    PER ENTRY because a log-reading judge sizes the breach by line count - one
+    line per name would render N unprotected calls as a single incident.
+    """
+    monkeypatch.setattr(sys, "platform", "linux")
+    name = "Global\\LWRC_TEST_POSIX_OVERLAP"
+    lines: list[str] = []
+    inside = threading.Event()
+    release = threading.Event()
+
+    def holder():
+        with winmutex.hold(name, timeout=5, log=lines.append):
+            inside.set()
+            release.wait(timeout=10)
+
+    t = threading.Thread(target=holder)
+    t.start()
+    try:
+        assert inside.wait(timeout=10), "the first caller never entered its block"
+        with winmutex.hold(name, timeout=0.2, log=lines.append) as h:
+            assert h is None, "the POSIX branch holds no handle"
+            assert not release.is_set(), \
+                "the first caller must still be inside or this proves no overlap"
+    finally:
+        release.set()
+        t.join(timeout=10)
+
+    marker = "winmutex: UNSERIALIZED " + name
+    assert sum(ln.startswith(marker) for ln in lines) == 2, \
+        f"one marker per unprotected entry, not one per name, got {lines!r}"
+    assert not any("ACQUIRED" in ln for ln in lines), \
+        "a no-op must never claim ACQUIRED - it opens a window RELEASED never closes"
+
+
 def test_posix_no_op_branch_survives_a_caller_that_passes_no_log(monkeypatch):
     """log= is optional on the two Windows fail-open branches; the new one must
     stay optional too or an unlogged caller crashes off-Windows."""

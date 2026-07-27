@@ -163,3 +163,4 @@ _verify_*.txt
 
 # cross-repo sync channel with Riot Commander (never committed on either side)
 moon_sync_inbox/
+moon_sync_outbox/
