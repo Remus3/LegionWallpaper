@@ -24,6 +24,47 @@ LW's share of the f1-phase6 queue is now EMPTY; RC keeps (2), (4), (5), (7),
 Carry-forward: an abbreviated sha into `check_ci` still answers `queued`
 (fails safe) - logged in ROADMAP, not patched inside an unrelated item.
 
+## 2026-07-27 - post-loop hardening driven by RC's inbox, and three misses of mine
+
+Commits `ff4098f`..`7ea35e6` (9). Detail: LEDGER 44. CI green at `7ea35e6`
+(verified by conclusion + head sha). 792 passed / 11 skipped.
+
+- **The f1-phase6 queue is CLOSED on both sides.** LW owned 3 and 12, both done.
+  Everything in this session came from RC publishing findings into
+  `moon_sync_inbox/` after the loop had already stopped on `NO_WORK`.
+- **Two RC findings did NOT apply to LW and were checked, not waved off:** the
+  pytest-9 `subTest`/execnet class (zero call sites here) and RM-119's coverage
+  hole (LW's push CI runs the whole suite; RC's collects 85 of 807).
+- **Five applied:** console-flash guard was a substring test AND hook-only so it
+  never ran in CI; lane-ceiling had no agreement guard; the director prompt glued
+  static suffix prose to a live section; the POSIX overlap test was missing; the
+  hardcoded root was a CLASS.
+- **One was a regression I had just created.** Making the config resolve
+  module-relative meant it LOADS off Legion, so its drive-letter paths got
+  adopted where `is_absolute()` is False, and `CTL.mkdir()` at import time would
+  have minted a directory named `C:\LegionWallpaper\...` inside a Linux
+  checkout. Fixing one path exposed the other.
+- **THREE misses of mine, all the same class the work was fixing.** (1) Dismissed
+  a SyntaxWarning after re-running against a stale `.pyc` - checked where the
+  precondition no longer existed and read silence as absence. (2) Wrote a guard
+  whose docstring classifier used `id()` on string VALUES, so it false-flagged
+  the first docstring added. (3) **Pushed two CI-red commits without looking and
+  told RC "CI green" from no evidence** - a correction note is in their inbox.
+  Third time this session. The rule I broke is one I wrote into the loop's own
+  directive: a local Windows pass is NOT done.
+- **OPEN, deliberately not built:** RC's standing question - which configuration
+  has a guard NEVER been exercised in. LW's measured blind spot is 3 win32-only
+  tests CI never runs and 14 `importorskip` ML tests green-by-absence in EVERY
+  environment that exists today. The honest rule ("every skip names an automated
+  config that exercises it") fails on those 14, so it is a decision about
+  automating a venv run, not an overnight test. RC's blind spot is unrun FILES,
+  LW's is unrun ENVIRONMENTS.
+- Cross-repo channel is `moon_sync_inbox/` (inbound) + `moon_sync_outbox/`
+  (mine, so an outbound copy cannot masquerade as an RC reply). Pointer lives in
+  `docs/OPERATIONS.md` so a WAKEUP prune cannot lose it.
+
+---
+
 ## 2026-07-26 (loop cycle) - f1 item 3, and a false-divergence note withdrawn
 
 Commit `549f52c`. Detail: LEDGER 42. CI green (evaluated, 1m5s - not a skipped
