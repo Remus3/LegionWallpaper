@@ -139,6 +139,6 @@ List anything needing a human call (broken-ref resolution, deprecation moves, hi
 - Never rewrite history (WAKEUP / history_notes / _archive / ADRs / dated artifacts) - section 8 is non-negotiable.
 - Never touch a CLAUDE.md frozen file. Never edit a memory body (only flag stale; defer to `/consolidate-memory`).
 - README: enforce the locked style contract; resist the urge to "polish" beyond fact reconciliation.
-- `commit` arg: stage only the explicit doc files you edited (list them by path), never `git add -A`/`.`. Conventional Commit subject (`docs: sync living docs - <topic>`) with the standard `Co-Authored-By: Claude <model name> <noreply@anthropic.com>` trailer. Never `--amend`, never force-push, never `--no-verify`.
+- `commit` arg: stage only the explicit doc files you edited (list them by path), never `git add -A`/`.`. Conventional Commit subject (`docs: sync living docs - <topic>`) with NO Claude co-author trailer (banned repo-wide, CLAUDE.md hard rule; `.githooks/commit-msg` strips it). Never `--amend`, never force-push, never `--no-verify`.
 - Broken-ref and deprecation decisions are surfaced, not silently applied, unless the operator has a standing preference recorded in memory/CLAUDE.md.
 - Preserve file encodings and line endings. Surgical edits - minimal diff.

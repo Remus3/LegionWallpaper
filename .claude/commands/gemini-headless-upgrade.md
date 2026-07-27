@@ -99,8 +99,8 @@ proceed. Caveman ULTRA output default (compress ~90 percent; code/paths/numbers 
    UI-audit RUN + every MUST-FIX resolved in-slice; (b) drift-guard set green THIS run
    (ASCII hygiene + touched guards; further product guards TBD); (c) multi-slice round ->
    truth_gate exit 0. Then: NO `git add -A`; stage only authored files; unstage `_scratch/` + stray
-   `.playwright-mcp/*.png`; heredoc message; use the harness-supplied Co-Authored-By trailer (do
-   NOT hardcode a model version).
+   `.playwright-mcp/*.png`; heredoc message; NO Claude co-author trailer (banned repo-wide by
+   CLAUDE.md; the commit-msg hook strips one if the harness adds it).
 5. CI after push: `gh run list --limit 4`; red -> FIX before next phase.
 6. Synopsis row update (atomic). 7. TaskUpdate phase completed; next in_progress.
 
@@ -232,7 +232,7 @@ PUSH the derived artifact in the SAME commit as the source change, never a trail
 
 ### 12. Anti-patterns (do NOT repeat)
 No `git add -A` without unstaging `_scratch/`; no skipping `ruff check` (F541 kills CI); no `--amend`;
-no `Stop-Process` (use taskkill /F /PID); no uncleaned locked worktrees at run end; no hardcoded model
+no `Stop-Process` (use taskkill /F /PID); no uncleaned locked worktrees at run end; no Claude co-author
 trailer; no trusting an agent premise unverified; no research agent without a don't-redo list; no
 unstated reload/restart mechanism when shipping frontend changes; no feature flags / backwards-compat
 shims for what should just BE the new behavior; no WHAT-comments (WHY only); no blocking

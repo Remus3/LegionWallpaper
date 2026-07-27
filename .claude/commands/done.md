@@ -47,7 +47,7 @@ Until such a package exists: skip this section.
   - **Frozen-file guard**: per `CLAUDE.md`, several files require explicit user approval before editing. If any modified path is in the frozen list, stop and ask - auto-commit is too dangerous here. Frozen list lives at the top of CLAUDE.md.
   - Stage only the changes you authored this session (`git add <specific files>`). Do NOT use `git add -A` - accidentally commits .env / runtime junk.
   - Draft a one-line commit message summarising the session's work (1-2 sentences, "why" over "what"). If multiple distinct themes: list them as bullets in the body.
-  - Commit with the standard `Co-Authored-By: Claude <model name> <noreply@anthropic.com>` trailer.
+  - Commit with NO Claude co-author trailer - the `Co-Authored-By: Claude ... <noreply@anthropic.com>` line is banned repo-wide (CLAUDE.md hard rule, operator policy 2026-06-03). `.githooks/commit-msg` -> `precommit_gate.py --message-file` strips it if the harness appends one anyway; do not add it back.
   - If pre-commit hooks fail: fix and create a new commit (never `--amend`).
 
 ### 2. Push
