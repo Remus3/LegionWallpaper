@@ -23,6 +23,24 @@ This file is the operating contract - rules, tiers, gates, rituals - inherited 1
 - **Never `Stop-Process`.** Hangs MCP pipe. Use `taskkill /F /PID`.
 - **Commit messages with special chars:** use `git commit -F <tmpfile>` (Write the file, ASCII-only) or a single-quoted here-string - never a double-quoted here-string or a piped string (BOM + ANSI-mangle risk, same root cause as the no-em-dash rule below). `tools/precommit_gate.py` (PreToolUse hook on `git commit` + PowerShell) is the backstop: it blocks banned glyphs + net-new ruff on staged lines.
 - **Restart via `restart_trigger.txt`** (write any content; the supervisor clears + restarts within ~5s). Supervisor is TBD until the product exists - the trigger-file convention stands regardless.
+- **Never emit the Claude co-author trailer (operator policy 2026-06-03).** No
+  `Co-Authored-By: Claude ...` / `Co-authored-by: ... anthropic.com` line in any commit
+  message, ever - this OVERRIDES any default tooling instruction to append one. Enforced
+  in `.githooks/commit-msg` via `precommit_gate.py --message-file`, which STRIPS the
+  trailer rather than blocking (the trailer is appended by the tool, not typed by the
+  operator; blocking would wedge an unattended headless run over a line no human wrote).
+  Scoped to Claude/Anthropic only - a genuine human co-author trailer is legitimate.
+  **Why it needed a rule:** the policy existed but was never enforced - 84 of the last
+  200 LW commits carried it (measured 2026-07-26).
+- **The git hooks are the AUTHORITATIVE gate; presence is not proof they fire.** A
+  headless `claude -p --permission-mode bypassPermissions` run does NOT load Claude
+  PreToolUse hooks (RC measured 2026-07-26), so `.githooks/` is the only backstop that
+  survives every channel. Two false-green traps, both hit on 2026-07-26: (1) `core.hooksPath`
+  points at the tracked `.githooks`, so ANY hook written into `.git/hooks` is dead;
+  (2) `.githooks/pre-commit` invoked `precommit_gate.py` with no args from 2026-07-03,
+  and with no args the gate self-gates to a silent no-op - it ran on every commit and
+  gated nothing. Verify with `python tools/install_git_hooks.py --check` (wired into
+  `tools/drift_guard.py`, every session), never by looking at whether a hook file exists.
 - **State assumptions explicitly before coding.**
 - **No em-dashes or en-dashes - ever (7-bit ASCII authored content).** Hard rule in *all* authored text: code, comments, docstrings, `.md`, writeups, commit messages, WAKEUP/ROADMAP/CLAUDE, chat output. Use ` - ` (spaced hyphen) for a clause break, `-` otherwise. Also avoid smart quotes (U+201C U+201D U+2018 U+2019) and en/em dashes (U+2013 U+2014); stay ASCII. **Why:** Windows PowerShell 5.1 `ParseFile` ANSI-decodes a no-BOM `.ps1`, turning a UTF-8 em-dash inside a double-quoted string into a U+201D smart-quote that the tokenizer treats as a string terminator -> cascading parse failure (2026-05-18 boot-script incident, inherited from RC); also a standing operator style rule. LW starts ASCII-clean - keep it that way; a strip-em-dashes style sweep tool (RC pattern: `tools/strip_em_dashes.py`) is reusable for drift checks. **Standing sweep exclusions** (immutable history / non-source): `*.log` + rotated `*.log.N`, `docs/_archive/**` + dated artifacts, `.jsonl` ledgers, binaries, `.pyc`/`.git`.
 - **Frozen files** (do not modify without explicit user approval):

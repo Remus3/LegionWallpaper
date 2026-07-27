@@ -18,7 +18,11 @@ if ! command -v "$PY" >/dev/null 2>&1; then
     PY=python
 fi
 
-"$PY" "$ROOT/tools/precommit_gate.py" || exit 1
+# --git-hook is REQUIRED. Without it the gate reads the Claude PreToolUse
+# payload from stdin, finds no `git commit` command, and self-gates to a
+# SILENT no-op - which is what this hook did from 2026-07-03 to 2026-07-26
+# (measured: 84 of the last 200 commits carry the banned co-author trailer).
+"$PY" "$ROOT/tools/precommit_gate.py" --git-hook || exit 1
 
 # Ensure ARCHITECTURE.md module map is in sync with # arch: headers.
 # Guarded until tools/gen_archmap.py exists in LW - the gate activates

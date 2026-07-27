@@ -15,3 +15,9 @@ if ! command -v "$PY" >/dev/null 2>&1; then
 fi
 
 "$PY" "$ROOT/tools/precommit_msg_check.py" "$1" || exit 1
+
+# Banned-glyph scan + operator policy 2026-06-03 (strip the Claude co-author
+# trailer). Runs ALONGSIDE the conventional-commit check above, never instead
+# of it. pre-commit cannot do this: .git/COMMIT_EDITMSG does not exist yet at
+# pre-commit time (verified 2026-07-26).
+"$PY" "$ROOT/tools/precommit_gate.py" --message-file "$1" || exit 1

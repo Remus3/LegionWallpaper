@@ -161,18 +161,6 @@ def test_message_file_untouched_when_no_trailer(repo: Path, tmp_path: Path):
     assert msg.read_text(encoding="utf-8") == before
 
 
-def test_real_commit_drops_the_trailer(repo: Path):
-    _install(repo)
-    (repo / "doc.md").write_text("clean body\n", encoding="utf-8")
-    _git(repo, "add", "doc.md")
-    r = _git(repo, "commit", "-m",
-             "feat: real one\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>")
-    assert r.returncode == 0, r.stdout + r.stderr
-    body = _git(repo, "log", "-1", "--format=%B").stdout
-    assert "Co-Authored-By" not in body, "the trailer must not reach history"
-    assert "feat: real one" in body
-
-
 # ---- installer ---------------------------------------------------------
 
 def _install(repo: Path, *args: str) -> subprocess.CompletedProcess:
@@ -180,71 +168,111 @@ def _install(repo: Path, *args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, errors="replace")
 
 
-def test_installer_writes_both_hooks(repo: Path):
-    r = _install(repo)
-    assert r.returncode == 0, r.stderr
+@pytest.fixture()
+def wired(repo: Path) -> Path:
+    """A repo shaped like LW: TRACKED .githooks + the tools the hooks call.
+
+    Hook bodies are tracked source that arrives with a clone; the only per-clone
+    step is core.hooksPath. That is the contract the installer verifies.
+    """
+    (repo / ".githooks").mkdir()
+    (repo / "tools").mkdir()
     for name in ("pre-commit", "commit-msg"):
-        h = repo / ".git" / "hooks" / name
-        assert h.is_file(), f"{name} not installed"
-        assert "precommit_gate.py" in h.read_text(encoding="utf-8")
+        (repo / ".githooks" / name).write_text(
+            (ROOT / ".githooks" / name).read_text(encoding="utf-8"),
+            encoding="utf-8", newline="\n")
+    for tool in ("precommit_gate.py", "precommit_msg_check.py"):
+        src = ROOT / "tools" / tool
+        if src.is_file():
+            (repo / "tools" / tool).write_text(src.read_text(encoding="utf-8"),
+                                               encoding="utf-8")
+    return repo
 
 
-def test_installer_check_passes_after_install(repo: Path):
-    _install(repo)
-    r = _install(repo, "--check")
-    assert r.returncode == 0, r.stdout + r.stderr
-
-
-def test_installer_check_detects_missing_hook(repo: Path):
-    _install(repo)
-    (repo / ".git" / "hooks" / "commit-msg").unlink()
-    r = _install(repo, "--check")
-    assert r.returncode != 0, "a removed hook must be reported as drift"
-
-
-def test_installer_check_detects_modified_hook(repo: Path):
-    _install(repo)
-    h = repo / ".git" / "hooks" / "pre-commit"
-    h.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    r = _install(repo, "--check")
-    assert r.returncode != 0, "a neutered hook must be reported as drift"
-
-
-def test_installer_refuses_to_clobber_a_foreign_hook(repo: Path):
-    """RC's .git/hooks/pre-commit carries its Share sync - never silently eat it."""
-    h = repo / ".git" / "hooks" / "pre-commit"
-    h.write_text("#!/bin/sh\necho someone elses hook\n", encoding="utf-8")
-    r = _install(repo)
+def test_check_fails_when_hookspath_is_unset(wired: Path):
+    """The trap that made a first cut of this tool report false green: correct
+    hooks in .git/hooks are DEAD when core.hooksPath points elsewhere."""
+    r = _install(wired, "--check")
     assert r.returncode != 0
-    assert "--force" in (r.stdout + r.stderr)
-    assert "someone elses hook" in h.read_text(encoding="utf-8"), "must not overwrite"
+    assert "core.hooksPath" in r.stderr
 
 
-# ---- end to end: a real commit --------------------------------------------
-
-def test_real_commit_is_blocked_by_installed_hooks(repo: Path):
-    _install(repo)
-    (repo / "doc.md").write_text(f"body glyph {EMDASH}\n", encoding="utf-8")
-    _git(repo, "add", "doc.md")
-    r = _git(repo, "commit", "-m", "clean ASCII subject")
-    assert r.returncode != 0, "the installed pre-commit hook must block this"
-    log = _git(repo, "log", "--oneline")
-    assert log.stdout.strip() == "", "nothing may land"
+def test_install_sets_hookspath_then_passes(wired: Path):
+    assert _install(wired).returncode == 0
+    assert _git(wired, "config", "--get", "core.hooksPath").stdout.strip() == ".githooks"
+    assert _install(wired, "--check").returncode == 0
 
 
-def test_real_commit_message_glyph_is_blocked(repo: Path):
-    _install(repo)
-    (repo / "doc.md").write_text("clean body\n", encoding="utf-8")
-    _git(repo, "add", "doc.md")
-    r = _git(repo, "commit", "-m", f"subject with {EMDASH} glyph")
-    assert r.returncode != 0, "the installed commit-msg hook must block this"
-    assert _git(repo, "log", "--oneline").stdout.strip() == ""
+def test_check_detects_missing_hook_file(wired: Path):
+    _install(wired)
+    (wired / ".githooks" / "commit-msg").unlink()
+    r = _install(wired, "--check")
+    assert r.returncode != 0
+    assert "MISSING" in r.stderr
 
 
-def test_real_clean_commit_succeeds(repo: Path):
-    _install(repo)
-    (repo / "doc.md").write_text("clean body - ascii only\n", encoding="utf-8")
-    _git(repo, "add", "doc.md")
-    r = _git(repo, "commit", "-m", "feat: clean subject")
+def test_check_detects_a_present_but_noop_invocation(wired: Path):
+    """THE regression test for the real 2026-07-26 defect: the hook existed, was
+    tracked, was executable, ran on every commit - and gated NOTHING, because it
+    called the gate with no args and the gate self-gates to a no-op."""
+    _install(wired)
+    h = wired / ".githooks" / "pre-commit"
+    h.write_text(h.read_text(encoding="utf-8").replace(
+        'precommit_gate.py" --git-hook', 'precommit_gate.py"'),
+        encoding="utf-8", newline="\n")
+    r = _install(wired, "--check")
+    assert r.returncode != 0, "a present-but-no-op hook must NOT read as installed"
+    assert "no-op" in r.stderr
+
+
+def test_check_reports_inert_shadowed_hooks(wired: Path):
+    """With core.hooksPath set, anything in .git/hooks is dead. Silent, and
+    exactly how a working hook (RC's Share mirror sync) gets disabled."""
+    _install(wired)
+    legacy = wired / ".git" / "hooks"
+    legacy.mkdir(parents=True, exist_ok=True)
+    (legacy / "pre-commit").write_text("#!/bin/sh\necho share sync\n",
+                                       encoding="utf-8", newline="\n")
+    r = _install(wired, "--check")
+    assert r.returncode != 0
+    assert "INERT" in r.stderr
+
+
+# ---- end to end: a real commit through the real hooks ----------------------
+
+def test_real_commit_is_blocked_by_staged_glyph(wired: Path):
+    _install(wired)
+    (wired / "doc.md").write_text(f"body glyph {EMDASH}\n", encoding="utf-8")
+    _git(wired, "add", "-A")
+    r = _git(wired, "commit", "-m", "docs: clean ascii subject")
+    assert r.returncode != 0, "the pre-commit hook must block this"
+    assert _git(wired, "log", "--oneline").stdout.strip() == "", "nothing may land"
+
+
+def test_real_commit_message_glyph_is_blocked(wired: Path):
+    _install(wired)
+    (wired / "doc.md").write_text("clean body\n", encoding="utf-8")
+    _git(wired, "add", "-A")
+    r = _git(wired, "commit", "-m", f"docs: subject with {EMDASH} glyph")
+    assert r.returncode != 0, "the commit-msg hook must block this"
+    assert _git(wired, "log", "--oneline").stdout.strip() == ""
+
+
+def test_real_commit_drops_the_trailer(wired: Path):
+    _install(wired)
+    (wired / "doc.md").write_text("clean body\n", encoding="utf-8")
+    _git(wired, "add", "-A")
+    r = _git(wired, "commit", "-m",
+             "docs: real one\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "feat: clean subject" in _git(repo, "log", "--oneline").stdout
+    body = _git(wired, "log", "-1", "--format=%B").stdout
+    assert "Co-Authored-By" not in body, "the trailer must not reach history"
+
+
+def test_real_clean_commit_succeeds(wired: Path):
+    _install(wired)
+    (wired / "doc.md").write_text("clean body - ascii only\n", encoding="utf-8")
+    _git(wired, "add", "-A")
+    r = _git(wired, "commit", "-m", "feat: clean subject")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "feat: clean subject" in _git(wired, "log", "--oneline").stdout
