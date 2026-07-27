@@ -95,6 +95,31 @@ def test_sdk_prompt_uses_the_same_source_of_truth():
     assert executor.final_step_instruction("sdk") in executor.sdk_prompt(1, "b", "fixed")
 
 
+def test_ahk_final_step_names_this_repo_only():
+    """The sentinel line is per-repo (interpreter path, exact spacing). RC pins
+    the mirror of this. Copying the other repo's string verbatim would break the
+    ahk rollback path in a way only a live dry cycle would catch."""
+    s = executor.final_step_instruction("ahk")
+    assert "Riot Commander" not in s
+    assert "ops/loop/done_sentinel.py" in s
+
+
+def test_sdk_never_consumes_the_stall_recovery_directive():
+    """stall_recovery_directive names done_sentinel.py, which is CHANNEL-CORRECT
+    rather than a missed spot: it is reachable only from AhkExecutor's
+    deadline-breach branch. SdkExecutor has no stall-recovery path at all - it
+    times out and taskkills the tree. Flagged by RC; pinned behaviorally here so
+    nobody later wires it into the sdk channel and re-introduces the
+    contradiction through the back door."""
+    def boom(_cycle):
+        raise AssertionError("sdk must never inject a stall-recovery directive")
+
+    ex = executor.build({"channel": "sdk", "claude_cmd": ["nonexistent-binary-xyz"]},
+                        Path("."), **_deps(stall_recovery_directive=boom))
+    assert not hasattr(ex, "stall_recovery_directive"), (
+        "SdkExecutor must not even bind the ahk-only dependency")
+
+
 def test_director_prompt_has_no_hardcoded_final_step():
     """The template must carry the placeholder, not a channel-specific command."""
     tmpl = (ROOT / "ops" / "loop" / "director_prompt.md").read_text(encoding="utf-8")
