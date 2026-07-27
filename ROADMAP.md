@@ -8,6 +8,39 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
+- **m1-gate-fund-or-close - decide attempt #4 on the weapon-canonicity gate - OPERATOR-GATED.**
+  Next: operator decides FUND or CLOSE. Three measured negatives landed
+  2026-07-26 (LEDGER 37) and the binding constraint is now known and cheap to
+  fix: canonical n=5 gives AUC granularity 1/65, so no result can be
+  significant. FUND = hand-crop wrists from the 19 official Vayne splashes
+  already local at `tools/models/lora_datasets/vayne/` (the existing 5
+  `weapon_assets` crops came from that same pool) to reach n~19 canonical vs
+  ~13 non-canonical, all real Riot art, matched on pixel count AND provenance.
+  CLOSE = accept `gate_mode="operator"` permanently, which is already the
+  shipped default and works.
+  Evidence: LEDGER 37; `scratchpad/probe_results.md` +
+  `scratchpad/render_exemplar_results.md`.
+  Do-not-redo: img2img weapon-swap (structure-locked, 0/12); any probe trained
+  across a provenance boundary (AUC 1.0 = generator fingerprint); the 36 staged
+  DreamUp step4 prompts (superseded by the render path). Match on EVERY axis -
+  provenance and resolution both slipped in while palette was being tuned.
+
+- **glb-render-pipeline - port the weapon renderer to .glb named joints - READY.**
+  Next: fold the verified `.glb` path into the existing renderer. Unblocks the
+  documented ceiling in `docs/research/crossbow_render_poc.md` (".skl 404 ->
+  bone NAMES unavailable"), which forced base-skin-only isolation and manual
+  curation. `cdn.modelviewer.lol/lol/models/<champ>/<skinId>/model.glb`
+  (skinId = championId*1000 + skinIndex) ships fully named joints; name-based
+  isolation renders clean on 4/5 Vayne skins including aristocrat, the POC's
+  wine-bottle failure. Rule: match `weapon` case-insensitively, exclude
+  `buffbone`, `b_weapon*`, `*wings*`, `*ult*`.
+  Evidence: LEDGER 37; `scratchpad/glb_render/` (110 renders),
+  `scratchpad/glb_weapon_isolate.py`.
+  Do-not-redo: scraping the modelviewer.lol WEBSITE (Cloudflare + in-app blobs,
+  POC-measured); any fixed bone-INDEX set (two rig conventions exist, so indices
+  cannot port); reading `primitives[0]` alone (newer skins split mesh 0 into
+  9-10 primitives sharing one POSITION accessor - drops most triangles).
+
 - **refs-46-first-pass - process the 46 intaken reference_pictures - NEXT.**
   Next: first pass the 46 slugs now staged in `1.First Pass Scratch` (intaken
   2026-07-18, LEDGER 36), then route them to stage-2 cleaning - 35 were

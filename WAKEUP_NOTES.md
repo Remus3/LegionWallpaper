@@ -11,6 +11,67 @@
 
 ---
 
+## PENDING - end of THIS session (operator note, 2026-07-26)
+
+- **PowerShell 7 - INSTALLED BY RIOT COMMANDER 2026-07-26. LW migration = NO-OP.**
+  Authority doc: `C:\Users\Administrator\Desktop\POWERSHELL_7_MIGRATION.md` (RC,
+  machine-wide). Read it before touching any call site; do not re-derive.
+  - Live state verified 2026-07-26: `C:\Program Files\PowerShell\7\pwsh.exe` =
+    **7.6.4 Core**, MSI machine-scope, on machine PATH. `powershell.exe` is
+    untouched 5.1 and stays forever. Side-by-side; nothing auto-switched.
+  - MSI not winget: the winget manifest ships only an MSIX, whose exe path carries
+    the version (breaks pinned scheduled tasks on upgrade) and whose stable-looking
+    launcher is a per-user app-execution alias. Do NOT "fix" this with winget.
+  - **LW has ZERO migration work.** Probed 2026-07-26: `LW-Wallpaper` executes
+    `pythonw.exe` (not `powershell.exe`), so RC doc sec 4a does not apply. No LW
+    `.vbs`/`.bat`/`.cmd` shim names powershell. The only authored call sites are
+    `ops/loop/loop_controller.py`, `tools/precommit_gate.py`, `tools/truth_gate.py`,
+    `tools/weekly_hygiene_run.ps1` - all agent/hook-invoked, none pinned to a shell
+    binary that needs changing. Nothing to switch; revisit only if LW registers a
+    powershell-executing task.
+  - **Agent sessions stay on 5.1** (RC doc sec 4c): Claude Code's PowerShell tool
+    invokes `powershell.exe` and no setting selects the binary. So KEEP WRITING
+    5.1-COMPATIBLE POWERSHELL - no `&&`/`||`, no ternary, no `??`. Escape hatch if
+    ever needed: `& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoProfile -File <s>`.
+  - **The no-em-dash ASCII rule STANDS - do not relax it.** RC measured that PS7
+    parses a no-BOM UTF-8 `.ps1` containing an em-dash with 0 errors, so that one
+    5.1 failure mode is gone under pwsh. It remains LIVE anywhere `powershell.exe`
+    is named explicitly, it is an independent operator style rule, and it is
+    mechanically gated by `tools/precommit_gate.py`. PS7 removes a failure mode,
+    not the rule.
+
+---
+
+# 2026-07-26 (weapon gate: 3 measured negatives; .glb named joints unblock the render POC; drift guard adopted)
+
+Commits: a72ea8b (drift guard + /done wiring), plus this docs sync. Full
+detail in LEDGER 37 - this is the short hand-off.
+
+- **The gate did NOT get revived. Three attempts, three different confounds.**
+  img2img weapon-swap changed 0/12 images (structure lock beats the negative
+  prompt). A trained probe hit AUC 1.0000 by reading GENERATOR PROVENANCE, not
+  the weapon - de-aliased, it ranked real crossbows BELOW lanterns (0.1667).
+  Render exemplars reached 0.9538 but two thirds was RESOLUTION; controlled it
+  is 0.7538, p=0.0586, not significant.
+- **Standing lesson:** match the corpus on EVERY axis. Provenance slipped in,
+  then resolution, both while palette was being tuned - and palette turned out
+  to be innocent (luminance AUC 0.4248).
+- **The durable win:** `cdn.modelviewer.lol/lol/models/<champ>/<skinId>/model.glb`
+  ships FULLY NAMED joints. That supersedes the recorded blocker in
+  `docs/research/crossbow_render_poc.md` (".skl 404 -> bone names unavailable"),
+  which had forced base-skin-only isolation. Clean crossbow on 4/5 Vayne skins
+  INCLUDING aristocrat, the POC's wine-bottle failure.
+- **Do NOT redo:** the three approaches above; the 36 DreamUp step4 prompts
+  staged at `scratchpad/step4_matched/` (deliberately never run - superseded);
+  scraping the modelviewer.lol website (Cloudflare, POC-measured).
+- **Next:** ROADMAP top item `m1-gate-fund-or-close` is an OPERATOR decision -
+  fund attempt #4 (hand-crop the 19 official splashes to n~19 at matched pixel
+  count) or close and keep `gate_mode="operator"`, which already ships and works.
+- PS7 7.6.4 is installed machine-wide by RC; LW migration is a verified no-op.
+  Agent sessions stay on 5.1 - keep writing 5.1-compatible PowerShell.
+
+---
+
 # 2026-07-18 (wallpaper deck rotator shipped - Windows slideshow replaced; LW-Wallpaper task live)
 
 Three commits: b93ddc7 (spec), d220e6e (feat), 17693cb (time-trigger fix).
