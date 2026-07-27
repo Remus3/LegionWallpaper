@@ -163,3 +163,4 @@ taskkill /F /PID <pid>
 | `docs/LEDGER.md` | Append-only per-item completion ledger |
 | `WAKEUP_NOTES.md` | Session hand-off notes (newest-first) |
 | `docs/adr/` | Decision records |
+| `moon_sync_inbox/` | Cross-repo channel with Riot Commander (gitignored on BOTH sides). RC's mirror is `C:\Riot Commander\moon_sync_inbox\`. Read it at session start whenever the shared `ops/loop/slots.py` / `winmutex.py` are in play - a change to either is a joint act, never unilateral. Both sessions independently invented a channel on 2026-07-26 before finding the other's; this table entry exists so the next one does not. |
