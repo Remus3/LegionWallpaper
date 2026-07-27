@@ -9,6 +9,7 @@ nothing here may assume LW paths; every test injects its own root.
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -251,6 +252,40 @@ def test_mutex_serializes_two_threads():
     assert peak == 1, f"mutex allowed {peak} concurrent holders"
 
 
+# ---- f1-phase6 item 5a: pinned parity constants -----------------------------
+#
+# slots.py and winmutex.py are BYTE-IDENTICAL between this repo and Riot
+# Commander by contract. RC's mirror test compares its copy against the LW tree
+# directly, which is the stronger check - but it SKIPS when the sibling tree is
+# absent, so on a CI runner (one repo checked out, no sibling) parity is
+# enforced by NOBODY. These pins close that hole: each repo's CI can prove
+# parity alone, against a value both sides agreed to.
+#
+# RE-PINNING IS A JOINT ACT. Never regenerate these from whatever the file
+# happens to be locally - that turns the guard into a rubber stamp and would
+# launder a unilateral drift into "agreed". Change the shared file on one side,
+# hand the other side the exact bytes, re-hash BOTH trees, confirm they match,
+# and only then write the new digest here and in RC's copy in the same round.
+SHARED_SHA256 = {
+    # unchanged since the 2026-07-26 sync
+    "slots.py": "95077a62527c9764e896e3bd1da9027e5efd2b15631feb725fe6138cee5054f9",
+    # re-pinned 2026-07-26 for f1-phase6 item 9 (POSIX branch now emits
+    # UNSERIALIZED); previous c21bfe4f309c9ed27e68f7cdf0458d001a9942e6a35c61869e6dedd16cc23b79
+    "winmutex.py": "f1b4b011112685efb88616c52752657cf896fbb0993b2d2d264e7b3edde8b4f4",
+}
+
+
+@pytest.mark.parametrize("name", sorted(SHARED_SHA256))
+def test_shared_module_matches_the_pinned_cross_repo_digest(name: str):
+    """A drift here is not a merge conflict anyone notices - it is a silent
+    concurrency bug where both loops believe they hold the only slot."""
+    digest = hashlib.sha256((ROOT / "ops" / "loop" / name).read_bytes()).hexdigest()
+    assert digest == SHARED_SHA256[name], (
+        f"{name} no longer matches the digest agreed with Riot Commander. "
+        f"If this change is intended, re-sync BOTH trees and re-pin on BOTH "
+        f"sides in the same round - do not just update this constant.")
+
+
 def test_acquired_is_logged_only_when_actually_held():
     """Emitter side of the defect RC found 2026-07-26: ACQUIRED must be gated on
     a real acquisition, and the fail-open path must emit a DISTINCT marker.
@@ -267,11 +302,40 @@ def test_acquired_is_logged_only_when_actually_held():
 
 
 def test_unserialized_marker_wording_is_the_judge_contract():
-    """p5_probe greps for this exact token; both emit sites must use it."""
+    """p5_probe greps for this exact token; every emit site must use it."""
     src = (ROOT / "ops" / "loop" / "winmutex.py").read_text(encoding="utf-8")
-    assert src.count("winmutex: UNSERIALIZED") == 2, (
-        "both fail-open paths (CreateMutexW failure, unexpected wait result) "
-        "must emit the same marker the judge hard-fails on")
+    assert src.count("winmutex: UNSERIALIZED") == 3, (
+        "all three unserialized paths (CreateMutexW failure, unexpected wait "
+        "result, and the non-Windows no-op) must emit the same marker the "
+        "judge hard-fails on")
+
+
+def test_posix_no_op_branch_is_traced_not_silent(monkeypatch):
+    """f1-phase6 item 9. Off Windows there is no named-mutex primitive, so hold
+    degrades to a no-op - which is defensible. Yielding SILENTLY is not: every
+    overlap guard in this file then passes VACUOUSLY on a POSIX runner, and the
+    controller.log the judge reads carries no trace that nothing was serialized.
+    Rejected alternative: an fcntl fallback. POSIX record locks are per-PROCESS,
+    so test_mutex_serializes_two_threads (threads in ONE process) would stay red
+    without a second RLock layer - the wrong size of change for a file that is
+    byte-identical across two repos."""
+    lines: list[str] = []
+    monkeypatch.setattr(sys, "platform", "linux")
+    with winmutex.hold("Global\\LWRC_TEST_POSIX", timeout=5, log=lines.append) as h:
+        assert h is None, "the POSIX branch holds no handle"
+    assert any(ln.startswith("winmutex: UNSERIALIZED Global\\LWRC_TEST_POSIX")
+               for ln in lines), \
+        f"the no-op branch must emit the judge's marker, got {lines!r}"
+    assert not any("ACQUIRED" in ln for ln in lines), \
+        "a no-op must never claim ACQUIRED - it would open a window RELEASED never closes"
+
+
+def test_posix_no_op_branch_survives_a_caller_that_passes_no_log(monkeypatch):
+    """log= is optional on the two Windows fail-open branches; the new one must
+    stay optional too or an unlogged caller crashes off-Windows."""
+    monkeypatch.setattr(sys, "platform", "linux")
+    with winmutex.hold("Global\\LWRC_TEST_POSIX_NOLOG") as h:
+        assert h is None
 
 
 def test_mutex_names_are_the_shared_contract():

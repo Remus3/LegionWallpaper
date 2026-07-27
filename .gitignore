@@ -160,3 +160,6 @@ data/recovery/**/*.gif
 _verify_*.txt
 /*_out.log
 /*_err.log
+
+# cross-repo sync channel with Riot Commander (never committed on either side)
+moon_sync_inbox/
