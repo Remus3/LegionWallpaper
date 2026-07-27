@@ -263,11 +263,25 @@ green live runs on `channel: sdk`:
 
 ## 6. Build phases + acceptance
 
-**P0 - move precommit_gate into `.git/hooks/pre-commit`. BLOCKS P1**, because P1 ships the
-channel that loses the PreToolUse gate (section 7, first risk). Committed installer +
-drift_guard parity check, since `.git/hooks/` is untracked. ACCEPT: with an em-dash staged,
-a nested `claude -p --permission-mode bypassPermissions` told to commit is BLOCKED, and the
-same commit from an ordinary terminal is blocked identically.
+**P0 - move precommit_gate into git hooks. DONE 2026-07-26, commit `b6b69e9`.**
+Two hooks, not one: `pre-commit --git-hook` (staged content) and `commit-msg
+--message-file $1` (the message). The split is measured, not stylistic - a probe hook
+proved `.git/COMMIT_EDITMSG` does not exist yet at pre-commit time, so a lone pre-commit
+would have silently dropped the commit-message glyph check.
+Also folds in operator policy 2026-06-03 (never emit the Claude co-author trailer), which
+was NOT being enforced: 84 of the last 200 LW commits carry it. commit-msg STRIPS rather
+than blocks, since the trailer is appended by the tool rather than typed by the operator
+and blocking would wedge an unattended run over a line no human wrote; only the
+Claude/Anthropic trailer matches, a genuine human co-author survives.
+`tools/install_git_hooks.py` is the committed source of truth (`.git/hooks/` is untracked)
+and `drift_guard.check_git_hooks()` runs `--check` every session. The installer refuses to
+overwrite a hook it does not own without `--force` - RC's `pre-commit` carries its Share
+mirror sync.
+ACCEPTED, run live rather than argued: with an em-dash staged, a nested `claude -p
+--permission-mode bypassPermissions` told to commit exited 1 with history empty; the same
+channel then had its Claude trailer stripped (committed body `docs: clean one`, no
+trailer). drift_guard went BREACH (missing hooks) -> clean after install. 21 TDD tests
+written failing first; suite `tests/` 598 passed / 11 skipped.
 
 **P0b - clear the guard's known-dirty baseline** (13 subprocess sites). DONE 2026-07-26,
 see section 4d. Ordered ahead of P1 deliberately: a guard that prints ~15 lines at every
