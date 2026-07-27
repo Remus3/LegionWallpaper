@@ -27,6 +27,54 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+53. DONE **2026-07-27 (refs-46-first-pass cycle 8; docs-only).** Batched the
+    next 5 slugs (`261f` `262f` `264-cleanup` `266f` `269f`) through
+    best-source -> save-working -> G1 -> submit. 5/5 G1 PASS with
+    `reasons: []`, so the R16 no-resample-no-USM fix now holds across 35
+    consecutive slugs. Premise VERIFIED before any mutation: a dry run showed
+    `src=firstinitial aspect=ok mode=downscale-only box=None` for all 5, every
+    source measures exactly 2560x1440, so each ran at `scale=1` with
+    `usm_applied=false` and the six metrics saturate by construction. Pixel
+    identity MEASURED, not inferred - sha256 over the PIL-decoded RGB buffer is
+    EQUAL src vs out for all 5 (`f670b28dbd79` `e4dea62ea0e3` `7bb35304c133`
+    `a5203bf11569` `f9d30461a75c`).
+    THE FINDING: all FIVE sources are RGBA and all five outputs are RGB, so
+    cycle 7's alpha drop is not a two-slug outlier - it is 7 of the 36
+    processed refs, and every cycle-8 output SHRANK 39.7 to 42.1 percent on the
+    channel drop alone. Two distinct sub-shapes, and the second one reframes the
+    defect. Sub-shape A (`261f` `262f` `264-cleanup`) is cycle 7's hairline
+    letterbox with BYTE-IDENTICAL geometry across all three: fully transparent
+    rows exactly `[0-2]` and `[1437-1439]`, 6 rows = 15360 px = 0.4167 percent,
+    and those are the ONLY non-opaque pixels in each file - a shared authoring
+    or export artifact, not per-image chance. Sub-shape B (`266f` `269f`) is
+    NEW and is not a letterbox at all: alpha min=220 max=255, ZERO fully
+    transparent pixels, 2880 and 7996 non-opaque pixels (0.0781 / 0.2169
+    percent) scattered as an anti-aliased soft edge. So the real defect is an
+    unannounced RGBA -> RGB flatten, of which the letterbox is one special
+    case; the ROADMAP item name `first-pass-alpha-letterbox` understates it.
+    NOT acted on in-cycle per the directive - the crop-vs-resource-vs-accept
+    call is operator/director scope and a wrong automatic answer is worse than
+    the current queue. ROADMAP item widened with both sub-shapes, a per-sub-shape
+    policy split, and the cheapest step that needs NO policy call: record the
+    source PIL mode and the flatten in `upscale_audit` so the drop stops being
+    silent (today only a file-size anomaly reveals it).
+    All 5 land at `FIRST_SCRATCH/NEEDAUTH`, none approved; chain exactly
+    INTAKE/SAVE_WORKING/ANNOTATE/SUBMIT with zero APPROVE or REJECT lines, and
+    zero of the 5 present in `2.First Pass Done` (243 entries / 242 slug dirs,
+    unchanged). Single data-run agent in the MAIN tree (a worktree lacks the
+    gitignored `images/`); verifier CONFIRM 8/8 with the alpha claim re-probed
+    hardest via numpy over the alpha plane and every claimed sha12 and byte
+    count reproduced exactly - zero discrepancies, the first all-CONFIRM cycle
+    of the arc. Four new silent-empty probe traps recorded for cycle 9:
+    `scan_tree()` returns a DICT (keys schema/generated_ts/scan_verify/root/
+    counts/images/anomalies), `tree["images"]` is ALSO a dict keyed by slug not
+    a list, records carry `state` + `substate` and NO `stage` key (so
+    `r.get("stage")` builds a plausible-looking `{None: 296}` split out of
+    nothing), and the gate verdict is `audit["verdict"] == "PASS"` not
+    `audit["pass"]`. Suite 808 passed / 11 skipped, ruff clean. Auth queue now
+    36 slugs deep; 10 unprocessed remain (`270f` `272-cleanup` `274f` `276f`
+    `277f` `280f` `281-cleanup` `286f` `32-cleanup` `84f`) - two cycles left.
+
 52. DONE **2026-07-27 (refs-46-first-pass cycle 7; docs-only).** Batched the
     next five slugs - `239f`, `245f`, `254f`, `258-cleanup`, `259f` - through
     best-source -> save-working -> G1 -> submit via

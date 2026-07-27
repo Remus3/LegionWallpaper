@@ -88,8 +88,10 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   9-10 primitives sharing one POSITION accessor - drops most triangles); the
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.
 
-- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (31 of 46 submitted, 0 approved).**
-  Next: batch the remaining 15 - cycle 7 (LEDGER 52, plan row R22) ran
+- **refs-46-first-pass - process the 46 intaken reference_pictures - IN FLIGHT (36 of 46 submitted, 0 approved).**
+  Next: batch the remaining 10 - cycle 8 (LEDGER 53, plan row R23) ran
+  `261f` `262f` `264-cleanup` `266f` `269f`,
+  cycle 7 (LEDGER 52, plan row R22) ran
   `239f` `245f` `254f` `258-cleanup` `259f`,
   cycle 6 (LEDGER 51, plan row R21) ran
   `219-cleanup` `221-cleanup` `225f` `229f` `230-cleanup`,
@@ -101,8 +103,8 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `123f` `124f` `127-cleanup` `134-cleanup` `14-cleanup`, cycle 2 (LEDGER 47,
   plan row R17) ran `105-cleanup` `106-cleanup` `107-cleanup` `110-cleanup`
   `122`, and all five took 5/5 G1 PASS with an empty reasons list. That is the
-  R16 fix measured in production over 30 consecutive slugs: cycle 1 FLAGGED on
-  halo, cycles 2-7 flag nothing. Cycles 3-7 also MEASURED the pixel-identity
+  R16 fix measured in production over 35 consecutive slugs: cycle 1 FLAGGED on
+  halo, cycles 2-8 flag nothing. Cycles 3-8 also MEASURED the pixel-identity
   claim (sha256 over the decoded RGB buffers per pair) instead of inferring it
   from equal dimensions; the PNG bytes otherwise differ only because SUBMIT
   re-encodes, and cycle 5's `186-cleanup` is the only RGB output so far to
@@ -144,29 +146,50 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   the 112 recoverable ones later gets restored, REMOVE its raw `ref_*` copy
   from Pictures or rotation gains a near-duplicate.
 
-- **first-pass-alpha-letterbox - G1 is blind to a transparent letterbox - OPEN
-  (found cycle 7, LEDGER 52, plan row R22; NOT yet acted on).**
-  Two of the 46 refs are RGBA with a genuinely non-opaque alpha, and their
-  transparent regions are full-width top/bottom bars whose underlying RGB is
-  already pure black: `258-cleanup` rows 0-79 + 1360-1439 (160 rows, 11.11
-  percent of the frame - the actual artwork is 2560x1280, an exact 2:1 plate
-  letterboxed into a 16:9 canvas) and `259f` rows 0-2 + 1437-1439 (0.42
-  percent, a 3px hairline). First pass writes RGB, so the bars bake to pure
-  black (verified max channel value 0) and the file shrinks ~40 percent on the
-  alpha drop - the only reason this was noticed at all.
+- **first-pass-alpha-letterbox - first pass silently drops the alpha channel,
+  and G1 is blind to it - OPEN (found cycle 7, LEDGER 52, plan row R22;
+  widened by cycle 8, LEDGER 53, plan row R23; NOT yet acted on).**
+  SEVEN of the 36 processed refs are RGBA with a genuinely non-opaque alpha,
+  not the two cycle 7 found - cycle 8 came back 5-for-5 RGBA, so this is a
+  common shape in the corpus, not a pair of outliers. Two DISTINCT sub-shapes:
+  Sub-shape A - a fully transparent (alpha=0) full-width top/bottom letterbox
+  whose underlying RGB is already pure black: `258-cleanup` rows 0-79 +
+  1360-1439 (160 rows, 11.11 percent of the frame - the actual artwork is
+  2560x1280, an exact 2:1 plate letterboxed into a 16:9 canvas), and a 3px
+  hairline `[0-2]` + `[1437-1439]` (6 rows, 0.4167 percent) on `259f`, `261f`,
+  `262f` and `264-cleanup` - four slugs with byte-identical bar geometry, so
+  the hairline is a shared authoring or export artifact, not per-image chance.
+  Sub-shape B (NEW, cycle 8) - PARTIAL translucency with no transparent row at
+  all: `266f` and `269f` measure alpha min=220 max=255 with ZERO fully
+  transparent pixels and 2880 / 7996 non-opaque pixels (0.0781 / 0.2169
+  percent), scattered as a soft anti-aliased edge band. Nothing is letterboxed
+  here; the alpha is simply discarded. The item name understates it - the
+  general defect is an unannounced RGBA -> RGB flatten.
+  First pass writes RGB, so sub-shape A bars bake to pure black (verified max
+  AND min channel value 0) and the file shrinks ~40 percent on the alpha drop -
+  the only reason this was noticed at all. Every cycle-8 output shrank
+  (-39.7 to -42.1 percent) for exactly this reason, which is a different
+  mechanism from cycle 5's `186-cleanup` RGB re-encode shrink.
   The gap: G1 compares RGB only, so black-vs-black under alpha=0 scores a
   perfect 1.0 and a letterboxed source is structurally invisible to the gate.
   `aspect_class=ok` on `258-cleanup` is satisfied by the transparent bars, not
   by the artwork, so it would approve as a 2560x1440 wallpaper with an 80px
-  black bar top and bottom.
-  Decide the POLICY before writing any detector - crop to the content box and
-  re-run the aspect logic against that, re-source a full-bleed original, or
-  accept the bars as authored intent. A wrong automatic answer is worse than
-  the current queue, so both slugs sit at NEEDAUTH untouched. Only two of 46
-  are affected, so this gates nothing; it is a correctness hole in the audit,
-  not a blocker. Scan the remaining 15 unprocessed refs for alpha when the
-  policy lands, and note the same blindness applies to any future letterbox in
-  a solid non-black colour, where the RGB metrics would ALSO score clean.
+  black bar top and bottom. Sub-shape B is invisible to the gate for the same
+  reason and has no aspect consequence at all - the composite over an opaque
+  background is unchanged, so it may well be acceptable as-is.
+  Decide the POLICY before writing any detector, and decide it PER SUB-SHAPE:
+  for A, crop to the content box and re-run the aspect logic against that,
+  re-source a full-bleed original, or accept the bars as authored intent; for
+  B, most likely just record the flatten in the audit rather than change any
+  pixels. A wrong automatic answer is worse than the current queue, so all
+  seven slugs sit at NEEDAUTH untouched. Nothing downstream is blocked; this
+  is a correctness hole in the audit, not a gate.
+  Cheapest first step, and it needs no policy call: first pass should RECORD
+  the source PIL mode and the flatten in `upscale_audit` so the drop stops
+  being silent - today only a file-size anomaly reveals it. Scan the remaining
+  10 unprocessed refs for alpha when the policy lands, and note the same
+  blindness applies to any future letterbox in a solid non-black colour, where
+  the RGB metrics would ALSO score clean.
 
 - **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS.**
   Next: land the 3 pass-improvements from the triage (full-width banner band;
