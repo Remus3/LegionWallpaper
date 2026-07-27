@@ -35,6 +35,14 @@ if ($Mode -eq "dry") {
   Start-Process $py -ArgumentList $sa -WorkingDirectory $root
   Write-Host "dry: claude_stub launched (regress=$Regressions hang=$($Hang.IsPresent))"
 }
+elseif ((Get-Content $Cfg -Raw | ConvertFrom-Json).channel -eq "sdk") {
+  # The sdk channel runs headless `claude -p`: no window, no typing, nothing for
+  # the bridge to do. Starting it anyway would resurrect the machine-wide
+  # singleton that F1 removed and could block the sibling Riot Commander loop,
+  # and the strict window-bind below would refuse to launch at all whenever this
+  # window is not titled claude_window_title. Both are pure AHK-channel concerns.
+  Write-Host "live: channel=sdk - no AHK bridge, no window bind"
+}
 else {
   if (-not (Test-Path $bridge)) {
     Write-Error "live mode unavailable: $bridge missing"
