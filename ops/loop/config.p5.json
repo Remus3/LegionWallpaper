@@ -1,0 +1,56 @@
+{
+  "repo_root": "C:\\LegionWallpaper",
+  "control_dir": "C:\\LegionWallpaper\\ops\\loop\\control",
+  "ceiling_usd": 200.0,
+  "_ceiling_note": "ceiling_usd caps GEMINI spend only (director+auditor calls). Claude/executor spend is UNCAPPED per operator. Rail carried from the RC ancestor (operator set NO spend limit; 200 is a runaway backstop only).",
+  "max_cycles": 2,
+  "cycle_deadline_sec": 900,
+  "poll_sec": 5,
+  "channel": "sdk",
+  "_channel_note": "ahk = legacy GUI bridge (machine-wide singleton, cannot run concurrently). sdk = headless claude -p (concurrent-safe, returns cost + structured output). Flip back to ahk to roll back. See docs/specs/2026-07-26-f1-sdk-executor-channel.md",
+  "executor_model": "claude-opus-5",
+  "cycle_budget_usd": 10.0,
+  "max_concurrent_lanes": 2,
+  "_lanes_note": "Machine-wide cap on concurrent executor calls across ALL callers (LW + RC), enforced via C:/ProgramData/lw-loop/slots. Both repos should agree on this number.",
+  "dry_run": false,
+  "ignore_no_progress": false,
+  "clear_each_cycle": true,
+  "session_jsonl": "",
+  "directive_suffix": "OPERATOR RUN FOCUS (2026-07-16 night run): repo .md hygiene ONLY, per docs/FABLE5_PLAYBOOK.md section 5 P2. Each cycle = ONE scope-IN file: evidence pass (grep docs/LEDGER.md + git log for completion proof), delete DONE items, remove EXPIRED notations citing the superseder in the commit message, dedupe REDUNDANT content to one canonical home + one-line pointers, restructure surviving open items (id - title - state - next action - evidence link), relocate history-worthy prose VERBATIM to docs/history_notes.md, Tier-0 verify (diff re-read + ASCII sweep, no suite, no restart), commit -F tmpfile + push. Deletion rule: no evidence = NOT done - tag [stale? 2026-07-16] and keep. Scope IN: ROADMAP.md, BACKLOG.md, WAKEUP_NOTES.md, README.md, GEMINI.md, docs/ARCHITECTURE.md, docs/OPERATIONS.md, docs/RESTORATION_PLAN.md, docs/RESTORATION_PLAN_v1.md (verify superseded then archive to docs/_archive/), docs/AGENTS.md, docs/DEEP_AUDIT_CHARTER.md, docs/GEMINI_AUDIT_CONFIG.md, docs/GEMINI_REVIEW_CONSUMPTION.md, docs/GENERATOR_SIDECAR_PLAN.md, docs/GEN_MODELS.md, docs/research/*.md. Scope OUT (NEVER rewrite): docs/LEDGER.md, PIPELINE_LOG.md, docs/adr/**, docs/_archive/**, docs/history_notes.md (append-only target), CLAUDE.md, .claude/**, logs, docs/ATTACK_PLAN.md, docs/FABLE5_PLAYBOOK.md. NO CODE CHANGES this run. Final cycle: /sync-all-md reconcile + ONE LEDGER entry for the whole pass + WAKEUP_NOTES update + push. Emit NO_WORK when a full sweep changes nothing. Operator-gated forks NEVER block - auto-pick the recommended path. Commit + push each cycle; end every cycle with the done_sentinel FINAL STEP.",
+  "claude_window_title": "Image",
+  "gemini_model": "gemini-3-pro-preview",
+  "gemini_cmd": "gemini",
+  "transcript_dir": "C:\\Users\\Administrator\\.claude\\projects\\C--LegionWallpaper",
+  "gemini_price_per_mtok": {
+    "input": 2.0,
+    "output": 12.0
+  },
+  "price_per_mtok": {
+    "opus": {
+      "input": 15.0,
+      "output": 75.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5
+    },
+    "sonnet": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3
+    },
+    "haiku": {
+      "input": 1.0,
+      "output": 5.0,
+      "cache_write": 1.25,
+      "cache_read": 0.1
+    },
+    "default": {
+      "input": 15.0,
+      "output": 75.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5
+    }
+  },
+  "_p5_note": "P5 concurrent-run config. cycle_command (NOT fixed_directive) on purpose: fixed_directive skips director AND auditor, so no gemini call happens and condition 4 becomes vacuous. cycle_command skips only the director, keeping the auditor - real gemini calls, predictable work.",
+  "cycle_command": "P5 CONCURRENT-RUN SMOKE, Tier-0 docs only, LW repo. Read ops/loop/control/cycle.txt for cycle number N. Append EXACTLY ONE line to docs/_archive/2026-07-26-p5-concurrent-smoke.md (create with a one-line heading if absent), of the form: \"- LW cycle N: <one sentence on what you observed> (head <8-char sha before your commit>)\". STRICT SCOPE: touch NO other file, and NEVER any path under C:/Riot Commander. No code changes. 7-bit ASCII only, no em-dashes or smart quotes. Then git add that one file, commit with a conventional-commit subject, push to origin main. Do NOT add any Co-Authored-By trailer. Then return the required JSON."
+}
