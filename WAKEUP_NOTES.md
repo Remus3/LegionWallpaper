@@ -42,6 +42,40 @@
 
 ---
 
+# 2026-07-26 (headless loop cycle: glb addressing layer shipped; CI rescued from 5 pre-existing reds)
+
+Commits: 1dbfc2d (feat), b63992a (docs), ca8403a + 2b94040 + 09e4905 + bfe0bd8
+(the CI-red chain), plus this sync. Details in LEDGER 38 + 39.
+
+- **Directive premise was FALSE and was corrected before any code.** It claimed
+  the live tool "still uses a broken `.skl` scraper". It does not - nothing in
+  `tools/` ever fetched anything. `lw_gen_weapon_assets.py` is purely the W2
+  consumer of pre-authored crop PNGs. So this ADDED an addressing + bone-filter
+  layer that never existed rather than porting one.
+- **The POC evidence the ROADMAP cited is GONE.** `scratchpad/glb_render/` (110
+  renders) and `scratchpad/glb_weapon_isolate.py` do not exist - scratchpad is
+  ephemeral. LEDGER 37 prose is now the only record and the implementation was
+  rebuilt from it. If a future session cites a `scratchpad/` path as evidence,
+  check it exists first; several ROADMAP entries still do.
+- **Only the pure half shipped, deliberately.** URL/skinId/bone-filter/primitive
+  aggregation are pure functions, so the module stays torch-free AND network-free.
+  Fetch + GLB parse + skin + render needs a network dep and a render backend and
+  is re-opened as ROADMAP `glb-render-fetch`. Do not read the closed item as
+  "rendering works now" - it does not; nothing downloads a `.glb` yet.
+- **CI had been red for 4 commits and nobody had looked.** Take the `gh run list`
+  baseline FIRST, as the framework says - I nearly shipped onto a red main. The
+  headline finding: `.githooks/*` were mode 100644, so the AUTHORITATIVE gate was
+  silently dead on every Linux clone while looking installed. Worse, the test that
+  "proved" the gate fires built its fixture with `write_text`, so it could never
+  have caught this on any platform with an exec bit.
+- **One diagnosis I got wrong, recorded on purpose.** I wrote a ROADMAP entry
+  claiming the loop mutex "fails OPEN on Linux". Reading `winmutex.py:55` refuted
+  it - non-Windows is a deliberate documented no-op. Corrected and the entry
+  deleted in the same commit. Verify before declaring broken, including against
+  your own earlier note.
+
+---
+
 # 2026-07-26 (weapon gate: 3 measured negatives; .glb named joints unblock the render POC; drift guard adopted)
 
 Commits: a72ea8b (drift guard + /done wiring), plus this docs sync. Full
