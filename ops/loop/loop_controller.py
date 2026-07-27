@@ -10,12 +10,25 @@ Both gemini and claude are stateless per cycle; continuity lives on disk
 (git history + docs/LEDGER.md + the directive chain). Ported 1:1 from the RC
 ancestor loop - process mechanics unchanged, product references TBD.
 """
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+# ops/loop is never on sys.path (the controller is launched by absolute path);
+# bind the sibling executor module explicitly, same pattern as the adjudicator.
+_EXEC_MODNAME = "lw_loop_executor"
+if _EXEC_MODNAME in sys.modules:
+    executor = sys.modules[_EXEC_MODNAME]
+else:
+    _exec_spec = importlib.util.spec_from_file_location(
+        _EXEC_MODNAME, Path(__file__).resolve().parent / "executor.py")
+    executor = importlib.util.module_from_spec(_exec_spec)
+    sys.modules[_EXEC_MODNAME] = executor
+    _exec_spec.loader.exec_module(executor)
 
 _CFG_ARG = (sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].endswith(".json")
             else r"C:\LegionWallpaper\ops\loop\config.json")
@@ -529,6 +542,10 @@ def main():
     last_done, last_audit = {}, ""
     same_sha_streak = 0
     log(f"loop start dry_run={DRY} ceiling={CFG['ceiling_usd']} head={prev_sha[:8]}")
+    EXEC = executor.build(
+        CFG, CTL, log=log, stop=stop, awrite=awrite, wait_for=wait_for,
+        wait_gone=wait_gone, rjson=rjson, stall_action=stall_action,
+        stall_recovery_directive=stall_recovery_directive)
 
     FIXED = CFG.get("fixed_directive")  # fixed-message mode: skip gemini director+auditor entirely
     CYCLE_CMD = CFG.get("cycle_command")  # self-directing slash command typed verbatim; director SKIPPED, auditor KEPT
@@ -561,43 +578,14 @@ def main():
                 stop("director returned NO_WORK")
         awrite(CTL / "directive.md", body)
         awrite(CTL / "cycle.txt", str(cycle))
-        clear_line = "/clear\n" if CFG.get("clear_each_cycle", True) else ""
-        if src in ("cycle_command", "fixed"):
-            # type the literal task line (single line, no embedded newlines) after /clear
-            awrite(CTL / "gemini.ready", f"CYCLE={cycle}\n{clear_line}{body}")
-        else:
-            awrite(CTL / "gemini.ready",
-                   f"CYCLE={cycle}\n{clear_line}"
-                   "/gemini-headless-upgrade and Read the file ops/loop/control/directive.md and fully execute it now. "
-                   "No questions; auto-pick the recommended option and proceed.")
-        log(f"cycle {cycle}: directive written ({len(body)} chars), gemini.ready set")
-
-        # AHK/stub deletes gemini.ready after typing; its disappearance IS the typed signal
-        if not wait_gone(CTL / "gemini.ready", time.time() + 120):
-            stop(f"cycle {cycle}: AHK never typed (gemini.ready not consumed in 120s)")
-        deadline = time.time() + CFG["cycle_deadline_sec"]
-        log(f"cycle {cycle}: typed (ready consumed); deadline in {CFG['cycle_deadline_sec']}s")
-
-        # WP-I3: one-shot stall recovery before a hard STOP. On the FIRST cycle-deadline
-        # breach, inject a /diagnose recovery directive into the existing (stalled) session
-        # and extend the deadline ONCE (decision = stall_action, pure + tested); hard-STOP
-        # only on a SECOND breach. The no-progress and AHK-never-typed guards remain the
-        # runaway backstops so a truly wedged run still stops cleanly after exactly one
-        # recovery attempt.
-        breach = 0
-        while not wait_for(CTL / "claude.done", deadline):
-            breach += 1
-            if stall_action(breach) == "stop":
-                stop(f"cycle {cycle}: claude.done not seen after stall recovery (hard hang)")
-            log(f"cycle {cycle}: deadline breach {breach} - injecting stall recovery, extending once")
-            awrite(CTL / "gemini.ready", stall_recovery_directive(cycle))
-            if not wait_gone(CTL / "gemini.ready", time.time() + 120):
-                stop(f"cycle {cycle}: AHK never typed the stall-recovery directive")
-            deadline = time.time() + CFG["cycle_deadline_sec"]
-        done = rjson(CTL / "claude.done", {})
-        (CTL / "claude.done").unlink(missing_ok=True)
+        # The channel-specific half of a cycle (typing handshake + done sentinel for
+        # AHK; one `claude -p` call for sdk in P2) lives behind the executor seam.
+        # Artifacts both channels share stay here: directive.md, cycle.txt,
+        # budget.json and the metering below.
+        rec = EXEC.run(cycle, body, src)
+        done = rec.raw
         last_done = done
-        new_sha = done.get("sha") or head()
+        new_sha = rec.sha or head()
         log(f"cycle {cycle}: claude.done sha={new_sha[:8]} tests={done.get('tests_pass')} regress={done.get('regressions')}")
 
         claude_info = meter(start_ts)  # informational only - NO cap on Claude (operator directive)

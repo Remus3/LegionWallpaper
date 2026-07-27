@@ -291,10 +291,21 @@ session start is one people learn to ignore, which is worse than the drift it wa
 Each phase is one session, TDD, commit + push. No phase claims done without the stated
 evidence run fresh.
 
-**P1 - seam, no behavior change.** Extract `executor.py` with `AhkExecutor` as a verbatim
-lift; controller calls `executor.run(...)`. `channel` defaults to `ahk`.
-ACCEPT: full suite green; one dry run (`config.dry.json`, `claude_stub.py`) completes the
-same number of cycles with byte-identical `control/` artifacts vs a pre-change run.
+**P1 - seam, no behavior change. DONE 2026-07-26.** `ops/loop/executor.py` holds
+`DoneRecord`, `directive_payload()` and `AhkExecutor` (verbatim lift); the controller binds
+it via the same explicit-importlib pattern as the adjudicator and calls `EXEC.run(cycle,
+body, src)`. `build()` defaults to `ahk` and rejects an unknown `channel` LOUDLY - a typo
+must never silently fall back to the machine-wide singleton channel during a concurrent
+run. The controller keeps everything both channels share (directive.md, cycle.txt,
+budget.json, metering); the executor owns only the channel-specific handshake.
+ACCEPTED: a hermetic 2-cycle dry run (fixed_directive, so director AND auditor are skipped
+and no gemini call happens; pinned empty usage fixture so the meter is deterministic) run
+BEFORE and AFTER the extraction produced **byte-identical `control/` artifacts** and a
+timestamp-normalized **identical controller log**. Suite `tests/` 612 passed / 11 skipped
+(14 new executor tests). ruff clean, drift_guard 0 breaches.
+Note for P2: `DoneRecord.cost_usd` / `.session_id` are 0.0 / None on the AHK channel
+because that channel returns no receipt - that is precisely what the sdk channel fills in,
+and what retires the transcript meter.
 
 **P2 - SdkExecutor against the stub.** Fake `claude` shim on PATH that echoes a canned
 result JSON. Covers: success, `is_error`, malformed stdout, timeout + taskkill, budget
