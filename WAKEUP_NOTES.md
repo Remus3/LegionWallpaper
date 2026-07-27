@@ -11,6 +11,31 @@
 
 ---
 
+## 2026-07-27 (loop cycle) - refs-46 first pass cycle 4
+
+Docs-only (images are gitignored). Detail: LEDGER 49, plan row R19. Five slugs
+batched - `150-cleanup`, `153-cleanup`, `170-cleanup`, `177-cleanup`,
+`180-cleanup` - 5/5 G1 PASS, `reasons: []`. The R16 no-USM fix now holds over 15
+consecutive slugs. Pixel-identity measured again per pair (sha256 of the decoded
+RGB buffers equal, file sizes differ because SUBMIT re-encodes).
+
+What this cycle added: the verifier REFUTED my dispatch, not the run, and the
+corrections are worth carrying. `2.First Pass Done` holds 242 slug dirs PLUS
+`.gitkeep` = 243 entries; LEDGER 47/48 both said "242 entries (incl.
+`.gitkeep`)" and were off by one. `PIPELINE_LOG.md` is at the REPO ROOT, not
+under `images/` - a probe citing the wrong path gets a file-not-found that looks
+like a clean grep. And G1 metrics live at `audit["metrics"]`, with `backend`
+present in both `audit` and `audit.upscale_audit`.
+
+One data-run agent in the MAIN tree again (a worktree has no `images/`), barred
+from `approve` and `git add`; verifier CONFIRM 6/7. Suite 808 passed / 11
+skipped, ruff clean.
+
+NEXT: 30 slugs remain, nothing gates them, and the auth queue is now 16 deep.
+Approval is operator-only, so more cycles only deepen an unattended queue.
+
+---
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 3
 
 Docs-only (images are gitignored). Detail: LEDGER 48, plan row R18. Five slugs

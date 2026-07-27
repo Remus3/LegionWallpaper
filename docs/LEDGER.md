@@ -27,6 +27,42 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+49. DONE **2026-07-27 (refs-46-first-pass cycle 4; docs-only).** Batched the
+    next five slugs - `150-cleanup`, `153-cleanup`, `170-cleanup`,
+    `177-cleanup`, `180-cleanup` - through best-source -> save-working -> G1 ->
+    submit via `tools/lw_first_pass.py --batch`. 5/5 G1 PASS with an empty
+    `reasons` list, so the R16 no-resample-no-USM fix now holds across FIFTEEN
+    consecutive slugs (cycle 1 flagged halo on slug `0`; cycles 2, 3 and 4 flag
+    nothing). Premise VERIFIED before mutating: the dry run reported
+    `mode=downscale-only aspect=ok src=firstinitial` for all five, so every slug
+    ran at scale=1 with `usm_applied=false` and the metrics saturate by
+    construction (msssim 1.0, lpips 0.0, dists 0.0, lap_ratio 1.0, halo_pct 0.0,
+    band_delta 0.0) - the correct reading for an identity transform, not a
+    broken gate. Pixel-identity MEASURED, not inferred: sha256 over the
+    PIL-decoded RGB buffers is EQUAL per `_firstinitial`/`_firstneedauth` pair
+    (150 `56eaacb009c9`, 153 `a7b196390dd0`, 170 `0943951d9073`, 177
+    `9cfd0636218e`, 180 `0b0940eaa41d`) while the on-disk PNG sizes differ
+    (150-cleanup 6262825 -> 6338965 bytes) because SUBMIT re-encodes.
+    THREE PROBE-RECIPE CORRECTIONS this cycle, all from the verifier refuting
+    the DISPATCH rather than the run: (1) `images/2.First Pass Done` holds 242
+    slug directories PLUS `.gitkeep`, i.e. 243 entries - LEDGER 47 and 48 both
+    wrote "242 entries (incl. `.gitkeep`)", which undercounted by one; the
+    negative check they drew from it is unaffected (zero of the batched slugs
+    present, zero APPROVE/REJECT lines). (2) `PIPELINE_LOG.md` lives at the REPO
+    ROOT, not under `images/` - a probe citing `images/PIPELINE_LOG.md` gets a
+    file-not-found that reads like a clean grep. (3) G1 metrics sit at
+    `audit["metrics"]` and `backend` appears in BOTH `audit` and
+    `audit.upscale_audit`; the `audit` block itself hangs off the ANNOTATE
+    transition, never the manifest top level. Built as ONE data-run agent in the
+    MAIN tree (a worktree cannot hold the gitignored `images/`), barred from
+    `approve` and from `git add`; verifier CONFIRM on 6 of 7 claims with the
+    lone REFUTE being correction (1) above. All five sit at
+    `FIRST_SCRATCH/NEEDAUTH`; `1.First Pass Scratch` now shows exactly 16 of its
+    46 slug dirs carrying a `_firstneedauth.png`. Suite 808 passed / 11 skipped,
+    ruff clean. Docs-only: `images/**`, `PIPELINE_LOG.md` and `ops/runtime/` are
+    gitignored. Plan row R19. FUTURE: 30 slugs remain and nothing gates them;
+    the operator auth queue is now 16 deep and remains the real bottleneck.
+
 48. DONE **2026-07-27 (refs-46-first-pass cycle 3; docs-only).** Batched the
     next five slugs - `123f`, `124f`, `127-cleanup`, `134-cleanup`,
     `14-cleanup` - through best-source -> save-working -> G1 -> submit via
