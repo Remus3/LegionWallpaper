@@ -327,10 +327,26 @@ Note for P2: `DoneRecord.cost_usd` / `.session_id` are 0.0 / None on the AHK cha
 because that channel returns no receipt - that is precisely what the sdk channel fills in,
 and what retires the transcript meter.
 
-**P2 - SdkExecutor against the stub.** Fake `claude` shim on PATH that echoes a canned
-result JSON. Covers: success, `is_error`, malformed stdout, timeout + taskkill, budget
-exhaustion, schema-violating output.
-ACCEPT: 6 new tests green; no live API spend.
+**P2 - SdkExecutor against the stub. DONE 2026-07-26.** `SdkExecutor` + `sdk_prompt()` +
+`DONE_SCHEMA` in `ops/loop/executor.py`; `build()` now accepts `channel: sdk`. Config gains
+`channel` (default `ahk`), `executor_model`, `cycle_budget_usd`.
+The shim is injected via `cfg["claude_cmd"]` as an argv LIST rather than placed on PATH -
+no `.cmd`/`.ps1` resolution, no PATH mutation, and it doubles as the production affordance
+for pinning an explicit interpreter.
+Design points worth keeping: `sdk_prompt()` is deliberately NOT `directive_payload()` -
+the CYCLE header and leading `/clear` are artifacts of typing into a live window, and a
+`-p` call is already a fresh process. The FINAL STEP instruction swaps `done_sentinel.py`
+for "return the JSON object required by the schema".
+ACCEPT: 14 tests green, zero live API spend. Covers success (cost + session_id + fields),
+argv contract, fresh-session-per-cycle vs `--resume` continuity, prompt shape, and every
+failure mode: `is_error`, nonzero exit, malformed stdout, missing `structured_output`,
+incomplete `structured_output`, budget exhaustion, and timeout + `taskkill /F /T`.
+The failure cases carry the weight here: this channel runs unattended under
+`bypassPermissions`, so every way a run can end without a usable result must degrade into
+a RECORDED FAILED CYCLE, never a fabricated success. A made-up sha would silently defeat
+the controller's same-sha no-progress guard, which is the loop's runaway backstop. Cost is
+still recorded on failed cycles - the spend was real.
+Suite `tests/` 629 passed / 11 skipped.
 
 **P3 - slots + mutexes.** `slots.py`, `winmutex.py`, `RUNNING.lock`, `run_id`.
 ACCEPT: `tests/test_loop_concurrency.py` - N=8 threads against `max_slots=2` never exceed

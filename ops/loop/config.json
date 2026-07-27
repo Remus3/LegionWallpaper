@@ -6,6 +6,10 @@
   "max_cycles": 12,
   "cycle_deadline_sec": 5400,
   "poll_sec": 5,
+  "channel": "ahk",
+  "_channel_note": "ahk = legacy GUI bridge (machine-wide singleton, cannot run concurrently). sdk = headless claude -p (concurrent-safe, returns cost + structured output). Flip back to ahk to roll back. See docs/specs/2026-07-26-f1-sdk-executor-channel.md",
+  "executor_model": "claude-opus-5",
+  "cycle_budget_usd": 25.0,
   "dry_run": false,
   "ignore_no_progress": false,
   "clear_each_cycle": true,
@@ -15,11 +19,34 @@
   "gemini_model": "gemini-3-pro-preview",
   "gemini_cmd": "gemini",
   "transcript_dir": "C:\\Users\\Administrator\\.claude\\projects\\C--LegionWallpaper",
-  "gemini_price_per_mtok": {"input": 2.0, "output": 12.0},
+  "gemini_price_per_mtok": {
+    "input": 2.0,
+    "output": 12.0
+  },
   "price_per_mtok": {
-    "opus":   {"input": 15.0, "output": 75.0, "cache_write": 18.75, "cache_read": 1.5},
-    "sonnet": {"input": 3.0,  "output": 15.0, "cache_write": 3.75,  "cache_read": 0.3},
-    "haiku":  {"input": 1.0,  "output": 5.0,  "cache_write": 1.25,  "cache_read": 0.1},
-    "default":{"input": 15.0, "output": 75.0, "cache_write": 18.75, "cache_read": 1.5}
+    "opus": {
+      "input": 15.0,
+      "output": 75.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5
+    },
+    "sonnet": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3
+    },
+    "haiku": {
+      "input": 1.0,
+      "output": 5.0,
+      "cache_write": 1.25,
+      "cache_read": 0.1
+    },
+    "default": {
+      "input": 15.0,
+      "output": 75.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5
+    }
   }
 }

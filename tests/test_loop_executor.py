@@ -80,9 +80,9 @@ def test_build_rejects_unknown_channel_loudly(tmp_path: Path):
         executor.build({"channel": "sdkk"}, tmp_path, **_deps())
 
 
-def test_build_rejects_sdk_until_p2(tmp_path: Path):
-    with pytest.raises(ValueError):
-        executor.build({"channel": "sdk"}, tmp_path, **_deps())
+def test_build_returns_sdk_channel_since_p2(tmp_path: Path):
+    """Was 'rejects sdk until P2'. P2 shipped it - see test_loop_executor_sdk.py."""
+    assert executor.build({"channel": "sdk"}, tmp_path, **_deps()).name == "sdk"
 
 
 # ---- gate preflight: the fresh-clone gap ----------------------------------

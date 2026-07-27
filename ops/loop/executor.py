@@ -136,6 +136,170 @@ class AhkExecutor:
         )
 
 
+DONE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "sha": {"type": "string"},
+        "tests_pass": {"type": "string"},
+        "regressions": {"type": "boolean"},
+        "summary": {"type": "string"},
+    },
+    "required": ["sha", "tests_pass", "regressions", "summary"],
+}
+
+FINAL_STEP = (
+    "FINAL STEP: do NOT run ops/loop/done_sentinel.py. Instead return the JSON object "
+    "required by the output schema: sha (the live git HEAD after your commit), "
+    "tests_pass (the count you observed THIS run, as a string), regressions (true only "
+    "if you could not reach green), summary (one line)."
+)
+
+
+def sdk_prompt(cycle: int, body: str, src: str) -> str:
+    """The prompt piped to `claude -p` on stdin.
+
+    Deliberately NOT directive_payload(): that one carries a CYCLE header the AHK
+    bridge skips and a leading `/clear`, both of which are artifacts of typing
+    into a live window. A `-p` call is already a fresh process, so `/clear` is
+    meaningless and the header would just be prose in the prompt.
+
+    Slash commands still resolve under `-p` (confirmed against the CLI's own
+    `--bare` help text), so the existing directive opener works unchanged.
+    """
+    head = body if src in ("cycle_command", "fixed") else (
+        "/gemini-headless-upgrade and Read the file ops/loop/control/directive.md and "
+        "fully execute it now. No questions; auto-pick the recommended option and proceed."
+    )
+    return f"{head}\n\n{FINAL_STEP}\n"
+
+
+class SdkExecutor:
+    """Headless `claude -p` channel. No window, no window title, no typing.
+
+    This is the channel that makes concurrent LW+RC runs possible: it holds no
+    machine-wide resource, so two loops collide only on things the slot governor
+    and the named mutexes already bound.
+
+    It also returns a receipt the AHK channel never could - total_cost_usd and a
+    schema-validated structured_output - which is what retires the transcript
+    meter and done_sentinel.py once this channel is the default.
+    """
+
+    name = "sdk"
+
+    def __init__(self, cfg, ctl, *, log, stop, awrite, **_ignored):
+        self.cfg = cfg
+        self.ctl = ctl
+        self.log = log
+        self.stop = stop
+        self.awrite = awrite
+        self.session_id: str | None = None
+
+    def _argv_prefix(self) -> list:
+        """`claude_cmd` may be a string or an argv list (tests inject a shim)."""
+        cmd = self.cfg.get("claude_cmd")
+        if isinstance(cmd, list):
+            return list(cmd)
+        if isinstance(cmd, str) and cmd:
+            return [cmd]
+        import shutil
+        return [shutil.which("claude.cmd") or shutil.which("claude") or "claude"]
+
+    def build_argv(self, cycle: int) -> list:
+        import json as _json
+        argv = self._argv_prefix() + [
+            "-p",
+            "--output-format", "json",
+            "--input-format", "text",
+            "--permission-mode", self.cfg.get("permission_mode", "bypassPermissions"),
+            "--json-schema", _json.dumps(DONE_SCHEMA),
+            "--add-dir", str(self.cfg.get("repo_root", ".")),
+        ]
+        model = self.cfg.get("executor_model")
+        if model:
+            argv += ["--model", str(model)]
+        budget = self.cfg.get("cycle_budget_usd")
+        if budget:
+            argv += ["--max-budget-usd", str(budget)]
+        # clear_each_cycle True reproduces the AHK channel's /clear exactly: a
+        # brand new session per cycle. False keeps continuity via --resume, which
+        # is cheaper (no cold re-read of CLAUDE.md + living docs each cycle).
+        if self.cfg.get("clear_each_cycle", True) or not self.session_id:
+            import uuid
+            argv += ["--session-id", str(uuid.uuid4())]
+        else:
+            argv += ["--resume", self.session_id]
+        return argv
+
+    def run(self, cycle: int, body: str, src: str) -> DoneRecord:
+        import json as _json
+        import subprocess as _sp
+
+        argv = self.build_argv(cycle)
+        prompt = sdk_prompt(cycle, body, src)
+        timeout = float(self.cfg.get("cycle_deadline_sec", 5400))
+        self.log(f"cycle {cycle}: sdk executor starting ({len(body)} chars, timeout {timeout:.0f}s)")
+
+        proc = _sp.Popen(argv, stdin=_sp.PIPE, stdout=_sp.PIPE, stderr=_sp.PIPE,
+                         text=True, encoding="utf-8", errors="replace",
+                         cwd=str(self.cfg.get("repo_root", ".")),
+                         creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0))
+        try:
+            out, err = proc.communicate(prompt, timeout=timeout)
+        except _sp.TimeoutExpired:
+            # NEVER Stop-Process (CLAUDE.md hard rule); taskkill /T so the whole
+            # tree dies - a `claude -p` that wedged has child tool processes.
+            self.log(f"cycle {cycle}: sdk timeout after {timeout:.0f}s - taskkill /F /T")
+            try:
+                _sp.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                        capture_output=True, timeout=30,
+                        creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0))
+            except (OSError, _sp.SubprocessError):
+                pass
+            proc.wait(timeout=30)
+            return DoneRecord(cycle=cycle, error=f"timeout after {timeout:.0f}s")
+
+        try:
+            res = _json.loads(out.strip() or "{}")
+        except ValueError:
+            head = (out or err or "").strip().replace("\n", " ")[:200]
+            self.log(f"cycle {cycle}: sdk returned unparseable stdout: {head}")
+            return DoneRecord(cycle=cycle, error=f"unparseable result: {head}")
+
+        cost = float(res.get("total_cost_usd") or 0.0)
+        sid = res.get("session_id")
+        if sid:
+            self.session_id = sid
+
+        if res.get("is_error") or proc.returncode != 0:
+            detail = str(res.get("result") or err or "").strip().replace("\n", " ")[:200]
+            self.log(f"cycle {cycle}: sdk reported error (rc={proc.returncode}): {detail}")
+            return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
+                              error=detail or f"exit {proc.returncode}")
+
+        so = res.get("structured_output")
+        if not isinstance(so, dict) or not all(k in so for k in DONE_SCHEMA["required"]):
+            # The CLI validates against --json-schema, so this means the run ended
+            # without producing one (hit a limit, refused, wandered off). Treat it
+            # as a failed cycle rather than inventing fields - a fabricated sha
+            # would defeat the controller's same-sha no-progress guard.
+            self.log(f"cycle {cycle}: sdk returned no valid structured_output")
+            return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
+                              error="missing or incomplete structured_output")
+
+        self.log(f"cycle {cycle}: sdk done cost=${round(cost, 4)} "
+                 f"sha={str(so.get('sha'))[:8]} tests={so.get('tests_pass')}")
+        return DoneRecord(
+            cycle=cycle,
+            sha=str(so.get("sha") or ""),
+            tests_pass=str(so.get("tests_pass", "?")),
+            regressions=bool(so.get("regressions")),
+            cost_usd=cost,
+            session_id=sid,
+            raw=dict(so),
+        )
+
+
 def gate_inactive_reason(repo_root) -> str | None:
     """Why the commit gate is not active, or None if it is.
 
@@ -173,5 +337,7 @@ def build(cfg, ctl, **deps):
     channel = str(cfg.get("channel", "ahk")).strip().lower()
     if channel == "ahk":
         return AhkExecutor(cfg, ctl, **deps)
+    if channel == "sdk":
+        return SdkExecutor(cfg, ctl, **deps)
     raise ValueError(
-        f"unknown executor channel {channel!r} (P1 ships 'ahk'; 'sdk' lands in P2)")
+        f"unknown executor channel {channel!r} (known: 'ahk', 'sdk')")
