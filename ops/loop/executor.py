@@ -107,6 +107,29 @@ class DoneRecord:
     raw: dict = field(default_factory=dict)
 
 
+def failure_raw(cycle: int, error: str, session_id) -> dict:
+    """The payload a FAILED cycle hands the next director call.
+
+    loop_controller does `done = rec.raw` and feeds exactly that forward as
+    `=== LAST claude.done ===`. Every failure path used to leave `raw` at its
+    default {}, so a cycle that timed out, died, or produced no structured
+    output told the director LITERALLY NOTHING - `{}` - and the recorded error
+    string never left this module. The cycle the director most needs to know
+    about is the one that failed, and that was the one branch it could not see.
+    Found by RC hitting the same hole in its own reporting seam, 2026-07-27.
+
+    Deliberately NOT shaped like a success payload: no sha, no tests_pass, no
+    regressions. Inventing a sha would defeat the controller's same-sha
+    no-progress guard, and inventing the other two would report a test result
+    nobody measured. A reader gets the failure and nothing that looks like a
+    result.
+    """
+    rec = {"cycle": cycle, "error": error}
+    if session_id:
+        rec["session_id"] = session_id
+    return rec
+
+
 def directive_payload(cycle: int, body: str, src: str, clear_each_cycle: bool = True) -> str:
     """The exact text the bridge types. Lifted verbatim from loop_controller.
 
@@ -374,8 +397,10 @@ class SdkExecutor:
             except _sp.TimeoutExpired:
                 self.log(f"cycle {cycle}: child survived the reap - recording "
                          f"the failed cycle anyway")
+            err = f"timeout after {timeout:.0f}s"
             return DoneRecord(cycle=cycle, session_id=self.session_in_play,
-                              error=f"timeout after {timeout:.0f}s")
+                              error=err,
+                              raw=failure_raw(cycle, err, self.session_in_play))
 
         try:
             res = _json.loads(out.strip() or "{}")
@@ -383,8 +408,10 @@ class SdkExecutor:
             head = (out or err or "").strip().replace("\n", " ")[:200]
             self.log(f"cycle {cycle}: sdk returned unparseable stdout "
                      f"(sid={self.session_in_play}): {head}")
+            err = f"unparseable result: {head}"
             return DoneRecord(cycle=cycle, session_id=self.session_in_play,
-                              error=f"unparseable result: {head}")
+                              error=err,
+                              raw=failure_raw(cycle, err, self.session_in_play))
 
         cost = float(res.get("total_cost_usd") or 0.0)
         # A payload sid supersedes the retained one, but never leaves us blind:
@@ -397,8 +424,9 @@ class SdkExecutor:
             detail = str(res.get("result") or err or "").strip().replace("\n", " ")[:200]
             self.log(f"cycle {cycle}: sdk reported error "
                      f"(rc={proc.returncode} sid={sid}): {detail}")
+            err = detail or f"exit {proc.returncode}"
             return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
-                              error=detail or f"exit {proc.returncode}")
+                              error=err, raw=failure_raw(cycle, err, sid))
 
         so = res.get("structured_output")
         if not isinstance(so, dict) or not all(k in so for k in DONE_SCHEMA["required"]):
@@ -407,8 +435,9 @@ class SdkExecutor:
             # as a failed cycle rather than inventing fields - a fabricated sha
             # would defeat the controller's same-sha no-progress guard.
             self.log(f"cycle {cycle}: sdk returned no valid structured_output (sid={sid})")
+            err = "missing or incomplete structured_output"
             return DoneRecord(cycle=cycle, cost_usd=cost, session_id=sid,
-                              error="missing or incomplete structured_output")
+                              error=err, raw=failure_raw(cycle, err, sid))
 
         self.log(f"cycle {cycle}: sdk done cost=${round(cost, 4)} sid={sid} "
                  f"sha={str(so.get('sha'))[:8]} tests={so.get('tests_pass')}")
