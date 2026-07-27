@@ -534,9 +534,12 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
         "area_loss": round(area_loss, 6), "cropped": cplan.get("cropped"),
         # usm_applied tells a reviewer whether halo_pct measured a real
         # sharpening pass or a no-resample passthrough (see params above).
+        # source_mode + alpha_flattened make the always-RGB output's alpha drop
+        # visible per slug - it was previously silent corpus-wide.
         "upscale_audit": {k: audit.get(k) for k in
                           ("backend", "model", "scale", "src_dims",
-                           "up_dims", "out_dims", "usm_applied")},
+                           "up_dims", "out_dims", "usm_applied",
+                           "source_mode", "alpha_flattened")},
     }
     pipeline_annotate(slug, source_url, annotate_payload)
 

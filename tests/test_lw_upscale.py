@@ -211,6 +211,81 @@ def test_first_pass_over_target_reports_usm_applied(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Alpha-drop audit hygiene (R26).
+#
+# first_pass ALWAYS writes RGB, so any alpha-carrying source is silently
+# flattened. The audit did not record that, which made a corpus-wide flatten
+# invisible to a reviewer. These tests pin source_mode + alpha_flattened onto
+# the audit dict. They use the over-target downscale-only path, which needs no
+# model and no torch.
+# ---------------------------------------------------------------------------
+
+# Every audit key that existed BEFORE the alpha fields were added. Frozen here
+# so a future field addition cannot quietly drop one of them.
+PREEXISTING_AUDIT_KEYS = {
+    "backend", "model", "scale", "src_path", "src_sha256", "src_dims",
+    "up_dims", "out_path", "out_sha256", "out_dims", "target", "usm",
+    "usm_applied", "tile", "overlap", "seconds", "ts_note",
+}
+
+
+def test_first_pass_rgba_source_records_alpha_flattened(tmp_path):
+    """An RGBA source is flattened to RGB, and the audit says so."""
+    src = str(tmp_path / "rgba_over_target.png")
+    out = str(tmp_path / "firstworking_rgba.png")
+    Image.new("RGBA", (3840, 2160), (200, 50, 50, 128)).save(src, format="PNG")
+
+    audit = lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+    assert audit["source_mode"] == "RGBA"
+    assert audit["alpha_flattened"] is True
+
+    with Image.open(out) as got:
+        assert got.size == (2560, 1440)
+        assert got.mode == "RGB"
+
+
+def test_first_pass_rgb_source_records_no_alpha(tmp_path):
+    """A plain RGB source flattens nothing - alpha_flattened stays False."""
+    src = str(tmp_path / "rgb_over_target.png")
+    out = str(tmp_path / "firstworking_rgb.png")
+    _solid_16x9(3840, 2160).save(src, format="PNG")
+
+    audit = lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+    assert audit["source_mode"] == "RGB"
+    assert audit["alpha_flattened"] is False
+
+
+def test_first_pass_palette_transparency_source_flags_alpha(tmp_path):
+    """A palette PNG carries alpha in info['transparency'], not in its mode.
+
+    Mode "P" looks opaque to a mode-only check, so this guards the palette
+    blind spot: the tRNS chunk is real transparency and IS flattened.
+    """
+    src = str(tmp_path / "palette_over_target.png")
+    out = str(tmp_path / "firstworking_palette.png")
+    _solid_16x9(3840, 2160).convert("P").save(src, format="PNG", transparency=0)
+
+    audit = lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+    assert audit["source_mode"] == "P"
+    assert audit["alpha_flattened"] is True
+
+
+def test_first_pass_audit_keeps_every_preexisting_key(tmp_path):
+    """Adding the alpha fields must not drop any pre-existing audit key."""
+    src = str(tmp_path / "regression_over_target.png")
+    out = str(tmp_path / "firstworking_regression.png")
+    _solid_16x9(3840, 2160).save(src, format="PNG")
+
+    audit = lw_upscale.first_pass(src, out, backend="spandrel", model_path=None)
+
+    missing = PREEXISTING_AUDIT_KEYS - set(audit)
+    assert not missing, f"dropped pre-existing audit keys: {sorted(missing)}"
+
+
+# ---------------------------------------------------------------------------
 # torch-guarded test (SKIPPED where torch is absent - CI 3.12, system 3.14)
 # ---------------------------------------------------------------------------
 
