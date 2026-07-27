@@ -214,6 +214,7 @@ def test_controller_reclaims_a_lock_held_by_a_dead_pid(tmp_path: Path):
 
 # ---- named mutexes ---------------------------------------------------------
 
+@pytest.mark.skipif(sys.platform != "win32", reason="windows mutex semantics")
 def test_mutex_is_reentrant_for_the_same_thread():
     """Windows mutexes are owned per-thread; nesting must not self-deadlock."""
     with winmutex.hold("Global\\LWRC_TEST_NEST", timeout=5):
@@ -221,6 +222,12 @@ def test_mutex_is_reentrant_for_the_same_thread():
             pass
 
 
+# winmutex.hold is a DELIBERATE no-op off Windows (winmutex.py:55-58 - "the
+# loops are Windows-only"), so these two assert a primitive that does not exist
+# on Linux: serialization there is vacuous, not broken. Same guard the timeout
+# test already carried. The string-contract tests below stay unskipped - they
+# are platform-independent and must keep running everywhere.
+@pytest.mark.skipif(sys.platform != "win32", reason="windows mutex semantics")
 def test_mutex_serializes_two_threads():
     live = 0
     peak = 0
