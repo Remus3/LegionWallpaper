@@ -39,8 +39,15 @@ SEP = "\n---\n\n"
 # A leading pinned block (`# RESOLVED 2026-05-17 - ...`) matches NEITHER -
 # the date is not at heading-start - so split_sessions folds it into the
 # header rather than archiving it.
+# `#{1,2}` - H1 OR H2. This was `^# ` only, carried from the ancestor repo where
+# session blocks were `# sNN wrap`. Every LW block is an H2 (`## 2026-07-27 -
+# ...`), so the pattern matched NOTHING here and prune fell back to counting
+# `---` separators: a 42.5KB file holding 20 session blocks reported "3
+# session(s) <= keep=3; nothing to do" and exited 0 on every /done since the
+# tool was adopted. A no-op that announces itself as a clean pass is the failure
+# mode this repo spent 2026-07-27 finding in five other guards.
 SESSION_RE = re.compile(
-    r"^# (?:"
+    r"^#{1,2} (?:"
     r"s\d+(?:\.\d+)*(?:[--]s\d+(?:\.\d+)*)? wrap\b"
     r"|\d{4}-\d{2}-\d{2}\b"
     r")",
