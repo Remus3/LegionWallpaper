@@ -27,6 +27,88 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+60. DONE **2026-07-29 (headless run: nightly red fixed, gate blind spot measured
+    and the anatomy gate REJECTED on evidence; `9fb57c1` `8d66439` + the S6/S4
+    merges).** Operator note that opened the run: `fiora1_firstdone.png` - "the
+    head is off center = bad. it is not in line with the models spine visually".
+    Five slices merged, each verifier-gated or verified by me directly against
+    ground truth.
+    **S1 - nightly CI red, 2 nights (`30444928280`, `30351782593`).** Root cause:
+    the git-hook gate-arming step existed ONLY in the `check` job, never in
+    `nightly-full-suite`, so the full-suite job asserted a capability nobody armed.
+    ROADMAP's f1-phase6 queue item (6) was marked DONE - it was done for one job of
+    two. Shipped as a workflow-PARITY guard (`tests/test_ci_gate_arming.py`), not a
+    hand-edit, so a third job that runs pytest without arming fails the suite.
+    MUTATION-TESTED by me: deleting the nightly arming makes 3 of its 4 tests fail
+    with precise messages, then 4 pass on restore. PROVEN on the real runner via
+    `workflow_dispatch` `30509939447` - both jobs green.
+    **S2 - headless run infra** (`tools/slice_orchestrator.py`,
+    `tools/headless_run.ps1`), specified by the skill but absent from the repo. I
+    exercised every guard myself against a throwaway manifest: init-over-live
+    REFUSES exit 2, bogus status exit 2, `resume` lists only non-committed, no
+    `.tmp` survives, `.ps1` parses with 0 errors. Its single `Stop-Process` match
+    is a WHY comment documenting the prohibition, not a call.
+    **S3 + S4 - anatomy diagnostic, and the NEGATIVE RESULT that is the real
+    deliverable.** `fiora1` passed G1 at `ms_ssim 0.997113` with zero reasons
+    because G1 is a FIDELITY gate: every metric compares output to ITS OWN SOURCE,
+    so a defect inherent to the source scores near 1.0. The head geometry is the
+    artist's; the hand-cropped `firstinitial` swapped in 2026-07-15 is the source.
+    Built the metric, then measured it over all 288 approved firstdones - and the
+    census REFUTED gating it. Evidence: `docs/ANATOMY_CENSUS_2026-07-29.md`.
+    fiora1 is the 43.5th percentile (abs 0.1446 vs median 0.1638) - BELOW median
+    badness, so any threshold catching it flags over half an approved corpus. Only
+    115/288 measurable; 157-159 of the 173 unmeasurable fail on HIP confidence
+    because splash art is cropped at the waist, which rules out "just use a better
+    localizer". The tail is localizer failure, not art: the two worst have detected
+    shoulder widths of 120.1px and 59.2px where a good detection is 357.4px. So it
+    ships as a DIAGNOSTIC; `classify_head_spine` was DELETED (PASS/FLAG/FAIL is the
+    ladder's own verdict vocabulary and a returned string beats any disclaimer),
+    replaced by `triage_band` for ordering only. The salvaged value is
+    `MIN_SHOULDER_SPINE_RATIO = 0.35`, a detection-sanity floor. I cross-validated
+    the module functionally: a fiora1-geometry skeleton reproduces `offset_norm
+    -0.1446` exactly matching my independent reference, and all six refusal reasons
+    fire correctly.
+    **S6 - worktree gate-check false negative.** `tools/install_git_hooks.py:75`
+    derived the expected hooks dir from the WORKING TREE, so every linked worktree
+    reported the tracked gate INERT while it was in fact armed - three agents each
+    burned time re-diagnosing it. Real cause was NOT `executor.py` as first
+    reported. Sibling sweep found the dangerous one: the installer's `main()` path
+    would have REWRITTEN the shared `core.hooksPath`, mutating the main checkout. I
+    verified live that it is still the unmutated absolute path and the gate reports
+    active. True negatives all still INERT with a test each, plus an
+    anti-rubber-stamp test that makes a real worktree commit with a banned glyph
+    and asserts it is blocked.
+    **Verified:** 835 -> 1093 passed / 16 skipped / 0 failed, ruff clean, drift
+    guard 0 breaches, CI green, `core.hooksPath` unmutated.
+    **Second blind spot found chasing the same root cause, NOT acted on:**
+    `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md` - 105 of 276 approved images were
+    upscaled from sources BELOW 2560x1440 (worst `image3` at 800x450, a 3.2x
+    blowup, verdict PASS); 12 approved carry no G1 audit at all (legacy, verified
+    pre-ADR-004, so a BACKFILL is owed not a fix) and 10 of those 12 were built
+    with `realesrgan-x4plus-anime`, the documented FALLBACK upscaler; 1 FAIL-verdict
+    approval is indistinguishable in the manifest from a clean pass.
+    **CORRECTION I had to make to my own census:** "0 zero-figure detections" is
+    what the code reports and it is misleading - `yolox_l` finds NO person box on 21
+    of 60 sampled images (35 percent) and `tools/dwpose_onnx/onnxpose.py:26` then
+    silently substitutes the whole frame as the pose ROI. fiora1 is one of them, so
+    its headline number comes from a whole-frame fallback, which also explains its
+    uniformly marginal 0.30-0.41 confidences.
+    **Premise I got WRONG and corrected mid-run:** I told the probe agent to reuse
+    `cocowb_to_kp_map`, then verified the code and found it returns ANISOTROPICALLY
+    normalized coords (`x/w, y/h`), drops confidence, and exposes no
+    eyes/ears/hips - it would have sheared every measurement silently.
+    **Do-not-redo:** keypoint head-spine offset as a G1/G2 gate metric (measured,
+    rejected); swapping the localizer to fix it (framing constraint, not accuracy);
+    routing pixel geometry through `cocowb_to_kp_map`; reading a DWPose figure count
+    as a detection count.
+    **FUTURE, needs operator intent:** the source-adequacy precondition POLICY (is
+    2.5x from 1024x576 acceptable, and FLAG or FAIL?) - deliberately not guessed,
+    since guessing is exactly the mistake the anatomy census just caught; the 10
+    fallback-upscaler reprocesses (regenerating them would queue 10 images for an
+    approval that is an operator judgement by design); a Claude-vision 2AFC anatomy
+    review as the right mechanism for a perceptual percept; `pytest` is absent from
+    `.venv-gen` so the probe's capability-gated test can never execute today.
+
 59. DONE **2026-07-29 (20 originals intaken with the recovery waterfall actually run; sub-shape B ruled; `152d84f`).** Operator direction was three lines: "1.b", "run 0.Originals", "style.jpg & style2.jpg track them". **THE INTAKE.** 20 loose files in `0.Originals` -> 20 slugs in `1.First Pass Scratch`; `0.Originals` empty, `anomalies=0`, 20 INTAKE + 20 ANNOTATE lines in `PIPELINE_LOG.md`, verified by a rebuilt `lw_pipeline scan` and a directory count rather than by the CLI's own tally. Every mutation went through `tools/lw_pipeline.py` (single-writer rule); `intake --all --dry-run` was reviewed before executing, and the 20 plans were checked for slug-grammar and collisions - one slug truncates at 64 chars (`...dmfiqbq-fullvie`) per the length rule, which is expected and not a collision. Preflight found all three recovery tiers live: `imagehash` importable, `gallery-dl 1.32.5`, `API-Key-SauceNAO.txt` present. **THE WATERFALL RAN, unlike the 46 refs** where Tier 0/1/2 were deliberately skipped and every manifest still carries `source_url: null`. Tier 0 returned `no_match` for all 20 against the 292-file `reference_pictures` corpus (consensus pHash+dHash), so all 20 are novel - the corpus was hashed ONCE in a driver rather than per-target, because `lw_recover tier0` re-hashes all 292 candidates for every target it is given. Tier 1 decoded a DeviantArt token for all 20 and `gallery-dl` fetched 20 of 20; Tier 2 SauceNAO was never needed and the manual queue stayed empty. **THE MEASURED RESULT, which corrects a standing memory claim.** The memory `reference-deviantart-recovery` said quota-free recovery "buys little" for preview-res sources. Measured over this batch it is worth running inline every time: 8 of 20 gained pixels and `blood-moon-priestess-mel` jumped 1159x689 -> 1920x1142 (2.75x area), well past the 1280-long-edge rule of thumb, so the ceiling is per-deviation and the only way to learn it is to fetch. The other 12 held their pixel count but shed 6-7x of JPEG compression (e.g. 296KB -> 1757KB at an identical 1920x1080), which is upscaler input quality for free. The config at `%APPDATA%\gallery-dl\config.json` already persists `original: false` / `intermediary: true` / `quality: 100`, so a bare `gallery-dl --dest` takes the quota-free path and no `original=true` was ever issued. Memory corrected in place. **PROVENANCE.** Fetches were placed at the EXISTING convention path `data\recovery\fetched\<slug>\deviantart\<artist>\` that `lw_first_pass.find_fetched_fullview` globs, found by grepping `lw_first_pass.py` rather than inventing a staging convention; re-intaking a fetched file through `0.Originals` was deliberately NOT done because it re-slugs and diverges the slug. Each of the 20 manifests carries `source_url` plus a `recovery` block in its ANNOTATE `transitions[i].audit` - confirmed by reading one manifest back, which also corrected my own probe (the transition key is `op`, not `kind`). **TWO DEFECTS FOUND AND FILED, NOT PATCHED BLIND.** (1) `lw_recover.py:58` `_ARTIST_RE` assumes a DeviantArt username carries no underscore, so `..._by_dada_wallpaperart_dmhz060-pre` captures `wallpaperart` instead of the real `DaDa-WallpaperArt`; the canonical oEmbed URL is built wrong and a LIVE deviation reads dead. Bounded and cost nothing here - oEmbed is only a pre-check, the fetch path uses `/deviation/<id>` and pulled that exact file seconds later - but a false dead would drop a slug to SauceNAO and burn quota it did not need. A second false-dead on `di0tao3-964d7366-...` has a different cause: the `<token>-<uuid>` shape carries no `_by_<artist>_` segment at all, so no canonical URL is buildable. The filed recommendation is to treat a non-200 oEmbed as INCONCLUSIVE and let the fetch decide, NOT to guess hyphen/underscore permutations, since DA's own export renders a hyphenated username with underscores and the mapping is not recoverable from the filename. (2) `lw_first_pass.py:151` globs `deviantart_*.jpg` only, so a PNG intermediary is invisible to `select_source` and first pass falls back silently; hit 3 of 20, cost zero THIS batch because all three fetched at exactly their intake size, but the next PNG that fetches bigger would lose the gain with no tell. **THE SUB-SHAPE B RULING.** Operator ruled `first-pass-alpha-letterbox` sub-shape B: ACCEPT AND RECORD, no pixels change. That disposes of TEN of the fifteen alpha-flatten slugs (8 full-perimeter 1px rims on plane hash `2d01a0afce742e26` plus the 2 left/right-column variants `266f` and `281-cleanup`) and needs no reopen dance - their approved `_firstdone` files stand and go straight to cleaning. Sub-shape A's five stay HELD ahead of cleaning. A count I had stated as 11-for-B was corrected to 10 before it was written down; 10 + 5 = the 15 census total. **Also tracked** `style.jpg` + `style2.jpg`, the two lw-gen style references at the repo root (827x1144, locally generated, read before staging). **Verified:** 835 passed / 14 skipped in 32s, ruff `All checks passed`, hygiene suite 10 passed, `drift_guard` 0 breaches, CI `success` on the full head sha. One methodology note worth keeping: `check_ci` was first fed a TRUNCATED sha and answered `queued`, live-reproducing the abbreviation gap already recorded under `f1-phase6-queue` - the conservative fallback means it is never a false green, but it is also never an answer.
 
 58. DONE **2026-07-27 (refs-46-first-pass CLOSED: all 46 approved on operator instruction; roadmap synced).** The operator said "approve all 46" and it was executed: `1.First Pass Scratch` is now EMPTY (0 needauth, 0 slug dirs) and `2.First Pass Done` holds 288 slug dirs with 288 `_firstdone.png` - the 242 prior plus these 46. Verified against the filesystem and a rebuilt `lw_pipeline scan`, not against the loop's tally. **Method:** `lw_pipeline approve` is per-slug with no batch mode, and approval has no reverse command (undoing needs the reopen dance), so slug `0` was dry-run, approved alone, and its result inspected - `_firstdone.png` + `_firstinitial.png` + `manifest.json` landed and the scratch dir was gc'd - before the remaining 45 ran with a per-slug tally. 45/45, zero failures. **THE MISS, and it is the substance of this entry.** `ROADMAP.md` stated in the refs-46 item itself that `first-pass-alpha-letterbox` should be ruled on BEFORE approval, because 15 of the 46 carry a silently dropped alpha. That was not surfaced to the operator. A DIFFERENT caveat was raised instead - that first pass was a provenance-only passthrough with output pixel-identical to source - and that reassurance was structurally incapable of catching this one: pixel identity had been measured as sha256 over decoded RGB buffers, which cannot see an alpha plane disappear. So the evidence offered in support of "nothing changed" was blind to the exact change that was open for a ruling. Sixth instance in about twenty-four hours of a check that could not fail in the configuration it was run in, and the first where the blind check was the one I put in front of the operator. **What it did and did not cost, checked rather than asserted:** `approve` safe-copies `_firstinitial` beside `_firstdone`, confirmed on `258-cleanup` by reading the PNG IHDR colour-type byte - `_firstinitial` is RGBA, `_firstdone` is RGB - and `9.Image Backup` holds a third copy. So no alpha data was destroyed and all 15 remain reprocessable. What was actually spent is the operator's opportunity to decide before staging rather than after, which converts a pre-staging re-run into a reopen dance. **Roadmap synced with that recorded, not smoothed:** refs-46 marked DONE carrying the miss; `first-pass-alpha-letterbox` marked STILL OPEN AND NOW POST-APPROVAL with the changed shape of acting on it; `iopaint-batch-drain` marked as the next session's focus per operator direction, with a hard note to rule on the alpha question FIRST because cleaning writes on top of `_firstdone` and a later "keep the alpha" ruling would then mean redoing cleaning as well as first pass. **Verified:** 831 passed / 14 skipped, ruff clean, drift gate 0 offenders.

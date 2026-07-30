@@ -11,6 +11,69 @@
 
 ---
 
+## 2026-07-29 (headless run) - nightly red fixed; the anatomy gate MEASURED AND REJECTED
+
+Detail: LEDGER 60. Suite 835 -> **1093 passed / 16 skipped / 0 failed**, ruff
+clean, drift guard 0 breaches, CI green. Five slices merged, all verified against
+ground truth rather than on an agent's word.
+
+- **The nightly CI red is fixed and PROVEN, not just locally green.** The
+  gate-arming step existed only in the `check` job, never in `nightly-full-suite` -
+  ROADMAP's f1-phase6 item (6) was marked DONE but covered one job of two. Shipped
+  as a workflow-parity guard so a third job cannot regress it. I mutation-tested the
+  guard (removing the arming fails 3 of its 4 tests) and proved the fix on the real
+  runner via `workflow_dispatch` `30509939447` - both jobs green. **A guard that
+  passes is not a guard that works; test it by breaking the thing it guards.**
+- **The operator's fiora1 note produced a negative result, and that IS the
+  deliverable.** G1 is a FIDELITY gate, so a defect INHERENT TO THE SOURCE scores
+  near 1.0 - fiora1 passed at `ms_ssim 0.997113` with zero reasons. I built the
+  head-spine metric, measured it over all 288 approved firstdones, and the census
+  refuted gating it: fiora1 sits at the **43.5th percentile**, BELOW median badness,
+  so any threshold catching it flags over half an approved corpus. Ships as a
+  diagnostic; `classify_head_spine` deleted outright. **The census is what stopped a
+  plausible-looking gate from shipping - a threshold picked before measuring the
+  corpus would have been a confound, exactly as the standing lesson says.**
+- **60 percent of the corpus cannot be measured at all, and it is a FRAMING
+  constraint.** 157-159 of the 173 unmeasurable images fail on HIP confidence
+  because splash art is cropped at the waist. This rules out the obvious follow-up:
+  a better pose model cannot find hips that are outside the crop.
+- **I had to correct my own census.** "0 zero-figure detections" is what the code
+  reports and it is misleading - `yolox_l` finds NO person box on 21 of 60 sampled
+  images (35 percent), and `tools/dwpose_onnx/onnxpose.py:26` then silently
+  substitutes the whole frame as the pose ROI. fiora1 is one of those, so its
+  headline number came from a whole-frame fallback. **A fallback that makes failure
+  look like success is worse than an error.**
+- **I also shipped a WRONG premise to an agent and caught it.** I told the probe
+  slice to reuse `cocowb_to_kp_map`; verifying the code myself showed it returns
+  ANISOTROPICALLY normalized coords (`x/w, y/h`), drops confidence, and exposes no
+  eyes/ears/hips. It would have sheared every measurement silently. Corrected
+  mid-flight to the raw 133-keypoint pixel array.
+- **The worktree phantom red was real and had a dangerous sibling.**
+  `tools/install_git_hooks.py:75` derived the expected hooks dir from the WORKING
+  TREE, so every linked worktree reported the tracked gate INERT while it was armed
+  - three agents each burned time re-diagnosing it. The sweep found the actual
+  hazard: the installer's `main()` would have REWRITTEN the shared
+  `core.hooksPath`, mutating the main checkout. Verified live it is unmutated.
+  Fixed with an anti-rubber-stamp test that makes a real worktree commit with a
+  banned glyph and asserts it is blocked.
+- **A second, bigger blind spot found by chasing the same root cause - NOT acted
+  on.** 105 of 276 approved images came from sources below 2560x1440 (worst:
+  800x450, a 3.2x blowup, PASS); 12 have no G1 audit (legacy, backfill owed); 10 of
+  those were built with the FALLBACK upscaler. Left as ROADMAP items because the
+  threshold POLICY and the 10 reprocesses are operator calls - and because
+  `APPROVE_FIRST` is an operator judgement by design.
+- **Incident:** a session limit killed five agents at once mid-flight. Main checkout
+  recovered clean on `main`; one dead agent's uncommitted files were salvaged from
+  its worktree rather than rewritten; one slice's work was lost and re-dispatched.
+  The manifest tooling built this same run (S2) is what makes that recoverable next
+  time.
+
+**NEXT:** three new ROADMAP items, all operator-gated -
+`g1-source-adequacy` (policy call), `legacy-audit-backfill` (12 backfills + 10
+reprocess decision), `anat-vision-review` (may a vision reviewer REJECT?).
+
+---
+
 ## 2026-07-29 (session end) - 20 intaken, waterfall run, sub-shape B ruled
 
 Commit `152d84f`. Detail: LEDGER 59. Suite 835 passed / 14 skipped, ruff clean,
@@ -61,35 +124,3 @@ Detail: LEDGER 58. Suite 831 passed / 14 skipped, drift gate 0, CI green.
   alpha" decision would mean redoing cleaning as well as first pass for those 15.
 - Cleaning entry point is `.claude/commands/cleaning-pass.md`; the lane split and
   do-not-redo set are in `iopaint-batch-drain` in ROADMAP.
-
----
-
-## 2026-07-27 (post-loop) - the two filed items, shipped on operator call
-
-Commits `6c0423c` + `711f5f9`. Detail: LEDGER 57. Both CI green (evaluated, by
-conclusion + head sha). 831 passed / 14 skipped.
-
-- **refs-46-first-pass is DONE: 46/46 submitted, 0 approved.** The 46
-  `_firstneedauth` files sit in `1.First Pass Scratch`. Approval is operator-only
-  and the loop never touched it. The loop stopped clean on `max_cycles 12`.
-- **Docs-only pushes ran no CI** while guards read docs off disk. `paths-ignore`
-  dropped; the style drift gate MOVED from nightly to push (a nightly gate does
-  not block, it reports up to 24h later). LW deliberately did NOT copy RC's
-  docs-guard complement: their skipped suite carries playwright/mypy/Share sync,
-  LW's is 28s, so the complement costs more than the filter saved.
-- **`check_ci`'s not-evaluated logic KEPT**, against my own phrasing of the
-  option the operator approved. It never fires with no globs declared, and
-  deleting it would let a re-added filter silently revive item 12's ambiguity.
-  The drift guard is inverted instead - it now asserts NO filter.
-- **The PREMISE-CHECK stamp is now load-bearing.** `[UNVERIFIED]` is propagated
-  (the director already declared the unknown; propagating is not inventing).
-  `[from-digest]` means "I read this in context", not "this is true" - the digest
-  can be fabricated upstream, so a claim naming a checkable referent is checked
-  against disk. Three parser traps came from RC's verifier rounds, not from
-  rediscovery: scan EVERY field (block-quotes silence a first-only scan), split
-  on TAG not sentence boundaries (`e.g.`/`i.e.` zero the findings), never fold
-  two tags on one line.
-- **NEXT:** approve or reject the 46. Nothing else is claimed. The standing
-  question both repos deferred is still open: which assertion in a file could
-  never have gone red - LW's measured blind spot is 3 win32-only tests CI never
-  runs and 14 `importorskip` ML tests green-by-absence everywhere.
