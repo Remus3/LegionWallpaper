@@ -53,17 +53,18 @@ def main():
         dims = "-"
         if did is not None:
             live = R.oembed_liveness(did, artist=R.parse_artist(name))
+            # Report the module's own verdict rather than a local label: oEmbed
+            # can confirm life but never refute it, so a non-alive result is
+            # inconclusive, not dead.
+            t1 = live.get("verdict", "unknown")
             if live.get("alive"):
-                t1 = "alive"
                 dims = f"{live.get('width')}x{live.get('height')}"
-            else:
-                t1 = "dead"
         else:
             t1 = "no-tok"
         extra = ""
         if t0s == "match":
             extra = " -> " + str(t0.get("source"))
-        print(f"{slug:52} {t0s:>10} {t1:>6} {dims:>12}{extra}")
+        print(f"{slug:52} {t0s:>10} {t1:>16} {dims:>12}{extra}")
 
 
 if __name__ == "__main__":
