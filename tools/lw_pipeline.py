@@ -1150,6 +1150,11 @@ def cmd_finalize(ctx, slug, deliver_dir, sequential, audit_json):
                 final_audit = {}
             else:
                 final_audit = {"end_review": audit}
+            # An operator payload of its own carrying "approval" would other-
+            # wise be dropped by the line below, which is the same silent loss
+            # this record exists to prevent.
+            if "approval" in final_audit:
+                final_audit["supplied_approval"] = final_audit["approval"]
             final_audit["approval"] = _approval_record(man, "last")
             add_transition(man, "FINALIZE",
                            src="{}/{}/{}".format(DONE_DIR["last"], slug, lastdone.name),

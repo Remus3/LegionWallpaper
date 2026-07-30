@@ -360,3 +360,29 @@ def test_finalize_keeps_the_supplied_audit_json_alongside_the_record(
              if t["op"] == "FINALIZE"][-1]["audit"]
     assert audit["vision_2afc"] == "win"
     assert audit["approval"]["gate_check"] == "pass"
+
+
+def test_finalize_does_not_clobber_a_supplied_approval_key(
+        root: Path, tmp_path: Path):
+    _walk_to_end_review(root, tmp_path, last_audit=PASS_AUDIT)
+    ajson = tmp_path / "end_review.json"
+    ajson.write_text(json.dumps({"approval": "operator says ship it"}),
+                     encoding="utf-8")
+    assert run(root, "finalize", "ahri", "--audit-json", str(ajson)) == 0
+    backup = root / "9.Image Backup" / "ahri"
+    audit = [t for t in _manifest(backup)["transitions"]
+             if t["op"] == "FINALIZE"][-1]["audit"]
+    assert audit["approval"]["gate_check"] == "pass"
+    assert audit["supplied_approval"] == "operator says ship it"
+
+
+def test_finalize_nests_a_non_dict_audit_payload(root: Path, tmp_path: Path):
+    _walk_to_end_review(root, tmp_path, last_audit=PASS_AUDIT)
+    ajson = tmp_path / "end_review.json"
+    ajson.write_text(json.dumps(["2afc-a", "2afc-b"]), encoding="utf-8")
+    assert run(root, "finalize", "ahri", "--audit-json", str(ajson)) == 0
+    backup = root / "9.Image Backup" / "ahri"
+    audit = [t for t in _manifest(backup)["transitions"]
+             if t["op"] == "FINALIZE"][-1]["audit"]
+    assert audit["end_review"] == ["2afc-a", "2afc-b"]
+    assert audit["approval"]["gate_check"] == "pass"
