@@ -164,12 +164,74 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   the 112 recoverable ones later gets restored, REMOVE its raw `ref_*` copy
   from Pictures or rotation gains a near-duplicate.
 
+- **batch20-first-pass - 20 fresh originals intaken + Tier-1 recovered, awaiting
+  FIRST PASS - NEXT for this batch.**
+  Intaken 2026-07-29 on operator direction ("run 0.Originals"): 20 loose files
+  -> 20 slugs in `1.First Pass Scratch`, `0.Originals` empty, `anomalies=0`,
+  20 INTAKE + 20 ANNOTATE lines in `PIPELINE_LOG.md`.
+  Recovery waterfall RAN this time (unlike the 46 refs, where Tier 0/1/2 were
+  deliberately skipped): Tier 0 was `no_match` for all 20 against the 292-file
+  `reference_pictures` corpus, so every one is novel; Tier 1 decoded a DeviantArt
+  token for all 20 and gallery-dl fetched all 20 at the QUOTA-FREE setting
+  (`original: false`, `intermediary: true`, `quality: 100` - already in
+  `%APPDATA%\gallery-dl\config.json`). Tier 2 SauceNAO was never needed.
+  8 of 20 gained real pixels, best being `blood-moon-priestess-mel` at
+  1159x689 -> 1920x1142 (2.75x); the other 12 held their pixel count but shed
+  6-7x of JPEG compression, which is upscaler input quality either way. Fetches
+  are placed at the convention path `data\recovery\fetched\<slug>\deviantart\
+  <artist>\` that `lw_first_pass.find_fetched_fullview` reads, and each
+  manifest carries `source_url` plus a `recovery` block in its ANNOTATE
+  `transitions[i].audit`.
+  Next: `/first-pass` over the 20. Ahead of that, note 12 of them are 1024-1600px
+  wide, so this batch DOES exercise the AI upscaler - unlike the 46 refs, which
+  were all exactly 2560x1440 and took the passthrough branch. The
+  `first-pass-alpha-letterbox` field shipped in `ef67c49` means any flatten in
+  this batch self-reports.
+  Do-not-redo: `original: true` on DeviantArt (weekly download quota; the
+  intermediary path already measured a gain and costs no quota); re-intaking a
+  fetched fullview through `0.Originals` (re-slugging diverges the slug -
+  `lw_first_pass` selects the fetched file by convention path instead).
+  Evidence: `PIPELINE_LOG.md` 2026-07-30T01:52Z block; per-slug `recovery`
+  blocks in the 20 manifests.
+
+- **recover-parse-artist-underscore - `parse_artist` mis-parses a hyphenated
+  DeviantArt username - OPEN (found 2026-07-29, cheap).**
+  `tools/lw_recover.py:58` `_ARTIST_RE` assumes a DA username carries no
+  underscore, so for `viego__the_ruined_king_by_dada_wallpaperart_dmhz060-pre`
+  it captures `wallpaperart` instead of the real `DaDa-WallpaperArt`. The
+  canonical oEmbed URL is then built wrong and the deviation reads DEAD when it
+  is alive - measured on that exact file, and gallery-dl fetched it fine from
+  `/deviation/<id>` immediately afterwards. Same false-dead on
+  `di0tao3-964d7366-...` for the different reason that the `<token>-<uuid>` shape
+  carries no `_by_<artist>_` segment at all, so no canonical URL is buildable.
+  Impact is bounded: oEmbed is only a pre-check, the FETCH path does not use it,
+  so nothing was lost - but a false `dead` would wrongly send a slug down to
+  Tier 2 SauceNAO and burn quota it did not need to.
+  Next: DA usernames may contain hyphens, which DA's own export filenames render
+  as underscores, so the artist segment cannot be recovered unambiguously from
+  the filename alone. Prefer treating a non-200 oEmbed as INCONCLUSIVE rather
+  than `dead` and letting Tier 1's fetch decide, over guessing at
+  hyphen/underscore permutations. Add a regression test per shape.
+
+- **first-pass-fetched-glob-jpg-only - `find_fetched_fullview` misses a `.png`
+  Tier-1 fetch - OPEN (found 2026-07-29, cheap).**
+  `tools/lw_first_pass.py:151` globs `deviantart_*.jpg` only, so a deviation
+  whose intermediary file is a PNG is invisible to `select_source` and first pass
+  silently falls back to `_firstinitial`. Hit 3 of 20 in the batch20 intake
+  (`petals-of-spring-teemo`, `spirit-blossom-springs-katarina`, `di0tao3`).
+  Cost THIS batch is zero - all three fetched at exactly their intake size, so
+  the fallback is byte-for-byte as good - but the next PNG deviation that fetches
+  BIGGER would lose the gain with no tell in the audit.
+  Next: widen the glob to the decodable image extensions and assert the
+  selection in a test per extension; the `sorted()` determinism must survive.
+
 - **first-pass-alpha-letterbox - first pass silently drops the alpha channel,
   and G1 is blind to it - OPEN (found cycle 7, LEDGER 52, plan row R22;
   widened by cycle 8, LEDGER 53, plan row R23; sub-shape B identified by
   cycle 9, LEDGER 54, plan row R24; CENSUS CLOSED by cycle 10, LEDGER 55, plan
-  row R25; audit hygiene SHIPPED by cycle 11, LEDGER 56, plan row R26; the
-  POLICY call is still open).**
+  row R25; audit hygiene SHIPPED by cycle 11, LEDGER 56, plan row R26;
+  SUB-SHAPE B RULED by the operator 2026-07-29 - ACCEPT AND RECORD, change no
+  pixels; SUB-SHAPE A's policy call is still open).**
   **STILL OPEN AND NOW POST-APPROVAL.** All 46 were approved on 2026-07-27
   without this ruling - see the miss recorded under `refs-46-first-pass`. That
   does not close it and does not lose anything: every `_firstinitial` is
@@ -233,15 +295,26 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   black bar top and bottom. Sub-shape B is invisible to the gate for the same
   reason and has no aspect consequence at all - the composite over an opaque
   background is unchanged, so it may well be acceptable as-is.
-  Decide the POLICY before writing any detector, and decide it PER SUB-SHAPE:
-  for A, crop to the content box and re-run the aspect logic against that,
-  re-source a full-bleed original, or accept the bars as authored intent; for
-  B, most likely just record the flatten in the audit rather than change any
-  pixels - and cycle 9's rim finding strengthens that read, since a 1px
-  perimeter has no visual consequence composited over any background. A wrong
-  automatic answer is worse than the current queue, so all fifteen slugs sit at
-  NEEDAUTH untouched. Nothing downstream is blocked; this is a correctness hole
-  in the audit, not a gate.
+  Decide the POLICY before writing any detector, and decide it PER SUB-SHAPE.
+  **SUB-SHAPE B IS RULED (operator, 2026-07-29): ACCEPT AND RECORD.** The
+  flatten is recorded in the audit and NO pixels change - a 1px perimeter rim
+  (or a left/right-column variant) has no consequence composited over any
+  background, which is what the cycle-9 rim measurement established. That
+  disposes of TEN of the fifteen files (the 8 full-perimeter rims on plane hash
+  `2d01a0afce742e26` plus the 2 left/right-column variants, `266f` and
+  `281-cleanup`), and it needs no reopen dance: their already-approved
+  `_firstdone` files stand as-is and go straight to stage-2 cleaning. Recording
+  for the ten is the `alpha_flattened` + `source_mode` field shipped in cycle 11
+  (`ef67c49`), which those ten predate - so their record lives in this ROADMAP
+  entry and the LEDGER, not in their own manifests, and that is the accepted
+  cost of ruling post-approval rather than a reason to re-run them.
+  **SUB-SHAPE A IS STILL OPEN** and still blocks its five slugs: for A, crop to
+  the content box and re-run the aspect logic against that, re-source a
+  full-bleed original, or accept the bars as authored intent. A wrong automatic
+  answer is worse than the current queue, so those five (`258-cleanup` with the
+  160-row letterbox, plus the 3px-hairline four `259f` / `261f` / `262f` /
+  `264-cleanup`) stay held ahead of cleaning. Nothing downstream is blocked for
+  the other ten; this is a correctness hole in the audit, not a gate.
   Cheapest first step, and it needs no policy call: DONE cycle 11 (LEDGER 56,
   plan row R26, commit `ef67c49`). `first_pass` now reads the source PIL mode
   off the existing probe BEFORE any `convert("RGB")` and records `source_mode`
@@ -258,9 +331,12 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
 
 - **iopaint-batch-drain - Stage-2 watermark batch reprocess - IN PROGRESS, and
   the NEXT SESSION'S focus (operator direction 2026-07-27).** The 46 refs
-  approved this session join this queue. Rule on `first-pass-alpha-letterbox`
-  FIRST: cleaning writes on top of `_firstdone`, so a later "keep the alpha"
-  ruling would mean redoing cleaning as well as first pass for those 15.
+  approved this session join this queue. `first-pass-alpha-letterbox` is now
+  PARTLY ruled: sub-shape B (10 slugs) is ACCEPT-AND-RECORD as of 2026-07-29 and
+  is CLEARED for cleaning; sub-shape A (5 slugs - `258-cleanup` `259f` `261f`
+  `262f` `264-cleanup`) is STILL HELD, because cleaning writes on top of
+  `_firstdone` and a later "crop to the content box" ruling would mean redoing
+  cleaning as well as first pass for those five. Clean the other 41 freely.
   Next: land the 3 pass-improvements from the triage (full-width banner band;
   chroma-thr ~12 default; namakx template-mask / adaptive dark_thr) -> re-run
   the worker over the 9 CLEAN-AUTO + cleared PARTIALs -> `save-working --tool
