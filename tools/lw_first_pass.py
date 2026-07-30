@@ -5,8 +5,9 @@ p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pre -> G1 PASS) as a resumable,
 single- and batch-mode CLI. Per slug, end to end:
 
   1. Best-source selection: prefer the fetched Tier-1 fullview at
-     data\\recovery\\fetched\\<slug>\\deviantart\\*\\deviantart_*.jpg if it
-     exists and decodes; else the scratch <slug>_firstinitial.*. Never
+     data\\recovery\\fetched\\<slug>\\deviantart\\*\\deviantart_* (any
+     FETCHED_EXTS extension) if it exists and decodes; else the scratch
+     <slug>_firstinitial.*. Never
      re-intake a fullview (re-slugging diverges the slug).
   2. Aspect conditioning (NEW policy, pure + unit-tested): if the source ratio
      is within ASPECT_TOL of 16:9 pass it straight through; else center-crop to
@@ -142,15 +143,48 @@ def _pil_decodes(path):
         return False
 
 
-def find_fetched_fullview(slug, fetched_root=FETCHED_ROOT):
-    """First DeviantArt fullview jpg for a slug, or None.
+# Extensions a fetched fullview may carry, in SELECTION-PREFERENCE order.
+# WHY this exact set: it is a subset of lw_pipeline.IMAGE_EXTS
+# (tools/lw_pipeline.py:62), so a fullview chosen here is one the rest of the
+# pipeline can also ingest - picking anything wider would only move the failure
+# further from its cause.
+# WHY this order is the tie-break: DeviantArt serves the same deviation under
+# more than one encode, and the upscaler amplifies JPEG ringing that a lossless
+# encode of the same art does not carry - so lossless is preferred over lossy
+# when a fetch dir holds both.
+FETCHED_EXTS = (".png", ".webp", ".jpeg", ".jpg")
 
-    Deterministic glob: <fetched_root>\\<slug>\\deviantart\\*\\deviantart_*.jpg
-    (the artist subfolder is the single wildcard). Sorted for determinism.
+
+def _fullview_sort_key(path):
+    """Total order over fullview candidates: FETCHED_EXTS rank, then path.
+
+    WHY the case fold before the raw path: the same fetch replayed on a
+    case-insensitive filesystem can differ only in casing, and a raw-bytes sort
+    would then hand back a different winner for what is the same corpus. The
+    raw path stays as the final component so the key is never ambiguous.
+    """
+    ext = os.path.splitext(path)[1].lower()
+    return (FETCHED_EXTS.index(ext), path.lower(), path)
+
+
+def find_fetched_fullview(slug, fetched_root=FETCHED_ROOT):
+    """Best DeviantArt fullview for a slug, or None.
+
+    Globs <fetched_root>\\<slug>\\deviantart\\*\\deviantart_* (the artist
+    subfolder is the single wildcard) and keeps the files whose extension is in
+    FETCHED_EXTS; ties break by _fullview_sort_key, so a mixed-extension fetch
+    directory resolves to the same file on every run.
+
+    WHY the extension is filtered in python instead of inside the glob: glob
+    folds case on Windows but not on Linux and the suite runs on both, so a
+    .PNG fetch would be visible on one and invisible on the other.
     """
     pattern = os.path.join(str(fetched_root), slug, "deviantart", "*",
-                           "deviantart_*.jpg")
-    hits = sorted(glob.glob(pattern))
+                           "deviantart_*")
+    hits = [p for p in glob.glob(pattern)
+            if os.path.splitext(p)[1].lower() in FETCHED_EXTS
+            and os.path.isfile(p)]
+    hits.sort(key=_fullview_sort_key)
     return hits[0] if hits else None
 
 

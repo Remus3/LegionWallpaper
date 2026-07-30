@@ -208,6 +208,97 @@ def test_select_source_none_when_nothing_present(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
+# fetched-fullview glob: every decodable extension, deterministic tie-break
+# ---------------------------------------------------------------------------
+def _write_fetched(fetched_root: Path, slug: str, name: str) -> Path:
+    """Create <fetched_root>/<slug>/deviantart/SomeArtist/<name> with bytes."""
+    artist = fetched_root / slug / "deviantart" / "SomeArtist"
+    artist.mkdir(parents=True, exist_ok=True)
+    f = artist / name
+    f.write_bytes(b"imagebytes")
+    return f
+
+
+@pytest.mark.parametrize("ext", [".jpg", ".jpeg", ".png", ".webp"])
+def test_find_fetched_fullview_sees_every_decodable_ext(tmp_path: Path,
+                                                        ext: str):
+    """A Tier-1 fetch is not always jpg - png/webp/jpeg must be visible too.
+
+    Regression (ROADMAP first-pass-fetched-glob-jpg-only): the glob was
+    deviantart_*.jpg only, so a png intermediary was invisible and first pass
+    silently fell back to _firstinitial with no tell in the audit.
+    """
+    slug = "ext-slug-pre"
+    fetched_root = tmp_path / "fetched"
+    f = _write_fetched(fetched_root, slug, f"deviantart_1234_Some Title{ext}")
+
+    hit = fp.find_fetched_fullview(slug, fetched_root)
+    assert hit is not None, f"{ext} fullview was not found"
+    assert Path(hit) == f
+
+
+@pytest.mark.parametrize("ext", [".jpg", ".png", ".webp"])
+def test_select_source_prefers_fullview_of_any_ext(tmp_path: Path, ext: str):
+    """select_source must route a non-jpg fullview through as kind 'fullview'."""
+    slug = "sel-ext-pre"
+    scratch = tmp_path / "1.First Pass Scratch" / slug
+    scratch.mkdir(parents=True)
+    (scratch / f"{slug}_firstinitial.jpg").write_bytes(b"initbytes")
+    fetched_root = tmp_path / "fetched"
+    full = _write_fetched(fetched_root, slug, f"deviantart_77_Title{ext}")
+
+    chosen, kind = fp.select_source(slug, scratch, fetched_root,
+                                    decode_check=lambda p: True)
+    assert Path(chosen) == full
+    assert kind == "fullview"
+
+
+def test_find_fetched_fullview_matches_ext_case_insensitively(tmp_path: Path):
+    """An upper-case suffix is the same format - glob case rules differ by OS."""
+    slug = "upper-ext-pre"
+    fetched_root = tmp_path / "fetched"
+    f = _write_fetched(fetched_root, slug, "deviantart_9_Title.PNG")
+
+    assert Path(fp.find_fetched_fullview(slug, fetched_root)) == f
+
+
+def test_find_fetched_fullview_mixed_ext_tie_break_is_deterministic(
+        tmp_path: Path):
+    """Mixed-extension fetch dir picks the FETCHED_EXTS-preferred file, always.
+
+    The documented tie-break is FETCHED_EXTS order first (lossless before
+    lossy), then the case-folded path - so png wins over webp/jpeg/jpg here and
+    the answer cannot drift between runs or directory-listing orders.
+    """
+    slug = "mixed-ext-pre"
+    fetched_root = tmp_path / "fetched"
+    for ext in (".jpg", ".jpeg", ".webp", ".png"):
+        _write_fetched(fetched_root, slug, f"deviantart_55_Title{ext}")
+
+    picks = {fp.find_fetched_fullview(slug, fetched_root) for _ in range(5)}
+    assert len(picks) == 1
+    assert Path(picks.pop()).name == "deviantart_55_Title.png"
+
+
+def test_find_fetched_fullview_ignores_non_image_sidecars(tmp_path: Path):
+    """gallery-dl metadata sidecars share the prefix but are not decodable."""
+    slug = "sidecar-pre"
+    fetched_root = tmp_path / "fetched"
+    _write_fetched(fetched_root, slug, "deviantart_31_Title.jpg.json")
+    img = _write_fetched(fetched_root, slug, "deviantart_31_Title.png")
+
+    assert Path(fp.find_fetched_fullview(slug, fetched_root)) == img
+
+
+def test_fetched_exts_are_a_subset_of_pipeline_image_exts():
+    """Never select a source the rest of the pipeline cannot ingest."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import lw_pipeline
+
+    assert set(fp.FETCHED_EXTS) <= set(lw_pipeline.IMAGE_EXTS)
+
+
+# ---------------------------------------------------------------------------
 # FR-metric remap + verdict wiring
 # ---------------------------------------------------------------------------
 def test_remap_fr_ms_ssim_to_msssim():
