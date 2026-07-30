@@ -7,7 +7,35 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29) - keep the last 3.
+
+---
+
+## 2026-07-29 (session end) - 20 intaken, waterfall run, sub-shape B ruled
+
+Commit `152d84f`. Detail: LEDGER 59. Suite 835 passed / 14 skipped, ruff clean,
+drift gate 0, CI success on the full head sha.
+
+- **20 originals intaken.** `0.Originals` EMPTY, 20 slugs in `1.First Pass
+  Scratch`, `anomalies=0`. Verified by a rebuilt scan + directory count, not the
+  CLI tally. NEXT for this batch is `/first-pass` (ROADMAP `batch20-first-pass`).
+- **The recovery waterfall RAN** (the 46 refs skipped it). T0 `no_match` 20/20 vs
+  the 292-file corpus - all novel. T1 fetched 20/20 QUOTA-FREE; T2 never needed.
+  8 gained pixels (best 1159x689 -> 1920x1142), 12 held pixels and shed 6-7x of
+  JPEG compression. Do NOT use `original=true` - the intermediary path already
+  measured a gain and costs no quota.
+- **Memory corrected:** `reference-deviantart-recovery` claimed quota-free
+  recovery "buys little". Measured false. It is now a run-it-inline-always rule.
+- **This batch DOES exercise the AI upscaler** - 12 are 1024-1600px wide, unlike
+  the 46 refs which were all exactly 2560x1440 and took the passthrough branch.
+- **Sub-shape B RULED: accept and record.** 10 of the 15 alpha slugs cleared for
+  stage-2 cleaning, no reopen dance. Sub-shape A's 5 (`258-cleanup` `259f` `261f`
+  `262f` `264-cleanup`) STILL HELD - cleaning writes on top of `_firstdone`.
+- **Two defects FILED, not patched** - do not re-diagnose: `lw_recover`
+  `_ARTIST_RE` mis-parses a hyphenated DA username (false `dead`, fetch path
+  unaffected); `lw_first_pass.find_fetched_fullview` globs `.jpg` only so a PNG
+  intermediary is skipped (cost zero this batch). Both have ROADMAP items.
+- `style.jpg` + `style2.jpg` now tracked (lw-gen style refs, repo root).
 
 ---
 
@@ -65,29 +93,3 @@ conclusion + head sha). 831 passed / 14 skipped.
   question both repos deferred is still open: which assertion in a file could
   never have gone red - LW's measured blind spot is 3 win32-only tests CI never
   runs and 14 `importorskip` ML tests green-by-absence everywhere.
-
----
-
-## 2026-07-27 (loop cycle 11) - the alpha drop stops being silent
-
-Code slice, not docs. Detail: LEDGER 56, plan row R26, commit `ef67c49`
-(merge `191742a`). Four cycles of investigation produced a census; this ships
-the half of the fix that needs no policy call. `first_pass()` now emits
-`source_mode` + `alpha_flattened` in `upscale_audit` and
-`tools/lw_first_pass.py:537` carries both into the annotate payload.
-Two things a future session should not have to rediscover. (1) The mode is
-read off the EXISTING `_covers_target` probe and the read sits OUTSIDE that
-branch - all 46 refs took the downscale-only path, so a capture nested in the
-AI-upscale branch would have missed exactly the population that produced the
-finding. (2) `_has_alpha` fires on `"transparency" in img.info` as well as
-mode RGBA, because a palette `P` + `tRNS` source flattens identically and
-would otherwise self-report clean.
-The verifier did not eyeball the diff: it ran `first_pass()` in both trees on
-one synthetic source and diffed the audit JSON, so "no pre-existing key moved"
-is measured, not asserted. 814 passed / 11 skipped on main. The slice's single
-worktree failure was the known `core.hooksPath` artifact (passes in the main
-tree) - third cycle running that it appears, worth a permanent note.
-NEXT: the POLICY call per sub-shape is still open and is an operator ruling -
-A (crop / re-source / accept the bars), B (near-certainly accept-and-record, a
-1px perimeter has no composited consequence). The 15 already-processed refs
-predate the new field, so their audits stay silent; ROADMAP holds that record.

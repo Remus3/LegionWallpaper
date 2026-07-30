@@ -128,6 +128,32 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-07-27 (loop cycle 11) - the alpha drop stops being silent
+
+Code slice, not docs. Detail: LEDGER 56, plan row R26, commit `ef67c49`
+(merge `191742a`). Four cycles of investigation produced a census; this ships
+the half of the fix that needs no policy call. `first_pass()` now emits
+`source_mode` + `alpha_flattened` in `upscale_audit` and
+`tools/lw_first_pass.py:537` carries both into the annotate payload.
+Two things a future session should not have to rediscover. (1) The mode is
+read off the EXISTING `_covers_target` probe and the read sits OUTSIDE that
+branch - all 46 refs took the downscale-only path, so a capture nested in the
+AI-upscale branch would have missed exactly the population that produced the
+finding. (2) `_has_alpha` fires on `"transparency" in img.info` as well as
+mode RGBA, because a palette `P` + `tRNS` source flattens identically and
+would otherwise self-report clean.
+The verifier did not eyeball the diff: it ran `first_pass()` in both trees on
+one synthetic source and diffed the audit JSON, so "no pre-existing key moved"
+is measured, not asserted. 814 passed / 11 skipped on main. The slice's single
+worktree failure was the known `core.hooksPath` artifact (passes in the main
+tree) - third cycle running that it appears, worth a permanent note.
+NEXT: the POLICY call per sub-shape is still open and is an operator ruling -
+A (crop / re-source / accept the bars), B (near-certainly accept-and-record, a
+1px perimeter has no composited consequence). The 15 already-processed refs
+predate the new field, so their audits stay silent; ROADMAP holds that record.
+
+---
+
 ## 2026-07-27 (loop cycle) - refs-46 first pass cycle 10 (FINAL)
 
 Docs-only (images are gitignored). Detail: LEDGER 55, plan row R25. The last
