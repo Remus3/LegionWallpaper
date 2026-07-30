@@ -63,6 +63,18 @@ jobs:
           # nightly installs the full runtime stack, the per-push check stays
           # minimal). The file also keys the setup-python pip cache.
           pip install -r requirements.txt
+      - name: arm the git-hook gate
+        run: |
+          # Same reason as the check job's copy of this step: core.hooksPath is
+          # LOCAL config and is never cloned, so the tracked .githooks gate is
+          # INERT on a fresh checkout. Without this the suite's own
+          # gate-is-active assertion fails on a correct tree - which is what
+          # turned the nightly RED for two consecutive nights while every push
+          # stayed green, because only the check job was armed when queue item
+          # (6) landed. tests/test_ci_gate_arming.py is what keeps the two jobs
+          # (and any third) in parity from here.
+          python tools/install_git_hooks.py
+          python tools/install_git_hooks.py --check
       - name: py_compile sweep
         run: |
           # Same sweep as the check job - see the comment there.
