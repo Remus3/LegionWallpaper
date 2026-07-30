@@ -11,6 +11,52 @@
 
 ---
 
+## 2026-07-30 (headless run) - the halo flags are our own sharpening; batch20 is at NEEDAUTH
+
+Detail: LEDGER 61. Suite 1093 -> **1169 passed / 16 skipped / 0 failed**, ruff
+clean, CI green on every push. HEAD `34634b8`. Four worktree slices, every one
+verifier-gated before merge; one was REFUTED and reworked rather than merged.
+
+- **OWED, and it is yours: 17 batch20 slugs sit at NEEDAUTH.** 10 PASS, 7 FLAG,
+  0 FAIL. Approve or reject via `lw_pipeline.py approve|reject <slug>` -
+  approval is operator-only by design. 3 more are HELD on `aspect_crop_heavy`
+  (~0.156 area loss vs the 0.08 cap): `puppet-master-syndra` and both
+  `spirit-blossom-vayne` slugs. Crop policy is product direction; NOT decided
+  unattended.
+- **Read this before you approve the 7 flagged ones.** All 7 flags are the same
+  reason - `halo_pct` over 0.05 - and the census says the mask we apply is what
+  makes it. Skip the USM: max `halo_pct` 0.1196 -> **0.0062**, 0 of 17 over the
+  line, so the upscaler is not the source and ADR-004 is not implicated. But
+  with no mask **6 of the 16 gated slugs fall through `lap_ratio`'s 1.0 HARD
+  FAIL floor**. usm35 clears every halo flag with the weakest gated `lap_ratio`
+  at 1.1399; usm50 leaves 2. Nothing was changed - see ROADMAP
+  `usm-halo-calibration`, evidence `docs/USM_HALO_CENSUS_2026-07-30.md`.
+- **Do NOT pick a USM percent or a threshold on the halo numbers alone.** The
+  census deliberately did not recompute ms_ssim/lpips/dists per variant, so the
+  fidelity cost of a milder mask is UNMEASURED. Measuring that is the next
+  cheap slice, and it is what makes the decision safe. A one-axis threshold pick
+  is what got the anatomy gate rejected on 2026-07-29.
+- **A ROADMAP premise was wrong and is now corrected.** `parse_artist` did not
+  capture `wallpaperart` for a hyphenated DeviantArt username - it returned
+  `None`; the character class cannot cross an underscore. One root cause, not
+  two. A non-200 oEmbed is now `inconclusive`, never `dead`.
+- **A verifier stopped a false claim from merging.** The first-pass slice
+  asserted single-extension dirs keep the old `sorted()[0]` winner; they do not
+  when names differ in case. Behavior was fine, the claim was untested. An
+  unasserted claim is not a green slice.
+- Approvals now record `gate_check` as `pass` / `override` / `no_audit`, so an
+  approval over a FAIL is greppable. The 12 legacy manifests were NOT
+  backfilled - mutating approved data is your call.
+- Closed with no commit: `.venv-gen` had no `pytest`, so the anatomy probe's
+  capability-gated real-model test could never run. Installed; 51 pass there.
+
+**Do-not-redo:** `original: true` on DeviantArt (weekly quota); re-intaking a
+fetched fullview through `0.Originals`; proposing a halo threshold or USM
+percent as final on the halo axis alone; a different upscaler model (ADR-004 is
+settled and the census exonerates it).
+
+---
+
 ## 2026-07-29 (headless run) - nightly red fixed; the anatomy gate MEASURED AND REJECTED
 
 Detail: LEDGER 60. Suite 835 -> **1093 passed / 16 skipped / 0 failed**, ruff
@@ -99,28 +145,3 @@ drift gate 0, CI success on the full head sha.
   unaffected); `lw_first_pass.find_fetched_fullview` globs `.jpg` only so a PNG
   intermediary is skipped (cost zero this batch). Both have ROADMAP items.
 - `style.jpg` + `style2.jpg` now tracked (lw-gen style refs, repo root).
-
----
-
-## 2026-07-27 (session end) - 46 approved, and the ruling I failed to surface
-
-Detail: LEDGER 58. Suite 831 passed / 14 skipped, drift gate 0, CI green.
-
-- **refs-46-first-pass is CLOSED.** All 46 approved on operator instruction.
-  `1.First Pass Scratch` EMPTY; `2.First Pass Done` = 288 slugs / 288
-  `_firstdone.png`. Verified on the filesystem + a rebuilt scan, not the tally.
-  One slug dry-run and approved alone before the other 45, because approval has
-  no reverse command.
-- **READ THIS BEFORE STAGE 2.** ROADMAP said `first-pass-alpha-letterbox` should
-  be ruled on BEFORE approval - 15 of the 46 silently lose an alpha channel -
-  and I did not surface it. I raised a different caveat (pixel-identical
-  passthrough) whose evidence was sha256 over decoded RGB buffers, which is
-  structurally blind to an alpha drop. Nothing is lost: `_firstinitial` is
-  preserved RGBA beside the RGB `_firstdone` (verified via the PNG IHDR
-  colour-type byte on `258-cleanup`) plus a copy in `9.Image Backup`. But the
-  ruling is now post-approval, so acting on it needs the reopen dance.
-- **NEXT SESSION: stage-2 cleaning (operator direction).** Rule on the alpha
-  question FIRST - cleaning writes on top of `_firstdone`, so a later "keep the
-  alpha" decision would mean redoing cleaning as well as first pass for those 15.
-- Cleaning entry point is `.claude/commands/cleaning-pass.md`; the lane split and
-  do-not-redo set are in `iopaint-batch-drain` in ROADMAP.

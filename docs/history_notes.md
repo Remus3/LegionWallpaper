@@ -128,6 +128,31 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-07-27 (session end) - 46 approved, and the ruling I failed to surface
+
+Detail: LEDGER 58. Suite 831 passed / 14 skipped, drift gate 0, CI green.
+
+- **refs-46-first-pass is CLOSED.** All 46 approved on operator instruction.
+  `1.First Pass Scratch` EMPTY; `2.First Pass Done` = 288 slugs / 288
+  `_firstdone.png`. Verified on the filesystem + a rebuilt scan, not the tally.
+  One slug dry-run and approved alone before the other 45, because approval has
+  no reverse command.
+- **READ THIS BEFORE STAGE 2.** ROADMAP said `first-pass-alpha-letterbox` should
+  be ruled on BEFORE approval - 15 of the 46 silently lose an alpha channel -
+  and I did not surface it. I raised a different caveat (pixel-identical
+  passthrough) whose evidence was sha256 over decoded RGB buffers, which is
+  structurally blind to an alpha drop. Nothing is lost: `_firstinitial` is
+  preserved RGBA beside the RGB `_firstdone` (verified via the PNG IHDR
+  colour-type byte on `258-cleanup`) plus a copy in `9.Image Backup`. But the
+  ruling is now post-approval, so acting on it needs the reopen dance.
+- **NEXT SESSION: stage-2 cleaning (operator direction).** Rule on the alpha
+  question FIRST - cleaning writes on top of `_firstdone`, so a later "keep the
+  alpha" decision would mean redoing cleaning as well as first pass for those 15.
+- Cleaning entry point is `.claude/commands/cleaning-pass.md`; the lane split and
+  do-not-redo set are in `iopaint-batch-drain` in ROADMAP.
+
+---
+
 ## 2026-07-27 (post-loop) - the two filed items, shipped on operator call
 
 Commits `6c0423c` + `711f5f9`. Detail: LEDGER 57. Both CI green (evaluated, by

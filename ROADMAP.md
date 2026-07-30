@@ -8,6 +8,28 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
+- **usm-halo-calibration - our own unsharp mask manufactures every halo flag,
+  and turning it down trades 7 soft flags for 6 hard fails - OPERATOR-GATED.**
+  Next: operator picks the axis - re-seed the halo threshold for the
+  IllustrationJaNai path (its own comment at `tools/lw_g1_gate.py:31-34` says
+  the 0.05 seed is an n=10 realesrgan/USM70 number owed recalibration), or
+  soften `USM_DEFAULT` percent, or accept the flags. Measured over all 17 gated
+  slugs of batch20 (7 flagged + 10 controls, nothing inferred): condition A
+  reproduces every recorded manifest `halo_pct` to 4dp, so the probe measures
+  the real pipeline. Skip the USM and max `halo_pct` falls to 0.0062 with 0 of
+  17 over the line - the upscaler contributes almost none of it, so ADR-004 is
+  NOT implicated. But with no mask 6 of the 16 gated slugs fall through
+  `lap_ratio`'s 1.0 HARD FAIL floor. usm35 clears all halo flags with the
+  weakest gated `lap_ratio` at 1.1399; usm50 leaves 2 flagged.
+  Do-not-redo: proposing a final number on halo evidence alone - the census
+  deliberately did NOT recompute ms_ssim/lpips/dists per variant, so a milder
+  mask's fidelity cost is UNMEASURED, and a one-axis threshold pick is the
+  mistake that already got one gate rejected here. Measure fidelity per variant
+  first. Also settled by the census: `halo_pct` is monotone in USM percent on
+  every slug, so it reads as a strength dial, not a defect detector, and the
+  0.05 line cuts a continuum with no gap at it.
+  Evidence: `docs/USM_HALO_CENSUS_2026-07-30.md`; `tools/lw_usm_halo_probe.py`.
+
 - **g1-source-adequacy - G1 is blind to an inadequate SOURCE; 105 of 276 approved
   images came from one - OPERATOR-GATED on policy.**
   Next: operator answers two questions, then it is a small deterministic slice -
@@ -25,9 +47,11 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   Verified NOT a live bug (all 12 predate ADR-004; the current code path always
   writes the audit). NOT reprocessed unattended - `APPROVE_FIRST` is an operator
   judgement by design, so regenerating would park 10 images in your approval queue.
-  Also: 1 FAIL-verdict approval is indistinguishable from an approval over PASS; an
-  override should be recorded as an override.
-  Evidence: LEDGER 60; `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md` (slugs listed).
+  The CODE half is DONE 2026-07-30 (`94bea85`): approve and finalize now record
+  `gate_check` as `pass` / `override` / `no_audit`, so an override is greppable
+  and a legacy no-audit approval is its own outcome rather than passing for a
+  clean one. Only the DATA decision is still owed.
+  Evidence: LEDGER 60 + 61; `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md` (slugs listed).
 
 - **anat-vision-review - the anatomy percept needs a VISION reviewer, not keypoints
   - OPERATOR-GATED on product direction.**
@@ -41,8 +65,6 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   hips - a better pose model cannot find hips outside the crop); reading a DWPose
   figure count as a detection count (35 percent yield zero person boxes and
   `tools/dwpose_onnx/onnxpose.py:26` silently substitutes the whole frame).
-  Adjacent, cheap: `pytest` is absent from `.venv-gen`, so the probe's
-  capability-gated real-model test cannot execute today.
   Evidence: LEDGER 60; `docs/ANATOMY_CENSUS_2026-07-29.md`.
 
 - **m1-gate-fund-or-close - decide attempt #4 on the weapon-canonicity gate - OPERATOR-GATED.**
@@ -201,66 +223,31 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   the 112 recoverable ones later gets restored, REMOVE its raw `ref_*` copy
   from Pictures or rotation gains a near-duplicate.
 
-- **batch20-first-pass - 20 fresh originals intaken + Tier-1 recovered, awaiting
-  FIRST PASS - NEXT for this batch.**
-  Intaken 2026-07-29 on operator direction ("run 0.Originals"): 20 loose files
-  -> 20 slugs in `1.First Pass Scratch`, `0.Originals` empty, `anomalies=0`,
-  20 INTAKE + 20 ANNOTATE lines in `PIPELINE_LOG.md`.
-  Recovery waterfall RAN this time (unlike the 46 refs, where Tier 0/1/2 were
-  deliberately skipped): Tier 0 was `no_match` for all 20 against the 292-file
-  `reference_pictures` corpus, so every one is novel; Tier 1 decoded a DeviantArt
-  token for all 20 and gallery-dl fetched all 20 at the QUOTA-FREE setting
-  (`original: false`, `intermediary: true`, `quality: 100` - already in
-  `%APPDATA%\gallery-dl\config.json`). Tier 2 SauceNAO was never needed.
-  8 of 20 gained real pixels, best being `blood-moon-priestess-mel` at
-  1159x689 -> 1920x1142 (2.75x); the other 12 held their pixel count but shed
-  6-7x of JPEG compression, which is upscaler input quality either way. Fetches
-  are placed at the convention path `data\recovery\fetched\<slug>\deviantart\
-  <artist>\` that `lw_first_pass.find_fetched_fullview` reads, and each
-  manifest carries `source_url` plus a `recovery` block in its ANNOTATE
-  `transitions[i].audit`.
-  Next: `/first-pass` over the 20. Ahead of that, note 12 of them are 1024-1600px
-  wide, so this batch DOES exercise the AI upscaler - unlike the 46 refs, which
-  were all exactly 2560x1440 and took the passthrough branch. The
-  `first-pass-alpha-letterbox` field shipped in `ef67c49` means any flatten in
-  this batch self-reports.
-  Do-not-redo: `original: true` on DeviantArt (weekly download quota; the
-  intermediary path already measured a gain and costs no quota); re-intaking a
-  fetched fullview through `0.Originals` (re-slugging diverges the slug -
-  `lw_first_pass` selects the fetched file by convention path instead).
-  Evidence: `PIPELINE_LOG.md` 2026-07-30T01:52Z block; per-slug `recovery`
-  blocks in the 20 manifests.
-
-- **recover-parse-artist-underscore - `parse_artist` mis-parses a hyphenated
-  DeviantArt username - OPEN (found 2026-07-29, cheap).**
-  `tools/lw_recover.py:58` `_ARTIST_RE` assumes a DA username carries no
-  underscore, so for `viego__the_ruined_king_by_dada_wallpaperart_dmhz060-pre`
-  it captures `wallpaperart` instead of the real `DaDa-WallpaperArt`. The
-  canonical oEmbed URL is then built wrong and the deviation reads DEAD when it
-  is alive - measured on that exact file, and gallery-dl fetched it fine from
-  `/deviation/<id>` immediately afterwards. Same false-dead on
-  `di0tao3-964d7366-...` for the different reason that the `<token>-<uuid>` shape
-  carries no `_by_<artist>_` segment at all, so no canonical URL is buildable.
-  Impact is bounded: oEmbed is only a pre-check, the FETCH path does not use it,
-  so nothing was lost - but a false `dead` would wrongly send a slug down to
-  Tier 2 SauceNAO and burn quota it did not need to.
-  Next: DA usernames may contain hyphens, which DA's own export filenames render
-  as underscores, so the artist segment cannot be recovered unambiguously from
-  the filename alone. Prefer treating a non-200 oEmbed as INCONCLUSIVE rather
-  than `dead` and letting Tier 1's fetch decide, over guessing at
-  hyphen/underscore permutations. Add a regression test per shape.
-
-- **first-pass-fetched-glob-jpg-only - `find_fetched_fullview` misses a `.png`
-  Tier-1 fetch - OPEN (found 2026-07-29, cheap).**
-  `tools/lw_first_pass.py:151` globs `deviantart_*.jpg` only, so a deviation
-  whose intermediary file is a PNG is invisible to `select_source` and first pass
-  silently falls back to `_firstinitial`. Hit 3 of 20 in the batch20 intake
-  (`petals-of-spring-teemo`, `spirit-blossom-springs-katarina`, `di0tao3`).
-  Cost THIS batch is zero - all three fetched at exactly their intake size, so
-  the fallback is byte-for-byte as good - but the next PNG deviation that fetches
-  BIGGER would lose the gain with no tell in the audit.
-  Next: widen the glob to the decodable image extensions and assert the
-  selection in a test per extension; the `sorted()` determinism must survive.
+- **batch20-first-pass - FIRST PASS DONE 2026-07-30; 17 slugs sit at NEEDAUTH
+  awaiting operator approval, 3 are HELD.**
+  Next: operator approves or rejects the 17 (`lw_pipeline.py approve|reject`);
+  approval is operator-only by design. Result: 10 PASS, 7 FLAG, 0 FAIL, 3 HELD.
+  All 7 flags are the SAME reason - `halo_pct` over the 0.05 line, 0.0567 to
+  0.1196 - and that is now measured and explained, see `usm-halo-calibration`
+  at the top of this file. This batch DID exercise the AI upscaler (16 of 17
+  took `upscale-4x`), unlike the 46 refs which were all exactly 2560x1440 and
+  took the passthrough branch - which is exactly why this batch flags and that
+  one did not.
+  The 3 HELD are `puppet-master-syndra` and both `spirit-blossom-vayne` slugs,
+  all on `aspect_crop_heavy` (area loss ~0.156 vs the 0.08 `AREA_LOSS_MAX`
+  cap). They are annotated, never upscaled, and still EDITING. Crop policy is
+  product direction and was NOT decided unattended - that ruling is owed.
+  Intake + recovery ran 2026-07-29: Tier 0 `no_match` for all 20 (every one
+  novel), Tier 1 decoded a DeviantArt token for all 20 and gallery-dl fetched
+  all 20 at the quota-free setting. 8 of 20 gained real pixels, best
+  `blood-moon-priestess-mel` 1159x689 -> 1920x1142 (2.75x); the other 12 held
+  pixel count but shed 6-7x of JPEG compression.
+  Do-not-redo: `original: true` on DeviantArt (weekly quota; the intermediary
+  path already measured a gain and costs none); re-intaking a fetched fullview
+  through `0.Originals` (re-slugging diverges the slug - `lw_first_pass`
+  selects by convention path instead).
+  Evidence: `PIPELINE_LOG.md` 2026-07-30T12:0x-12:17Z block; per-slug audit at
+  `transitions[i].audit` for the ANNOTATE transition; LEDGER 61.
 
 - **first-pass-alpha-letterbox - first pass silently drops the alpha channel,
   and G1 is blind to it - OPEN (found cycle 7, LEDGER 52, plan row R22;

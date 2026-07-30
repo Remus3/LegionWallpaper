@@ -27,6 +27,65 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+61. DONE **2026-07-30 (headless run: two blind source-selection defects closed,
+    approval overrides recorded, batch20 first-passed, and the halo flags
+    finally explained; 0192010 ddfd50f 4c2e0d3 94bea85 5daa195 34634b8).**
+    Suite 1093 -> **1169 passed / 16 skipped / 0 failed**, ruff clean, CI green
+    on every push. Four worktree slices, each gated by an independent read-only
+    verifier before merge - one was REFUTED and reworked rather than merged.
+
+    - **The halo flags are OUR OWN sharpening, and the obvious fix is a trap.**
+      First pass over batch20 returned 7 FLAGs, every one on `halo_pct`. The
+      census measured all 17 gated slugs (7 flagged + 10 controls, nothing
+      inferred): skip the unsharp mask and max `halo_pct` falls from 0.1196 to
+      **0.0062**, 0 of 17 over the 0.05 line - so IllustrationJaNai contributes
+      almost none of it and ADR-004 is not implicated. BUT with no mask **6 of
+      the 16 gated slugs fall through `lap_ratio`'s 1.0 HARD FAIL floor**. The
+      census deliberately proposed NO final number: it never recomputed
+      ms_ssim/lpips/dists per variant, and picking a threshold on one axis is
+      the exact mistake that got the anatomy gate rejected the day before.
+      Condition A reproduced every recorded manifest `halo_pct` to 4dp on 17/17,
+      which is what makes the rest of the table trustworthy. New ROADMAP item
+      `usm-halo-calibration`, OPERATOR-GATED.
+    - **A verifier caught a false claim that would otherwise have merged.** The
+      first-pass slice asserted that single-extension directories keep the old
+      `sorted()[0]` winner. They do not, where names differ in case. The
+      behavior was deliberate and fine; the CLAIM was untested and wrong. Sent
+      back, pinned by a test, re-verified, then merged. **An unasserted claim is
+      not a green slice.**
+    - **A ROADMAP premise was disproven by measurement.** ROADMAP:236 said
+      `parse_artist` captured `wallpaperart` for a hyphenated DeviantArt
+      username. Run against main's original code it returned **`None`** - the
+      character class cannot cross an underscore. Both defect shapes therefore
+      failed through the identical path, making it ONE root cause, not two. The
+      verifier confirmed this independently against `main` rather than taking
+      either agent's word. A non-200 oEmbed is now `inconclusive`, never `dead`,
+      so a live deviation is no longer demoted to Tier 2 and charged quota.
+    - **Blind source selection cost real pixels silently.** `find_fetched_fullview`
+      globbed `deviantart_*.jpg` only, so a PNG Tier-1 fetch was invisible and
+      first pass fell back to `_firstinitial` with no tell. Live corpus sweep of
+      all 85 fetched slugs: 82 unchanged, **3 newly visible**, 0 changed winners
+      - and those 3 were in the batch that first-passed this same run.
+    - **An approval over a FAIL now looks different from an approval over a
+      PASS.** `gate_check` records `pass` / `override` / `no_audit`, covering
+      both `cmd_approve` and the `APPROVED_PENDING_MOVE` resume through their
+      single choke point, plus `cmd_finalize`. All 9 `add_transition` sites
+      swept; the 5 demotion/registration sites are argued N/A in the slice
+      report. No new refusal added - approval stays an operator judgement.
+      Follow-up caught by the verifier and fixed red-first: `finalize` silently
+      dropped an operator `--audit-json` key literally named `approval`.
+    - **Product throughput:** 17 of 20 batch20 slugs processed to NEEDAUTH
+      (10 PASS / 7 FLAG / 0 FAIL). 3 HELD on `aspect_crop_heavy` (~0.156 loss
+      vs the 0.08 cap); crop policy is product direction and was NOT decided
+      unattended.
+    - Closed with no commit: `.venv-gen` had no `pytest`, so the anatomy probe's
+      capability-gated real-model test could never execute. Installed; that file
+      runs 51 passed there.
+    - **NOT done, deliberately:** the 12 legacy manifests were not backfilled
+      (mutating approved data is an operator call, and the code now makes
+      `no_audit` a distinct outcome anyway); the 3 HELD slugs were not
+      unheld; no gate threshold or USM default was touched.
+
 60. DONE **2026-07-29 (headless run: nightly red fixed, gate blind spot measured
     and the anatomy gate REJECTED on evidence; `9fb57c1` `8d66439` + the S6/S4
     merges).** Operator note that opened the run: `fiora1_firstdone.png` - "the
