@@ -8,64 +8,41 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
-- **g1-source-adequacy - G1 cannot see an inadequate SOURCE, and 105 approved
+- **g1-source-adequacy - G1 is blind to an inadequate SOURCE; 105 of 276 approved
   images came from one - OPERATOR-GATED on policy.**
-  Next: operator decides the POLICY, then the precondition is a small
-  deterministic slice. G1 is a FIDELITY gate - `ms_ssim`, `lpips`, `dists`,
-  `lap_ratio`, `halo_pct`, `band_delta` all compare the output to ITS OWN SOURCE,
-  so a faithful upscale of an undersized source scores near 1.0 and PASSes.
-  Measured 2026-07-29: **105 of 276** approved firstdones were built from a source
-  below 2560x1440; worst is `image3` at 800x450, a **3.2x** blowup, verdict PASS.
-  The two questions are operator calls and were deliberately NOT guessed: (1) is a
-  2.5x upscale from 1024x576 acceptable? (2) does an inadequate source mean FLAG
-  (surface it) or FAIL (refuse it)? Guessing a threshold here would repeat exactly
-  the mistake the anatomy census caught the same day.
-  Cheap when the policy exists: `src_dims` is ALREADY recorded in every manifest's
-  `upscale_audit`, so the check needs no model, no new dependency and no pixels.
-  Do-not-redo: do NOT "fix" this by loosening or retuning the G1 fidelity metrics -
-  they are correct at their job; the gap is a MISSING ABSOLUTE precondition, not a
-  miscalibrated relative one.
+  Next: operator answers two questions, then it is a small deterministic slice -
+  (1) is a 2.5x upscale from 1024x576 acceptable? (2) inadequate source = FLAG or
+  FAIL? Deliberately NOT guessed; guessing repeats the mistake `anat-vision-review`
+  caught the same day. Cheap once decided - `src_dims` is already in every
+  manifest, so no model and no pixels needed.
+  Do-not-redo: do NOT retune the G1 fidelity metrics - they are correct at their
+  job; the gap is a MISSING ABSOLUTE precondition, not a miscalibrated relative one.
   Evidence: LEDGER 60; `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md`.
 
-- **legacy-audit-backfill - 12 approved images have no G1 audit, 10 built with the
-  FALLBACK upscaler - NEXT (backfill, not a code fix).**
-  Next: backfill or explicitly mark the 12 as pre-audit legacy, then decide on the
-  10 reprocesses. Verified NOT a live bug: all 12 date to 2026-07-04/05, predating
-  both ADR-004 and the `upscale_audit` block, and
-  `tools/lw_first_pass.py:process_slug` always writes the audit on the normal route
-  (only the `crop_heavy` HOLD path omits it, and a HELD slug never reaches
-  `2.First Pass Done`). Per this project's data-fix discipline, preventing future
-  gaps is not enough - the existing rows need correcting.
-  The sharper half: **10 of the 12** were upscaled with `realesrgan-x4plus-anime`,
-  the documented FALLBACK, while ADR-004 settled IllustrationJaNai V3 detail DAT2
-  as primary. They carry both defects at once - inferior upscaler AND no gate
-  record. Enumerated in the census doc. NOT reprocessed unattended: the final
-  `APPROVE_FIRST` is an operator judgement on image quality by design
-  (`actor=operator` in every manifest), so regenerating them would park 10 images
-  in the approval queue on the operator's behalf.
-  Also here: 1 FAIL-verdict approval
-  (`wallpapersden-com-elise-8k...`, `lpips 0.224447 > fail 0.2`) is currently
-  INDISTINGUISHABLE in the manifest from an approval over PASS. An override should
-  be recorded as an override.
-  Evidence: LEDGER 60; `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md`.
+- **legacy-audit-backfill - 12 approved images carry no G1 audit; 10 of them were
+  built with the FALLBACK upscaler - NEXT (backfill, not a code fix).**
+  Next: backfill or mark the 12 as pre-audit legacy, then decide the 10 reprocesses.
+  Verified NOT a live bug (all 12 predate ADR-004; the current code path always
+  writes the audit). NOT reprocessed unattended - `APPROVE_FIRST` is an operator
+  judgement by design, so regenerating would park 10 images in your approval queue.
+  Also: 1 FAIL-verdict approval is indistinguishable from an approval over PASS; an
+  override should be recorded as an override.
+  Evidence: LEDGER 60; `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md` (slugs listed).
 
 - **anat-vision-review - the anatomy percept needs a VISION reviewer, not keypoints
   - OPERATOR-GATED on product direction.**
   Next: operator decides whether a vision reviewer may FLAG only, or may REJECT.
   Keypoint head-spine offset was built, measured over all 288 approved firstdones,
-  and REJECTED as a gate on evidence - it ships as a diagnostic only
-  (`tools/lw_anat_metrics.py` + `tools/lw_anat_probe.py`). The operator's complaint
-  is a perceptual judgement, so the right mechanism is the Claude-vision 2AFC path
-  the `end-review` skill already uses. Not built blind during an unattended run:
-  deciding what is allowed to REJECT an image is a product-direction call.
-  Do-not-redo: keypoint head-spine offset as a G1/G2 gate metric; swapping the
-  localizer to rescue it (the binding constraint is that splash art is cropped at
-  the waist, so 157-159 of 173 unmeasurable images have no confident hips - a better
-  pose model cannot find hips outside the crop); reading a DWPose figure count as a
-  detection count (`yolox_l` finds zero person boxes on 35 percent of the corpus and
+  and REJECTED as a gate on the evidence; it ships as a diagnostic only
+  (`tools/lw_anat_metrics.py` + `tools/lw_anat_probe.py`). The right mechanism is
+  the Claude-vision 2AFC path `end-review` already uses.
+  Do-not-redo: keypoint head-spine offset as a gate metric; swapping the localizer
+  to rescue it (splash art is cropped at the waist, so most images have no confident
+  hips - a better pose model cannot find hips outside the crop); reading a DWPose
+  figure count as a detection count (35 percent yield zero person boxes and
   `tools/dwpose_onnx/onnxpose.py:26` silently substitutes the whole frame).
   Adjacent, cheap: `pytest` is absent from `.venv-gen`, so the probe's
-  capability-gated real-model test can never execute today.
+  capability-gated real-model test cannot execute today.
   Evidence: LEDGER 60; `docs/ANATOMY_CENSUS_2026-07-29.md`.
 
 - **m1-gate-fund-or-close - decide attempt #4 on the weapon-canonicity gate - OPERATOR-GATED.**
