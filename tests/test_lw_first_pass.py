@@ -280,6 +280,29 @@ def test_find_fetched_fullview_mixed_ext_tie_break_is_deterministic(
     assert Path(picks.pop()).name == "deviantart_55_Title.png"
 
 
+def test_find_fetched_fullview_same_ext_mixed_case_folds_case(tmp_path: Path):
+    """One extension, mixed-case names: the case-FOLDED name orders first.
+
+    This pins a deliberate behavior CHANGE, so it is asserted rather than
+    assumed: the old resolver was a raw sorted()[0], which is byte-ordered and
+    puts every upper-case initial ahead of every lower-case one, so it picked
+    deviantart_Bravo.jpg here. _fullview_sort_key folds case first, so
+    deviantart_alpha.jpg wins instead. A single-extension directory therefore
+    matches the old outcome only when its names share a case.
+    """
+    slug = "mixed-case-pre"
+    fetched_root = tmp_path / "fetched"
+    for name in ("deviantart_Bravo.jpg", "deviantart_alpha.jpg"):
+        _write_fetched(fetched_root, slug, name)
+
+    picks = {fp.find_fetched_fullview(slug, fetched_root) for _ in range(5)}
+    assert len(picks) == 1, "mixed-case resolution must not drift between runs"
+    chosen = Path(picks.pop()).name
+    assert chosen == "deviantart_alpha.jpg"
+    # Guard the intent, not just the letter: byte order would have said Bravo.
+    assert chosen != "deviantart_Bravo.jpg"
+
+
 def test_find_fetched_fullview_ignores_non_image_sidecars(tmp_path: Path):
     """gallery-dl metadata sidecars share the prefix but are not decodable."""
     slug = "sidecar-pre"
