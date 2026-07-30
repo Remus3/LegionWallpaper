@@ -9,6 +9,7 @@ separately by a hermetic 2-cycle dry run diffed before/after
 from __future__ import annotations
 
 import importlib.util
+import os
 import re
 import sys
 from pathlib import Path
@@ -285,6 +286,156 @@ def test_gate_reason_reports_a_repo_with_no_hookspath(tmp_path: Path):
 def test_gate_reason_stays_silent_when_the_repo_has_no_installer(tmp_path: Path):
     """Do not invent a blocker for a tree that never had this tooling."""
     assert executor.gate_inactive_reason(tmp_path) is None
+
+
+# ---- gate preflight in a LINKED WORKTREE ----------------------------------
+# `core.hooksPath` is REPO-level config, so every linked worktree inherits the
+# main checkout's ABSOLUTE `.githooks` path. That path is the real tracked gate
+# and hooks DO fire for a commit made from a worktree, but the checker used to
+# compare it against the WORKTREE's own `.githooks` and cried INERT in every
+# one of them. This repo runs many parallel worktree agents; a safety check
+# that cries wolf every time trains them to dismiss a red gate.
+#
+# These build a real repo and a real `git worktree add` rather than mocking,
+# because the whole defect lived in git's own worktree config semantics.
+
+def _git_in(repo: Path, *args: str):
+    import subprocess
+    return subprocess.run(["git", "-C", str(repo), *args],
+                          capture_output=True, text=True, errors="replace")
+
+
+@pytest.fixture()
+def worktree_pair(tmp_path: Path):
+    """(main checkout, linked worktree) shaped exactly like LW.
+
+    The throwaway repo carries its own copy of the installer because
+    `gate_inactive_reason` returns None for any tree that lacks one - without
+    this the worktree assertions would pass vacuously.
+    """
+    import shutil
+
+    main = tmp_path / "main"
+    (main / ".githooks").mkdir(parents=True)
+    (main / "tools").mkdir()
+    for name in ("pre-commit", "commit-msg"):
+        dst = main / ".githooks" / name
+        dst.write_text((ROOT / ".githooks" / name).read_text(encoding="utf-8"),
+                       encoding="utf-8", newline="\n")
+        os.chmod(dst, 0o755)  # git checks these out 0755 and SKIPS non-exec hooks
+    for tool in ("install_git_hooks.py", "precommit_gate.py",
+                 "precommit_msg_check.py"):
+        src = ROOT / "tools" / tool
+        if src.is_file():
+            shutil.copyfile(src, main / "tools" / tool)
+
+    _git_in(main, "init", "-q", ".")
+    _git_in(main, "config", "user.email", "t@example.com")
+    _git_in(main, "config", "user.name", "t")
+    _git_in(main, "add", "-A")
+    # hooksPath is still unset here, so no hook fires on this bootstrap commit.
+    if _git_in(main, "commit", "-q", "-m", "init tracked gate").returncode != 0:
+        pytest.skip("git commit unavailable in this environment")
+
+    # Mirror LW exactly: an ABSOLUTE path to the main checkout's tracked dir.
+    _git_in(main, "config", "core.hooksPath", str(main / ".githooks"))
+
+    wt = tmp_path / "wt"
+    if _git_in(main, "worktree", "add", "-q", "-b", "s6wt", str(wt)).returncode != 0:
+        pytest.skip("git worktree unavailable in this environment")
+    if not (wt / ".githooks" / "pre-commit").is_file():
+        pytest.skip("worktree checkout incomplete in this environment")
+    return main, wt
+
+
+def test_gate_reason_is_none_in_the_main_checkout_of_the_pair(worktree_pair):
+    """Anchors the fixture: the gate really is armed before worktrees enter."""
+    main, _ = worktree_pair
+    assert executor.gate_inactive_reason(main) is None
+
+
+def test_gate_reason_is_none_in_a_linked_worktree(worktree_pair):
+    """THE S6 regression: an absolute hooksPath into the SHARED checkout's
+    tracked .githooks is ARMED - hooks fire for commits made from here."""
+    _, wt = worktree_pair
+    assert executor.gate_inactive_reason(wt) is None
+
+
+def test_worktree_gate_is_inert_when_hookspath_is_unset(worktree_pair):
+    """TRUE NEGATIVE: git falls back to .git/hooks and the tracked gate is dead.
+    The worktree fix must not blanket-approve worktrees."""
+    main, wt = worktree_pair
+    _git_in(main, "config", "--unset", "core.hooksPath")
+    reason = executor.gate_inactive_reason(wt)
+    assert reason, "an unset hooksPath in a worktree is genuinely INERT"
+    assert "hooksPath" in reason
+
+
+def test_worktree_gate_is_inert_when_hookspath_is_an_unrelated_dir(worktree_pair,
+                                                                  tmp_path: Path):
+    """TRUE NEGATIVE: a real directory holding real hook files is still INERT
+    when it is not this repo's tracked .githooks."""
+    main, wt = worktree_pair
+    rogue = tmp_path / "rogue"
+    rogue.mkdir()
+    for name in ("pre-commit", "commit-msg"):
+        (rogue / name).write_text((ROOT / ".githooks" / name).read_text(
+            encoding="utf-8"), encoding="utf-8", newline="\n")
+    _git_in(main, "config", "core.hooksPath", str(rogue))
+    reason = executor.gate_inactive_reason(wt)
+    assert reason, "hooks outside the tracked .githooks are not this repo's gate"
+    assert "hooksPath" in reason
+
+
+def test_worktree_gate_is_inert_when_a_hook_file_is_missing(worktree_pair):
+    """TRUE NEGATIVE: the hook git would actually execute is gone.
+
+    Deleted from the ACTIVE dir, which an absolute core.hooksPath makes the MAIN
+    checkout's - that is the copy git runs for a commit made from the worktree,
+    proven by test_a_worktree_commit_is_really_blocked_by_the_shared_hooks.
+    """
+    main, wt = worktree_pair
+    (main / ".githooks" / "commit-msg").unlink()
+    reason = executor.gate_inactive_reason(wt)
+    assert reason, "the checker must follow the hooks git runs, not a local copy"
+    assert "MISSING" in reason
+
+
+def test_worktree_gate_is_inert_when_a_hook_is_a_silent_noop(worktree_pair):
+    """TRUE NEGATIVE: the 2026-07-26 defect - present, tracked, executable,
+    ran on every commit, gated nothing because the arg was missing."""
+    main, wt = worktree_pair
+    h = main / ".githooks" / "pre-commit"
+    h.write_text(h.read_text(encoding="utf-8").replace(
+        'precommit_gate.py" --git-hook', 'precommit_gate.py"'),
+        encoding="utf-8", newline="\n")
+    reason = executor.gate_inactive_reason(wt)
+    assert reason
+    assert "no-op" in reason
+
+
+@pytest.mark.skipif(os.name == "nt",
+                    reason="Windows has no exec bit; git never skips on it")
+def test_worktree_gate_is_inert_when_a_hook_is_not_executable(worktree_pair):
+    """TRUE NEGATIVE: git SILENTLY skips a non-executable hook on POSIX, so a
+    0644 hook is a dead gate that reads as installed."""
+    main, wt = worktree_pair
+    os.chmod(main / ".githooks" / "pre-commit", 0o644)
+    reason = executor.gate_inactive_reason(wt)
+    assert reason
+    assert "executable" in reason
+
+
+def test_a_worktree_commit_is_really_blocked_by_the_shared_hooks(worktree_pair):
+    """The load-bearing proof that the old red was a FALSE negative: a commit
+    made from the linked worktree is genuinely gated. If this ever fails the
+    worktree-armed verdict above becomes a lie and the fix is a rubber stamp."""
+    _, wt = worktree_pair
+    (wt / "doc.md").write_text(f"body glyph {chr(0x2014)}\n", encoding="utf-8")
+    _git_in(wt, "add", "doc.md")
+    r = _git_in(wt, "commit", "-m", "docs: clean ascii subject")
+    assert r.returncode != 0, "hooks must fire for a commit made from a worktree"
+    assert "glyph" in (r.stdout + r.stderr).lower()
 
 
 # ---- AhkExecutor.run ------------------------------------------------------
