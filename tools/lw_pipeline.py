@@ -950,6 +950,50 @@ def _gc_prior_done(ctx, ops, slug, prior_folder, current_folder):
     return True
 
 
+def _latest_gate_audit(man, stage):
+    """The most recent gate verdict recorded for `stage`'s milestone, or None.
+
+    Gate verdicts ride in an ANNOTATE transition's `audit` slot (cmd_annotate),
+    never at manifest top level. The scan stops at the transition that OPENED
+    this milestone so a verdict earned by an earlier stage can never be
+    misreported as this stage's.
+    """
+    entry_op = "INTAKE" if stage == "first" else START_OP[stage]
+    for t in reversed(man.get("transitions", [])):
+        if t.get("op") == entry_op:
+            break
+        audit = t.get("audit")
+        if isinstance(audit, dict) and "verdict" in audit:
+            return audit
+    return None
+
+
+def _approval_record(man, stage):
+    """The honest gate record for a promotion out of `stage`.
+
+    Approving over a FAIL stays ALLOWED - it is an operator judgement, and
+    refusing it would wedge the operator's own workflow. What must never happen
+    is that override looking identical to an approval over a clean PASS, so the
+    three outcomes are written distinctly and greppably: an approval over a
+    clean pass, an override, and no verdict on record at all (the legacy
+    pre-audit case, which is NOT the same claim as "it passed").
+    """
+    audit = _latest_gate_audit(man, stage)
+    if audit is None:
+        return {"gate_check": "no_audit", "override": False, "gate": None,
+                "verdict": None, "reasons": []}
+    verdict = audit.get("verdict")
+    reasons = list(audit.get("reasons") or [])
+    clean = verdict == "PASS" and not reasons
+    return {
+        "gate_check": "pass" if clean else "override",
+        "override": not clean,
+        "gate": audit.get("gate"),
+        "verdict": verdict,
+        "reasons": reasons,
+    }
+
+
 def _complete_approve(ctx, ops, slug, stage, folder, done_src_name, force,
                       op_name=None):
     done_dir = ctx.root / DONE_DIR[stage] / slug
@@ -972,7 +1016,8 @@ def _complete_approve(ctx, ops, slug, stage, folder, done_src_name, force,
         add_transition(man, op_name or APPROVE_OP[stage],
                        src=f"{SCRATCH_DIR[stage]}/{slug}/{done_src_name}",
                        dst=f"{DONE_DIR[stage]}/{slug}/{done_name}",
-                       sha_in=sha_done, sha_out=sha_done)
+                       sha_in=sha_done, sha_out=sha_done,
+                       audit={"approval": _approval_record(man, stage)})
         ops.write_json(done_dir / "manifest.json", man)
     _gc_folder(ctx, ops, folder, force=force)
     if stage != "first":
@@ -1096,10 +1141,20 @@ def cmd_finalize(ctx, slug, deliver_dir, sequential, audit_json):
         if man is not None:
             if delivered:
                 man["delivered_as"] = delivered
+            # finalize promotes out of End Review, so it carries the same
+            # override risk as approve; the supplied end-review audit rides
+            # alongside the record rather than being replaced by it.
+            if isinstance(audit, dict):
+                final_audit = dict(audit)
+            elif audit is None:
+                final_audit = {}
+            else:
+                final_audit = {"end_review": audit}
+            final_audit["approval"] = _approval_record(man, "last")
             add_transition(man, "FINALIZE",
                            src="{}/{}/{}".format(DONE_DIR["last"], slug, lastdone.name),
                            dst=f"{BACKUP}/{slug}/{lastdone.name}",
-                           sha_in=sha, sha_out=sha, audit=audit,
+                           sha_in=sha, sha_out=sha, audit=final_audit,
                            note=(f"delivered as {delivered}") if delivered else None)
             ops.write_json(backup / "manifest.json", man)
         # operator correction: verify every milestone landed in 9, then delete 8

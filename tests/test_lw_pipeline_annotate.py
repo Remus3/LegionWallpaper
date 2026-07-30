@@ -13,6 +13,7 @@ CLAUDE.md TDD.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -43,6 +44,11 @@ def root(tmp_path: Path) -> Path:
         d.mkdir(parents=True)
         (d / ".gitkeep").write_text("")
     return r
+
+
+@pytest.fixture(autouse=True)
+def _fast_gate(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(lw, "PROBE_SECONDS", 0.0)
 
 
 def run(root: Path, *args: str) -> int:
@@ -190,3 +196,167 @@ def test_annotate_dry_run_does_not_modify_manifest(root: Path, capsys):
     assert after == before
     out = capsys.readouterr().out
     assert "DRY-RUN" in out
+
+
+# ------------------------------------------------- approval over a gate verdict
+#
+# ROADMAP legacy-audit-backfill (code half): an approval over a FAIL verdict was
+# byte-identical in the manifest to an approval over a clean PASS, so the audit
+# trail could not answer "was this approved despite its own gate saying no?".
+# Approve is still ALLOWED to override - it is an operator judgement - but the
+# record must name the override. Three outcomes must stay distinguishable:
+# clean pass, override, and no-audit-recorded (the legacy pre-audit case).
+
+PASS_AUDIT = {"gate": "G1", "verdict": "PASS", "reasons": []}
+FAIL_AUDIT = {"gate": "G1", "verdict": "FAIL",
+              "reasons": ["msssim 0.81 < fail 0.90"]}
+FLAG_AUDIT = {"gate": "G1", "verdict": "FLAG",
+              "reasons": ["halo_pct 0.0711 > flag 0.05"]}
+
+
+def _drop(root: Path, name: str, content: bytes = b"fake-image-bytes") -> Path:
+    p = root / "0.Originals" / name
+    p.write_bytes(content)
+    old = p.stat().st_mtime - 120
+    os.utime(p, (old, old))
+    return p
+
+
+def _submit_stage(root: Path, tmp_path: Path, slug: str, stage: str) -> None:
+    src = tmp_path / f"{slug}-{stage}.png"
+    src.write_bytes(b"edited-" + stage.encode())
+    assert run(root, "save-working", slug, "--from", str(src)) == 0
+    assert run(root, "submit", slug) == 0
+
+
+def _needauth_in_first(root: Path, tmp_path: Path, slug: str = "ahri") -> Path:
+    _drop(root, f"{slug}.png", b"orig-" + slug.encode())
+    assert run(root, "intake", "--all") == 0
+    _submit_stage(root, tmp_path, slug, "first")
+    return root / "1.First Pass Scratch" / slug
+
+
+def _gate(root: Path, slug: str, audit: dict) -> None:
+    """Record a gate verdict the way tools/lw_first_pass.py does."""
+    assert run(root, "annotate", slug, "--metrics", json.dumps(audit),
+               "--tool", "g1gate") == 0
+
+
+def _approval(folder: Path, op: str) -> dict:
+    """The `approval` record on the newest transition named `op`."""
+    for t in reversed(_manifest(folder)["transitions"]):
+        if t["op"] == op:
+            return (t.get("audit") or {}).get("approval")
+    raise AssertionError(f"no {op} transition under {folder}")
+
+
+def test_approve_over_clean_pass_records_a_clean_pass(root: Path, tmp_path: Path):
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", PASS_AUDIT)
+    assert run(root, "approve", "ahri") == 0
+    assert _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST") == {
+        "gate_check": "pass", "override": False, "gate": "G1",
+        "verdict": "PASS", "reasons": [],
+    }
+
+
+def test_approve_over_fail_records_the_override(root: Path, tmp_path: Path):
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", FAIL_AUDIT)
+    assert run(root, "approve", "ahri") == 0  # still allowed, by design
+    assert _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST") == {
+        "gate_check": "override", "override": True, "gate": "G1",
+        "verdict": "FAIL", "reasons": ["msssim 0.81 < fail 0.90"],
+    }
+
+
+def test_approve_over_flag_with_reasons_records_the_override(
+        root: Path, tmp_path: Path):
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", FLAG_AUDIT)
+    assert run(root, "approve", "ahri") == 0
+    rec = _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST")
+    assert rec["gate_check"] == "override"
+    assert rec["override"] is True
+    assert rec["verdict"] == "FLAG"
+    assert rec["reasons"] == ["halo_pct 0.0711 > flag 0.05"]
+
+
+def test_approve_with_no_audit_is_its_own_outcome(root: Path, tmp_path: Path):
+    """Legacy pre-audit approvals must not read as 'passed the gate'."""
+    _needauth_in_first(root, tmp_path)
+    assert run(root, "approve", "ahri") == 0
+    assert _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST") == {
+        "gate_check": "no_audit", "override": False, "gate": None,
+        "verdict": None, "reasons": [],
+    }
+
+
+def test_approve_uses_the_most_recent_verdict(root: Path, tmp_path: Path):
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", PASS_AUDIT)
+    _gate(root, "ahri", FAIL_AUDIT)  # a re-run downgraded it
+    assert run(root, "approve", "ahri") == 0
+    rec = _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST")
+    assert rec["gate_check"] == "override"
+    assert rec["verdict"] == "FAIL"
+
+
+def test_approve_ignores_a_verdict_from_an_earlier_milestone(
+        root: Path, tmp_path: Path):
+    """A first-pass FAIL must not be re-reported against the cleaning approval."""
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", FAIL_AUDIT)
+    assert run(root, "approve", "ahri") == 0
+    assert run(root, "start-stage", "ahri") == 0
+    _submit_stage(root, tmp_path, "ahri", "clean")
+    assert run(root, "approve", "ahri") == 0
+    rec = _approval(root / "4.Cleaning Done" / "ahri", "APPROVE_CLEAN")
+    assert rec["gate_check"] == "no_audit"
+    assert rec["verdict"] is None
+
+
+def test_resumed_approval_records_the_override_too(root: Path, tmp_path: Path):
+    """APPROVED_PENDING_MOVE recovery is an approval completing - same record."""
+    scratch = _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", FAIL_AUDIT)
+    # crash right after approve step 1 (needauth renamed to done, no move yet)
+    (scratch / "ahri_firstneedauth.png").rename(scratch / "ahri_firstdone.png")
+    assert run(root, "scan", "--fix-resumable") == 0
+    rec = _approval(root / "2.First Pass Done" / "ahri", "RECOVER")
+    assert rec["gate_check"] == "override"
+    assert rec["verdict"] == "FAIL"
+
+
+def _walk_to_end_review(root: Path, tmp_path: Path, last_audit=None,
+                        slug: str = "ahri") -> None:
+    _drop(root, f"{slug}.png", b"orig-" + slug.encode())
+    assert run(root, "intake", "--all") == 0
+    for stage in ("first", "clean", "final", "last"):
+        if stage != "first":
+            assert run(root, "start-stage", slug) == 0
+        _submit_stage(root, tmp_path, slug, stage)
+        if stage == "last" and last_audit is not None:
+            _gate(root, slug, last_audit)
+        assert run(root, "approve", slug) == 0
+
+
+def test_finalize_over_fail_records_the_override(root: Path, tmp_path: Path):
+    _walk_to_end_review(root, tmp_path, last_audit=FAIL_AUDIT)
+    assert run(root, "finalize", "ahri") == 0
+    rec = _approval(root / "9.Image Backup" / "ahri", "FINALIZE")
+    assert rec["gate_check"] == "override"
+    assert rec["verdict"] == "FAIL"
+
+
+def test_finalize_keeps_the_supplied_audit_json_alongside_the_record(
+        root: Path, tmp_path: Path):
+    _walk_to_end_review(root, tmp_path, last_audit=PASS_AUDIT)
+    ajson = tmp_path / "end_review.json"
+    ajson.write_text(json.dumps({"vision_2afc": "win"}), encoding="utf-8")
+    assert run(root, "finalize", "ahri", "--audit-json", str(ajson)) == 0
+    backup = root / "9.Image Backup" / "ahri"
+    audit = [t for t in _manifest(backup)["transitions"]
+             if t["op"] == "FINALIZE"][-1]["audit"]
+    assert audit["vision_2afc"] == "win"
+    assert audit["approval"]["gate_check"] == "pass"
