@@ -26,6 +26,11 @@ TWO FALSE-GREEN TRAPS THIS TOOL EXISTS TO CATCH, both measured on LW the same da
 Hook bodies live in the tracked `.githooks/` and arrive with any clone. The only
 per-clone step is `core.hooksPath`, which is local config and cannot be tracked.
 
+That config is REPO-level, so it is shared with every linked worktree and holds
+the MAIN checkout's absolute `.githooks`. Resolving the tracked gate against the
+current working tree alone therefore reported a FALSE NEGATIVE in every worktree
+(2026-07-29) - see `tracked_hooks_dirs`.
+
 Usage:
   python tools/install_git_hooks.py            # set core.hooksPath, then verify
   python tools/install_git_hooks.py --check    # verify only; exit 1 on any gap
@@ -34,6 +39,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -56,39 +62,80 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
                           text=True, errors="replace", creationflags=NO_WINDOW)
 
 
+def _resolve(p: Path) -> Path:
+    try:
+        return p.resolve()
+    except OSError:
+        return p
+
+
+def common_git_dir(repo: Path) -> Path:
+    """The shared .git that owns every worktree - worktree-invariant."""
+    common = _git(repo, "rev-parse", "--git-common-dir").stdout.strip()
+    base = Path(common) if common else repo / ".git"
+    if not base.is_absolute():
+        base = repo / base
+    return base
+
+
 def effective_hooks_dir(repo: Path) -> Path:
     """What git ACTUALLY uses: core.hooksPath if set, else .git/hooks."""
     cfg = _git(repo, "config", "--get", "core.hooksPath").stdout.strip()
     if cfg:
         p = Path(cfg)
+        # A relative core.hooksPath is resolved by git against the top level of
+        # the working tree the hook runs in, so `repo` is the right base here.
         return p if p.is_absolute() else repo / p
-    common = _git(repo, "rev-parse", "--git-common-dir").stdout.strip()
-    base = Path(common) if common else repo / ".git"
-    if not base.is_absolute():
-        base = repo / base
-    return base / "hooks"
+    return common_git_dir(repo) / "hooks"
+
+
+def tracked_hooks_dirs(repo: Path) -> list[Path]:
+    """Every directory whose `.githooks` IS this repo's tracked gate.
+
+    Two of them, because `core.hooksPath` is REPO-level config shared with every
+    linked worktree. A worktree therefore inherits the MAIN checkout's absolute
+    `.githooks` while also checking out its own copy of the same tracked files -
+    both are the real gate and hooks fire either way. Comparing only against the
+    working tree reported every worktree INERT (measured 2026-07-29), and a
+    safety check that cries wolf in a repo full of parallel worktree agents
+    teaches them to dismiss a red gate, which is worse than no check at all.
+    """
+    out: list[Path] = []
+    for base in (repo, _resolve(common_git_dir(repo)).parent):
+        d = _resolve(base / HOOKS_DIRNAME)
+        if d not in out:
+            out.append(d)
+    return out
 
 
 def check(repo: Path) -> list[str]:
     """Return drift descriptions; empty means the gate is genuinely active."""
     problems: list[str] = []
-    want_dir = (repo / HOOKS_DIRNAME).resolve()
+    candidates = tracked_hooks_dirs(repo)
     active = effective_hooks_dir(repo)
-    try:
-        active_res = active.resolve()
-    except OSError:
-        active_res = active
+    active_res = _resolve(active)
+    armed = active_res in candidates
 
-    if active_res != want_dir:
+    if not armed:
         problems.append(
             f"core.hooksPath points at {active} - the tracked gate in "
             f"{HOOKS_DIRNAME} is INERT (git ignores it)")
 
+    # Inspect the directory git will actually run when it is a tracked one; only
+    # fall back to this tree's copy when the active dir is not the gate at all.
+    gate_dir = active_res if armed else candidates[0]
+
     for name, needle in REQUIRED.items():
-        f = want_dir / name
+        f = gate_dir / name
         if not f.is_file():
             problems.append(f"MISSING {HOOKS_DIRNAME}/{name}")
             continue
+        # git SILENTLY skips a hook without the exec bit, so a 0644 hook is a
+        # dead gate that reads as installed. No exec bit exists on Windows.
+        if os.name != "nt" and not os.access(f, os.X_OK):
+            problems.append(
+                f"{HOOKS_DIRNAME}/{name} is not executable - git skips it "
+                f"silently, so the gate is dead")
         body = f.read_text(encoding="utf-8", errors="replace")
         if needle not in body:
             problems.append(
@@ -98,12 +145,8 @@ def check(repo: Path) -> list[str]:
     # Shadowed leftovers: with core.hooksPath set, anything in .git/hooks is dead.
     # Silent, and exactly how a working hook gets disabled without a diff. RC's
     # .git/hooks carries a Share mirror sync, so this is a live risk there.
-    if active_res == want_dir:
-        common = _git(repo, "rev-parse", "--git-common-dir").stdout.strip()
-        legacy = (Path(common) if common else repo / ".git")
-        if not legacy.is_absolute():
-            legacy = repo / legacy
-        legacy = legacy / "hooks"
+    if armed:
+        legacy = common_git_dir(repo) / "hooks"
         if legacy.is_dir():
             stray = [p.name for p in legacy.iterdir()
                      if p.is_file() and not p.name.endswith(".sample")]
@@ -122,12 +165,10 @@ def main() -> int:
     repo = Path(a.repo).resolve()
 
     if not a.check:
-        active = effective_hooks_dir(repo)
-        try:
-            same = active.resolve() == (repo / HOOKS_DIRNAME).resolve()
-        except OSError:
-            same = False
-        if not same:
+        # Same defect class as check(): comparing against this working tree only
+        # made the installer rewrite core.hooksPath from inside a worktree, and
+        # that config is SHARED - it would mutate the main checkout's setting.
+        if _resolve(effective_hooks_dir(repo)) not in tracked_hooks_dirs(repo):
             _git(repo, "config", "core.hooksPath", HOOKS_DIRNAME)
             print(f"set core.hooksPath = {HOOKS_DIRNAME}")
 
