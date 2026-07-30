@@ -51,11 +51,25 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 # SOURCE_RECOVERY section 0 / 2.2.
 _TOKEN_RE = re.compile(r"(?:^|_)(d[0-9a-z]{6,8})-")
 
-# The DeviantArt artist username in a "*_by_<artist>_<token>-*" filename. DA
-# usernames are letters/digits/hyphens (no underscores), so the segment between
-# "_by_" and the "_<token>-" boundary is the username. Used to rebuild the
-# canonical /<artist>/art/<slug>-<id> oEmbed URL (see oembed_liveness).
-_ARTIST_RE = re.compile(r"_by_([a-z0-9][a-z0-9-]*)_d[0-9a-z]{6,8}-", re.IGNORECASE)
+# The whole "_by_<segment>_<token>-" run of a DeviantArt export filename. The
+# segment is captured lazily and RAW (underscores included) because DA renders a
+# hyphenated username with underscores - "DaDa-WallpaperArt" ships as
+# "dada_wallpaperart" - and the hyphen positions are unrecoverable from the
+# filename alone. artist_segment classifies the segment; it never guesses.
+_BY_SEGMENT_RE = re.compile(r"_by_(.+?)_d[0-9a-z]{6,8}-", re.IGNORECASE)
+
+# A segment that is a usable username: letters/digits/hyphens only. An
+# underscore anywhere means at least one character is an un-rendered hyphen, so
+# the true username is one of 2^n permutations - AMBIGUOUS, never guessed.
+_PLAIN_USERNAME_RE = re.compile(r"[a-z0-9][a-z0-9-]*\Z", re.IGNORECASE)
+
+# oEmbed verdicts. There is deliberately no "dead": the public endpoint cannot
+# distinguish a removed deviation from one whose canonical URL we could not
+# build, and a false "dead" wrongly demotes a slug to Tier 2 SauceNAO and burns
+# quota (ROADMAP recover-parse-artist-underscore).
+_VERDICT_ALIVE = "alive"
+_VERDICT_INCONCLUSIVE = "inconclusive"
+_VERDICT_NO_CANONICAL_URL = "no_canonical_url"
 
 # Public oEmbed + deviation endpoints (SOURCE_RECOVERY 2.2). oEmbed is a
 # metadata / liveness source over public http, NOT the download path.
@@ -226,17 +240,51 @@ def deviation_url(deviation_id: int) -> str:
     return _DEVIATION_URL.format(id=deviation_id)
 
 
-def parse_artist(name: str) -> Optional[str]:
-    """Extract the DeviantArt artist username from a *_by_<artist>_<token>-* name.
+def artist_segment(name: str) -> Dict[str, Optional[str]]:
+    """Classify the "_by_<segment>_" run of a DeviantArt export filename.
 
-    Returns the lowercased username, or None when the name has no "_by_<artist>_"
-    segment (e.g. a raw <token>-<uuid>.jpg CDN save). The username lets
-    oembed_liveness rebuild the canonical /<artist>/art/<slug>-<id> URL that the
-    public oEmbed endpoint now requires - the /deviation/<id> redirect form 404s
-    after the 2026 DeviantArt clampdown.
+    Returns {'status', 'raw', 'artist'} where status is one of:
+      'recovered' - the segment is a plain username; 'artist' carries it.
+      'ambiguous' - the segment holds an underscore, so it is a hyphenated
+                    username DA rendered with underscores ("DaDa-WallpaperArt"
+                    -> "dada_wallpaperart"). The hyphen positions are gone, so
+                    'artist' stays None: guessing a permutation is REJECTED.
+      'absent'    - no "_by_<segment>_<token>-" run at all (a raw
+                    <token>-<uuid> CDN save). No canonical URL is buildable.
+    Only 'recovered' yields a username, so no caller can build a canonical
+    oEmbed URL on a guess.
     """
-    m = _ARTIST_RE.search(name)
-    return m.group(1).lower() if m else None
+    m = _BY_SEGMENT_RE.search(name)
+    if not m:
+        return {"status": "absent", "raw": None, "artist": None}
+    raw = m.group(1).lower()
+    if _PLAIN_USERNAME_RE.fullmatch(raw):
+        return {"status": "recovered", "raw": raw, "artist": raw}
+    return {"status": "ambiguous", "raw": raw, "artist": None}
+
+
+def parse_artist(name: str) -> Optional[str]:
+    """The DeviantArt username from a *_by_<artist>_<token>-* name, or None.
+
+    None covers both "no _by_ segment" and "the segment is an un-round-trippable
+    hyphenated username" - call artist_segment when the caller needs to tell
+    those apart. The username lets oembed_liveness build the canonical
+    /<artist>/art/<slug>-<id> URL that the public oEmbed endpoint now requires;
+    the /deviation/<id> redirect form 404s after the 2026 DeviantArt clampdown.
+    """
+    return artist_segment(name)["artist"]
+
+
+def canonical_oembed_url(deviation_id: int, artist: Optional[str]) -> Optional[str]:
+    """The canonical /<artist>/art/<slug>-<id> URL, or None without an artist.
+
+    The title slug is ignored by the endpoint (it keys on artist + id), hence
+    the placeholder "x". None means "no canonical URL is buildable from this
+    filename" - a caller must report that, not substitute a form it knows 404s.
+    """
+    if not artist:
+        return None
+    return f"https://www.deviantart.com/{artist}/art/x-{deviation_id}"
 
 
 def oembed_liveness(
@@ -244,40 +292,57 @@ def oembed_liveness(
     http: Optional[Callable] = None,
     artist: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Public-oEmbed liveness + metadata check for a deviation (no API key).
+    """Public-oEmbed liveness + metadata probe for a deviation (no API key).
 
     SOURCE_RECOVERY 2.2: the public oEmbed endpoint returns title / author /
     dimensions for a live deviation. Used as a cheap "does this still exist /
     who made it" probe BEFORE spending a gallery-dl fetch. The http getter is
     injected (get(url) -> (status, text)); unit tests pass a fake so no real
-    request is made. A dead deviation (non-200) or any transport error returns
-    {'alive': False, ...} - never raises, never leaks a raw error string.
+    request is made. Never raises, never leaks a raw error string.
+
+    The probe is ONE-SIDED: a 200 proves the deviation is alive, but a non-200
+    proves nothing, because after the 2026 clampdown the endpoint only resolves
+    the canonical /<artist>/art/<slug>-<id> form and that form is unbuildable
+    whenever the filename's artist segment is ambiguous or absent. So the result
+    carries a 'verdict' of alive / inconclusive / no_canonical_url and NEVER
+    'dead' - a false dead demotes a live slug to Tier 2 and burns SauceNAO
+    quota (ROADMAP recover-parse-artist-underscore).
     """
     getter = http or _default_http
     dev_url = deviation_url(deviation_id)  # /deviation/<id> - resolvable provenance
-    # DeviantArt's public oEmbed now 404s on the /deviation/<id> redirect form
-    # (2026 clampdown) but resolves the canonical /<artist>/art/<slug>-<id> URL
-    # (the title slug is ignored - it keys on artist + id). Build the canonical
-    # form when the artist is known; without one, fall back to the legacy form
-    # (which reads dead, so the waterfall falls through to SauceNAO).
-    if artist:
-        query_target = f"https://www.deviantart.com/{artist}/art/x-{deviation_id}"
-    else:
-        query_target = dev_url
+    canonical = canonical_oembed_url(deviation_id, artist)
+    # Without a canonical URL the legacy /deviation/<id> form is the only target
+    # left; it is still worth one probe (a 200 is proof of life) but its failure
+    # is reported as no_canonical_url, never as evidence of death.
+    query_target = canonical or dev_url
     url = _OEMBED_URL.format(url=urllib.parse.quote(query_target, safe=""))
     try:
         status, text = getter(url, timeout=15.0)
     except Exception as exc:  # noqa: BLE001 - degrade, never surface raw error
-        return {"alive": False, "error": f"oembed request failed ({type(exc).__name__})"}
+        return {"alive": False, "verdict": _VERDICT_INCONCLUSIVE,
+                "reason": "oembed probe could not complete",
+                "error": f"oembed request failed ({type(exc).__name__})"}
 
     if status != 200:
-        return {"alive": False, "status_code": status}
+        if canonical is None:
+            return {"alive": False, "verdict": _VERDICT_NO_CANONICAL_URL,
+                    "status_code": status,
+                    "reason": "no usable _by_<artist>_ segment in the filename, "
+                              "so no canonical oEmbed URL is buildable - "
+                              "liveness is unknown, not dead"}
+        return {"alive": False, "verdict": _VERDICT_INCONCLUSIVE,
+                "status_code": status,
+                "reason": "oembed did not resolve the canonical URL - "
+                          "liveness is unknown, not dead"}
     try:
         meta = json.loads(text)
     except (ValueError, TypeError):
-        return {"alive": False, "error": "oembed returned non-JSON"}
+        return {"alive": False, "verdict": _VERDICT_INCONCLUSIVE,
+                "error": "oembed returned non-JSON",
+                "reason": "oembed response was unparseable"}
     return {
         "alive": True,
+        "verdict": _VERDICT_ALIVE,
         "title": meta.get("title"),
         "author_name": meta.get("author_name"),
         "width": meta.get("width"),
@@ -538,7 +603,10 @@ def run_waterfall(
 
     Tier success rules:
       0  a consensus local pHash+dHash match (decision 'match').
-      1  the filename token decodes AND oEmbed reports the deviation alive.
+      1  the filename token decodes - that alone is a resolvable /deviation/<id>
+         provenance URL. The oEmbed verdict (alive / inconclusive /
+         no_canonical_url) is logged as evidence but cannot demote the target,
+         because a non-200 oEmbed is not proof of death.
       2  SauceNAO returns an 'accept'-band hit (requires a configured key).
       3  always "succeeds" by parking the target in the manual queue.
     A 'review'-band result does not stop the waterfall - it is logged and the
@@ -560,13 +628,21 @@ def run_waterfall(
     name = target.get("name", "")
     deviation_id = decode_deviation_token(name)
     if deviation_id is not None:
-        live = oembed_liveness(deviation_id, http=http, artist=parse_artist(name))
-        decisions.append({"tier": 1, "decision": "alive" if live.get("alive")
-                          else "dead", "deviation_id": deviation_id,
-                          "source": deviation_url(deviation_id), "evidence": live})
-        if live.get("alive"):
-            return {"tier": 1, "source": deviation_url(deviation_id),
-                    "evidence": live, "decisions": decisions}
+        seg = artist_segment(name)
+        live = oembed_liveness(deviation_id, http=http, artist=seg["artist"])
+        evidence = dict(live)
+        evidence["artist_segment"] = seg["status"]
+        decisions.append({"tier": 1, "decision": live["verdict"],
+                          "deviation_id": deviation_id,
+                          "source": deviation_url(deviation_id),
+                          "evidence": evidence})
+        # A decoded token IS a resolvable /deviation/<id> provenance URL, and
+        # oEmbed can only ever confirm life - it cannot refute it. So anything
+        # short of a hard refutation holds the target at Tier 1 and lets the
+        # fetch decide; demoting to Tier 2 SauceNAO here would spend quota on
+        # evidence that does not exist.
+        return {"tier": 1, "source": deviation_url(deviation_id),
+                "evidence": evidence, "decisions": decisions}
     else:
         decisions.append({"tier": 1, "decision": "no_token", "source": None,
                           "evidence": {}})

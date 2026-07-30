@@ -175,6 +175,88 @@ def test_oembed_without_artist_falls_back_to_legacy_deviation_form():
     assert any("deviation" in c and "1309974594" in c for c in http.calls)
 
 
+# ---- regression: a DA username whose hyphens render as underscores ---------
+# ROADMAP recover-parse-artist-underscore. DA exports render a hyphenated
+# username with underscores, so "DaDa-WallpaperArt" arrives as
+# "dada_wallpaperart" and cannot be un-rendered from the filename alone. The
+# rule is: never guess a permutation, and never call the deviation dead on that
+# evidence.
+_VIEGO = "viego__the_ruined_king_by_dada_wallpaperart_dmhz060-pre"
+_UUID_SHAPE = "di0tao3-964d7366-1b19-4d2e-9d1f-0b4c6a2f8e11.jpg"
+_PLAIN = "xayah_by_pebano1_dm44iab-fullview.jpg"
+
+
+def test_artist_segment_ambiguous_when_username_carries_an_underscore():
+    seg = lw_recover.artist_segment(_VIEGO)
+    assert seg["status"] == "ambiguous"
+    assert seg["raw"] == "dada_wallpaperart"
+    # no guessing: the recovered username stays None rather than a permutation.
+    assert seg["artist"] is None
+    assert lw_recover.parse_artist(_VIEGO) is None
+
+
+def test_artist_segment_absent_on_token_uuid_shape():
+    # a <token>-<uuid> CDN save has no _by_<artist>_ segment at all, so NO
+    # canonical URL is buildable - the code must say that explicitly.
+    seg = lw_recover.artist_segment(_UUID_SHAPE)
+    assert seg["status"] == "absent"
+    assert seg["raw"] is None
+    assert seg["artist"] is None
+
+
+def test_artist_segment_recovered_on_plain_single_word_username():
+    # the well-formed case must keep working exactly as before.
+    seg = lw_recover.artist_segment(_PLAIN)
+    assert seg["status"] == "recovered"
+    assert seg["raw"] == "pebano1"
+    assert seg["artist"] == "pebano1"
+    assert lw_recover.parse_artist(_PLAIN) == "pebano1"
+
+
+def test_canonical_oembed_url_needs_an_artist():
+    assert lw_recover.canonical_oembed_url(1309974594, None) is None
+    assert lw_recover.canonical_oembed_url(1309974594, "pebano1") == (
+        "https://www.deviantart.com/pebano1/art/x-1309974594")
+
+
+def test_oembed_non200_with_artist_is_inconclusive_not_dead():
+    # a non-200 oEmbed proves nothing: the artist segment may be a mangled
+    # username, so the deviation is INCONCLUSIVE and Tier 1's fetch decides.
+    http = FakeHttp(default=(404, "not found"))
+    res = lw_recover.oembed_liveness(999, http=http, artist="pebano1")
+    assert res["alive"] is False
+    assert res["verdict"] == "inconclusive"
+    assert res["verdict"] != "dead"
+
+
+def test_oembed_non200_without_artist_reports_no_canonical_url():
+    http = FakeHttp(default=(404, "not found"))
+    res = lw_recover.oembed_liveness(999, http=http, artist=None)
+    assert res["alive"] is False
+    assert res["verdict"] == "no_canonical_url"
+    assert "_by_" in res["reason"]  # explicit about WHY, not a bare failure
+
+
+def test_oembed_non_json_is_inconclusive():
+    http = FakeHttp(default=(200, "<html>nope</html>"))
+    res = lw_recover.oembed_liveness(1, http=http, artist="pebano1")
+    assert res["alive"] is False
+    assert res["verdict"] == "inconclusive"
+
+
+def test_oembed_transport_error_is_inconclusive():
+    res = lw_recover.oembed_liveness(1, http=BoomHttp(), artist="pebano1")
+    assert res["alive"] is False
+    assert res["verdict"] == "inconclusive"
+
+
+def test_oembed_alive_carries_the_alive_verdict():
+    http = FakeHttp(responses={"oembed": (200, '{"title": "X"}')})
+    res = lw_recover.oembed_liveness(1309974594, http=http, artist="pebano1")
+    assert res["alive"] is True
+    assert res["verdict"] == "alive"
+
+
 # ---- gallery-dl subprocess wrapper (gated on config) ----------------------
 def test_gallery_dl_fetch_not_configured_is_friendly():
     # No DeviantArt config -> friendly "not configured", never a crash.
@@ -456,15 +538,66 @@ def test_waterfall_reaches_manual_queue_when_all_tiers_miss(tmp_path):
     assert 3 in tiers
 
 
-def test_waterfall_dead_deviation_falls_through_to_next_tier(tmp_path):
-    # Token decodes but the deviation is dead (oEmbed 404) -> do NOT stop at
-    # Tier 1; fall through. No SauceNAO key -> land in the manual queue.
+def test_waterfall_inconclusive_oembed_does_not_demote_to_tier2(tmp_path):
+    # ROADMAP recover-parse-artist-underscore. A non-200 oEmbed is NOT proof the
+    # deviation is dead, so the waterfall must hold the target at Tier 1 (whose
+    # fetch decides) instead of burning SauceNAO quota on false evidence.
     target = {"phash": 0x0, "dhash": 0x0,
               "name": "gone_by_artist_dm44iab-fullview.jpg"}
     http = FakeHttp(default=(404, "gone"))
     csv_path = tmp_path / "manual_queue.csv"
     rep = lw_recover.run_waterfall(
         target, corpus=[], config={}, http=http,
+        manual_queue_path=str(csv_path))
+    assert rep["tier"] == 1
+    assert "deviation/1337184659" in rep["source"]
+    t1 = [d for d in rep["decisions"] if d["tier"] == 1][0]
+    assert t1["decision"] == "inconclusive"
+    # no tier below 1 was attempted: no SauceNAO call, no manual-queue row.
+    assert not any("saucenao" in c for c in http.calls)
+    assert not csv_path.exists()
+    assert not any(d["decision"] == "dead" for d in rep["decisions"])
+
+
+def test_waterfall_hyphenated_username_is_not_reported_dead(tmp_path):
+    # shape (a): the real file whose username "DaDa-WallpaperArt" renders as
+    # "dada_wallpaperart" - no canonical URL is buildable, so oEmbed 404s and
+    # the old code called it dead. It must now hold at Tier 1.
+    target = {"phash": 0x0, "dhash": 0x0, "name": _VIEGO + ".jpg"}
+    http = FakeHttp(default=(404, "not found"))
+    csv_path = tmp_path / "manual_queue.csv"
+    rep = lw_recover.run_waterfall(
+        target, corpus=[], config={}, http=http,
+        manual_queue_path=str(csv_path))
+    assert rep["tier"] == 1
+    t1 = [d for d in rep["decisions"] if d["tier"] == 1][0]
+    assert t1["decision"] == "no_canonical_url"
+    assert t1["evidence"]["artist_segment"] == "ambiguous"
+    assert not csv_path.exists()
+
+
+def test_waterfall_token_uuid_shape_is_not_reported_dead(tmp_path):
+    # shape (b): <token>-<uuid> with no _by_<artist>_ segment at all.
+    target = {"phash": 0x0, "dhash": 0x0, "name": _UUID_SHAPE}
+    http = FakeHttp(default=(404, "not found"))
+    csv_path = tmp_path / "manual_queue.csv"
+    rep = lw_recover.run_waterfall(
+        target, corpus=[], config={}, http=http,
+        manual_queue_path=str(csv_path))
+    assert rep["tier"] == 1
+    t1 = [d for d in rep["decisions"] if d["tier"] == 1][0]
+    assert t1["decision"] == "no_canonical_url"
+    assert t1["evidence"]["artist_segment"] == "absent"
+    assert not csv_path.exists()
+
+
+def test_waterfall_no_token_still_reaches_the_manual_queue(tmp_path):
+    # the INCONCLUSIVE hold is scoped to a decoded token - a name with no token
+    # at all must still fall all the way through to Tier 3.
+    target = {"phash": 0x0, "dhash": 0x0, "name": "1341679.jpeg"}
+    csv_path = tmp_path / "manual_queue.csv"
+    rep = lw_recover.run_waterfall(
+        target, corpus=[], config={}, http=FakeHttp(default=(404, "x")),
         manual_queue_path=str(csv_path))
     assert rep["tier"] == 3
     assert csv_path.is_file()
