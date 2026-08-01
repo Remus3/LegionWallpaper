@@ -203,6 +203,33 @@ coverage that has ever been on a screen.
 
 ---
 
+### P6 - Fleet History - BUILT 2026-08-01 (`/api/fleet`)
+
+**Not in the original ranking.** It exists because item 6 made the fleet durable
+and then nothing read it: 136 agents across 35 sessions sat in
+`ops/runtime/agent_fleet_mirror.json` with no consumer.
+
+**Answers two things the live fleet view cannot.** *Where the tokens went* -
+per-session output spend, newest first, so an expensive run reads as one row
+rather than twenty agent rows (3,439,867 output tokens total on first render).
+*What is already lost* - every session is labelled by whether its source
+transcripts still exist. `mirror only` means reaping has been and gone and this
+file is the only remaining copy, which is the single fact that says whether the
+mirror is earning its keep or quietly failing to run. Reaping is per-FILE, so
+the half-reaped case reports `N of M on disk` rather than collapsing to a
+boolean. First live render: all 136 still on disk, so the mirror is currently
+ahead of the reaper - the good case, and it is stated as such rather than left
+as a blank.
+
+**Rules inherited rather than re-argued.** A session whose agents carry no
+timestamps has span `None`, rendered unknown - zero would read as "ran
+instantly" (P5's rule). A session is labelled with a controller run ONLY when
+`join.by_session_id` pairs them; today no cycle record on this machine carries a
+session id, so every row renders `unjoined`, which is the truth and makes the
+remaining half of the join visible. 20 of 35 sessions render and the header says
+so (no silent caps). Each row names its top 3 spenders with the full count
+beside them - 136 agents were never the unit of the question.
+
 ## Rejected, with reasons
 
 **Gate flag census ("7 of 17").** `docs/USM_HALO_CENSUS_2026-07-30.md`

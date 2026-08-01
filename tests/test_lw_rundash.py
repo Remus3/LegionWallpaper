@@ -605,6 +605,18 @@ def test_http_trajectory_route_never_interpolates_a_gap(server):
             assert row["delta"] is None
 
 
+def test_http_fleet_route_is_empty_and_honest_with_no_mirror(server):
+    # The fixture points at a mirror path that does not exist. "no mirror on
+    # disk" is the correct answer; a 500 or an invented total is not.
+    status, _ctype, cache, body = _get(server.server_address[1], "/api/fleet")
+    assert status == 200
+    assert cache == "no-store"
+    payload = json.loads(body)
+    assert payload["present"] is False
+    assert payload["sessions"] == []
+    assert payload["totals"]["agents"] == 0
+
+
 def test_http_resume_route_returns_a_verdict(server):
     status, _ctype, cache, body = _get(server.server_address[1], "/api/resume")
     assert status == 200

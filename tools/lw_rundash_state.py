@@ -770,6 +770,144 @@ def read_cycle_history(path, now_ts=None, *, limit=None):
     return out
 
 
+# ------------------------------------------------------- P6: fleet history
+
+
+# How many agents a session row names. 136 agents will not fit on a panel and
+# were never the unit of the question; the biggest spenders are what makes a
+# session's spend actionable. The full count sits beside them.
+TOP_AGENTS_N = 3
+
+
+def read_fleet_history(mirror_path, now_ts=None, *, top_agents=TOP_AGENTS_N,
+                       join=None):
+    """The mirrored fleet grouped by session, newest first.
+
+    Reads ops/runtime/agent_fleet_mirror.json - the durable copy written by
+    tools/lw_agent_mirror.py - and answers the two questions the live fleet view
+    cannot.
+
+    WHERE THE TOKENS WENT: per-session output spend, so an expensive run reads
+    as one row rather than as twenty agent rows.
+
+    WHAT IS ALREADY LOST: `mirror_only` is True when NONE of a session's agents
+    still exist on disk. That is reaping having been and gone, and this file
+    being the only remaining copy - the single fact that says whether the mirror
+    is earning its keep or quietly failing to run. Reaping is per-file, so
+    `agents_on_disk` against `agent_count` is reported for the half-reaped case
+    too.
+
+    Timestamps are OBSERVATIONS, not derivations: a session whose agents carry
+    no stamps has span None, which renders as unknown. Zero would read as "ran
+    instantly".
+
+    A session is labelled with its controller run only when the cycle chain
+    actually pairs them (`join.by_session_id`). Same rule as the header: two ids
+    of the same age are not a join.
+    """
+    now_ts = time.time() if now_ts is None else now_ts
+    out = {"ok": True, "present": False, "path": str(mirror_path),
+           "sessions": [], "checked_at": iso_from_epoch(now_ts),
+           "totals": {"sessions": 0, "agents": 0, "worktree_agents": 0,
+                      "output_tokens": 0, "oldest": None, "newest": None,
+                      "mirror_only_sessions": 0, "mirror_only_agents": 0,
+                      "agents_on_disk": 0}}
+    data, _ = _read_json(mirror_path)
+    agents = data.get("agents") if isinstance(data, dict) else None
+    if not isinstance(agents, dict):
+        return out
+    out["present"] = True
+    out["updated"] = _str_or_none(data.get("updated"))
+    by_session_id = (join or {}).get("by_session_id") or {}
+    runs = {r["run_id"]: r for r in (join or {}).get("runs") or []}
+
+    groups = {}
+    for agent_id, rec in agents.items():
+        if not isinstance(rec, dict):
+            continue
+        session = _str_or_none(rec.get("session")) or "?"
+        group = groups.get(session)
+        if group is None:
+            group = groups[session] = {"session": session, "agents": []}
+        group["agents"].append({
+            "id": str(agent_id),
+            "type": _str_or_none(rec.get("type")) or "unknown",
+            "description": _str_or_none(rec.get("description")) or "",
+            "worktree_branch": _str_or_none(rec.get("worktree_branch")),
+            "is_worktree_agent": bool(rec.get("is_worktree_agent")),
+            "output_tokens": _int_or_none(rec.get("output_tokens")) or 0,
+            "events": _int_or_none(rec.get("events")) or 0,
+            "start_epoch": _float_or_none(rec.get("start_epoch")),
+            "last_event_epoch": _float_or_none(rec.get("last_event_epoch")),
+            "elapsed_human": human_age(_float_or_none(rec.get("elapsed_s"))),
+        })
+
+    rows = []
+    for group in groups.values():
+        base = Path(group["session"])
+        sub = base / "subagents" if base.name != "subagents" else base
+        on_disk = 0
+        for agent in group["agents"]:
+            try:
+                if (sub / f"agent-{agent['id']}.meta.json").is_file():
+                    on_disk += 1
+            except (OSError, ValueError):
+                pass
+        starts = [a["start_epoch"] for a in group["agents"] if a["start_epoch"] is not None]
+        lasts = [a["last_event_epoch"] for a in group["agents"]
+                 if a["last_event_epoch"] is not None]
+        span = max(lasts) - min(starts) if starts and lasts else None
+        span = max(0.0, span) if span is not None else None
+        ranked = sorted(group["agents"],
+                        key=lambda a: (-a["output_tokens"], a["id"]))
+        session_id = base.name
+        run_ids = by_session_id.get(session_id) or []
+        run = runs.get(run_ids[0]) if run_ids else None
+        manifest_ids = (run or {}).get("manifest_run_ids") or []
+        rows.append({
+            "session_id": session_id,
+            "session_path": str(base),
+            "agent_count": len(group["agents"]),
+            "worktree_count": sum(1 for a in group["agents"] if a["is_worktree_agent"]),
+            "output_tokens": sum(a["output_tokens"] for a in group["agents"]),
+            "events": sum(a["events"] for a in group["agents"]),
+            "first_start": iso_from_epoch(min(starts)) if starts else None,
+            "last_event": iso_from_epoch(max(lasts)) if lasts else None,
+            "last_event_epoch": max(lasts) if lasts else None,
+            "age_human": human_age(_age(now_ts, max(lasts))) if lasts else "-",
+            "span_s": span,
+            "span_human": human_age(span),
+            "agents_on_disk": on_disk,
+            "source_present": on_disk > 0,
+            "mirror_only": on_disk == 0,
+            "run_id": run["run_id"] if run else None,
+            "manifest_run_id": manifest_ids[0] if manifest_ids else None,
+            "top_agents": ranked[:top_agents],
+            "top_agents_shown": min(len(ranked), top_agents),
+        })
+
+    # Newest first. A session with no readable stamp sorts LAST rather than
+    # first: it is the least likely to be the run being looked at, and putting
+    # an undated row at the top would displace the one that is.
+    rows.sort(key=lambda r: (r["last_event_epoch"] is None,
+                             -(r["last_event_epoch"] or 0)))
+    out["sessions"] = rows
+    totals = out["totals"]
+    totals["sessions"] = len(rows)
+    totals["agents"] = sum(r["agent_count"] for r in rows)
+    totals["worktree_agents"] = sum(r["worktree_count"] for r in rows)
+    totals["output_tokens"] = sum(r["output_tokens"] for r in rows)
+    totals["agents_on_disk"] = sum(r["agents_on_disk"] for r in rows)
+    totals["mirror_only_sessions"] = sum(1 for r in rows if r["mirror_only"])
+    totals["mirror_only_agents"] = sum(r["agent_count"] - r["agents_on_disk"]
+                                       for r in rows)
+    starts = [r["first_start"] for r in rows if r["first_start"]]
+    lasts = [r["last_event"] for r in rows if r["last_event"]]
+    totals["oldest"] = min(starts) if starts else None
+    totals["newest"] = max(lasts) if lasts else None
+    return out
+
+
 # ------------------------------------------------------ P4: operator queue
 
 

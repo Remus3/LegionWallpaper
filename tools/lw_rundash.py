@@ -94,6 +94,7 @@ CYCLE_HISTORY_N = 40
 # rule: a truncated list that does not admit it reads as complete coverage.
 NEEDAUTH_ROWS_N = 25
 TRAJECTORY_N = 30
+FLEET_HISTORY_N = 20
 
 # Where Claude Code keeps this project's sessions, and with them the only record
 # of which agent owned which worktree. AVAILABLE, NOT DURABLE - no
@@ -570,6 +571,34 @@ def build_trajectory_view(*, repo_root, control_dir, manifest_path, now_ts=None,
     return out
 
 
+def build_fleet_history_view(*, mirror_path, control_dir, now_ts=None,
+                             limit=FLEET_HISTORY_N):
+    """The /api/fleet payload - P6, the mirrored fleet grouped by session.
+
+    The join comes from the cycle chain so a session can be labelled with the
+    controller run that spawned it - when a record actually pairs them. Today no
+    record on this machine carries a session id, so every row renders unlabelled,
+    which is the truth and makes the missing half of the join visible.
+    """
+    now_ts = time.time() if now_ts is None else now_ts
+    cycles = rundash_state.read_cycle_history(
+        Path(control_dir) / "directive_history.jsonl", now_ts)
+    hist = rundash_state.read_fleet_history(mirror_path, now_ts,
+                                            join=cycles.get("join"))
+    shown = hist["sessions"][:limit]
+    return {
+        "ok": True,
+        "generated_at": rundash_state.iso_from_epoch(now_ts),
+        "present": hist["present"],
+        "path": hist["path"],
+        "updated": hist.get("updated"),
+        "totals": hist["totals"],
+        "sessions": shown,
+        "sessions_shown": len(shown),
+        "joined_sessions": sum(1 for r in hist["sessions"] if r["run_id"]),
+    }
+
+
 def build_resume_view(*, control_dir, manifest_path, repo_root, now_ts=None, cache=None,
                       runner=None, pid_alive=None, git="git", tail_n=5):
     """The /api/resume payload - resume or restart, and is any work stranded.
@@ -679,6 +708,11 @@ class Handler(BaseLWHandler):
                     repo_root=srv.repo_root, control_dir=srv.control_dir,
                     manifest_path=srv.manifest_path, cache=srv.view_cache,
                     runner=srv.runner)
+                self._send_json(200, view, {"Cache-Control": "no-store"})
+                return
+            if path == "/api/fleet":
+                view = build_fleet_history_view(
+                    mirror_path=srv.mirror_path, control_dir=srv.control_dir)
                 self._send_json(200, view, {"Cache-Control": "no-store"})
                 return
             if path == "/api/health":

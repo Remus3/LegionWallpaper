@@ -69,6 +69,17 @@ h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.6px;
 .trow:last-child{border-bottom:none}
 .trow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
   letter-spacing:.6px;border-bottom:1px solid var(--line)}
+.frow{display:grid;grid-template-columns:110px 150px 130px 90px 130px
+  minmax(150px,1fr);gap:12px;align-items:center;min-width:960px;
+  padding:9px 0;border-bottom:1px solid rgba(30,45,68,.6)}
+.frow:last-child{border-bottom:none}
+.frow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
+  letter-spacing:.6px;border-bottom:1px solid var(--line)}
+/* Reaping has been here and this file is the only copy left. It is the fact
+   that says whether the mirror is earning its keep, so it gets a rule of its
+   own rather than a colour the eye slides past. */
+.frow.mirroronly{border-left:2px solid var(--gold);padding-left:8px}
+.subagents{color:var(--mut);font-size:var(--fs-xs);padding:0 0 8px 8px}
 /* A commit nobody measured is a GAP, and it must read as one at a glance -
    dashed rule plus the word, never a blank cell that looks like a zero. */
 .trow.gap{color:var(--mut);border-bottom-style:dashed}
@@ -189,6 +200,18 @@ pre{font:var(--fs-sm)/1.45 ui-monospace,Consolas,monospace;color:var(--mut);
       <span>Observed by</span>
     </div>
     <div id="trajboard"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>P6 - Fleet History</h2>
+  <div id="fleethistnote" class="meta subhead"></div>
+  <div class="scroll">
+    <div class="frow head">
+      <span>Session</span><span>Run</span><span>Agents</span><span>Ran for</span>
+      <span>Output tokens</span><span>Source</span>
+    </div>
+    <div id="fleethist"></div>
   </div>
 </div>
 
@@ -577,6 +600,7 @@ var lastRun = null;
 var lastResume = null;
 var lastQueue = null;
 var lastTraj = null;
+var lastFleetHist = null;
 var tick = 0;
 var delayMs = 5000;        // base poll
 var MAX_DELAY = 30000;     // backoff cap on failure
@@ -640,6 +664,64 @@ function rQueue(q) {
   $("queuemachine").innerHTML = mhtml;
 }
 
+function rFleetHistory(h) {
+  if (!h) { return; }
+  var t = h.totals || {};
+  if (!h.present) {
+    $("fleethistnote").textContent = "no mirror on disk yet - run tools/lw_agent_mirror.py";
+    $("fleethist").innerHTML = "";
+    return;
+  }
+  // The lost count is the headline. It is the one number that says whether the
+  // mirror is earning its keep or quietly failing to run.
+  $("fleethistnote").textContent =
+    t.agents + " agents across " + t.sessions + " sessions, " +
+    t.worktree_agents + " on worktrees, " + t.output_tokens + " output tokens, " +
+    (t.oldest || "?").slice(0, 10) + " to " + (t.newest || "?").slice(0, 10) +
+    " - " + (t.mirror_only_agents
+      ? t.mirror_only_agents + " already reaped from disk, held only here"
+      : "all still on disk, so the mirror is ahead of the reaper") +
+    (h.joined_sessions ? " - " + h.joined_sessions + " joined to a run"
+      : " - no session is joined to a run yet") +
+    // No silent caps: the panel holds 35 sessions and renders 20, and a header
+    // reading "35 sessions" over 20 rows reads as complete coverage.
+    (h.sessions_shown < t.sessions
+      ? " - showing the " + h.sessions_shown + " newest" : "");
+
+  var rows = h.sessions || [];
+  var html = "";
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var src = r.mirror_only
+      ? '<span class="warn">mirror only</span>'
+      : (r.agents_on_disk < r.agent_count
+          ? '<span class="warn">' + esc(r.agents_on_disk) + " of " +
+            esc(r.agent_count) + " on disk</span>"
+          : '<span class="meta">on disk</span>');
+    html += '<div class="frow' + (r.mirror_only ? " mirroronly" : "") + '">' +
+      '<span class="mono" title="' + esc(r.session_path) + '">' +
+      esc(r.session_id.slice(0, 8)) + "</span>" +
+      '<span class="mono meta">' + esc(r.run_id || "unjoined") + "</span>" +
+      "<span>" + esc(r.agent_count) + " (" + esc(r.worktree_count) + " wt)</span>" +
+      "<span>" + esc(r.span_human) + "</span>" +
+      "<span>" + esc(r.output_tokens) + "</span>" +
+      src + "</div>";
+    var top = r.top_agents || [];
+    if (top.length) {
+      var line = [];
+      for (var a = 0; a < top.length; a++) {
+        line.push(top[a].type + " " + top[a].output_tokens + " tok" +
+          (top[a].description ? " - " + top[a].description : ""));
+      }
+      html += '<div class="subagents ell" title="' + esc(line.join(" | ")) +
+        '">top ' + esc(r.top_agents_shown) + " of " + esc(r.agent_count) +
+        ": " + esc(line.join(" | ")) + "</div>";
+    }
+  }
+  $("fleethist").innerHTML = html ||
+    '<div class="wrow meta">the mirror holds no sessions yet</div>';
+}
+
 function rTrajectory(t) {
   if (!t) { return; }
   $("trajnote").textContent = t.git_ok
@@ -678,10 +760,12 @@ async function load() {
   var res = await Promise.all([jget("/api/run"),
                                wantResume ? jget("/api/resume") : null,
                                wantResume ? jget("/api/queue") : null,
-                               wantResume ? jget("/api/trajectory") : null]);
+                               wantResume ? jget("/api/trajectory") : null,
+                               wantResume ? jget("/api/fleet") : null]);
   var p = res[0], r = res[1];
   if (res[2]) { lastQueue = res[2]; }
   if (res[3]) { lastTraj = res[3]; }
+  if (res[4]) { lastFleetHist = res[4]; }
   if (p) {
     lastRun = p;
     delayMs = 5000;
@@ -696,6 +780,7 @@ async function load() {
   rResume(r || lastResume);
   rQueue(lastQueue);
   rTrajectory(lastTraj);
+  rFleetHistory(lastFleetHist);
   timer = setTimeout(load, delayMs);
 }
 $("refresh").addEventListener("click", function () { tick = 0; load(); });
