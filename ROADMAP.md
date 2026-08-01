@@ -8,27 +8,6 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
-- **gpu-busy-fork-unification - `GpuBusy` is FORKED four ways, so `except
-  GpuBusy` only covers a raise from its own module's lock - OPEN.**
-  Found 2026-08-01 while chasing an L1 skylos "unused import"
-  (`docs/MCP_LIFT_L1_2026-08-01.md` section 3). Four independent
-  `class GpuBusy(RuntimeError)`: `lw_g1_gate.py:61`, `lw_upscale.py:64`,
-  `lw_gen_run.py:69`, `lw_clean_sdxl.py:70`, with `gpu_lock` forked alongside.
-  `lw_g1_gate.py:48` documents the fork rather than fixing it. Today's pairings
-  happen to line up; nothing enforces it and every new GPU consumer is a coin
-  flip. Two live gaps: `lw_clean_iopaint.py:553` enters `C.gpu_lock` with NO
-  `GpuBusy` handler, so a mutex timeout exits on a raw traceback against the
-  CLAUDE.md Error Handling rule - and that is the Stage-2 path that just cleaned
-  12 slugs; `lw_gen_weaponpass.py:251,301` is covered only by a broad
-  `except Exception` at :850.
-  Next: canonical `GpuBusy` in ONE dependency-free module that all four import
-  (they forked to avoid dragging torch/metrics deps across venvs, so the shared
-  module must import nothing), then a test asserting a raise from each lock is
-  caught by a single `except`. Do NOT put it in `ops/loop/winmutex.py` - that
-  file is byte-identical-by-contract with RC and moving it needs a three-way
-  re-pin.
-  Why now: N=3 makes GPU contention the expected case, not the edge case.
-
 - **gemini-removal - drop Gemini; the loop becomes Claude-only and
   self-adjudicating - OPERATOR-DIRECTED, own slice.**
   Next: flip the reversible part, keep the backend reachable as the rollback

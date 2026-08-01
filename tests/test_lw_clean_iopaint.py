@@ -320,3 +320,25 @@ def test_unknown_slug_falls_back_to_the_namakx_default():
     assert region == io.NAMAKX_REGION
     assert chroma is None
     assert src == "default"
+
+
+# --------------------------------------------------------------------------
+# GPU contention is the EXPECTED case at N=3 - it must never be a raw traceback
+# --------------------------------------------------------------------------
+def test_the_module_shares_the_one_gpu_busy_class():
+    """A forked class here would make the except below dead code."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import lw_gpu_busy
+    assert io.C.GpuBusy is lw_gpu_busy.GpuBusy
+
+
+def test_gpu_busy_exits_non_zero_so_a_batch_never_reads_it_as_cleaned(monkeypatch):
+    monkeypatch.setattr(io, "clean_slug",
+                        lambda *a, **k: {"slug": "s", "status": "gpu_busy"})
+    assert io.main(["s"]) == 1
+
+
+def test_a_cleaned_slug_still_exits_zero(monkeypatch):
+    monkeypatch.setattr(io, "clean_slug",
+                        lambda *a, **k: {"slug": "s", "status": "cleaned"})
+    assert io.main(["s"]) == 0

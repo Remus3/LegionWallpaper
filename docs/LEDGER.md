@@ -27,6 +27,44 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+64. DONE **2026-08-01 (GpuBusy fork unified + the two uncovered catch sites).**
+    Premise VERIFIED before coding: `GpuBusy` really was declared four times -
+    `lw_g1_gate:61`, `lw_upscale:64`, `lw_gen_run:69`, `lw_clean_sdxl:70`, with
+    `lw_g1_gate:48` documenting the fork rather than fixing it. Python matches
+    exceptions by class IDENTITY, so `except GpuBusy` only ever covered a raise
+    from its own module's `gpu_lock`. Found while chasing an L1 skylos "unused
+    import" (`docs/MCP_LIFT_L1_2026-08-01.md` section 3), not by skylos itself.
+    Shipped `tools/lw_gpu_busy.py`, which imports NOTHING - load-bearing,
+    because the four consumers run under four different venvs and the fork
+    existed to avoid dragging one venv's deps into another. Each consumer binds
+    it BY PATH (the existing `_winmutex()` house pattern) cached under a FIXED
+    `sys.modules` key, so the class object is identical whether a module is
+    reached as `lw_gen_run` or `tools.lw_gen_run` - the package-style path
+    `lw_gen_weaponpass` uses, and the one that would otherwise have produced two
+    class objects. Both paths verified live, plus identity re-verified from
+    inside the lw-clean venv.
+    Two uncovered catch sites closed: `lw_clean_iopaint` entered `C.gpu_lock`
+    with NO handler, so a mutex timeout exited on a raw traceback against the
+    CLAUDE.md Error Handling rule - and that is the Stage-2 path that cleaned 12
+    slugs the same day; it now returns `status: gpu_busy` with a friendly
+    reason, exits non-zero so a batch driver cannot read the slug as cleaned,
+    and relies on `gpu_lock` having already written the raw TIMEOUT line to
+    `logs/`. `lw_gen_weaponpass` was covered only by a broad `except Exception`
+    whose message claims "generator not provisioned" - untrue for contention and
+    the wrong runbook; it now has a truthful `gr.GpuBusy` arm ahead of it.
+    TDD RED-first: `tests/test_lw_gpu_busy.py` written first, 3 of 6 red on
+    exactly the identity + structural assertions, green after the fix. Includes
+    an AST guard so a FIFTH fork fails CI instead of being found a month later,
+    and a guard that `lw_gpu_busy.py` never gains an import.
+    Verified: 1416 passed / 16 skipped (was 1407 - the 9 new tests), ruff clean
+    over `tools/` + `tests/`, and a live `--dry-run` through the real Stage-2
+    worker under the lw-clean venv.
+    Do-not-redo: do NOT put the shared class in `ops/loop/winmutex.py` - that
+    file is byte-identical-by-contract with the sibling repos and moving it
+    needs a three-way re-pin. Do NOT collapse the four `gpu_lock` bodies; they
+    carry different `_GPU_TAG` log tags and different venv constraints, and only
+    the exception type needed to be shared.
+
 63. DONE **2026-08-01 late (three-repo N=3, all CUDA consumers wired, the hook
     rule corrected; 37b9814 b66637f 0ee1c9e e436128).** Suite 1346 -> **1401
     passed / 16 skipped / 0 failed**, ruff clean, drift guard 0 breaches, CI

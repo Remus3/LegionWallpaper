@@ -549,15 +549,28 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
     # reaching here, so a mask-only run never blocks on the GPU.
     # gpu_lock comes from lw_clean_pass (already imported as C) rather than a
     # sixth copy of the helper - same venv, one timeout constant.
+    # A contended acquire is the EXPECTED case at N=3, not an anomaly, so it
+    # returns a status the caller can read rather than a raw winmutex traceback
+    # (CLAUDE.md "Error Handling"). gpu_lock has already written the TIMEOUT
+    # line to logs/YYYY-MM-DD.log, so the raw reason is never lost. Nothing has
+    # been written at this point - the candidate PNGs are saved further down.
     dev = C._cuda_device()
-    with C.gpu_lock(dev, log=log):
-        lama, dev = _load_lama(dev)
-        log(f"  simple-lama on {dev}")
-        if progressive:
-            roi_after = inpaint_progressive(roi, mask, lama, max_iter=max_iter,
-                                            log=log)
-        else:
-            roi_after = inpaint_once(roi, mask, lama)
+    try:
+        with C.gpu_lock(dev, log=log):
+            lama, dev = _load_lama(dev)
+            log(f"  simple-lama on {dev}")
+            if progressive:
+                roi_after = inpaint_progressive(roi, mask, lama,
+                                                max_iter=max_iter, log=log)
+            else:
+                roi_after = inpaint_once(roi, mask, lama)
+    except C.GpuBusy as exc:
+        log(f"LW IOPAINT {slug}: GPU held by another run - skipped, nothing "
+            f"written. Re-run this slug once the holder finishes.")
+        return {"slug": slug, "status": "gpu_busy",
+                "reason": "the GPU is held by another run and did not free in "
+                          "time; this slug was skipped and nothing was written",
+                "detail": str(exc)}
 
     full_after = paste_region_back(full, roi_after, roi_box)
     assert_region_identity(full, full_after, roi_box)      # tripwire
@@ -636,7 +649,9 @@ def main(argv=None):
                      max_iter=args.max_iter)
     print(json.dumps({k: v for k, v in res.items() if k != "commands"},
                      indent=2, default=str))
-    return 0 if res.get("status") not in ("error",) else 1
+    # gpu_busy is a non-zero exit like error: nothing was produced, and a batch
+    # driver must not read the slug as cleaned.
+    return 0 if res.get("status") not in ("error", "gpu_busy") else 1
 
 
 if __name__ == "__main__":

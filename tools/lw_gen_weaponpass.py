@@ -847,6 +847,15 @@ def main(argv=None):
             args.batch_dir, wrist=wrist, rung=args.weapon_rung, rolls=args.rolls,
             strength=args.strength, min_conf=args.weapon_min_conf, only=args.only,
         )
+    except gr.GpuBusy as exc:
+        # Would otherwise fall into the broad arm below and be reported as
+        # "generator not provisioned", which is untrue and sends the operator
+        # to the wrong runbook. Contention is expected at N=3.
+        print("weapon pass skipped - the GPU is held by another run and did not "
+              "free in time. Nothing was written; re-run once it frees.",
+              file=sys.stderr)
+        _log_error(exc)
+        return 1
     except Exception as exc:  # noqa: BLE001 - never surface a raw torch/onnx trace
         print("weapon pass failed - generator not provisioned or a backend/inpaint "
               "error (see logs). Run the Phase-0 setup (docs/GEN_MODELS.md).",

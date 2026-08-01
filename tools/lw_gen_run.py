@@ -66,14 +66,28 @@ _WINMUTEX_MOD = "lw_loop_winmutex"
 _GPU_TAG = "lw_gen_run"
 
 
-class GpuBusy(RuntimeError):
-    """GPU_MUTEX did not free within GPU_MUTEX_TIMEOUT_S.
+def _bind_gpu_busy():
+    """Bind tools/lw_gpu_busy.py BY PATH. See lw_g1_gate._bind_gpu_busy for why.
 
-    A tool-native type so a caller can report "the GPU is busy elsewhere"
-    instead of leaking a winmutex traceback; the MutexTimeout stays on __cause__
-    for anyone who needs the raw reason. Raised before any candidate PNG is
-    saved, so a timeout never leaves a half-written output behind.
+    Load-bearing here specifically: lw_gen_weaponpass reaches this module as
+    `tools.lw_gen_run` while lw_gen_train_weapon_lora reaches it as
+    `lw_gen_run`. The fixed sys.modules key is what makes both see the same
+    class object. The raise still happens before any candidate PNG is saved.
     """
+    mod = sys.modules.get("lw_gpu_busy")
+    if mod is None:
+        path = _Path(__file__).resolve().parent / "lw_gpu_busy.py"
+        spec = _importlib_util.spec_from_file_location("lw_gpu_busy", path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load lw_gpu_busy from {path}")
+        mod = _importlib_util.module_from_spec(spec)
+        sys.modules["lw_gpu_busy"] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
+# The ONE GpuBusy. Never re-declare it here - see tools/lw_gpu_busy.py.
+GpuBusy = _bind_gpu_busy().GpuBusy
 
 
 def _gpu_log(msg):
