@@ -212,7 +212,14 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   returns `[]`. The conservative fallback answers `queued`, so it is not a false
   green, but the abbreviation gap is real - `check_ci("549f52c")` -> `queued`
   while the full sha -> `success`.
-  LW's share of the queue is now empty; RC keeps (2), (4), (5), (7), (10), (11).
+  (7) is DONE on LW (`b7814b3`, LEDGER 80) in the only form LW can enforce it:
+  `slice_orchestrator.start_gate()` REFUSES `set --status in_progress` unless the
+  named agent holds a claim on every file the slice declares, and a slice with no
+  declared files cannot start. So a directive that names N parallel agents no
+  longer merely ASSERTS disjointness - an overlap is refused at dispatch and the
+  refusal names the holder. The executor-serializes-AND-RECORDS-the-deviation
+  half stays RC-side.
+  LW's share of the queue is now empty; RC keeps (2), (4), (5), (10), (11).
   Cross-repo channel is the gitignored `moon_sync_inbox/` in each repo.
   Evidence: LEDGER 41 + 40; `docs/specs/2026-07-26-f1-sdk-executor-channel.md`.
 

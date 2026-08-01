@@ -7,11 +7,40 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01) - keep the last 3.
 
 ---
 
-## 2026-08-01 (latest) - P3/P4/P5 shipped, the wiki turned out to hold real pixels, and 22 sources got swapped
+## 2026-08-01 (latest) - P7: the claim table finally REFUSES something
+
+Two commits: `b7814b3` (the gate) + this docs sync. Suite **1640 passed /
+16 skipped** (baseline 1624 + 16 new), ruff clean, drift_guard 0 breaches.
+
+- **P7 shipped as `start_gate()` (LEDGER 80).** `set --status in_progress` is now
+  REFUSED unless the named `--agent` holds a claim on every file the slice
+  declares. P4 built the table; this is the half that makes a CALL fail, which is
+  the only property task-orchestrator had that LW wanted. Nothing installed.
+- **Consequence for every future run:** `add` every slice with its real
+  `--files`, then `claim --agent <id> --files <same>`, THEN
+  `set --status in_progress --agent <id>`. A slice with no declared files cannot
+  start at all - that was the trivial bypass. Both run commands document this now.
+- **Not gated:** `verified` / `committed` / `failed`. A crashed agent's claims may
+  be gone by then and gating those would strand a finished slice.
+- **No `--force` bypass and no `start` subcommand**, both on purpose: a second
+  door or an escape hatch would be the bypass.
+- Found while implementing: three existing tests moved a slice to `in_progress`
+  without asserting the exit code, so they would have passed vacuously under the
+  gate. Each now claims first and asserts the 0.
+
+NEXT: **P8** (gitwand, gated on one probe - do its 7 MCP tools accept a worktree
+path? if not it cannot touch LW's merge path at all). Also open: L2's
+retrospective half (`claimed_green_gate.py` has no CLI and no history mode), and
+`wiki-swap-manifest-hash-residue` (scan --verify HASH_MISMATCH on 21 of 22,
+bookkeeping only). Loose end unchanged: two stale worktrees still registered.
+
+---
+
+## 2026-08-01 (earlier) - P3/P4/P5 shipped, the wiki turned out to hold real pixels, and 22 sources got swapped
 
 Nine commits `1eaa135`..`6d7efc2`. Suite **1624 passed / 16 skipped**, ruff clean,
 drift_guard 0 breaches, CI **green on 6d7efc2 verified with `gh`**.
@@ -76,47 +105,3 @@ offline Windows binary, Apache-2.0; record the real DeviantArt oEmbed + gallery-
 exchanges once including a quota block, then delete the hand-written stubs.
 Do NOT redo: the 63 dives (go upstream, not to the marketplace page), the Reddit
 retrieval (recipe is in the dive), or P1.
-
----
-
-## 2026-08-01 (night) - the dashboard spec is fully built out; all four remaining items landed
-
-Four commits: 3e8ce6a (item 3), 1d3c2c5 (item 5), 621e8d1 (item 6), 27b22c3
-(P4 + P5). Suite 1458 -> **1524 passed / 16 skipped**. Ruff clean. CI
-**CONFIRMED green on 27b22c3 with `gh`** - not assumed, which was last
-session's stated process miss. Full detail in LEDGER 69.
-
-- **truth_gate now persists what it observed onto the slice ladder.** A global
-  refusal quarantines no individual slice, so red-suite discrepancies are
-  carried onto every row prefixed `global:`; `--skip-suite` writes
-  `counts: null`, never zeros. `build_verdict_record` is now the ONE owner of
-  the record shape.
-- **The three run-id namespaces are joined, on evidence only.** Two ids sitting
-  side by side is not a join - the header renders `=` only when a cycle record
-  carried both, `/` plus an amber `unjoined` tag otherwise.
-- **136 agents across 35 sessions are now durable**, back to 2026-07-03,
-  including all 18 of the 2026-07-30 fleet. `tools/lw_agent_mirror.py`, called
-  per cycle by the controller.
-- **P4 and P5 shipped.** P5's first live render is 30 commits / 5 observed /
-  25 gaps, every observed row "chain broken". That is the panel working, and it
-  indicts the tree it runs on - which is the point.
-- **Two things I deliberately did NOT build**: P4's HELD column (no HELD
-  substate exists in `pipeline_state.json`) and its run-attributed "this run
-  added N" line (nothing attributes an image to a run). Inventing a source for
-  either would have been worse than the gap. Do not "fix" these without a real
-  producer.
-
-**P6 Fleet History followed in `71baedd`** (LEDGER 70), on your ask. It reads
-the mirror nothing was reading: per-session token spend (3,439,867 total,
-2026-07-03 to 2026-08-01) and, more usefully, whether each session's source
-transcripts still exist. All 136 are still on disk today, so the mirror is
-AHEAD of the reaper - the panel says so rather than leaving a blank. Suite
-1537 passed / 16 skipped, CI green on `71baedd`, confirmed with `gh`.
-
-NEXT: the dashboard spec has NO open items. Two numbers on it read zero for a
-reason and are NOT bugs - do not "fix" either in code. `truth_gate_blocking`
-stays false until a live run has been observed. P6's `joined_sessions` is 0
-because no controller cycle has run since the `session_id` field was wired; the
-next live cycle populates it. Product work is Stage 2's remaining 3 namakx
-ghosts (triage improvement 1) and the 29-slug NEEDAUTH queue, which P4 now
-shows you (oldest 2d, spread across stages).

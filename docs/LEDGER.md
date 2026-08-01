@@ -27,6 +27,51 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+80. DONE **2026-08-01 (P7 - the start gate: a slice cannot begin unclaimed;
+    `b7814b3`).** P4 shipped the claim TABLE and nothing called it, so
+    disjointness stayed advisory - f1-phase6 queue item 7 word for word: nothing
+    refused to start an agent without a granted claim. `start_gate()` in
+    `tools/slice_orchestrator.py` is that half, and it is the ONE property worth
+    lifting from task-orchestrator (BACKLOG mcp-lift-phases P7): an unmet
+    precondition makes the CALL fail, versus a directive line an agent is merely
+    supposed to follow. `set --status in_progress` is now REFUSED unless the
+    named `--agent` holds a claim covering every file the slice declares.
+    SCOPE CALLS, each deliberate: (a) the gate rides on `set`, NOT a new `start`
+    subcommand - a second door that skipped the check would BE the bypass;
+    (b) a slice declaring NO files is refused, because it is the trivial bypass
+    of every other rule (declare nothing, claim nothing, start anyway), which
+    means every slice must now be `add`ed with its real `--files`; (c) only the
+    `in_progress` rung is gated - `verified` / `committed` / `failed` record work
+    already done and a crashed agent's claims may legitimately be gone by then,
+    so gating those would strand a finished slice with no way to say it finished;
+    (d) NO `--force` escape hatch, on the same reasoning as (a); (e) every unmet
+    precondition is collected rather than short-circuited, so one broken dispatch
+    is one round-trip and not three. The refusal names the holder AND the claim
+    timestamp - the operator's next action is to go look at what that agent is
+    doing. Claim keys normalize on BOTH sides (a slice added with backslashes and
+    a claim written with forward slashes are one file) and a directory claim
+    covers the files under it via the same segment-wise `_contains` the conflict
+    side uses, so an agent that reserved a subtree is not refused its own work.
+    TDD RED-first, evidenced: 16 new tests in
+    `tests/test_slice_orchestrator_start_gate.py` ran 12 failed / 4 passed
+    against the unmodified tool (the 4 were the not-gated-status parametrization,
+    which must pass both before and after). REGRESSION FOUND IN THE EXISTING
+    SUITE, not just adapted to: three tests moved a slice to `in_progress`
+    without asserting the exit code (`test_every_status_round_trips_through_set`,
+    `test_resume_lists_every_non_committed_status_and_hides_committed`,
+    `test_advancing_the_status_never_erases_the_verdict_history`,
+    `test_recording_a_verdict_does_not_reset_time_in_status`), so under the gate
+    they would have kept passing while proving nothing; each now claims its files
+    and asserts the 0. Verified: suite **1640 passed / 16 skipped** (baseline
+    1624 + these 16), ruff clean, `py_compile` OK, `drift_guard` exit 0 /
+    0 breaches. Docs synced in the same slice: the module docstring, and BOTH
+    run commands (`.claude/commands/headless-upgrade.md`,
+    `gemini-headless-upgrade.md`) now document claim-then-start as the dispatch
+    ritual instead of a bare `set --status in_progress`. NOT DONE, filed: nothing
+    yet gates the MERGE on a still-held claim, and `release` is not required
+    before `committed` - the gate is about beginning work, and a merge-side
+    check is a separate item if it is ever wanted.
+
 79. DONE **2026-08-01 (P6 closed as NOT APPLICABLE - LW replays no credentials,
     measured; docs-only).** The phase was queued the same day with a relevance
     check ahead of it - "confirm whether any LW path replays credentials before

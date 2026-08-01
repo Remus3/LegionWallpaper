@@ -233,7 +233,15 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     transfer - only the structural rules do. The source is an r/ClaudeWorkflows
     post, and the dive established all six are bot-generated summaries whose
     checkable claims were wrong two times in four.
-  - **P7 - task-orchestrator's server-ENFORCED gate. LATER, method-only.**
+  - **P7 - task-orchestrator's server-ENFORCED gate. DONE 2026-08-01 (`b7814b3`,
+    LEDGER 80) - method lifted, nothing installed.** `start_gate()` in
+    `tools/slice_orchestrator.py`: `set --status in_progress` is REFUSED unless
+    the named `--agent` holds a claim covering every file the slice declares,
+    and a slice declaring no files cannot start at all. 16 tests, RED first
+    (12 failed / 4 passed pre-implementation). Both run commands now document
+    claim-then-start. This also closes LW's side of f1-phase6 item 7. Left open
+    on purpose: no merge-side check, and no `--force` bypass. Original entry
+    below for the evidence trail.
     Dived 5 -> 7, the highest-scoring row never given a phase. The unique
     property, verbatim: "if a required design note isn't filled, `advance_item`
     returns an error" - an agent cannot skip a gate because the CALL fails,

@@ -18,6 +18,52 @@ rewritten - relocations are verbatim, newest batch first.
 
 ---
 
+## Relocated 2026-08-01 (WAKEUP_NOTES prune - keep last 3 sessions: P7 start gate, P3/P4/P5 + the wiki swap, the MCP-list read + P1)
+
+## 2026-08-01 (night) - the dashboard spec is fully built out; all four remaining items landed
+
+Four commits: 3e8ce6a (item 3), 1d3c2c5 (item 5), 621e8d1 (item 6), 27b22c3
+(P4 + P5). Suite 1458 -> **1524 passed / 16 skipped**. Ruff clean. CI
+**CONFIRMED green on 27b22c3 with `gh`** - not assumed, which was last
+session's stated process miss. Full detail in LEDGER 69.
+
+- **truth_gate now persists what it observed onto the slice ladder.** A global
+  refusal quarantines no individual slice, so red-suite discrepancies are
+  carried onto every row prefixed `global:`; `--skip-suite` writes
+  `counts: null`, never zeros. `build_verdict_record` is now the ONE owner of
+  the record shape.
+- **The three run-id namespaces are joined, on evidence only.** Two ids sitting
+  side by side is not a join - the header renders `=` only when a cycle record
+  carried both, `/` plus an amber `unjoined` tag otherwise.
+- **136 agents across 35 sessions are now durable**, back to 2026-07-03,
+  including all 18 of the 2026-07-30 fleet. `tools/lw_agent_mirror.py`, called
+  per cycle by the controller.
+- **P4 and P5 shipped.** P5's first live render is 30 commits / 5 observed /
+  25 gaps, every observed row "chain broken". That is the panel working, and it
+  indicts the tree it runs on - which is the point.
+- **Two things I deliberately did NOT build**: P4's HELD column (no HELD
+  substate exists in `pipeline_state.json`) and its run-attributed "this run
+  added N" line (nothing attributes an image to a run). Inventing a source for
+  either would have been worse than the gap. Do not "fix" these without a real
+  producer.
+
+**P6 Fleet History followed in `71baedd`** (LEDGER 70), on your ask. It reads
+the mirror nothing was reading: per-session token spend (3,439,867 total,
+2026-07-03 to 2026-08-01) and, more usefully, whether each session's source
+transcripts still exist. All 136 are still on disk today, so the mirror is
+AHEAD of the reaper - the panel says so rather than leaving a blank. Suite
+1537 passed / 16 skipped, CI green on `71baedd`, confirmed with `gh`.
+
+NEXT: the dashboard spec has NO open items. Two numbers on it read zero for a
+reason and are NOT bugs - do not "fix" either in code. `truth_gate_blocking`
+stays false until a live run has been observed. P6's `joined_sessions` is 0
+because no controller cycle has run since the `session_id` field was wired; the
+next live cycle populates it. Product work is Stage 2's remaining 3 namakx
+ghosts (triage improvement 1) and the 29-slug NEEDAUTH queue, which P4 now
+shows you (oldest 2d, spread across stages).
+
+---
+
 ## Relocated 2026-07-16 (keep last 2 sessions: md-hygiene R3 pruned the 2026-07-16 W4-M3 weapon-parked session - quest PARKED, mirrored in docs/LEDGER.md item 26)
 
 # 2026-07-16 (W4 M3 rung==w4 SHIPPED; LoRA trained; weapon-quality investigation -> CEILING, PARKED)
