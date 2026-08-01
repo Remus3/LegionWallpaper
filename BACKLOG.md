@@ -45,7 +45,14 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     source (the triage had 5 VERIFIED-LIVE and 58 INHERITED-RC), plus the 5
     off-list entries. Read the dive, not the triage, before acting on any row.
     The replacement plan, in order:
-  - **P1 - the Stop-hook claimed-green gate. NEXT, zero dependencies.** Build it
+  - **P1 - DONE 2026-08-01, see LEDGER 71.** `tools/claimed_green_gate.py`, 26
+    tests, wired into the `Stop` slot that had been empty since the file was
+    written. Three detectors (`claim-no-run`, `claim-vs-fail`, `no-verify`), the
+    `stop_hook_active` loop guard tested, and the `pytest_guard` stdout
+    asymmetry fixed in the same slice. Do-not-redo: the transcript join is by
+    `tool_use_id` onto a LATER entry and a Bash result has NO `code` field -
+    synthetic same-entry fixtures pass while the gate is dead against real data.
+    Original scope, kept for reference:
     in Python in `tools/` from the official hook contract: `Stop` hands the hook
     `last_assistant_message` (the claim) and `transcript_path` (the evidence);
     block with `{"decision":"block","reason":...}` or exit 2. MUST read

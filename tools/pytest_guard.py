@@ -66,9 +66,31 @@ def _full_suite() -> int:
         # rather than crash the hook.
         return 0
     combined = (proc.stdout or "") + (proc.stderr or "")
-    tail = combined.splitlines()[-20:]
-    sys.stdout.write("\n".join(tail) + "\n")
+    tail = "\n".join(combined.splitlines()[-20:])
+    if proc.returncode == 0:
+        # Green: debug log is the right home for it, the model does not need it.
+        sys.stdout.write(tail + "\n")
+    else:
+        _tell_the_model("[pytest_guard] SUITE RED:\n" + tail)
     return 0
+
+
+def _tell_the_model(text: str) -> None:
+    """Surface `text` where the MODEL can read it, not just the debug log.
+
+    Measured from the official hook docs 2026-08-01: for PreToolUse, PostToolUse
+    and Stop, plain exit-0 STDOUT goes to the debug log ONLY. It reaches the
+    model just for SessionStart, Setup, SubagentStart, UserPromptSubmit and
+    UserPromptExpansion. `additionalContext` is the guaranteed channel, and
+    without it this guard has been reporting syntax errors to nobody.
+    """
+    payload = {
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": text,
+        }
+    }
+    sys.stdout.write(json.dumps(payload) + "\n")
 
 
 def _fast_compile(py_files: list) -> int:
@@ -81,7 +103,7 @@ def _fast_compile(py_files: list) -> int:
         except OSError:
             pass
     if errors:
-        sys.stdout.write("[pytest_guard] py_compile FAILED:\n" + "\n".join(errors) + "\n")
+        _tell_the_model("[pytest_guard] py_compile FAILED:\n" + "\n".join(errors))
     else:
         sys.stdout.write(
             f"[pytest_guard] py_compile OK ({len(py_files)} file(s)); "

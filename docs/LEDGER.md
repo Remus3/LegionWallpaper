@@ -27,6 +27,43 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+71. DONE **2026-08-01 (P1 - the Stop-hook claimed-green gate, and the live
+    probe that caught it lying).** `tools/claimed_green_gate.py` +
+    `tests/test_claimed_green_gate.py` (26 tests), wired into the `Stop` slot in
+    `.claude/settings.json`, which had existed with an EMPTY hooks array since
+    the file was written. Three detectors, design ported (NOT code) from
+    `red-handed`: `claim-no-run`, `claim-vs-fail`, `no-verify` after a hook
+    rejection. Premise VERIFIED against the official hook docs rather than the
+    Reddit entry that proposed it - a block is exit 0 with a top-level
+    `decision` field, and `stop_hook_active` is COOPERATIVE, so the first line of
+    `evaluate()` is the loop guard and there is a test asserting it.
+    **The finding worth keeping: TDD went green against synthetic fixtures that
+    were wrong about the data.** A live probe against this session's own 1.4 MB
+    transcript found 46 commands, 2 pytest runs, and classified BOTH "unknown".
+    Measured cause: a tool result does NOT sit on the assistant entry that made
+    the call - it arrives on a LATER user entry joined by `tool_use_id` (115
+    calls, 115 results, 115 paired), and a Bash result carries **no `code` field
+    at all**, only stdout/stderr/`interrupted` - where `interrupted` is the
+    STRING "False", so plain truthiness on it classifies every run as
+    interrupted and silently disables the gate. Fixed with a two-pass join, plus
+    five regression tests built from the real shape. The same absent-code bug had
+    also disabled the `no-verify` detector, which required a non-zero exit.
+    Re-probed after the fix: 4 runs found in this session, classified
+    fail/pass/fail/pass in the exact order they happened. 0.17s against the
+    largest transcript on disk (28.1 MB) versus a 20s hook timeout.
+    ALSO FIXED, from the same docs: `tools/pytest_guard.py` reported
+    `py_compile FAILED` on plain stdout, and for PreToolUse/PostToolUse/Stop
+    exit-0 stdout goes to the DEBUG LOG only - it has been reporting syntax
+    errors to nobody. Now uses `hookSpecificOutput.additionalContext`; a green
+    suite stays on stdout where it belongs. `text_first_guard.py` was checked and
+    is correct as written (`permissionDecision` does reach the model).
+    Scope call: `no-counts` blocks even though the standing rule is
+    "ambiguous -> allow", because the missing evidence IS what the claim
+    asserts, and it is cheap to satisfy. Verified: `pytest tests/ -q` ->
+    **1563 passed, 16 skipped**; ruff clean; `settings.json` re-parsed after the
+    edit (an invalid settings file is silently unparsed and has produced a false
+    "hooks do not fire" here before).
+
 70. DONE **2026-08-01 (P6 Fleet History - a reader for the mirror; 71baedd).**
     LEDGER 69 item 6 made the fleet durable and then nothing consumed it: 136
     agents across 35 sessions sat in `ops/runtime/agent_fleet_mirror.json` with
