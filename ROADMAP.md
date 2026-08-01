@@ -6,6 +6,37 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
+- **wiki-swap-12-needauth - 12 swapped canonical sources await an operator
+  override call - NEXT, one command each.**
+  The 22 confirmed wiki upgrades were swapped in 2026-08-01 (LEDGER 77,
+  `docs/WIKI_SWAP_22_2026-08-01.md`): 22 processed, 0 FAIL, 0 HELD, 10 approved
+  into `2.First Pass Done`. The remaining 12 are FLAGGED, and approving a flag
+  needs `approve --force`, which records `gate_check: override` - an operator
+  judgement by design, so it was NOT taken unattended.
+  Until it is answered `2.First Pass Done` is short by 12 (276 folders, not
+  288); their stale Done folders are safe in
+  `data/wiki_swap_backup_20260801/done/`.
+  All 12 flags are soft: 7 `halo_pct` 0.0516-0.1019, 7 `band_delta`
+  0.0521-0.1369, 1 `lpips` 0.1426 (overlapping). The halo flags are the known
+  `usm-halo-calibration` item, not a defect of the new sources - these 22 now
+  genuinely resample (6000-11084px down to 2560x1440) so the USM runs, unlike
+  the 46 refs which were exact-target passthroughs.
+  Next: `python tools/lw_pipeline.py approve <slug> --force` per slug, or
+  `reject`, or move the folder back from the backup to abandon that swap.
+  Slugs: `silver-fang-akali` `1341679` `wallpapersden-com-digital-art-diana`
+  `wallpapersden-com-winterblessed-diana` `star-guardian-jinx`
+  `league-of-legends-shan-hai-lillia` `lissandra-league-of-legends`
+  `snow-moon-morgana` `wallpapersden-com-hd-sejuani` `prestige-inkshadow-yasuo`
+  `spirit-blossom-yasuo` `high-noon-hecarim`.
+  Do-not-redo: staging a swap without moving `data/recovery/fetched/<slug>/`
+  aside - `select_source` prefers a fetched fullview over the staged
+  `_firstinitial` and the run reports success having changed nothing (9 of the
+  22 hit this). Known residue: `scan --verify` shows HASH_MISMATCH on 21 of the
+  22 because the manifest INTAKE transition still records the original intake
+  hash - bookkeeping only, a plain `scan` is clean.
+  Evidence: LEDGER 77; `docs/WIKI_VS_FIRSTINITIAL_2026-08-01.md` for why these
+  22 and not the other 55.
+
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
 - **gemini-removal - drop Gemini; the loop becomes Claude-only and

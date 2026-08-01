@@ -154,6 +154,13 @@ data/recovery/**/*.png
 data/recovery/**/*.webp
 data/recovery/**/*.gif
 
+# Canonical-source swap backups (2026-08-01). Same privacy boundary as
+# images/** and data/recovery/fetched/: these dirs hold the MOVED stale
+# _firstdone / _firstinitial bytes plus the fetched wiki originals, i.e.
+# third-party art on this box. The swap MANIFEST inside them is the only
+# shareable part and its content is reproduced in docs/, so ignore the lot.
+data/wiki_swap_backup_*/
+
 # Transient verify/test scratch dropped at repo root by item runs
 # (_verify_*.txt and friends) + ad-hoc stdout/stderr captures.
 /_*.txt

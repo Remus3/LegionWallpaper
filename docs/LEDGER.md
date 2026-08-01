@@ -27,6 +27,60 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+77. DONE **2026-08-01 (the 22 wiki upgrades SWAPPED IN; 10 approved, 12 queued
+    at NEEDAUTH).** `tools/lw_wiki_swap_oneoff.py` +
+    `tests/test_lw_wiki_swap_oneoff.py` (10 tests) +
+    `docs/WIKI_SWAP_22_2026-08-01.md`. Operator-directed on LEDGER 76's
+    evidence. The wiki original is now the `_firstinitial` for all 22 and first
+    pass has been re-run: **processed=22 pass=10 flag=12 fail=0 held=0**.
+    Everything displaced was MOVED, never deleted, into
+    `data/wiki_swap_backup_20260801/` (22 Done folders, 9 fetched folders, the
+    new initials, and a per-slug `swap_manifest.json`); a matching
+    `.gitignore` rule keeps those third-party bytes out of git on the same
+    privacy boundary as `images/**`. THE CROP QUESTION DID NOT HAVE TO BE
+    ANSWERED: run through the pipeline's own `aspect_class`, the 22 originals
+    are 10 `ok` + 12 `crop_ok` and **zero `crop_heavy`**, max area loss 0.0504
+    against the shipped 0.08 cap, so no new crop policy was invented and
+    `first-pass-alpha-letterbox` sub-shape A stays untouched. TWO TRAPS, either
+    of which would have made this a silent no-op: (1) `select_source` PREFERS a
+    fetched DeviantArt fullview over the staged `_firstinitial`
+    (`lw_first_pass.py:210-215`) and **9 of the 22 had one**, so staging alone
+    would have left those 9 upscaling the old fetch while every log line
+    reported success - there is no override flag, so their fetched folders were
+    moved into the backup; (2) `_firstinitial` keeps the SOURCE's extension, and
+    an earlier run's hard-coded `.png` glob silently read the `_firstdone`
+    OUTPUT as the source - both are now pinned by tests. Method: fetch and
+    VERIFY all 22 originals before mutating anything (dimensions checked against
+    the plan the measurement was built on, so a network failure could not leave
+    the corpus half-open), then the proven reopen dance from memory
+    `project-reprocess-done-slug` - stage scratch with a COPY of the Done
+    manifest first, move fetched aside, move stale Done to backup,
+    `lw_first_pass --batch <explicit slugs file>` (never `--all-scratch`, which
+    would sweep the 20 pre-existing WIP scratch slugs), then approve. Provenance
+    records the sha256 of the bytes that ARRIVED with the declared sha1 stored
+    as `declared_sha1_NOT_asserted`, per LEDGER 72. VERIFIED ON DISK not
+    assumed: all 10 approved Done folders repopulated, every `_firstinitial`
+    matching its wiki original's exact dimensions and every `_firstdone` exactly
+    2560x1440; directory arithmetic exact at 288 - 22 + 10 = **276**.
+    (`pipeline_state` counts `first_done` 255 because 21 slugs also sit in
+    `3.Cleaning Scratch` and count there instead - 255 + 21 = 276, not a
+    discrepancy.) The 12 flags are all soft: 7 `halo_pct` 0.0516-0.1019, 7
+    `band_delta` 0.0521-0.1369, 1 `lpips` 0.1426 (groups overlap). The halo
+    flags are the known `usm-halo-calibration` item and NOT a defect of the new
+    sources - these 22 genuinely resample now (6000-11084px down to 2560x1440)
+    so the USM runs, unlike the 46 refs which were exact-target passthroughs.
+    NOT APPROVED, deliberately: approving a FLAG needs `--force` and records
+    `gate_check: override`, which the ROADMAP reserves to the operator, so the
+    10 clean passes were approved and the 12 flagged were left in the NEEDAUTH
+    queue they are designed for - `2.First Pass Done` is short by 12 until that
+    call. Known residue, predicted by the memory: `scan --verify` reports
+    HASH_MISMATCH on 21 of 22 because the manifest's INTAKE transition still
+    records the ORIGINAL intake hash; the `_firstdone` files are correct and a
+    plain `scan` reports anomalies 0 / needs_attention 0. The other 11
+    `--verify` rows are on slugs this operation never touched. Also not done:
+    the other 55 of the 77 (24 haloed-held, 31 keep-or-inconclusive) and any
+    stage-2 cleaning.
+
 76. DONE **2026-08-01 (the 77 compared against the held `_firstinitial`; 46
     favour the wiki, and the 7.43x headline does not survive).**
     `docs/WIKI_VS_FIRSTINITIAL_2026-08-01.md`. Closes what LEDGER 75 explicitly
