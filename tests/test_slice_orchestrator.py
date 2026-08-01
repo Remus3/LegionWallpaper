@@ -201,10 +201,157 @@ def test_status_renders_every_slice(tmp_path, capsys):
         assert token in out
 
 
+def test_a_fresh_slice_carries_no_verdict_field_at_all(tmp_path):
+    """Absence IS the NOT OBSERVED state, so `add` must not seed an empty list.
+
+    Every manifest written before this subcommand existed has no verdict field,
+    and the dashboard reads absence as "nobody checked". Seeding the key here
+    would make "checked and found nothing" and "never checked" the same shape.
+    """
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "S1", "--title", "t")
+    assert so.VERDICT_FIELD not in _load(target)["slices"][0]
+
+
+def test_a_verdict_is_a_history_so_a_refutation_survives_the_later_confirm(tmp_path):
+    """The whole point of the field. B1 in run 2026-08-01-01 was REFUTED, fixed,
+    then re-verified; a single-valued field would leave only the CONFIRM and the
+    refutation would vanish - the exact erasure the spec's backlog item 1 names."""
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "B1", "--title", "scaffold")
+    assert _run(target, "verdict", "--id", "B1", "--state", "REFUTE",
+                "--observer", "verifier",
+                "--discrepancy", "null payload evicts last-good") == 0
+    assert _run(target, "verdict", "--id", "B1", "--state", "CONFIRM",
+                "--observer", "merger", "--note", "5-sequence differential probe") == 0
+    history = _load(target)["slices"][0][so.VERDICT_FIELD]
+    assert [r["state"] for r in history] == ["REFUTE", "CONFIRM"]
+    assert [r["observer"] for r in history] == ["verifier", "merger"]
+    assert history[0]["discrepancies"] == ["null payload evicts last-good"]
+
+
+def test_a_verdict_records_the_counts_actually_observed(tmp_path):
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "B2", "--title", "readers")
+    assert _run(target, "verdict", "--id", "B2", "--state", "CONFIRM",
+                "--observer", "verifier", "--agent-id", "abc123",
+                "--passed", "1239", "--skipped", "16", "--failed", "0") == 0
+    rec = _load(target)["slices"][0][so.VERDICT_FIELD][0]
+    assert rec["counts"] == {"passed": 1239, "skipped": 16, "failed": 0}
+    assert rec["agent_id"] == "abc123"
+
+
+def test_unobserved_counts_are_null_never_zero(tmp_path):
+    # A REFUTE that never got a suite number must not read as 0 passed.
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "B1", "--title", "t")
+    _run(target, "verdict", "--id", "B1", "--state", "REFUTE", "--observer", "verifier")
+    rec = _load(target)["slices"][0][so.VERDICT_FIELD][0]
+    assert rec["counts"] is None
+
+
+def test_a_verdict_stamp_is_always_explicit_utc(tmp_path):
+    """tools/lw_httpd.parse_ts reads a NAIVE stamp as UTC and
+    tools/lw_rundash_state.parse_iso reads the same stamp as LOCAL - a 5 hour
+    delta on this machine. A stamp that carries its offset cannot be misread by
+    either, so a naive one is refused rather than guessed at."""
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "S1", "--title", "t")
+    assert _run(target, "verdict", "--id", "S1", "--state", "CONFIRM",
+                "--observer", "verifier") == 0
+    assert _load(target)["slices"][0][so.VERDICT_FIELD][0]["at"].endswith("Z")
+
+    assert _run(target, "verdict", "--id", "S1", "--state", "CONFIRM",
+                "--observer", "verifier", "--at", "2026-08-01T13:24:38") != 0
+    assert len(_load(target)["slices"][0][so.VERDICT_FIELD]) == 1
+
+    assert _run(target, "verdict", "--id", "S1", "--state", "CONFIRM",
+                "--observer", "verifier", "--at", "2026-08-01T08:24:38-05:00") == 0
+    assert _load(target)["slices"][0][so.VERDICT_FIELD][1]["at"] == "2026-08-01T13:24:38Z"
+
+
+@pytest.mark.parametrize("bogus", ["VERIFIED", "confirmed", "", "REFUTED?", "ok"])
+def test_verdict_rejects_an_unknown_state(tmp_path, bogus):
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "S1", "--title", "t")
+    assert _run(target, "verdict", "--id", "S1", "--state", bogus,
+                "--observer", "verifier") != 0
+    assert so.VERDICT_FIELD not in _load(target)["slices"][0]
+
+
+@pytest.mark.parametrize("bogus", ["me", "claude", "", "Verifier"])
+def test_verdict_rejects_an_unknown_observer(tmp_path, bogus):
+    # "who observed it" is the load-bearing half of the record. A free-text
+    # observer would let "self" masquerade as an independent check.
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "S1", "--title", "t")
+    assert _run(target, "verdict", "--id", "S1", "--state", "CONFIRM",
+                "--observer", bogus) != 0
+
+
+def test_verdict_rejects_an_unknown_slice_id(tmp_path):
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "S1", "--title", "t")
+    assert _run(target, "verdict", "--id", "S9", "--state", "CONFIRM",
+                "--observer", "verifier") != 0
+
+
+def test_verdict_without_a_manifest_fails_rather_than_inventing_one(tmp_path):
+    target = _target(tmp_path)
+    assert _run(target, "verdict", "--id", "S1", "--state", "CONFIRM",
+                "--observer", "verifier") != 0
+    assert not target.exists()
+
+
+def test_advancing_the_status_never_erases_the_verdict_history(tmp_path):
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "B1", "--title", "t")
+    _run(target, "verdict", "--id", "B1", "--state", "REFUTE", "--observer", "verifier")
+    _run(target, "set", "--id", "B1", "--status", "in_progress")
+    _run(target, "set", "--id", "B1", "--status", "committed", "--commit", "db168ff")
+    history = _load(target)["slices"][0][so.VERDICT_FIELD]
+    assert [r["state"] for r in history] == ["REFUTE"]
+
+
+def test_recording_a_verdict_does_not_reset_time_in_status(tmp_path):
+    """The dashboard subtracts `updated` to show how long a slice has sat in its
+    current status. A verdict does not change the status, so stamping `updated`
+    here would report a slice parked for hours as "just now"."""
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "S1", "--title", "t")
+    _run(target, "set", "--id", "S1", "--status", "in_progress")
+    before = _load(target)["slices"][0]["updated"]
+    _run(target, "verdict", "--id", "S1", "--state", "REFUTE", "--observer", "verifier")
+    assert _load(target)["slices"][0]["updated"] == before
+
+
+def test_status_shows_the_latest_verdict(tmp_path, capsys):
+    target = _target(tmp_path)
+    _init(target)
+    _run(target, "add", "--id", "S1", "--title", "t")
+    _run(target, "add", "--id", "S2", "--title", "u")
+    _run(target, "verdict", "--id", "S1", "--state", "REFUTE", "--observer", "verifier")
+    capsys.readouterr()
+    assert _run(target, "status") == 0
+    out = capsys.readouterr().out
+    assert "REFUTE" in out
+
+
 @pytest.mark.parametrize("argv", [
     ("init", "--run-id", "r", "--head", "h"),
     ("add", "--id", "S1", "--title", "t"),
     ("set", "--id", "S1", "--status", "verified"),
+    ("verdict", "--id", "S1", "--state", "CONFIRM", "--observer", "verifier"),
 ])
 def test_no_subcommand_ever_writes_the_target_in_place(tmp_path, monkeypatch, argv):
     """The atomic contract: write a tmp sibling, then replace. Never the target.
@@ -215,7 +362,7 @@ def test_no_subcommand_ever_writes_the_target_in_place(tmp_path, monkeypatch, ar
     target = _target(tmp_path)
     if argv[0] != "init":
         _init(target)
-        if argv[0] == "set":
+        if argv[0] in ("set", "verdict"):
             _run(target, "add", "--id", "S1", "--title", "t")
 
     written = []

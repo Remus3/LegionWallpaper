@@ -12,10 +12,23 @@ Status ladder (see .claude/commands/headless-upgrade.md):
   pending -> in_progress (dispatched) -> verified (verifier CONFIRMed)
           -> committed (merge + push landed)      failed (quarantined)
 
+The ladder is a POSITION and it forgets. `verdict` is the parallel record of who
+checked the work and what they found, and it is a HISTORY on purpose: slice B1 of
+run 2026-08-01-01 was REFUTED by its verifier, reworked, then re-verified, and a
+single-valued field would have left only the CONFIRM. The refutation that was
+later fixed is exactly the thing an operator needs to still be able to see (spec
+docs/RUNDASH_SPEC_2026-08-01.md, instrumentation backlog items 1 and 2).
+
+The `verdicts` field is OPTIONAL and its ABSENCE means NOT OBSERVED. Every
+manifest written before this subcommand existed therefore stays valid and none of
+them silently become "verified" - `add` does not seed the key, only `verdict`
+creates it.
+
 Usage:
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py init --run-id 2026-07-29-01 --head <sha> [--force]
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py add --id S1 --title "run infra" [--files a.py,b.py]
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py set --id S1 --status committed [--commit <sha>] [--note text]
+  C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py verdict --id S1 --state CONFIRM --observer verifier [--agent-id <id>] [--passed N --skipped N --failed N] [--discrepancy line]... [--note text] [--at <iso>] [--backfilled]
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py resume
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py status
 """
@@ -32,9 +45,45 @@ SCHEMA = 1
 STATUSES = ("pending", "in_progress", "verified", "committed", "failed")
 DONE = "committed"
 
+# The per-slice verdict history. Optional by contract - see the module docstring.
+VERDICT_FIELD = "verdicts"
+
+# What a verdict can say. Deliberately NOT the dashboard's display vocabulary
+# (VERIFIED / REFUTED / NOT OBSERVED): this is what an observer reported, and the
+# third display state is the ABSENCE of any record here.
+VERDICT_STATES = ("CONFIRM", "REFUTE")
+
+# Who is allowed to have observed it. A free-text observer would let a slice
+# certify itself, which is the failure mode the whole panel exists to expose.
+OBSERVERS = ("verifier", "merger", "truth_gate")
+
 
 def _now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def normalize_stamp(text):
+    """An ISO stamp normalized to explicit UTC, or None when it is not one.
+
+    A NAIVE stamp is REFUSED rather than guessed at. Measured 2026-08-01:
+    tools/lw_httpd.parse_ts reads a naive stamp as UTC while
+    tools/lw_rundash_state.parse_iso reads the same stamp as LOCAL - a 5 hour
+    delta on this machine, because loop_controller writes naive local and reads
+    it back local. A stamp carrying its own offset is the one form neither
+    reader can misread, so that is the only form this writer emits.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return None
+    raw = text.strip()
+    if raw.endswith(("Z", "z")):
+        raw = raw[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return None
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def load_manifest(path):
@@ -129,6 +178,90 @@ def cmd_set(path, slice_id, status, commit, note):
     return 2
 
 
+def cmd_verdict(path, slice_id, state, observer, *, agent_id=None, passed=None,
+                skipped=None, failed=None, discrepancies=None, note=None,
+                at=None, backfilled=False):
+    """Append one observation to a slice's verdict history.
+
+    Deliberately does NOT touch `status`. The ladder is where the work is; this
+    is what somebody found when they looked, and a refutation that silently
+    rewound the ladder is what erased the 2026-07-30 REFUTE in the first place.
+    Move the ladder with `set` when you mean to move it.
+
+    Counts stay None when nothing was observed. A REFUTE that never got a suite
+    number must not read as "0 passed" - a confident wrong number here is worse
+    than an empty one, because the entire point is that a claim without evidence
+    is visible as such.
+    """
+    state_up = (state or "").strip().upper()
+    if state_up not in VERDICT_STATES:
+        print("ERROR: unknown verdict state {!r} - allowed: {}"
+              .format(state, ", ".join(VERDICT_STATES)), file=sys.stderr)
+        return 2
+    who = (observer or "").strip()
+    if who not in OBSERVERS:
+        print("ERROR: unknown observer {!r} - allowed: {}"
+              .format(observer, ", ".join(OBSERVERS)), file=sys.stderr)
+        return 2
+    stamp = _now() if at is None else normalize_stamp(at)
+    if stamp is None:
+        print(f"ERROR: --at {at!r} must carry an explicit offset or a trailing Z"
+              " - a naive stamp is read as UTC by one consumer and as LOCAL by"
+              " another", file=sys.stderr)
+        return 2
+    manifest = load_manifest(path)
+    if manifest is None:
+        print(f"ERROR: no manifest at {path} - run `init` first", file=sys.stderr)
+        return 2
+
+    counts = None
+    if any(v is not None for v in (passed, skipped, failed)):
+        counts = {"passed": passed, "skipped": skipped, "failed": failed}
+    lines = [d.strip() for d in (discrepancies or []) if d and d.strip()]
+    record = {
+        "state": state_up,
+        "observer": who,
+        "at": stamp,
+        "agent_id": (agent_id or "").strip() or None,
+        "counts": counts,
+        "discrepancies": lines,
+        "note": (note or "").strip(),
+        "backfilled": bool(backfilled),
+    }
+
+    for entry in manifest.get("slices", []):
+        if entry.get("id") != slice_id:
+            continue
+        history = entry.get(VERDICT_FIELD)
+        if not isinstance(history, list):
+            history = []
+        history.append(record)
+        entry[VERDICT_FIELD] = history
+        # `updated` is LEFT ALONE. The dashboard subtracts it to show time in
+        # the current status, and the status did not change here - stamping it
+        # would report a slice parked for four hours as "just now", which is the
+        # single most actionable number on the board.
+        write_manifest_atomic(manifest, path)
+        print(f"verdict: {slice_id} {state_up} by {who} "
+              f"({len(history)} record(s) on this slice)")
+        return 0
+    print(f"ERROR: no slice with id {slice_id} in {path}", file=sys.stderr)
+    return 2
+
+
+def latest_verdict(entry):
+    """The last record appended to a slice, or None.
+
+    LAST, not newest-by-timestamp: the list is append-only and file order is the
+    order things actually happened, while a stamp can be absent or hand-edited.
+    """
+    history = entry.get(VERDICT_FIELD) if isinstance(entry, dict) else None
+    if not isinstance(history, list):
+        return None
+    records = [r for r in history if isinstance(r, dict)]
+    return records[-1] if records else None
+
+
 def cmd_resume(path):
     """Print only the slices still owed, one per line, tab-separated.
 
@@ -155,13 +288,20 @@ def cmd_status(path):
           .format(manifest.get("run_id", "?"), manifest.get("head", "?"),
                   manifest.get("schema", "?"), manifest.get("updated", "?")))
     slices = manifest.get("slices", [])
-    print("{:<8} {:<12} {:<10} {:<34} {}"
-          .format("ID", "STATUS", "COMMIT", "TITLE", "FILES"))
+    print("{:<8} {:<12} {:<10} {:<18} {:<30} {}"
+          .format("ID", "STATUS", "COMMIT", "EVIDENCE", "TITLE", "FILES"))
     for entry in slices:
-        print("{:<8} {:<12} {:<10} {:<34} {}"
+        latest = latest_verdict(entry)
+        # "-" and not a blank: no record is the NOT OBSERVED state, and a blank
+        # column reads as "fine" exactly the way the dashboard chip must not.
+        evidence = "-"
+        if latest:
+            evidence = "{} {}".format(latest.get("state", "?"),
+                                      latest.get("observer", "?"))[:18]
+        print("{:<8} {:<12} {:<10} {:<18} {:<30} {}"
               .format(entry.get("id", "?"), entry.get("status", "?"),
-                      (entry.get("commit") or "-")[:10],
-                      entry.get("title", "")[:34],
+                      (entry.get("commit") or "-")[:10], evidence,
+                      entry.get("title", "")[:30],
                       ",".join(entry.get("files", []))))
     print(f"{len(slices)} slice(s), {len(unfinished(manifest))} not committed")
     return 0
@@ -190,6 +330,26 @@ def build_parser():
     p.add_argument("--commit", default=None)
     p.add_argument("--note", default=None)
 
+    p = sub.add_parser("verdict", parents=[common],
+                       help="append an observation to a slice's verdict history")
+    p.add_argument("--id", required=True, dest="slice_id")
+    p.add_argument("--state", required=True,
+                   help="CONFIRM or REFUTE - what the observer found")
+    p.add_argument("--observer", required=True,
+                   help="who observed it: " + ", ".join(OBSERVERS))
+    p.add_argument("--agent-id", default=None, dest="agent_id",
+                   help="the observing agent id, when there is one")
+    p.add_argument("--passed", type=int, default=None, help="suite count OBSERVED")
+    p.add_argument("--skipped", type=int, default=None, help="suite count OBSERVED")
+    p.add_argument("--failed", type=int, default=None, help="suite count OBSERVED")
+    p.add_argument("--discrepancy", action="append", default=None,
+                   dest="discrepancies", help="one discrepancy line; repeatable")
+    p.add_argument("--note", default=None)
+    p.add_argument("--at", default=None,
+                   help="observation time; MUST carry a Z or an explicit offset")
+    p.add_argument("--backfilled", action="store_true",
+                   help="recorded after the fact from evidence, not live")
+
     sub.add_parser("resume", parents=[common],
                    help="print only the non-committed slices")
     sub.add_parser("status", parents=[common], help="print the whole manifest")
@@ -205,6 +365,12 @@ def main(argv=None):
         return cmd_add(path, args.slice_id, args.title, args.files)
     if args.cmd == "set":
         return cmd_set(path, args.slice_id, args.status, args.commit, args.note)
+    if args.cmd == "verdict":
+        return cmd_verdict(path, args.slice_id, args.state, args.observer,
+                           agent_id=args.agent_id, passed=args.passed,
+                           skipped=args.skipped, failed=args.failed,
+                           discrepancies=args.discrepancies, note=args.note,
+                           at=args.at, backfilled=args.backfilled)
     if args.cmd == "resume":
         return cmd_resume(path)
     return cmd_status(path)

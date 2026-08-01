@@ -222,6 +222,73 @@ def _int_or_none(value):
 # ------------------------------------------------------------ P1: manifest
 
 
+def _normalize_verdict(raw, now_ts):
+    """One append-only verdict record from the manifest, or None if it is junk.
+
+    `state` is carried through as written and NOT coerced to a known value: the
+    consumer maps CONFIRM / REFUTE and treats everything else as unobserved, so
+    a drifted or hand-edited record degrades to "nobody checked" rather than to
+    a green chip.
+
+    Counts stay None when the writer recorded none. Defaulting them to zero
+    would turn "no suite was run" into "0 failed", which reads as a pass.
+    """
+    if not isinstance(raw, dict):
+        return None
+    counts = raw.get("counts")
+    if isinstance(counts, dict):
+        counts = {k: _int_or_none(counts.get(k)) for k in ("passed", "skipped", "failed")}
+        if all(v is None for v in counts.values()):
+            counts = None
+    else:
+        counts = None
+    counts_human = None
+    if counts is not None:
+        counts_human = "{} passed / {} skipped / {} failed".format(
+            *("?" if counts[k] is None else counts[k]
+              for k in ("passed", "skipped", "failed")))
+    lines = raw.get("discrepancies")
+    lines = [d for d in lines if isinstance(d, str) and d.strip()] if isinstance(lines, list) else []
+    at = _str_or_none(raw.get("at"))
+    age = _age(now_ts, parse_iso(at))
+    state = _str_or_none(raw.get("state"))
+    return {
+        "state": state.upper() if state else None,
+        "observer": _str_or_none(raw.get("observer")),
+        "at": at,
+        "at_age_s": age,
+        "at_age_human": human_age(age),
+        "agent_id": _str_or_none(raw.get("agent_id")),
+        "counts": counts,
+        "counts_human": counts_human,
+        "discrepancies": lines,
+        "note": _str_or_none(raw.get("note")) or "",
+        "backfilled": bool(raw.get("backfilled")),
+    }
+
+
+def read_verdicts(raw_slice, now_ts):
+    """The verdict history of one raw manifest slice, oldest first.
+
+    ABSENT IS NOT OBSERVED. The field is optional by contract
+    (slice_orchestrator.VERDICT_FIELD), so every manifest written before it
+    existed lands here as an empty history - which is the honest answer, not a
+    degraded one. A non-list field is the same empty answer rather than a crash.
+
+    Order is FILE order and is left alone. The list is append-only, so file
+    order is the order the observations actually happened; re-sorting by a
+    timestamp that can be absent would let a REFUTE jump ahead of the CONFIRM
+    that fixed it.
+    """
+    if not isinstance(raw_slice, dict):
+        return []
+    history = raw_slice.get("verdicts")
+    if not isinstance(history, list):
+        return []
+    out = [_normalize_verdict(r, now_ts) for r in history]
+    return [r for r in out if r is not None]
+
+
 def read_slice_manifest(path, now_ts=None, *, cache=None):
     """Normalize ops/runtime/slice_manifest.json for the P1 board.
 
@@ -233,6 +300,11 @@ def read_slice_manifest(path, now_ts=None, *, cache=None):
     carries only `updated`, and a slice sitting at in_progress for four hours is
     the single most actionable fact on the panel; without the subtraction the
     operator has to do date math off a UTC string to see it.
+
+    Carries the optional `verdicts` history through as `verdicts` /
+    `verdict_count` - normalized, never interpreted. Which of VERIFIED /
+    REFUTED / NOT OBSERVED that history means is the caller's ruling, not this
+    reader's, and an absent field stays an empty list all the way to the chip.
     """
     now_ts = time.time() if now_ts is None else now_ts
     cache = {} if cache is None else cache
@@ -288,6 +360,7 @@ def read_slice_manifest(path, now_ts=None, *, cache=None):
         status = _str_or_none(raw.get("status")) or "pending"
         updated = _str_or_none(raw.get("updated"))
         age = _age(now_ts, parse_iso(updated))
+        verdicts = read_verdicts(raw, now_ts)
         out["slices"].append({
             "id": _str_or_none(raw.get("id")) or f"slice-{i + 1}",
             "title": _str_or_none(raw.get("title")) or "",
@@ -299,6 +372,8 @@ def read_slice_manifest(path, now_ts=None, *, cache=None):
             "status_age_s": age,
             "status_age_human": human_age(age),
             "committed": status in COMMITTED_STATUSES,
+            "verdicts": verdicts,
+            "verdict_count": len(verdicts),
         })
         out["counts"][status] = out["counts"].get(status, 0) + 1
     out["open_count"] = sum(1 for s in out["slices"] if not s["committed"])

@@ -20,9 +20,11 @@ age and the newest write on disk. Measured 2026-08-01: RUNNING.lock named a pid
 Windows had reissued to an unrelated conhost, and the loop sat wedged for five
 days. A dashboard that trusts the lock file reproduces that as a display bug.
 
-A BLANK EVIDENCE CELL. The P2 chip renders amber NOT OBSERVED on every row until
-the instrumentation in the spec's backlog lands. Blank reads as "fine"; a panel
-that says what it cannot see is the argument for fixing it.
+A BLANK EVIDENCE CELL. The P2 chip reads the persisted verdict history that
+slice_orchestrator writes, and a slice with no record renders amber NOT OBSERVED
+- never blank, never optimistic. A slice whose latest record is a REFUTE renders
+REFUTED even when the ladder says `committed`, because work that landed on a
+knocked-down claim is the one thing the board must not show as green.
 
 DOLLARS. LEDGER 40 settles that Claude cost accounting is notional on a Max
 plan, so the fleet reports output tokens and nothing else.
@@ -83,13 +85,23 @@ TRANSCRIPT_DIR = Path.home() / ".claude" / "projects" / "C--LegionWallpaper"
 # the run is still LIVE, is the thing the operator came to the page to find.
 STUCK_S = 900.0
 
-# Never two. Only the third is reachable until the spec's instrumentation
-# backlog lands, and the vocabulary ships now so the upgrade is a value change
-# rather than a rewrite of the panel.
+# Never two. All three are reachable now that slice_orchestrator persists a
+# verdict history; the third is still what an un-observed slice renders, and it
+# is reached by ABSENCE rather than by a record saying so.
 EVIDENCE_STATES = ("VERIFIED", "REFUTED", "NOT OBSERVED")
+VERIFIED = "VERIFIED"
+REFUTED = "REFUTED"
 NOT_OBSERVED = "NOT OBSERVED"
 NOT_OBSERVED_WHY = ("no persisted verifier verdict or suite observation exists "
                     "for this slice - claims here are unbacked")
+UNREADABLE_WHY = ("the latest verdict record on this slice is unreadable, so "
+                  "nothing here is backed by an observation")
+
+# What an observer reported (slice_orchestrator.VERDICT_STATES) -> what the chip
+# says. Anything else, including a record with no state at all, falls through to
+# NOT OBSERVED: an unrecognized verdict must never resolve optimistically.
+VERDICT_TO_EVIDENCE = {"CONFIRM": VERIFIED, "REFUTE": REFUTED}
+EVIDENCE_CLASS = {VERIFIED: "green", REFUTED: "red", NOT_OBSERVED: "amber"}
 
 # What the operator sees when git fails. The raw stderr goes to the log: a git
 # error can carry a remote URL or a username and never belongs on a page.
@@ -198,16 +210,72 @@ def newest_session_dir(transcript_dir):
 # ------------------------------------------------------ P2: the evidence chip
 
 
-def evidence_for_slice(_slice_row):
-    """The P2 chip. Amber NOT OBSERVED, with the reason it cannot say more.
+def _chip(state, why, **extra):
+    chip = {"state": state, "label": state, "class": EVIDENCE_CLASS[state],
+            "why": why, "observer": None, "at": None, "at_age_human": "-",
+            "agent_id": None, "counts": None, "counts_human": None,
+            "discrepancies": [], "note": "", "backfilled": False,
+            "history_count": 0, "prior_refutes": 0, "history": []}
+    chip.update(extra)
+    return chip
 
-    The argument is in the spec: blank is a lie, and three states must exist even
-    when one is reachable, so that a VERIFIED chip later means something. The
-    row is taken as an argument rather than ignored because the moment a
-    persisted verdict exists this function reads it and nothing else changes.
+
+def evidence_for_slice(slice_row):
+    """The P2 chip, read off the slice's persisted verdict history.
+
+    THE LADDER IS NOT EVIDENCE. `status` is a position and it forgets; this
+    reads only what an observer recorded. A slice that is `committed` on a claim
+    its verifier REFUTED and nobody re-checked renders REFUTED, because that
+    combination is the exact thing an operator most needs to catch and the
+    ladder alone cannot show it.
+
+    LATEST WINS, HISTORY PERSISTS. B1 of run 2026-08-01-01 was refuted, fixed,
+    and re-verified. The chip reads VERIFIED off the last record, and
+    `prior_refutes` keeps the refutation on the page - erasing it is what the
+    spec's backlog item 1 is about.
+
+    ABSENT IS NOT OBSERVED, and so is unreadable. Blank is a lie; a record whose
+    state is not one an observer is allowed to report resolves amber rather than
+    green, so drift can only ever make this panel more pessimistic.
     """
-    return {"state": NOT_OBSERVED, "label": NOT_OBSERVED, "class": "amber",
-            "why": NOT_OBSERVED_WHY}
+    row = slice_row if isinstance(slice_row, dict) else {}
+    history = row.get("verdicts")
+    history = [r for r in history if isinstance(r, dict)] if isinstance(history, list) else []
+    if not history:
+        return _chip(NOT_OBSERVED, NOT_OBSERVED_WHY)
+
+    latest = history[-1]
+    state = VERDICT_TO_EVIDENCE.get(latest.get("state"))
+    prior_refutes = sum(1 for r in history[:-1] if r.get("state") == "REFUTE")
+    if state is None:
+        return _chip(NOT_OBSERVED, UNREADABLE_WHY, history_count=len(history),
+                     prior_refutes=prior_refutes, history=history)
+
+    who = latest.get("observer") or "an unnamed observer"
+    why = f"{state.lower()} by {who}"
+    if latest.get("at"):
+        why += f" at {latest['at']}"
+    if latest.get("counts_human"):
+        why += f" - observed {latest['counts_human']}"
+    if latest.get("backfilled"):
+        why += " (backfilled from evidence, not recorded live)"
+    if prior_refutes:
+        why += (f" - {prior_refutes} earlier refutation(s) on this slice, "
+                f"since addressed")
+    for line in latest.get("discrepancies") or []:
+        why += f" | {line}"
+    if latest.get("note"):
+        why += f" | {latest['note']}"
+
+    return _chip(
+        state, why,
+        observer=latest.get("observer"), at=latest.get("at"),
+        at_age_human=latest.get("at_age_human") or "-",
+        agent_id=latest.get("agent_id"), counts=latest.get("counts"),
+        counts_human=latest.get("counts_human"),
+        discrepancies=list(latest.get("discrepancies") or []),
+        note=latest.get("note") or "", backfilled=bool(latest.get("backfilled")),
+        history_count=len(history), prior_refutes=prior_refutes, history=history)
 
 
 # --------------------------------------------------------- P1: attribution
@@ -287,6 +355,13 @@ def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=
         out_row["evidence"] = evidence_for_slice(row)
         out_row["agent"] = _attribute(row["id"], agents)
         slices.append(out_row)
+        # A standing refutation is louder than a stuck slice: the work may
+        # already be in git, and nothing else on the board says so.
+        if out_row["evidence"]["state"] == REFUTED:
+            alerts.append({
+                "kind": "refuted_slice", "id": row["id"],
+                "text": (f"slice {row['id']} is {row['status']} on a REFUTED verdict "
+                         f"with no later confirmation")})
         if stuck:
             stuck_count += 1
             alerts.append({

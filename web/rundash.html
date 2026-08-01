@@ -51,7 +51,7 @@ h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.6px;
 
 .scroll{overflow-x:auto}
 .srow{display:grid;grid-template-columns:80px minmax(200px,2fr) 120px 90px 110px
-  minmax(160px,1fr) 150px;gap:12px;align-items:center;min-width:1040px;
+  minmax(160px,1fr) 190px;gap:12px;align-items:center;min-width:1080px;
   padding:10px 0;border-bottom:1px solid rgba(30,45,68,.6)}
 .srow:last-child{border-bottom:none}
 .srow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
@@ -64,7 +64,16 @@ h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.6px;
 .b-verified{background:rgba(63,185,80,.15);color:var(--grn)}
 .b-committed{background:rgba(63,185,80,.15);color:var(--grn)}
 .b-failed{background:rgba(200,69,90,.2);color:var(--red)}
-.b-amber{background:rgba(210,153,34,.22);color:var(--org)}
+
+/* P2 evidence. REFUTED must not differ from NOT OBSERVED by hue alone - that is
+   the one distinction an operator has to catch, and roughly 1 in 12 men cannot
+   separate amber from red. So: solid double border + a "!!" prefix + a filled
+   ground for REFUTED, against a dashed hollow chip for NOT OBSERVED. */
+.b-refuted{background:rgba(200,69,90,.32);color:var(--red);
+  border:2px double var(--red);text-decoration:underline}
+.b-notobs{background:transparent;color:var(--org);border:1px dashed var(--org)}
+.b-evok{background:rgba(63,185,80,.15);color:var(--grn);border:1px solid transparent}
+.ev{display:block;margin-top:4px}
 .b-safe{background:rgba(63,185,80,.18);color:var(--grn)}
 .b-salvage{background:rgba(200,69,90,.22);color:var(--red)}
 .badge.big{font-size:var(--fs-lg);padding:8px 18px}
@@ -76,7 +85,12 @@ summary{cursor:pointer;padding:9px 14px;min-height:38px;font-size:var(--fs-sm);
   color:var(--teal);list-style:none;display:flex;align-items:center}
 summary::-webkit-details-marker{display:none}
 summary:hover{background:rgba(10,200,185,.08)}
-details .body{padding:4px 14px 12px 14px;font-size:var(--fs-sm);color:var(--mut)}
+/* overflow-wrap: the evidence column is 190px and a discrepancy line names a
+   file path. Measured 1920x1080: an unbroken 439px token was CLIPPED inside a
+   188px body - not scrolled, not wrapped, gone. The one line an operator most
+   needs to read is the one most likely to be a single long token. */
+details .body{padding:4px 14px 12px 14px;font-size:var(--fs-sm);color:var(--mut);
+  overflow-wrap:anywhere}
 button{font:700 var(--fs-sm)/1.2 'Segoe UI',system-ui,sans-serif;color:var(--tx);
   background:transparent;border:1px solid var(--line);border-radius:8px;
   padding:11px 20px;min-height:42px;cursor:pointer}
@@ -150,10 +164,53 @@ function statusBadge(status) {
   return '<span class="badge ' + (map[status] || "b-pending") + '">' +
     esc(String(status || "?").toUpperCase()) + '</span>';
 }
+// Three states, never two, and a missing payload is the amber one - a slice the
+// server could not speak for must not render blank, because blank reads as fine.
+var EV_CLASS = { green: "b-evok", red: "b-refuted", amber: "b-notobs" };
 function evidenceChip(ev) {
-  if (!ev) { ev = { label: "NOT OBSERVED", why: "", state: "NOT OBSERVED" }; }
-  return '<span class="badge b-amber" title="' + esc(ev.why) + '">' +
-    esc(ev.label || ev.state) + '</span>';
+  if (!ev) { ev = { state: "NOT OBSERVED", why: "", "class": "amber" }; }
+  var cls = EV_CLASS[ev["class"]] || "b-notobs";
+  // The "!!" is deliberate: hue alone must not be what separates REFUTED from
+  // NOT OBSERVED, so the text carries the distinction too.
+  var txt = (ev.state === "REFUTED" ? "!! " : "") + (ev.label || ev.state || "NOT OBSERVED");
+  var html = '<span class="badge ' + cls + '" title="' + esc(ev.why) + '">' +
+    esc(txt) + "</span>";
+  var bits = [];
+  if (ev.observer) { bits.push("by " + ev.observer); }
+  if (ev.counts_human) { bits.push(ev.counts_human); }
+  if (ev.backfilled) { bits.push("backfilled"); }
+  if (bits.length) {
+    html += '<span class="ev meta ell" title="' + esc(bits.join(" - ")) + '">' +
+      esc(bits.join(" - ")) + "</span>";
+  }
+  // A refutation that was later fixed stays on the page. Erasing it is the
+  // thing the persisted history exists to prevent.
+  if (ev.prior_refutes) {
+    html += '<span class="ev warn">' + esc(ev.prior_refutes) +
+      " earlier refutation(s), since addressed</span>";
+  }
+  html += verdictHistory(ev.history);
+  return html;
+}
+
+function verdictHistory(history) {
+  if (!history || history.length < 1) { return ""; }
+  var html = '<details><summary>verdict history (' + history.length + ")</summary>" +
+    '<div class="body">';
+  for (var i = 0; i < history.length; i++) {
+    var r = history[i];
+    html += "<div>" + esc(r.state || "UNREADABLE") + " - " +
+      esc(r.observer || "unnamed observer") + " - " + esc(r.at || "no timestamp") +
+      (r.counts_human ? " - " + esc(r.counts_human) : "") +
+      (r.agent_id ? ' - agent <span class="mono">' + esc(r.agent_id) + "</span>" : "") +
+      "</div>";
+    var lines = r.discrepancies || [];
+    for (var j = 0; j < lines.length; j++) {
+      html += '<div class="bad">' + esc(lines[j]) + "</div>";
+    }
+    if (r.note) { html += "<div>" + esc(r.note) + "</div>"; }
+  }
+  return html + "</div></details>";
 }
 function fileList(label, files) {
   if (!files || !files.length) { return ""; }

@@ -185,6 +185,72 @@ def test_disjointness_flags_only_non_committed_overlap(tmp_path):
     assert rd.disjointness_warnings(None) == []
 
 
+# --------------------------------------------------- verdict history (P2)
+
+
+def test_a_slice_with_no_verdict_field_reads_as_an_empty_history(tmp_path):
+    # Absence is the NOT OBSERVED state. Every manifest written before the
+    # verdict subcommand existed lands here, and none of them may read as
+    # verified by omission.
+    m = rd.read_slice_manifest(write_manifest(tmp_path, sample_manifest()), now_ts=T, cache={})
+    assert m["slices"][0]["verdicts"] == []
+    assert m["slices"][0]["verdict_count"] == 0
+
+
+def test_the_verdict_history_is_carried_through_in_recorded_order(tmp_path):
+    p = write_manifest(tmp_path, {"slices": [{
+        "id": "B1", "status": "committed", "updated": iso(T - 60), "verdicts": [
+            {"state": "REFUTE", "observer": "verifier", "at": iso(T - 3600),
+             "agent_id": "a1", "counts": None,
+             "discrepancies": ["null payload evicts the last-good cache entry"],
+             "note": "", "backfilled": False},
+            {"state": "CONFIRM", "observer": "merger", "at": iso(T - 1800),
+             "agent_id": None,
+             "counts": {"passed": 1306, "skipped": 16, "failed": 0},
+             "note": "5-sequence differential probe", "backfilled": True},
+        ]}]})
+    s = rd.read_slice_manifest(p, now_ts=T, cache={})["slices"][0]
+    assert [r["state"] for r in s["verdicts"]] == ["REFUTE", "CONFIRM"]
+    assert s["verdict_count"] == 2
+    first, second = s["verdicts"]
+    assert first["observer"] == "verifier" and first["agent_id"] == "a1"
+    assert first["counts"] is None and first["counts_human"] is None
+    assert first["discrepancies"] == ["null payload evicts the last-good cache entry"]
+    assert first["at_age_s"] == pytest.approx(3600.0)
+    assert second["counts"] == {"passed": 1306, "skipped": 16, "failed": 0}
+    assert second["counts_human"] == "1306 passed / 16 skipped / 0 failed"
+    assert second["backfilled"] is True
+
+
+def test_a_garbage_verdict_record_never_raises_and_never_reads_as_confirmed(tmp_path):
+    p = write_manifest(tmp_path, {"slices": [{
+        "id": "X", "status": "pending", "verdicts": [
+            None, 7, "CONFIRM",
+            {"state": None, "counts": "1306 passed", "discrepancies": "one line"},
+        ]}]})
+    s = rd.read_slice_manifest(p, now_ts=T, cache={})["slices"][0]
+    assert s["verdict_count"] == 1  # the three non-dict records are dropped
+    rec = s["verdicts"][0]
+    assert rec["state"] is None and rec["counts"] is None
+    assert rec["discrepancies"] == [] and rec["observer"] is None
+
+
+def test_a_non_list_verdict_field_is_an_empty_history_not_a_crash(tmp_path):
+    p = write_manifest(tmp_path, {"slices": [
+        {"id": "X", "status": "pending", "verdicts": "CONFIRM"}]})
+    assert rd.read_slice_manifest(p, now_ts=T, cache={})["slices"][0]["verdicts"] == []
+
+
+def test_a_naive_verdict_stamp_gives_an_unknown_age_rather_than_a_wrong_one(tmp_path):
+    # parse_iso here reads naive as LOCAL and lw_httpd.parse_ts reads it as UTC.
+    # slice_orchestrator refuses to write a naive stamp for exactly that reason;
+    # a hand-edited one must degrade to "-", never to a confidently wrong age.
+    p = write_manifest(tmp_path, {"slices": [{"id": "X", "status": "pending", "verdicts": [
+        {"state": "CONFIRM", "observer": "verifier", "at": "whenever"}]}]})
+    rec = rd.read_slice_manifest(p, now_ts=T, cache={})["slices"][0]["verdicts"][0]
+    assert rec["at_age_s"] is None and rec["at_age_human"] == "-"
+
+
 # ------------------------------------------------------------- run_liveness
 
 
