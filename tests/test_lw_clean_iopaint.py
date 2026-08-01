@@ -270,3 +270,53 @@ def test_integration_namakx_one_pass_removes_watermark(tmp_path):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+# --------------------------------------------------------------------------
+# per-slug presets (the 2026-07-16 triage's confirmed PARTIAL fixes)
+# --------------------------------------------------------------------------
+def test_slug_preset_spirit_blossom_turns_chroma_on():
+    region, chroma, src = io.resolve_preset(
+        "spirit-blossom-ahri-mono-01-by-hriful-dk79ceq-pre")
+    assert chroma == 12.0
+    assert src == "slug"
+    assert region == io.NAMAKX_REGION
+
+
+def test_slug_preset_viego_uses_full_width_band():
+    region, chroma, src = io.resolve_preset(
+        "viego-the-king-by-slimshadywallpaper-dhawigh-pre")
+    assert region == (860, 958, 1720, 1035)
+    assert chroma == 12.0
+    assert src == "slug"
+
+
+def test_slug_preset_aidraw_widens_region_right():
+    region, chroma, _ = io.resolve_preset(
+        "aidraw-2662100118-by-watercolornessie-dma7o8j-fullview")
+    assert region[2] > io.NAMAKX_REGION[2]
+    assert chroma == 12.0
+
+
+def test_explicit_region_and_chroma_beat_the_slug_preset():
+    region, chroma, src = io.resolve_preset(
+        "viego-the-king-by-slimshadywallpaper-dhawigh-pre",
+        region=(1, 2, 3, 4), chroma_thr=5.0)
+    assert region == (1, 2, 3, 4)
+    assert chroma == 5.0
+    assert src == "explicit"
+
+
+def test_cluster_beats_the_slug_preset():
+    region, chroma, src = io.resolve_preset(
+        io.NAMAKX_SLUGS[0], cluster="namakx")
+    assert region == io.NAMAKX_REGION
+    assert chroma is None
+    assert src == "cluster"
+
+
+def test_unknown_slug_falls_back_to_the_namakx_default():
+    region, chroma, src = io.resolve_preset("no-such-slug-at-all")
+    assert region == io.NAMAKX_REGION
+    assert chroma is None
+    assert src == "default"

@@ -94,6 +94,52 @@ CLUSTER_PRESETS = {
     "vexxsoul": {"region": None, "chroma_thr": 12.0, "slugs": []},
 }
 
+# Per-slug overrides for one-off marks the cluster/default region under-covers.
+# Sourced from the 2026-07-16 batch triage (docs/research/IOPAINT_TRIAGE.md):
+# improvement 3 (bottom-centre banner class needs a FULL-WIDTH band with x-pad,
+# because YOLO+OCR under-covers long low-contrast credit strings) and
+# improvement 4 (low-contrast COLOURED marks need the chroma term OR-ed in).
+# region None = keep the default/cluster region, only override chroma_thr.
+SLUG_PRESETS = {
+    # 1 blue speck survived luma-only; chroma at 12 clears it (confirmed).
+    "spirit-blossom-ahri-mono-01-by-hriful-dk79ceq-pre": {
+        "region": None, "chroma_thr": 12.0,
+    },
+    # flank "(c)SLI/.DEVIANTART" sat outside the default box; the full-width
+    # band + chroma clears it (confirmed).
+    "viego-the-king-by-slimshadywallpaper-dhawigh-pre": {
+        "region": (860, 958, 1720, 1035), "chroma_thr": 12.0,
+    },
+    # right-flank ".COM" sat outside the ROI -> widen the band to the right edge.
+    "aidraw-2662100118-by-watercolornessie-dma7o8j-fullview": {
+        "region": (848, 1122, 2560, 1430), "chroma_thr": 12.0,
+    },
+}
+
+
+def resolve_preset(slug, region=None, cluster=None, chroma_thr=None):
+    """PURE: settle (region, chroma_thr) for a slug. Returns (region, chroma, source).
+
+    Precedence: explicit args > named cluster > per-slug preset > namakx default.
+    source is one of explicit / cluster / slug / default and is logged so a run
+    is reproducible from its own output.
+    """
+    if region is not None or chroma_thr is not None:
+        cpre = CLUSTER_PRESETS.get(cluster, {}) if cluster else {}
+        spre = SLUG_PRESETS.get(slug, {})
+        r = region if region is not None else (
+            cpre.get("region") or spre.get("region") or NAMAKX_REGION)
+        c = chroma_thr if chroma_thr is not None else (
+            cpre.get("chroma_thr") if cluster else spre.get("chroma_thr"))
+        return r, c, "explicit"
+    if cluster:
+        cpre = CLUSTER_PRESETS.get(cluster, {})
+        return cpre.get("region") or NAMAKX_REGION, cpre.get("chroma_thr"), "cluster"
+    spre = SLUG_PRESETS.get(slug)
+    if spre:
+        return spre.get("region") or NAMAKX_REGION, spre.get("chroma_thr"), "slug"
+    return NAMAKX_REGION, None, "default"
+
 # Validated single-image mask defaults (namakx dfz5w2g).
 BRIGHT_THR = 10.0            # gray-bg > +10 -> bright FILL
 DARK_THR = -14.0            # gray-bg < -14 -> dark OUTLINE
@@ -444,14 +490,9 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
     ROI + mask to out_dir and PRINTS the save-working (--tool iopaint) + submit
     commands. dry_run builds + writes the mask/before ROI only (no GPU, no clean).
     """
-    preset = CLUSTER_PRESETS.get(cluster, {}) if cluster else {}
-    if region is None:
-        region = preset.get("region")
-    if region is None:
-        region = NAMAKX_REGION
-        log(f"LW IOPAINT {slug}: no region given -> default namakx region {region}")
-    if chroma_thr is None:
-        chroma_thr = preset.get("chroma_thr")
+    region, chroma_thr, preset_src = resolve_preset(slug, region, cluster, chroma_thr)
+    log(f"LW IOPAINT {slug}: region={region} chroma_thr={chroma_thr} "
+        f"(source={preset_src})")
 
     if image is None:
         image = C.select_working_image(os.path.join(CLEAN_SCRATCH, slug), slug)
