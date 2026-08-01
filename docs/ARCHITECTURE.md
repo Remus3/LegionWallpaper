@@ -56,6 +56,15 @@ tools\lw_monitor.py                  read-only stdlib HTTP monitor on
                                      /api/shutdown. Fail-soft everywhere;
                                      CREATE_NO_WINDOW on any subprocess.
 
+tools\lw_ports.py                    LW's reserved TCP block 8900-8919 and its
+                                     named allocations (monitor=8901). Any new
+                                     LW listener takes next_free() and gets
+                                     pinned in tests/test_lw_ports.py against
+                                     its real definition site. Cross-project
+                                     registry lives in the sibling project;
+                                     foreign port literals stay out of this
+                                     tree by test.
+
 ops\runtime\pipeline_state.json      machine state twin, written atomically by
                                      lw_pipeline.py; monitor reads tolerantly
                                      (unknown fields ignored, stale-cache belt).
