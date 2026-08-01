@@ -1,7 +1,10 @@
 """LW Monitor - read-only pipeline dashboard server (spec: docs/research/LW_MONITOR_SPEC.md).
 
-Serves web/monitor.html plus JSON APIs over 127.0.0.1:8901 (stdlib http.server,
-zero required dependencies; Pillow optional for real thumbnails). Reads
+Serves web/monitor.html plus JSON APIs over 127.0.0.1:8901 on the shared
+tools/lw_httpd.py scaffold (stdlib only, zero required dependencies; Pillow
+optional for real thumbnails). This module owns the pipeline routes and the
+pipeline view; the transport, the Host guard and the bind-first single-instance
+guard are lw_httpd's. Reads
 ops/runtime/pipeline_state.json written atomically by lw_pipeline.py and the
 append-only PIPELINE_LOG.md at the project root. The reader is tolerant per
 the 7 binding rules in spec section 3.2 - drift in the producer's shape is
@@ -16,16 +19,14 @@ from __future__ import annotations
 
 import argparse
 import io
-import json
 import logging
 import os
 import re
+import sys
 import threading
 import time
 import webbrowser
 from collections import OrderedDict, deque
-from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -35,6 +36,21 @@ from urllib.parse import parse_qs, urlparse
 CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
 ROOT = Path(__file__).resolve().parent.parent
+
+if str(ROOT) not in sys.path:  # launched as a script, not as tools.lw_monitor
+    sys.path.insert(0, str(ROOT))
+
+from tools.lw_httpd import (  # noqa: E402
+    BaseLWHandler,
+    LWServer,
+    age_text,
+    iso_from_epoch,
+    parse_ts,
+    read_json_tolerant,
+    serve_or_defer,
+    setup_logging,
+)
+
 STATE_PATH = ROOT / "ops" / "runtime" / "pipeline_state.json"
 LOG_PATH = ROOT / "PIPELINE_LOG.md"  # project-root append-only log (build-wave contract)
 PAGE_PATH = ROOT / "web" / "monitor.html"
@@ -92,32 +108,6 @@ _MODULE_VIEW_CACHE: dict = {}  # last-good pipeline_state payloads, keyed by pat
 
 
 # ------------------------------------------------------------------ helpers
-
-
-def _iso_from_epoch(epoch):
-    try:
-        return datetime.fromtimestamp(float(epoch), tz=timezone.utc).isoformat().replace("+00:00", "Z")
-    except (OSError, OverflowError, ValueError, TypeError):
-        return None
-
-
-def _parse_ts(value):
-    """ISO-8601 string -> epoch float; junk -> None (tolerance rule 7)."""
-    if not isinstance(value, str) or not value.strip():
-        return None
-    raw = value.strip()
-    if raw.endswith(("Z", "z")):
-        raw = raw[:-1] + "+00:00"
-    try:
-        dt = datetime.fromisoformat(raw)
-    except ValueError:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    try:
-        return dt.timestamp()
-    except (OSError, OverflowError, ValueError):
-        return None
 
 
 def classify_phase(phase):
@@ -195,11 +185,11 @@ def _norm_item(item, key_id, index, fallback_ts, now_ts, stuck_s):
     ts_raw = item.get("ts")
     if not isinstance(ts_raw, str):
         ts_raw = item.get("last_op_ts")
-    ts_epoch = _parse_ts(ts_raw)
+    ts_epoch = parse_ts(ts_raw)
     ts_iso = ts_raw if isinstance(ts_raw, str) and ts_epoch is not None else None
     if ts_epoch is None and fallback_ts is not None:
         ts_epoch = fallback_ts
-        ts_iso = _iso_from_epoch(fallback_ts)
+        ts_iso = iso_from_epoch(fallback_ts)
     age_s = None
     if ts_epoch is not None:
         age_s = max(0.0, round(now_ts - ts_epoch, 1))
@@ -234,16 +224,6 @@ def _norm_item(item, key_id, index, fallback_ts, now_ts, stuck_s):
     }
 
 
-def _age_text(age_s):
-    if age_s is None:
-        return ""
-    if age_s < 90:
-        return f"{round(age_s)}s"
-    if age_s < 5400:
-        return f"{round(age_s / 60)}m"
-    return f"{age_s / 3600:.1f}h"
-
-
 # ------------------------------------------------------------- pure builder
 
 
@@ -259,7 +239,6 @@ def build_pipeline_view(state_path, now_ts=None, *, done_cap=DONE_CAP, stuck_s=S
     if cache is None:
         cache = _MODULE_VIEW_CACHE
     state_path = Path(state_path)
-    key = str(state_path)
     out = {
         "ok": True,
         "state_present": False,
@@ -271,37 +250,22 @@ def build_pipeline_view(state_path, now_ts=None, *, done_cap=DONE_CAP, stuck_s=S
         "phase_counts": {p: 0 for p in CANONICAL_PHASES},
         "attention": [],
         "stages": [],
-        "updated_at": _iso_from_epoch(now_ts),
+        "updated_at": iso_from_epoch(now_ts),
     }
-    try:
-        raw = state_path.read_text(encoding="utf-8")
-    except OSError:
-        raw = None
-    state = None
-    mtime = None
-    if raw is not None:
-        try:
-            mtime = state_path.stat().st_mtime
-        except OSError:
-            mtime = None
-        try:
-            state = json.loads(raw)
-        except ValueError:
-            # rule 6: mid-write safety belt - serve the last good payload
-            entry = cache.get(key)
-            if entry:
-                state = entry["state"]
-                mtime = entry["mtime"]
-                out["stale"] = True
-                out["stale_since"] = entry["good_iso"]
+    # rules 5 + 6: absent or unparsable is normal traffic, and a torn read
+    # falls back to the last good payload rather than blanking the board.
+    read = read_json_tolerant(state_path, cache, now_ts=now_ts)
+    state = read["data"]
+    mtime = read["mtime"]
+    if read["stale"]:
+        out["stale"] = True
+        out["stale_since"] = read["stale_since"]
     if state is None:
-        return out  # rule 5: absent or unparsable with no last-good
+        return out
     if not isinstance(state, dict):
         state = {}
     out["state_present"] = True
-    if not out["stale"]:
-        cache[key] = {"state": state, "mtime": mtime, "good_iso": _iso_from_epoch(now_ts)}
-    out["state_mtime_iso"] = _iso_from_epoch(mtime) if mtime is not None else None
+    out["state_mtime_iso"] = iso_from_epoch(mtime) if mtime is not None else None
 
     run_id = state.get("run_id")
     out["run_id"] = str(run_id) if run_id not in (None, "") else None
@@ -378,7 +342,7 @@ def build_pipeline_view(state_path, now_ts=None, *, done_cap=DONE_CAP, stuck_s=S
             reason = item["error"]
         elif item["stuck"]:
             kind = "stuck"
-            reason = f"working for {_age_text(item['age_s'])}"
+            reason = f"working for {age_text(item['age_s'])}"
         else:
             continue
         attention.append({
@@ -543,12 +507,7 @@ def make_thumb(resolved):
 # -------------------------------------------------------------------- server
 
 
-class MonitorServer(ThreadingHTTPServer):
-    daemon_threads = True
-    # Windows SO_REUSEADDR would let a second server steal the port; a hard
-    # bind failure is what makes the bind-first single-instance guard work.
-    allow_reuse_address = False
-
+class MonitorServer(LWServer):
     def __init__(self, addr, handler, *, state_path=STATE_PATH, log_path=LOG_PATH,
                  page_path=PAGE_PATH, image_roots=None, cache=None):
         super().__init__(addr, handler)
@@ -557,54 +516,13 @@ class MonitorServer(ThreadingHTTPServer):
         self.page_path = Path(page_path)
         self.image_roots = [Path(r) for r in (image_roots or DEFAULT_IMAGE_ROOTS)]
         self.view_cache = {} if cache is None else cache
-        self.started_iso = _iso_from_epoch(time.time())
 
 
-class Handler(BaseHTTPRequestHandler):
+class Handler(BaseLWHandler):
     server_version = "LWMonitor/1.0"
-    protocol_version = "HTTP/1.1"
-
-    def log_message(self, fmt, *args):  # never stdout - pythonw has no console
-        logging.getLogger("lw_monitor.http").info("%s %s", self.address_string(), fmt % args)
-
-    def _send(self, status, body, ctype="application/json; charset=utf-8", extra=None):
-        try:
-            self.send_response(status)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(body)))
-            if extra:
-                for k, v in extra.items():
-                    self.send_header(k, v)
-            self.end_headers()
-            self.wfile.write(body)
-        except OSError:
-            pass  # client went away mid-response
-
-    def _send_json(self, status, obj, extra=None):
-        self._send(status, json.dumps(obj).encode("utf-8"), extra=extra)
-
-    def _host_ok(self):
-        host = (self.headers.get("Host") or "").strip().lower()
-        name = host.rsplit(":", 1)[0] if ":" in host else host
-        return name in ("127.0.0.1", "localhost")
-
-    def do_GET(self):
-        self._guarded("GET")
-
-    def do_POST(self):
-        self._guarded("POST")
-
-    def _guarded(self, method):
-        try:
-            self._route(method)
-        except Exception:  # noqa: BLE001 - top-level request guard, fail-soft per spec
-            logging.getLogger("lw_monitor.http").exception("unhandled error on %s %s", method, self.path)
-            self._send_json(500, {"ok": False, "error": "internal error"})
+    logger_name = "lw_monitor"
 
     def _route(self, method):
-        if not self._host_ok():
-            self._send_json(403, {"ok": False, "error": "forbidden"})
-            return
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
@@ -658,19 +576,6 @@ class Handler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------- main
 
 
-def _setup_logging():
-    try:
-        MONITOR_LOG.parent.mkdir(parents=True, exist_ok=True)
-        handler = logging.FileHandler(MONITOR_LOG, encoding="utf-8")
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-        root = logging.getLogger()
-        if not root.handlers:
-            root.addHandler(handler)
-            root.setLevel(logging.INFO)
-    except OSError:
-        pass  # logging must never take the server down
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description="LW pipeline monitor server (127.0.0.1 only)")
     ap.add_argument("--open", action="store_true", dest="open_browser",
@@ -681,33 +586,23 @@ def main(argv=None):
     ap.add_argument("--log-file", default=None, help="PIPELINE_LOG path override")
     ap.add_argument("--state-file", default=None, help="pipeline_state.json path override")
     args = ap.parse_args(argv)
-    _setup_logging()
+    setup_logging(MONITOR_LOG)
     image_roots = [Path(r) for r in args.images_root] if args.images_root else list(DEFAULT_IMAGE_ROOTS)
+    state_path = Path(args.state_file) if args.state_file else STATE_PATH
     url = f"http://{HOST}:{args.port}/"
-    try:
-        server = MonitorServer(
+    log.info("lw_monitor state=%s", state_path)
+
+    def factory():
+        return MonitorServer(
             (HOST, args.port), Handler,
-            state_path=Path(args.state_file) if args.state_file else STATE_PATH,
+            state_path=state_path,
             log_path=Path(args.log_file) if args.log_file else LOG_PATH,
             image_roots=image_roots,
         )
-    except OSError as exc:
-        # bind-first single-instance guard: the running instance is authoritative
-        log.info("bind failed on %s (%s) - assuming LW Monitor already runs; deferring", url, exc)
-        if args.open_browser:
-            webbrowser.open(url)  # routes through os.startfile - no console
-        return 0
-    log.info("lw_monitor serving %s pid=%d state=%s", url, os.getpid(), server.state_path)
-    if args.open_browser:
-        webbrowser.open(url)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
-        log.info("lw_monitor stopped pid=%d", os.getpid())
-    return 0
+
+    # webbrowser.open routes through os.startfile - no console flash
+    return serve_or_defer(factory, url, name="lw_monitor", log=log,
+                          open_url=webbrowser.open if args.open_browser else None)
 
 
 if __name__ == "__main__":
