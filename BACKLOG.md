@@ -104,8 +104,22 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     NOT claimed because NOT measured: that this helps the EXISTING corpus (the
     wiki hosts official Riot splash; much of LW's corpus is DeviantArt fan art
     no wiki hosts), that a wiki HD file beats the held `_firstinitial` for any
-    given slug, or anything about licensing. Counting that intersection is the
-    honest next slice, ahead of any Tier-0.5 build.
+    given slug, or anything about licensing. **The intersection is now COUNTED
+    (2026-08-01, LEDGER 75, `docs/WIKI_INTERSECTION_2026-08-01.md`): 77 corpus
+    images are confirmed same-artwork as a canonical wiki splash on TWO
+    independent metrics, and 77 of 77 have a wiki source at or above 2560x1440,
+    median 7.43x the target pixel count.** That is 23.3 percent of the 330
+    attributed corpus and a LOWER bound - the 122 `CHAMPION_UNKNOWNS.md` images
+    were never swept. A Tier-0.5 canonical-source step is now justified on
+    evidence rather than on hope. Still owed BEFORE building it: a per-slug
+    comparison of the wiki file against the held `_firstinitial`, because this
+    measured wiki-vs-TARGET, not wiki-vs-what-LW-already-has, and resolution is
+    not fidelity. Also settled by that sweep: 8 of 81 structural matches are
+    fan-made 4K wallpapers DERIVED from the official splash (same composition,
+    different pixels), so any such tier needs two metrics and must route the
+    structure-agrees-content-differs band to operator review - a single-metric
+    gate would have swapped all 8 out from under the operator's chosen
+    treatment.
     Do-not-redo: installing either MediaWiki MCP server; fetching a Fandom file
     URL WITHOUT `?format=original` (the default is a lossy WEBP transcode served
     under a `.jpg` name at 28 percent of the declared size, with the pixel dims

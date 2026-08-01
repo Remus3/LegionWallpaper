@@ -27,6 +27,120 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+75. DONE **2026-08-01 (the corpus/wiki intersection, counted on pixels - 77
+    confirmed).** `docs/WIKI_INTERSECTION_2026-08-01.md`. Closes the question
+    LEDGER 72 refused to guess at. **77 corpus images are confirmed to be the
+    same artwork as a canonical wiki splash, and 77 of 77 have a wiki source at
+    or above 2560x1440 - median 7.43x the target pixel count, min 1.44x, max
+    19.32x** - so for those, first pass would take its downscale-only
+    passthrough branch instead of an AI upscale. Method deliberately NOT a name
+    match, which answers a different question: wiki index built from one
+    `Category:High definition champion skins` walk (2047 titles, 173 champions)
+    rather than 173 prefix walks, joined to the 330 attributed corpus images on
+    a normalized champion key - without which the join silently loses `Kai'Sa`,
+    `Lee Sin`, `Miss Fortune`, `Xin Zhao` and `Renata Glasc`, the same miss the
+    P3 probe hit on `Vel'Koz`. 998 candidate HD titles fetched as 256px
+    thumbnails via `iiurlwidth` rather than ~6 GB of originals. CONTROLS RUN AND
+    REPORTED BEFORE THE COUNT: rows whose own description says "official splash"
+    (n=29) median dHash 3, rows described as fan art or AI-gen (n=26) median 21.
+    Every candidate then re-scored on an INDEPENDENT metric (normalized mean
+    absolute difference on a 64x36 grayscale): strong band median 2.73, grey
+    8-14 band median 19.25, far band median 51.75, and **0 of 32 far-band rows
+    accepted by the second metric**, so the two are not measuring one thing
+    twice. Result: 81 rows at d<=6, of which 73 confirmed by BOTH metrics, 4
+    grey-zone rows rescued by the second, **8 excluded as dHash-only**. Those 8
+    are a CATEGORY not noise - fan-made 4K wallpapers derived from the official
+    splash (the fudoyuseivn Star Guardian / Petals of Spring set), same
+    composition and different pixels, which is exactly what a canonical-source
+    tier must never silently replace; a single-metric gate would have swapped
+    all 8. Final: 77 confirmed = 23.3 percent of the 330 attributed, 26.4
+    percent of the 292 attemptable (38 rows carry group-splash or non-LoL labels
+    no single-champion file can match), 58 in `2.First Pass Done` and 19 in
+    `reference_pictures`, 50 champions, 77 DISTINCT wiki files with no
+    collisions. Reported as a LOWER BOUND: the 122 `CHAMPION_UNKNOWNS.md` images
+    were never swept. NOT established, and said so: that the wiki file beats
+    what LW already holds for a given slug (this measured wiki-vs-TARGET, not
+    wiki-vs-`_firstinitial`, and resolution is not fidelity), that a swap is
+    wanted at all, or anything about licensing. Do-not-redo: matching on
+    champion name; accepting a match on one metric; per-champion prefix walks to
+    build the wiki index; fetching full splashes to compare.
+
+74. DONE **2026-08-01 (P5 - memi audited our pages and got them backwards;
+    DO NOT ADOPT; `d24b494`).** `docs/MCP_LIFT_P5_2026-08-01.md`. The dive set
+    one adoption test - run it against both pages, adopt only if it catches
+    something the 5-phase ritual missed - and it caught nothing. Premise
+    CORRECTED before a single command ran: `npm view memi` returns **0.0.8 by an
+    unrelated author**, so the obvious `npx memi` would have executed a
+    stranger's package and attributed the output to the tool under evaluation.
+    The tool is `@memi-design/cli` **2.7.4**, verified on the registry first
+    (MIT, `engines.node >=20` against this box's 24.15.0, published
+    2026-08-01, integrity `sha512-6bksTLz+3YRV0QgH69lWPQ2EVPgKlvnTdrx9MH0F...`).
+    It declares `@anthropic-ai/sdk`, so the dive's "no key" claim was tested
+    rather than trusted - it held, both `diagnose` and `craft audit` completed
+    with no key. Then the findings were checked against the files instead of
+    believed, and three independent failures fell out. (1) **Its single finding
+    fires on the fix it recommends**: `color.raw-hex` flags `web/monitor.html:9`
+    as "raw colors leaking into UI code" and recommends moving colours into CSS
+    variables, while quoting the `:root{}` custom-property block as its
+    evidence - every hex in that file appears once, in that block, and every
+    consumer uses `var(--...)`, so acting on it means deleting the tokens.
+    (2) **Its colour metric is wrong in both directions**: monitor.html has 11
+    unique hex literals and is reported as 1; rundash.html has 10 and is
+    reported as **0**. It also reports 29 and 175 "Tailwind classes" in two
+    files with `grep -c -i tailwind` = 0. (3) **Its scores are unbacked**:
+    rundash.html scores 38/100 with ZERO findings and 4 of 6 dimensions
+    unassessed, monitor.html scores 49 despite being the LESS tokenized of the
+    two, and the same unchanged rundash.html scores **81/100 under `craft audit`
+    against 38 under `diagnose`** with all 7 craft dimensions "not assessed by
+    static scan". `enforce-design-ci` ruled out specifically: a gate whose
+    colour counter reads 0 on a file with 10 hex literals, and whose score moves
+    43 points on an unchanged file depending on subcommand, is a false-green
+    generator aimed at the exact failure LEDGER 71's `claimed_green_gate.py`
+    exists to catch. The 5-phase ritual stands unchanged. One idea CONFIRMED
+    rather than lifted: memi labels unassessed dimensions "unverified, not
+    verified-good" instead of letting silence read as a pass - which is LW's own
+    NOT OBSERVED chip and the `verdicts` absent-means-unobserved rule, so there
+    was nothing to take. Cleanup: it writes `.memoire/app-quality/` into the
+    CWD; that directory was removed and is deliberately NOT gitignored, because
+    nothing should be producing it. Do-not-redo: `npx memi`; re-evaluating on a
+    single subcommand; treating a memi score as a signal with no finding under
+    it.
+
+73. DONE **2026-08-01 (P4 - the file-claim table, so disjointness is CHECKED
+    not asserted; `14ec61f`).** `claim` / `release` / `claims` subcommands plus
+    `claim_files` / `release_files` / `get_active_claims` /
+    `normalize_claim_path` in `tools/slice_orchestrator.py`, with 40 tests in
+    `tests/test_slice_orchestrator_claims.py`. Method lifted from depwire, code
+    NOT vendored - BSL 1.1 until it converts to Apache 2.0 on 2029-02-25. Closes
+    the first half of f1-phase6 queue item 7: LW dispatches N parallel worktree
+    agents on "disjoint file sets" and that disjointness was asserted by a human
+    reading a directive, with nothing checking it, so two agents could be handed
+    one file and the sole merger found out at merge time after both had spent
+    their run. TDD RED-first: 40 failed before the implementation existed, 40
+    passed after. Full suite **1614 passed / 16 skipped** (1574 baseline + the
+    40), ruff clean, and the CLI was additionally exercised live end-to-end
+    against a scratch manifest rather than trusted from the tests alone - the
+    real refusal reads `tools/lw_recover.py conflicts with tools/lw_recover.py
+    held by A1 since 2026-08-01T21:11:58Z`. Design calls, all test-pinned:
+    `claims` is OPTIONAL by contract exactly like `verdicts`, so an absent key
+    means no claims and every pre-existing manifest stays valid and none reads
+    as claimed (`add` does not seed it). Comparison keys are separator-normalized
+    AND case-folded, deliberately over-colliding, because the two error
+    directions are not symmetric - a missed conflict loses an agent's work while
+    a false conflict only refuses a claim the operator can re-scope, and path
+    identity has bitten this operator twice already (three `~/.claude.json` keys
+    for one directory; red-handed's subdirectory drop). Containment is
+    SEGMENT-wise so `tools` holds `tools/x.py` but `tool` does not, because a
+    naive startswith cries wolf and ends with the table bypassed. Claims and
+    releases are ALL-OR-NOTHING - a half-granted claim lets an agent start on
+    the files it did get, losing work the same way no table does. Release is
+    holder-only. Non-repo-relative paths (absolute, drive-lettered, or any `..`
+    escaping root) are REFUSED, never guessed, matching what
+    `next-session-handoff-enforcement` asks for. NOT built, deliberately:
+    nothing calls this yet - wiring it into directive dispatch so an agent
+    cannot start without a granted claim is the enforcement half and belongs
+    with f1-phase6 item 7's "executor serializes AND RECORDS the deviation".
+
 72. DONE **2026-08-01 (P3 - the MediaWiki probe answered YES on the source and
     NO on the server; docs-only).** `docs/MCP_LIFT_P3_2026-08-01.md`. Third
     phase of `mcp-lift-phases`, operator gate lifted this session. Premise
