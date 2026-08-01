@@ -150,6 +150,108 @@ def test_read_json_tolerant_recovers_when_the_writer_finishes(tmp_path):
     assert back["data"] == {"n": 2}
 
 
+def test_json_null_reads_as_absent(tmp_path):
+    # `data is None` is this API's absent sentinel, so a file whose entire
+    # content is `null` cannot mean anything else.
+    p = tmp_path / "run.json"
+    p.write_text("null", encoding="utf-8")
+    got = lw_httpd.read_json_tolerant(p, {}, now_ts=T)
+    assert got["present"] is False
+    assert got["data"] is None
+    assert got["stale"] is False
+
+
+def test_json_null_does_not_evict_last_good(tmp_path):
+    """good -> null -> corrupt must still serve the good board.
+
+    The regression this pins: a `null` parses successfully, so a naive cache
+    write treats it as the new last-good and throws the real payload away. The
+    next torn read then has nothing to fall back on and the board goes blank -
+    the exact failure the last-good cache exists to prevent.
+    """
+    cache = {}
+    p = tmp_path / "run.json"
+    p.write_text(json.dumps({"run_id": "r1", "images": [{"id": "x"}]}), encoding="utf-8")
+    assert lw_httpd.read_json_tolerant(p, cache, now_ts=T)["stale"] is False
+    p.write_text("null", encoding="utf-8")
+    mid = lw_httpd.read_json_tolerant(p, cache, now_ts=T + 5)
+    assert mid["present"] is False
+    assert cache[str(p)]["data"] == {"run_id": "r1", "images": [{"id": "x"}]}
+    p.write_text("{ torn mid-write", encoding="utf-8")
+    got = lw_httpd.read_json_tolerant(p, cache, now_ts=T + 10)
+    assert got["present"] is True
+    assert got["stale"] is True
+    assert got["data"] == {"run_id": "r1", "images": [{"id": "x"}]}
+    # and it is dated from when the payload was good, not from the null read
+    assert got["stale_since"] == lw_httpd.iso_from_epoch(T)
+
+
+def test_json_null_alone_never_becomes_a_stale_payload(tmp_path):
+    # null -> corrupt, with no good read ever: nothing to fall back on, and
+    # the null must not have installed itself as a fallback either.
+    cache = {}
+    p = tmp_path / "run.json"
+    p.write_text("null", encoding="utf-8")
+    lw_httpd.read_json_tolerant(p, cache, now_ts=T)
+    assert cache == {}
+    p.write_text("{ torn", encoding="utf-8")
+    got = lw_httpd.read_json_tolerant(p, cache, now_ts=T + 1)
+    assert got["present"] is False
+    assert got["stale"] is False
+
+
+@pytest.mark.parametrize("payload", ["0", '""', "[]", "false", "{}"])
+def test_other_falsy_payloads_are_real_and_do_replace_last_good(tmp_path, payload):
+    """Only `null` is special - every other falsy JSON is content.
+
+    A producer that legitimately writes `[]` or `0` has said something, and a
+    reader that kept serving the previous payload would be lying about the
+    current state. This asymmetry is deliberate, so it gets pinned.
+    """
+    cache = {}
+    p = tmp_path / "run.json"
+    p.write_text(json.dumps({"run_id": "r1"}), encoding="utf-8")
+    lw_httpd.read_json_tolerant(p, cache, now_ts=T)
+    p.write_text(payload, encoding="utf-8")
+    mid = lw_httpd.read_json_tolerant(p, cache, now_ts=T + 5)
+    assert mid["present"] is True
+    assert mid["data"] == json.loads(payload)
+    assert mid["stale"] is False
+    p.write_text("{ torn", encoding="utf-8")
+    got = lw_httpd.read_json_tolerant(p, cache, now_ts=T + 10)
+    assert got["stale"] is True
+    assert got["data"] == json.loads(payload)  # the falsy value, not {"run_id": "r1"}
+    assert got["stale_since"] == lw_httpd.iso_from_epoch(T + 5)
+
+
+def test_monitor_view_survives_good_then_null_then_corrupt(tmp_path):
+    """The same defect measured where an operator would see it: a blank board.
+
+    lw_monitor is the first consumer of read_json_tolerant, and its own suite
+    never writes a bare `null`, so this end-to-end shape is pinned here.
+    """
+    from tools import lw_monitor
+
+    cache = {}
+    p = tmp_path / "pipeline_state.json"
+    p.write_text(json.dumps({
+        "run_id": "r1",
+        "images": [{"id": "x", "stage": 1, "phase": "_firstworking_01"}],
+    }), encoding="utf-8")
+    first = lw_monitor.build_pipeline_view(p, now_ts=T, cache=cache)
+    assert first["state_present"] is True and first["run_id"] == "r1"
+    p.write_text("null", encoding="utf-8")
+    lw_monitor.build_pipeline_view(p, now_ts=T + 5, cache=cache)
+    p.write_text("{ torn mid-write", encoding="utf-8")
+    v = lw_monitor.build_pipeline_view(p, now_ts=T + 10, cache=cache)
+    assert v["state_present"] is True
+    assert v["stale"] is True
+    assert v["run_id"] == "r1"
+    assert v["counts"]["1"] == 1
+    assert len(v["stages"]) == 1
+    assert v["stale_since"] == lw_httpd.iso_from_epoch(T)
+
+
 def test_read_json_tolerant_caches_are_per_path(tmp_path):
     cache = {}
     a = tmp_path / "a.json"

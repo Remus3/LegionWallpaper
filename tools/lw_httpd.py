@@ -75,6 +75,8 @@ def read_json_tolerant(path, cache, *, now_ts=None):
     faster than the producer writes, so a torn read is expected traffic and
     must not blank the board. Returns a dict with keys present / data / mtime
     / stale / stale_since; `cache` is caller-owned and keyed by path.
+
+    A bare `null` counts as absent, NOT as a payload - see the guard below.
     """
     if now_ts is None:
         now_ts = time.time()
@@ -97,6 +99,14 @@ def read_json_tolerant(path, cache, *, now_ts=None):
             return out
         return {"present": True, "data": entry["data"], "mtime": entry["mtime"],
                 "stale": True, "stale_since": entry["good_iso"]}
+    if data is None:
+        # `null` parses cleanly, so without this it would be stored as the new
+        # last-good and throw the real payload away - and the NEXT torn read
+        # would then have nothing to fall back on and blank the board. None is
+        # this function's absent sentinel, so it cannot also mean "a payload".
+        # Every other falsy JSON (0, "", [], false, {}) IS content and does
+        # replace last-good; only null is nothing.
+        return out
     cache[key] = {"data": data, "mtime": mtime, "good_iso": iso_from_epoch(now_ts)}
     out.update(present=True, data=data, mtime=mtime)
     return out
