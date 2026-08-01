@@ -128,6 +128,45 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-08-01 (evening) - Stage 2 finally drained; L1 closed; dashboard spine + panel; concurrency measured; truth_gate wired
+
+Six commits: d460e95 (stage-2 drain), c526c8b (MCP L1), 3cc0d92 (GpuBusy),
+0c57899 (rundash spine), cd2a996 (P1b panel), 55033cf (concurrency), a14ab3f
+(truth_gate + two fixes). Suite 1401 -> 1458 passed / 16 skipped. CI GREEN on
+a14ab3f (verified with gh, not assumed).
+
+- **Stage 2 flowed for the first time.** 12 slugs cleaned and submitted; the
+  needauth queue is yours to approve. 9 stay in scratch by design: 3 gate-FP
+  KEEPs, 3 namakx dark-outline ghosts (need triage improvement 1), 3 manual lane.
+  Coverage differed from the 2026-07-16 triage table (aatrox 47.9 vs 76.1), so
+  those by-eye verdicts did NOT carry over - re-checked on a contact sheet.
+- **L2 is CLOSED, not deferred:** `--append-subagent-system-prompt` does not
+  exist on CLI 2.1.220. Its premise had already failed (hooks DO fire headless).
+- **skylos is not CI material here** - it flagged `lw_httpd:122
+  allow_reuse_address = False`, which IS the single-instance bind guard. Use
+  `uvx skylos==3.0.0 <onedir>` as a one-shot hint only.
+- **GpuBusy was forked 4 ways** so `except GpuBusy` only caught its own module's
+  raise. One shared zero-import class; the package-style `tools.lw_gen_run` path
+  was the trap that would have made two class objects.
+- **Three-way concurrency MEASURED** with real processes: slots peak exactly 3,
+  4th queues, dead-holder reap works under contention, mutex serializes to 1.
+  Production slot pickup latency is 0-4s (backoff/jitter 2.0), not instant.
+- **truth_gate wired and it earned it on run one:** its own
+  `DEFAULT_SUITE_CMD` swept the whole tree and manufactured a REFUSE on a green
+  tree; and it caught a CI red I had reported as green.
+
+MY PROCESS MISS, do not repeat: I declared 55033cf done on a local Windows pass
+without confirming CI. It was red - `winmutex.hold` is a no-op off Windows, so
+the mutex serialization assertion is FALSE on Linux, not vacuous. Fixed with
+skipif. Confirm CI before saying done.
+
+NEXT: dashboard has 4 items left (per-slice suite observations, join the three
+run-id namespaces, mirror agent metadata before cleanup reaps it, P4/P5 panels).
+truth_gate is ADVISORY - flip `truth_gate_blocking` once a live run has been
+observed. Stage 2's remaining 3 namakx ghosts need triage improvement 1.
+
+---
+
 ## 2026-08-01 (late) - three-repo N=3 landed; the hook rule was stale and is corrected
 
 Continues the entry below. HEAD `e436128`. Suite **1401 passed / 16 skipped /

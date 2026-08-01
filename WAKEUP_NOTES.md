@@ -7,7 +7,43 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01) - keep the last 3.
+
+---
+
+## 2026-08-01 (latest) - P3/P4/P5 shipped, the wiki turned out to hold real pixels, and 22 sources got swapped
+
+Nine commits `1eaa135`..`6d7efc2`. Suite **1624 passed / 16 skipped**, ruff clean,
+drift_guard 0 breaches, CI **green on 6d7efc2 verified with `gh`**.
+
+- **P3 (LEDGER 72):** a MediaWiki wiki serves LW canonical splash art anonymously
+  - but the probe ran against the Action API DIRECTLY, which is what both
+  candidate MCP servers wrap. **Adopt the source, decline both wrappers.** Fandom
+  serves a lossy WEBP transcode under a `.jpg` name unless `?format=original`;
+  prefer wiki.gg. No host serves bytes matching the declared sha1.
+- **P4 (LEDGER 73):** file-claim table in `slice_orchestrator.py`, 40 tests.
+  Nothing calls it yet - the enforcement half is still open (f1-phase6 item 7).
+- **P5 (LEDGER 74):** memi **DO NOT ADOPT**. Its one finding fires on the fix it
+  recommends, its colour counter reads 0 on a file with 10 hex literals, and the
+  same file scores 38 vs 81 depending on subcommand. `npx memi` is a DIFFERENT
+  package; the tool is `@memi-design/cli`.
+- **The intersection, then the real comparison (LEDGER 75 + 76):** 77 corpus
+  images confirmed same-artwork on TWO metrics. But wiki-vs-TARGET is not
+  wiki-vs-what-we-hold: 23 held sources are LARGER, and the wiki file is softer
+  in 35 of 77. What rescues it is that the held files RING - halo median 0.1032
+  against the authentic original vs 0.0089 the other way. Net: **46 of 77 favour
+  the wiki, not 77.**
+- **The swap (LEDGER 77 + 78):** the 22 clear upgrades swapped in and all 22
+  approved (10 clean, 12 operator override). `2.First Pass Done` back to 288.
+- **P6 (LEDGER 79) CLOSED as NOT APPLICABLE** - LW replays no credentials
+  anywhere; four probes, zero hits.
+
+NEXT: **P7** (task-orchestrator's server-enforced gate, narrowed by P4 to just the
+gate) or **P8** (gitwand, gated on one worktree-path probe). Also open: L2's
+retrospective half, and `wiki-swap-manifest-hash-residue`.
+Do NOT redo: the 22 swaps (done, approved, verified on disk), the P3/P5 probes,
+or the intersection sweep. Two stale git worktrees are registered and were left
+alone deliberately - check for unmerged work before removing.
 
 ---
 
@@ -84,42 +120,3 @@ because no controller cycle has run since the `session_id` field was wired; the
 next live cycle populates it. Product work is Stage 2's remaining 3 namakx
 ghosts (triage improvement 1) and the 29-slug NEEDAUTH queue, which P4 now
 shows you (oldest 2d, spread across stages).
-
----
-
-## 2026-08-01 (evening) - Stage 2 finally drained; L1 closed; dashboard spine + panel; concurrency measured; truth_gate wired
-
-Six commits: d460e95 (stage-2 drain), c526c8b (MCP L1), 3cc0d92 (GpuBusy),
-0c57899 (rundash spine), cd2a996 (P1b panel), 55033cf (concurrency), a14ab3f
-(truth_gate + two fixes). Suite 1401 -> 1458 passed / 16 skipped. CI GREEN on
-a14ab3f (verified with gh, not assumed).
-
-- **Stage 2 flowed for the first time.** 12 slugs cleaned and submitted; the
-  needauth queue is yours to approve. 9 stay in scratch by design: 3 gate-FP
-  KEEPs, 3 namakx dark-outline ghosts (need triage improvement 1), 3 manual lane.
-  Coverage differed from the 2026-07-16 triage table (aatrox 47.9 vs 76.1), so
-  those by-eye verdicts did NOT carry over - re-checked on a contact sheet.
-- **L2 is CLOSED, not deferred:** `--append-subagent-system-prompt` does not
-  exist on CLI 2.1.220. Its premise had already failed (hooks DO fire headless).
-- **skylos is not CI material here** - it flagged `lw_httpd:122
-  allow_reuse_address = False`, which IS the single-instance bind guard. Use
-  `uvx skylos==3.0.0 <onedir>` as a one-shot hint only.
-- **GpuBusy was forked 4 ways** so `except GpuBusy` only caught its own module's
-  raise. One shared zero-import class; the package-style `tools.lw_gen_run` path
-  was the trap that would have made two class objects.
-- **Three-way concurrency MEASURED** with real processes: slots peak exactly 3,
-  4th queues, dead-holder reap works under contention, mutex serializes to 1.
-  Production slot pickup latency is 0-4s (backoff/jitter 2.0), not instant.
-- **truth_gate wired and it earned it on run one:** its own
-  `DEFAULT_SUITE_CMD` swept the whole tree and manufactured a REFUSE on a green
-  tree; and it caught a CI red I had reported as green.
-
-MY PROCESS MISS, do not repeat: I declared 55033cf done on a local Windows pass
-without confirming CI. It was red - `winmutex.hold` is a no-op off Windows, so
-the mutex serialization assertion is FALSE on Linux, not vacuous. Fixed with
-skipif. Confirm CI before saying done.
-
-NEXT: dashboard has 4 items left (per-slice suite observations, join the three
-run-id namespaces, mirror agent metadata before cleanup reaps it, P4/P5 panels).
-truth_gate is ADVISORY - flip `truth_gate_blocking` once a live run has been
-observed. Stage 2's remaining 3 namakx ghosts need triage improvement 1.
