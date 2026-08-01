@@ -8,10 +8,36 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
-- **gpu-mutex-inert - `GPU_MUTEX` is declared and acquired by NOTHING, and it
-  now blocks a cross-project decision - NEXT.**
-  Next: wire `winmutex.GPU_MUTEX` into the SIX real CUDA consumers, then tell RC
-  that N=3 is safe. Verified by grep 2026-08-01, cite these and not a guess:
+- **gpu-mutex-inert - SIX of nine CUDA consumers wired (`4732eeb`); THREE remain
+  and the shared lane cap stays at 2 until they land - NEXT.**
+  Next: finish slice B6 - `tools/lw_gen_qa.py`, `tools/lw_gen_weaponpass.py`,
+  `tools/lw_gen_train_weapon_lora.py`. It was IN FLIGHT at session end on branch
+  `worktree-agent-a62905cbcc5fa8ecb` with 0 commits, so redo it rather than
+  hunting for salvage. Then tell RC and RM the N question is reopenable.
+  **Three constraints the verifier established, do not rediscover them:**
+  (1) `lw_gen_weaponpass` is a SECOND HYBRID, not a leaf - its fix loop
+  interleaves in-process CUDA at `:710` with `active_gate` at `:714`, and
+  `_build_real_gate` (`:289-311`) shells `lw_gen_qa.py` into `.venv-metrics`, so
+  a naive hold around that loop plus a wired `lw_gen_qa` is the
+  parent-holds-while-child-waits deadlock; split it the way `lw_gen_run` was.
+  (2) `lw_gen_train_weapon_lora` is a safe hand-run leaf with no spawn site, but
+  a LoRA run can exceed the shared 1800s `GPU_MUTEX_TIMEOUT_S`, which was sized
+  for a 4x upscale - decide its timeout deliberately.
+  (3) `lw_clean_sdxl` imports `lw_gen_weaponpass._build_real_inpainter`
+  IN-PROCESS while holding, so wiring weaponpass creates a NESTED SAME-THREAD
+  acquire - safe on Windows (recursive, N acquires need N releases) but
+  invisible in CI because the non-Windows branch is a no-op. Test it.
+  **Residual risk disclosed and accepted in `4732eeb`:** the mutex serializes
+  ACQUISITION, not VRAM RESIDENCY. `lw_gen_run` keeps the SDXL pipe on the card
+  between its two holds while a child runs unheld, so the OOM is reduced, not
+  eliminated. An explicit `pipe.to("cpu")` between rounds would close it and is
+  not done.
+  Already shipped, do not redo: ten acquisition sites across six tools, a
+  `gpu_lock(device)` helper with CPU-path exemption, `GpuBusy` on timeout,
+  import degradation to UNSERIALIZED, and a `test_known_orchestrators_do_not_acquire`
+  guard that was mutation-proved by adding an acquisition to `lw_first_pass`.
+  Original evidence, kept because it is the WHY: verified by grep 2026-08-01,
+  cite these and not a guess:
   `tools/lw_upscale.py` (`device="cuda"` :244, runs under `.venv-upscale`),
   `tools/lw_clean_sdxl.py` (`.to("cuda")` :243), `tools/lw_clean_iopaint.py`
   (SimpleLama on cuda :326-330), `tools/lw_clean_pass.py` (torch cu128 +
@@ -72,6 +98,36 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   byte-identical-by-contract, deleting it needs a three-way re-pin, and LW still
   has a LIVE consumer at `loop_controller.py:366` today.
   Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*` section 7.
+
+- **rundash-instrumentation - the run dashboard ships blind on its own evidence
+  panel - NEXT (B5 was in flight at session end).**
+  Next: VERIFY then MERGE slice B5 - it is **COMMITTED as `d570d42` on branch
+  `worktree-agent-a902870319ee6443d`, unverified and unmerged**. Nothing to
+  salvage. It reports 1340 passed / 16 skipped, an optional per-slice `verdicts`
+  list, a `verdict` CLI on the single writer, and a backfill of the live
+  manifest. It also fixed the same flaky `status_age_s` bound that `7879af2`
+  fixed on main, so expect a conflict in `tests/test_lw_rundash.py` - keep
+  main's whole-second-epoch version. Design as agreed: an append-only verdict HISTORY per slice written only through
+  `slice_orchestrator.py` (the single writer), absence meaning NOT OBSERVED so
+  old manifests stay valid, and a slice whose latest record is a REFUTE with no
+  following CONFIRM rendering REFUTED even when `committed`.
+  Backfill only what is sourced: B1 REFUTE then CONFIRM, B2 CONFIRM at 1239
+  passed, B3 CONFIRM at 1306 passed, B4 CONFIRM at 1312 passed. Invent nothing -
+  a confident wrong record defeats the panel.
+  The rest of the instrumentation backlog is in
+  `docs/RUNDASH_SPEC_2026-08-01.md`: persisted per-slice suite observations, a
+  REFUTED state on the ladder, cost+sid into `directive_history.jsonl` (both are
+  live in the `DoneRecord` and dropped when the record is built), ONE
+  authoritative run id (three id spaces exist with no mapping), mirroring
+  at-risk agent metadata out of the transcript dir, and the fact that
+  `truth_gate.py` is never invoked by the run flow so its report has never been
+  written on this machine. P4 and P5 panels are unbuilt.
+  Do-not-redo: do NOT collapse `lw_httpd.parse_ts` and
+  `lw_rundash_state.parse_iso` into one helper - the first reads a naive stamp
+  as UTC, the second as LOCAL, a 5 hour delta on this machine, and
+  `loop_controller.py:303` writes naive LOCAL while `:512` reads it local, so
+  `parse_iso` is correct for run-state.
+  Evidence: `docs/RUNDASH_SPEC_2026-08-01.md`; dashboard at 127.0.0.1:8900.
 
 - **usm-halo-calibration - our own unsharp mask manufactures every halo flag,
   and turning it down trades 7 soft flags for 6 hard fails - OPERATOR-GATED.**

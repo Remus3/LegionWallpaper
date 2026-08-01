@@ -27,6 +27,87 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+62. DONE **2026-08-01 (a wedged loop, a port block, an MCP triage, and the run
+    dashboard; 0192010 -> 7879af2, 14 commits).** Suite 1178 -> **1346 passed /
+    16 skipped / 0 failed**, ruff clean, drift guard 0 breaches, CI green. Six
+    worktree slices, every one gated by an independent read-only verifier; TWO
+    were REFUTED and reworked rather than merged.
+
+    - **The headless loop had been unable to start for five days and nobody
+      knew.** `control/RUNNING.lock` named pid 8532 from a run that ended
+      cleanly on 2026-07-27 with STOP written and the lock never cleared. By
+      2026-08-01 Windows had reissued 8532 to an unrelated `conhost.exe`, so
+      `slots.pid_alive` said "alive" and `claim_single_controller` exited 2 on
+      every launch. Fixed in `e63a50d`: refusal now requires alive AND fresh,
+      corroborated by lock age. Red first - the existing pair covered
+      live-pid-refuse and dead-pid-reclaim and neither could see this shape.
+      Proven end to end against the real lock content in a throwaway control
+      dir. **Bare pid liveness cannot distinguish a running holder from a
+      recycled number, and two sibling projects were told so.**
+    - **A verifier refuted a "behavior-identical" refactor and was right.** The
+      `lw_httpd` extraction claimed the served payload was unchanged in every
+      case, reasoning that `build_pipeline_view` coerces on both paths. True and
+      irrelevant: the break was CACHE EVICTION. The extracted
+      `read_json_tolerant` wrote the cache on ANY successful parse including a
+      parsed `null`, evicting last-good, where main's `if state is None: return`
+      sat BEFORE the cache write. A good state file then a `null` then a torn
+      one served a BLANK board instead of last-good - the exact posture the
+      docstring forbids. No test in either file used a top-level `null`, which
+      is why a 530-line regression net stayed green. **An unasserted claim is
+      not a green slice.**
+    - **A declared guard that fired nowhere, found by answering a sibling.**
+      `GPU_MUTEX` was declared in the byte-identical `winmutex.py` with a
+      docstring saying the CUDA-touching tool acquires it. Nothing acquired it;
+      no file under `tools/` imported winmutex at all. Found while RC proposed
+      raising the shared lane cap from 2 to 3 for a third participant. LW
+      REFUSED with a mechanism, not a preference: LW is the only GPU-heavy
+      project of the three, so N=3 meant two CUDA lanes on one card ungoverned,
+      failing as a degraded image rather than a clean error. Ten sites across
+      six tools wired in `4732eeb`; three consumers remain and the cap stays at
+      2. **Same class as a git hook that exists but was never wired.**
+    - **The wiring turned up a deadlock trap one level deeper than briefed.**
+      Named mutexes are re-entrant per THREAD, not per process tree, so an
+      orchestrator holding while a child waits hangs forever. `lw_gen_run` was
+      the known hybrid; the verifier found `lw_gen_weaponpass` is a SECOND one,
+      shelling `lw_gen_qa` into `.venv-metrics` from inside its fix loop.
+      Wiring both naively would have deadlocked the generator.
+    - **I contradicted a settled decision in my own ROADMAP entry.** The item
+      listed DWPose among the CUDA consumers. It is onnx-CPU (CLAUDE.md:199,
+      LEDGER 19), zero cuda references, `InferenceSession` with no provider
+      list. Wiring it would have been worse than useless - serializing CPU work
+      across three repos. Corrected in `95fc63b` with each real consumer cited
+      to its line.
+    - **Cross-project port blocks settled three ways.** LW confirmed 8900-8919,
+      shipped `tools/lw_ports.py` pinned against the module that actually binds
+      (`assert MONITOR == 8901` passes forever while the server moves), and
+      confirmed `slots.py` byte-identical at sha256 `95077a62...5054f9` / 7143
+      bytes for RM's join. The first registry scan was too narrow - a flat
+      `tools/` glob matching `^DEFAULT_PORT = <digits>$`, which a server under
+      `ops/`, in a subpackage, or with any other constant name would escape.
+      Widened to an AST walk over both trees and proven by planting decoys.
+      **Audit by source, never by netstat** - LW's monitor is operator-launched
+      and idle, so a listener scan finds zero LW ports on an ordinary morning.
+    - **The run dashboard exists** (`b64b92d`, 127.0.0.1:8900): P1 Run Ledger
+      and P3 Resume Decision on an extracted shared scaffold, self-contained, no
+      dependency. Its own UI audit found and fixed two structural MUST-FIXes
+      in-slice. It renders the recycled-pid case as `not corroborated` and
+      caught its own build agents live. Every evidence chip reads NOT OBSERVED
+      because verifier verdicts are chat-only - honest, and the argument for the
+      instrumentation that fixes it.
+    - **A flaky test merged green and went red an hour later.** `assert
+      3600.0000002384186 <= 3600` - the test built a stamp from `time.time()`
+      and the ISO round-trip truncates sub-microsecond precision, so the age
+      came back just over the interval depending on the wall clock's fraction.
+      Pinned to a whole-second epoch (`7879af2`) rather than widening the bound.
+    - Also: an LW-native MCP triage over 63 operator-supplied links
+      (`e1103df`), which found that the highest-value items were NOT on the list
+      and that name-based triage got 3 of 4 fetched entries wrong in both
+      directions.
+    - **OWED, carried forward:** slices B5 (persist verifier verdicts, 7
+      uncommitted files in `worktree-agent-a902870319ee6443d`) and B6 (three
+      remaining CUDA consumers, 0 files written) were IN FLIGHT at session end
+      and are recorded `in_progress` in the slice manifest.
+
 61. DONE **2026-07-30 (headless run: two blind source-selection defects closed,
     approval overrides recorded, batch20 first-passed, and the halo flags
     finally explained; 0192010 ddfd50f 4c2e0d3 94bea85 5daa195 34634b8).**

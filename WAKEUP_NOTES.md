@@ -11,6 +11,45 @@
 
 ---
 
+## 2026-08-01 - the loop was wedged for five days; run dashboard shipped
+
+Detail: LEDGER 62. Suite 1178 -> **1346 passed / 16 skipped / 0 failed**, ruff
+clean, drift 0 breaches, CI green. HEAD `7879af2`, 14 commits. Six worktree
+slices, all verifier-gated; two REFUTED and reworked rather than merged.
+
+- **OWED, and this is the first thing to do.** Two slices were IN FLIGHT when
+  the session ended, both recorded `in_progress` in `ops/runtime/slice_manifest.json`:
+  - **B5** persist verifier verdicts - **COMMITTED `d570d42` on branch
+    `worktree-agent-a902870319ee6443d`, NOT verified and NOT merged.** Nothing
+    to salvage; run the `verifier` subagent against it, then merge. It reports
+    1340 passed / 16 skipped and a backfill of the live manifest. Note it also
+    fixed the same flaky `status_age_s` bound that `7879af2` fixed on main, so
+    expect a conflict in `tests/test_lw_rundash.py` and keep main's version.
+    ROADMAP `rundash-instrumentation`.
+  - **B6** wire the 3 remaining CUDA consumers - branch
+    `worktree-agent-a62905cbcc5fa8ecb`, 0 commits and nothing written. Just redo.
+    ROADMAP `gpu-mutex-inert` carries the three constraints; read them first.
+- **Your headless loop could not start and had not been able to for five days.**
+  `RUNNING.lock` named a pid recycled to an unrelated conhost. Fixed `e63a50d`.
+  Do NOT re-investigate.
+- **The shared lane cap stays at 2.** RC proposed 3 and Red Moon has already
+  WRITTEN 3, so the bucket is 3 wide whenever RM acquires first - RM was asked to
+  set it back today. LW cannot agree until B6 lands; 6 of 9 CUDA consumers are
+  wired. Both siblings are waiting on that answer.
+- **The run dashboard is live** at 127.0.0.1:8900 (`tools/lw_rundash.py`,
+  `pythonw`, read-only). Every evidence chip reads NOT OBSERVED until B5 lands.
+- **Do NOT collapse `lw_httpd.parse_ts` and `lw_rundash_state.parse_iso`.** First
+  reads a naive stamp as UTC, second as LOCAL - 5 hours apart on this machine.
+  `loop_controller.py:303` writes naive LOCAL, so `parse_iso` is correct.
+- Inbox is clear: RC and RM both answered today. Port blocks settled three ways,
+  `slots.py` confirmed byte-identical at `95077a62...5054f9`.
+
+**Do-not-redo:** the recycled-pid fix; the `null`-evicts-cache fix; the DWPose
+correction (it is onnx-CPU, not a GPU consumer); the port registry AST widening;
+the flaky `time.time()` bound in `test_lw_rundash.py`.
+
+---
+
 ## 2026-07-30 (headless run) - the halo flags are our own sharpening; batch20 is at NEEDAUTH
 
 Detail: LEDGER 61. Suite 1093 -> **1169 passed / 16 skipped / 0 failed**, ruff
@@ -117,31 +156,3 @@ ground truth rather than on an agent's word.
 **NEXT:** three new ROADMAP items, all operator-gated -
 `g1-source-adequacy` (policy call), `legacy-audit-backfill` (12 backfills + 10
 reprocess decision), `anat-vision-review` (may a vision reviewer REJECT?).
-
----
-
-## 2026-07-29 (session end) - 20 intaken, waterfall run, sub-shape B ruled
-
-Commit `152d84f`. Detail: LEDGER 59. Suite 835 passed / 14 skipped, ruff clean,
-drift gate 0, CI success on the full head sha.
-
-- **20 originals intaken.** `0.Originals` EMPTY, 20 slugs in `1.First Pass
-  Scratch`, `anomalies=0`. Verified by a rebuilt scan + directory count, not the
-  CLI tally. NEXT for this batch is `/first-pass` (ROADMAP `batch20-first-pass`).
-- **The recovery waterfall RAN** (the 46 refs skipped it). T0 `no_match` 20/20 vs
-  the 292-file corpus - all novel. T1 fetched 20/20 QUOTA-FREE; T2 never needed.
-  8 gained pixels (best 1159x689 -> 1920x1142), 12 held pixels and shed 6-7x of
-  JPEG compression. Do NOT use `original=true` - the intermediary path already
-  measured a gain and costs no quota.
-- **Memory corrected:** `reference-deviantart-recovery` claimed quota-free
-  recovery "buys little". Measured false. It is now a run-it-inline-always rule.
-- **This batch DOES exercise the AI upscaler** - 12 are 1024-1600px wide, unlike
-  the 46 refs which were all exactly 2560x1440 and took the passthrough branch.
-- **Sub-shape B RULED: accept and record.** 10 of the 15 alpha slugs cleared for
-  stage-2 cleaning, no reopen dance. Sub-shape A's 5 (`258-cleanup` `259f` `261f`
-  `262f` `264-cleanup`) STILL HELD - cleaning writes on top of `_firstdone`.
-- **Two defects FILED, not patched** - do not re-diagnose: `lw_recover`
-  `_ARTIST_RE` mis-parses a hyphenated DA username (false `dead`, fetch path
-  unaffected); `lw_first_pass.find_fetched_fullview` globs `.jpg` only so a PNG
-  intermediary is skipped (cost zero this batch). Both have ROADMAP items.
-- `style.jpg` + `style2.jpg` now tracked (lw-gen style refs, repo root).

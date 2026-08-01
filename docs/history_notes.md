@@ -128,6 +128,34 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-07-29 (session end) - 20 intaken, waterfall run, sub-shape B ruled
+
+Commit `152d84f`. Detail: LEDGER 59. Suite 835 passed / 14 skipped, ruff clean,
+drift gate 0, CI success on the full head sha.
+
+- **20 originals intaken.** `0.Originals` EMPTY, 20 slugs in `1.First Pass
+  Scratch`, `anomalies=0`. Verified by a rebuilt scan + directory count, not the
+  CLI tally. NEXT for this batch is `/first-pass` (ROADMAP `batch20-first-pass`).
+- **The recovery waterfall RAN** (the 46 refs skipped it). T0 `no_match` 20/20 vs
+  the 292-file corpus - all novel. T1 fetched 20/20 QUOTA-FREE; T2 never needed.
+  8 gained pixels (best 1159x689 -> 1920x1142), 12 held pixels and shed 6-7x of
+  JPEG compression. Do NOT use `original=true` - the intermediary path already
+  measured a gain and costs no quota.
+- **Memory corrected:** `reference-deviantart-recovery` claimed quota-free
+  recovery "buys little". Measured false. It is now a run-it-inline-always rule.
+- **This batch DOES exercise the AI upscaler** - 12 are 1024-1600px wide, unlike
+  the 46 refs which were all exactly 2560x1440 and took the passthrough branch.
+- **Sub-shape B RULED: accept and record.** 10 of the 15 alpha slugs cleared for
+  stage-2 cleaning, no reopen dance. Sub-shape A's 5 (`258-cleanup` `259f` `261f`
+  `262f` `264-cleanup`) STILL HELD - cleaning writes on top of `_firstdone`.
+- **Two defects FILED, not patched** - do not re-diagnose: `lw_recover`
+  `_ARTIST_RE` mis-parses a hyphenated DA username (false `dead`, fetch path
+  unaffected); `lw_first_pass.find_fetched_fullview` globs `.jpg` only so a PNG
+  intermediary is skipped (cost zero this batch). Both have ROADMAP items.
+- `style.jpg` + `style2.jpg` now tracked (lw-gen style refs, repo root).
+
+---
+
 ## 2026-07-27 (session end) - 46 approved, and the ruling I failed to surface
 
 Detail: LEDGER 58. Suite 831 passed / 14 skipped, drift gate 0, CI green.
