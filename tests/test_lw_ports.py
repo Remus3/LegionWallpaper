@@ -11,7 +11,6 @@ refinement came from Riot Commander (2026-08-01 cross-project port reservation).
 """
 
 import ast
-import re
 import sys
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from tools import lw_monitor  # noqa: E402
 from tools import lw_ports  # noqa: E402
 
 TOOLS = Path(__file__).resolve().parent.parent / "tools"
+OPS = Path(__file__).resolve().parent.parent / "ops"
 
 
 def test_block_is_well_formed():
@@ -47,19 +47,58 @@ def test_allocations_are_unique():
     assert len(ports) == len(set(ports))
 
 
+def _authored_port_constants():
+    """Every module-level `*PORT* = <int>` in authored source, as (path, name, port).
+
+    AST rather than a line regex, and recursive over both authored trees: a
+    line-anchored regex over a flat tools/ glob missed a server placed under
+    ops/, and missed any spelling other than a bare integer on its own line.
+    """
+    found = []
+    for root in (TOOLS, OPS):
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+            except SyntaxError:
+                continue
+            for node in tree.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+                for target in node.targets:
+                    if not isinstance(target, ast.Name) or "PORT" not in target.id:
+                        continue
+                    if isinstance(node.value, ast.Constant) and isinstance(
+                            node.value.value, int):
+                        found.append((path, target.id, node.value.value))
+    return found
+
+
 def test_every_authored_default_port_is_registered():
-    # A new server that defines its own DEFAULT_PORT and never registers it is
-    # exactly the drift this whole exercise exists to prevent.
-    found = {}
-    for path in sorted(TOOLS.glob("*.py")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            m = re.match(r"^DEFAULT_PORT\s*=\s*(\d+)\s*$", line)
-            if m:
-                found[path.name] = int(m.group(1))
-    assert found, "no DEFAULT_PORT found - the scan itself broke"
+    # A new server that defines its own port and never registers it is exactly
+    # the drift this whole exercise exists to prevent.
+    found = _authored_port_constants()
+    assert found, "no port constant found - the scan itself broke"
     registered = set(lw_ports.ALLOCATIONS.values())
-    for filename, port in found.items():
-        assert port in registered, f"{filename} binds {port}, not in ALLOCATIONS"
+    low, high = lw_ports.LW_BLOCK
+    for path, name, port in found:
+        if path.name == "lw_ports.py":
+            continue  # the registry is the source of truth, not a consumer
+        if not (low <= port <= high):
+            continue  # not a claim on LW's block - a timeout, a size, a retry
+        assert port in registered, f"{path.name}:{name}={port} not in ALLOCATIONS"
+
+
+def test_the_scan_covers_both_authored_trees():
+    # The scan is only as good as its reach. A server under ops/ escaped the
+    # original tools/-only flat glob entirely.
+    roots = {p.parts[-2] if p.parent.name != "tools" else "tools"
+             for p, _n, _v in _authored_port_constants()}
+    assert TOOLS.is_dir() and OPS.is_dir()
+    assert any((TOOLS / f).exists() for f in ["lw_monitor.py"])
+    scanned = {str(p) for p, _n, _v in _authored_port_constants()}
+    assert any("lw_monitor.py" in s for s in scanned), roots
 
 
 def test_registry_names_no_foreign_port():
