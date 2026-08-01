@@ -20,12 +20,131 @@ system 3.14). No cv2 anywhere.
 
 from __future__ import annotations
 
+import contextlib as _contextlib
+import datetime as _datetime
 import hashlib
+import importlib.util as _importlib_util
 import os
 import subprocess
+import sys as _sys
 import time
+from pathlib import Path as _Path
 
 from PIL import Image, ImageFilter
+
+# --------------------------------------------------------------------------
+# Machine-wide GPU serialization (ops/loop/winmutex.py GPU_MUTEX)
+# --------------------------------------------------------------------------
+# One RTX 5070, shared by every headless loop on this machine. winmutex NAMES
+# the mutex; the tool that touches CUDA is what ACQUIRES it - that placement is
+# the only one under which a hand-run of this module is protected too, which is
+# what the winmutex docstring promises.
+#
+# LEAF ONLY. A Windows named mutex is re-entrant per THREAD, not per process
+# tree, so a child that waits on a mutex its parent holds blocks FOREVER.
+# tools/lw_first_pass.py spawns this module under .venv-upscale, so an
+# orchestrator-level hold would deadlock first pass against its own child.
+# first_pass() below deliberately does not acquire - it also has a
+# downscale-only branch that never touches the GPU at all.
+#
+# This is one of four copies (lw_upscale / lw_clean_sdxl / lw_g1_gate /
+# lw_gen_run). A shared tools/ helper is not importable from all four venvs,
+# and this module is contractually limited to PIL + numpy + stdlib at top level.
+#
+# 1800s: the longest legitimate single hold is a tiled 4x upscale of a large
+# source, minutes not hours, so half an hour is generous for a healthy holder
+# and still only a third of the 5400s headless cycle deadline - leaving the
+# cycle room to LOG the failure and finish. timeout=None would instead turn a
+# wedged holder in another repo into an invisible hang.
+GPU_MUTEX_TIMEOUT_S = 1800.0
+_WINMUTEX_MOD = "lw_loop_winmutex"
+_GPU_TAG = "lw_upscale"
+
+
+class GpuBusy(RuntimeError):
+    """GPU_MUTEX did not free within GPU_MUTEX_TIMEOUT_S.
+
+    A tool-native type so a caller can report "the GPU is busy elsewhere"
+    instead of leaking a winmutex traceback; the MutexTimeout stays on __cause__
+    for anyone who needs the raw reason. Raised before any output file is
+    written, so a timeout never leaves a half-written PNG behind.
+    """
+
+
+def _gpu_log(msg):
+    """Append one line to logs/YYYY-MM-DD.log. Never raises.
+
+    Not print(): under pythonw.exe there is no stdout at all, and this module is
+    run as a `python -c` child whose stdout carries a JSON contract that a stray
+    line would corrupt. The daily log is what the operator already reads, and it
+    is what makes a hold window measurable after a concurrent run.
+    """
+    try:
+        stamp = _datetime.datetime.now()
+        log_dir = _Path(__file__).resolve().parent.parent / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / f"{stamp:%Y-%m-%d}.log", "a", encoding="utf-8") as fo:
+            fo.write(f"{stamp:%H:%M:%S} [{_GPU_TAG}] {msg}\n")
+    except OSError:
+        pass
+
+
+def _winmutex():
+    """Bind ops/loop/winmutex.py BY PATH (the loop_controller._bind pattern).
+
+    ops/loop has no __init__.py, and .venv-upscale does not have the repo root
+    on sys.path, so a package-style import would fail everywhere the code
+    actually executes while passing in CI.
+    """
+    mod = _sys.modules.get(_WINMUTEX_MOD)
+    if mod is not None:
+        return mod
+    path = _Path(__file__).resolve().parent.parent / "ops" / "loop" / "winmutex.py"
+    spec = _importlib_util.spec_from_file_location(_WINMUTEX_MOD, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load winmutex from {path}")
+    mod = _importlib_util.module_from_spec(spec)
+    _sys.modules[_WINMUTEX_MOD] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@_contextlib.contextmanager
+def gpu_lock(device="cuda", log=None):
+    """Hold GPU_MUTEX around real CUDA work. A no-op when device is not cuda.
+
+    The CPU fallback must NOT take it: serializing CPU work across repos buys
+    nothing and costs throughput. A winmutex import failure DEGRADES to unheld
+    with the same UNSERIALIZED marker winmutex itself emits - the mutex is a
+    cross-repo governor, not a dependency of this tool, and a venv that cannot
+    see it must still be able to upscale.
+    """
+    if str(device) != "cuda":
+        yield None
+        return
+
+    def sink(msg):
+        _gpu_log(msg)
+        if log is not None:
+            log(msg)
+
+    try:
+        wm = _winmutex()
+    except Exception as exc:  # noqa: BLE001 - a governor must never be fatal
+        sink(f"winmutex: UNSERIALIZED GPU - cannot bind ops/loop/winmutex.py "
+             f"({type(exc).__name__}: {exc}); proceeding WITHOUT the lock")
+        yield None
+        return
+
+    try:
+        with wm.hold(wm.GPU_MUTEX, timeout=GPU_MUTEX_TIMEOUT_S, log=sink) as handle:
+            yield handle
+    except wm.MutexTimeout as exc:
+        sink(f"winmutex: TIMEOUT on {wm.GPU_MUTEX} after {GPU_MUTEX_TIMEOUT_S}s "
+             f"- another process still holds the GPU; abandoning this step")
+        raise GpuBusy(
+            f"GPU busy elsewhere for more than {GPU_MUTEX_TIMEOUT_S}s") from exc
+
 
 # Target output geometry and the finishing unsharp-mask defaults. These are
 # the exact values Session 1 used; keep them identical so an IJN-vs-fallback
@@ -252,34 +371,47 @@ def upscale_spandrel(src_path, model_path, tile=512, overlap=32, device="cuda"):
     from spandrel import ModelLoader
 
     t0 = time.time()
-    descriptor = ModelLoader().load_from_file(model_path)
-    scale = int(descriptor.scale)
-    arch = descriptor.architecture
-    arch_name = getattr(arch, "name", None) or str(arch)
-    net = descriptor.model.eval().to(device)
 
     src_img = Image.open(src_path).convert("RGB")
     src_dims = list(src_img.size)  # (w, h)
 
-    img_tensor = _to_tensor(src_img).to(device)
+    # ONE hold spanning model load -> tiled inference -> empty_cache. Splitting
+    # it would let another process allocate against a card that already holds a
+    # partially resident DAT2 model, which is the OOM this exists to prevent.
+    # It does NOT span the PIL open above or the meta/sha work below - the GPU
+    # is idle there.
+    with gpu_lock(device):
+        descriptor = ModelLoader().load_from_file(model_path)
+        scale = int(descriptor.scale)
+        arch = descriptor.architecture
+        arch_name = getattr(arch, "name", None) or str(arch)
+        net = descriptor.model.eval().to(device)
 
-    # Count tiles for the audit trail (mirror _tile_infer's tiling math).
-    _, _, height, width = img_tensor.shape
-    step = tile - overlap
+        img_tensor = _to_tensor(src_img).to(device)
 
-    def _n_starts(total):
-        if total <= tile:
-            return 1
-        pts = list(range(0, total - tile + 1, step))
-        if not pts or pts[-1] != total - tile:
-            pts.append(total - tile)
-        return len(pts)
+        # Count tiles for the audit trail (mirror _tile_infer's tiling math).
+        _, _, height, width = img_tensor.shape
+        step = tile - overlap
 
-    n_tiles = _n_starts(height) * _n_starts(width)
+        def _n_starts(total):
+            if total <= tile:
+                return 1
+            pts = list(range(0, total - tile + 1, step))
+            if not pts or pts[-1] != total - tile:
+                pts.append(total - tile)
+            return len(pts)
 
-    out_tensor = _tile_infer(net, img_tensor, tile=tile, overlap=overlap, scale=scale)
-    out_tensor = out_tensor.clamp(0.0, 1.0)
-    raw = _to_pil(out_tensor)
+        n_tiles = _n_starts(height) * _n_starts(width)
+
+        out_tensor = _tile_infer(net, img_tensor, tile=tile, overlap=overlap,
+                                 scale=scale)
+        out_tensor = out_tensor.clamp(0.0, 1.0)
+        raw = _to_pil(out_tensor)
+
+        # Free VRAM BEFORE releasing, so the next holder starts on an empty
+        # card rather than racing this process's deallocation.
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     meta = {
         "backend": "spandrel",
@@ -292,9 +424,6 @@ def upscale_spandrel(src_path, model_path, tile=512, overlap=32, device="cuda"):
         "n_tiles": n_tiles,
         "seconds": round(time.time() - t0, 3),
     }
-    # Free VRAM promptly; harmless if CUDA is unavailable.
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
     return raw, meta
 
 
@@ -315,7 +444,12 @@ def upscale_ncnn(
     src_dims = list(src_img.size)
 
     cmd = [exe, "-i", src_path, "-o", out_tmp_path, "-n", model, "-s", "4"]
-    subprocess.run(cmd, check=True, creationflags=_NO_WINDOW)
+    # realesrgan-ncnn-vulkan is a Vulkan GPU consumer even though no torch is
+    # involved, so it belongs behind the same mutex as the spandrel path. It is
+    # a non-python exe that can never acquire the mutex itself, so spawning it
+    # from inside the hold cannot deadlock (the child-waits-on-parent trap).
+    with gpu_lock("cuda"):
+        subprocess.run(cmd, check=True, creationflags=_NO_WINDOW)
 
     raw = Image.open(out_tmp_path).convert("RGB")
     meta = {

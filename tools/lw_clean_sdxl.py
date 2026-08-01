@@ -28,14 +28,128 @@ byte-identical to the input by construction (the identity assert is a tripwire).
 from __future__ import annotations
 
 import argparse
+import contextlib as _contextlib
+import datetime as _datetime
+import importlib.util as _importlib_util
 import json
 import os
 import sys
+from pathlib import Path as _Path
 
 import numpy as np
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# --------------------------------------------------------------------------
+# Machine-wide GPU serialization (ops/loop/winmutex.py GPU_MUTEX)
+# --------------------------------------------------------------------------
+# One RTX 5070, shared by every headless loop on this machine. winmutex NAMES
+# the mutex; the tool that touches CUDA is what ACQUIRES it - that placement is
+# the only one under which a hand-run of this module is protected too, which is
+# what the winmutex docstring promises.
+#
+# LEAF ONLY. A Windows named mutex is re-entrant per THREAD, not per process
+# tree, so a child that waits on a mutex its parent holds blocks FOREVER. No
+# orchestrator in this repo may acquire.
+#
+# This is one of four copies (lw_upscale / lw_clean_sdxl / lw_g1_gate /
+# lw_gen_run). A shared tools/ helper is not importable from all four venvs;
+# this module runs under C:\Tools\lw-clean\venv.
+#
+# 1800s: the longest legitimate single hold is a full SDXL worklist, minutes
+# not hours, so half an hour is generous for a healthy holder and still only a
+# third of the 5400s headless cycle deadline - leaving the cycle room to LOG
+# the failure and finish. timeout=None would instead turn a wedged holder in
+# another repo into an invisible hang.
+GPU_MUTEX_TIMEOUT_S = 1800.0
+_WINMUTEX_MOD = "lw_loop_winmutex"
+_GPU_TAG = "lw_clean_sdxl"
+
+
+class GpuBusy(RuntimeError):
+    """GPU_MUTEX did not free within GPU_MUTEX_TIMEOUT_S.
+
+    A tool-native type so a caller can report "the GPU is busy elsewhere"
+    instead of leaking a winmutex traceback; the MutexTimeout stays on __cause__
+    for anyone who needs the raw reason. Raised before any candidate PNG is
+    written, so a timeout never leaves a half-written output behind.
+    """
+
+
+def _gpu_log(msg):
+    """Append one line to logs/YYYY-MM-DD.log. Never raises.
+
+    Not print(): under pythonw.exe there is no stdout at all. The daily log is
+    what the operator already reads, and it is what makes a hold window
+    measurable after a concurrent run.
+    """
+    try:
+        stamp = _datetime.datetime.now()
+        log_dir = _Path(__file__).resolve().parent.parent / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / f"{stamp:%Y-%m-%d}.log", "a", encoding="utf-8") as fo:
+            fo.write(f"{stamp:%H:%M:%S} [{_GPU_TAG}] {msg}\n")
+    except OSError:
+        pass
+
+
+def _winmutex():
+    """Bind ops/loop/winmutex.py BY PATH (the loop_controller._bind pattern).
+
+    ops/loop has no __init__.py, and the lw-clean venv does not have the repo
+    root on sys.path, so a package-style import would fail everywhere the code
+    actually executes while passing in CI.
+    """
+    mod = sys.modules.get(_WINMUTEX_MOD)
+    if mod is not None:
+        return mod
+    path = _Path(__file__).resolve().parent.parent / "ops" / "loop" / "winmutex.py"
+    spec = _importlib_util.spec_from_file_location(_WINMUTEX_MOD, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load winmutex from {path}")
+    mod = _importlib_util.module_from_spec(spec)
+    sys.modules[_WINMUTEX_MOD] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@_contextlib.contextmanager
+def gpu_lock(device="cuda", log=None):
+    """Hold GPU_MUTEX around real CUDA work. A no-op when device is not cuda.
+
+    The CPU fallback must NOT take it: serializing CPU work across repos buys
+    nothing and costs throughput. A winmutex import failure DEGRADES to unheld
+    with the same UNSERIALIZED marker winmutex itself emits - the mutex is a
+    cross-repo governor, not a dependency of this tool, and a venv that cannot
+    see it must still be able to clean.
+    """
+    if str(device) != "cuda":
+        yield None
+        return
+
+    def sink(msg):
+        _gpu_log(msg)
+        if log is not None:
+            log(msg)
+
+    try:
+        wm = _winmutex()
+    except Exception as exc:  # noqa: BLE001 - a governor must never be fatal
+        sink(f"winmutex: UNSERIALIZED GPU - cannot bind ops/loop/winmutex.py "
+             f"({type(exc).__name__}: {exc}); proceeding WITHOUT the lock")
+        yield None
+        return
+
+    try:
+        with wm.hold(wm.GPU_MUTEX, timeout=GPU_MUTEX_TIMEOUT_S, log=sink) as handle:
+            yield handle
+    except wm.MutexTimeout as exc:
+        sink(f"winmutex: TIMEOUT on {wm.GPU_MUTEX} after {GPU_MUTEX_TIMEOUT_S}s "
+             f"- another process still holds the GPU; abandoning this step")
+        raise GpuBusy(
+            f"GPU busy elsewhere for more than {GPU_MUTEX_TIMEOUT_S}s") from exc
+
 
 # Checkpoint registry: name -> path relative to the repo root (C:/LegionWallpaper).
 #   animagine   = the anime SDXL finetune the reconstruction proof used (single
@@ -300,23 +414,31 @@ def run_worklist(items, checkpoint, strength, steps, guidance, seed, prompt,
     `LW SDXL | done=<n> checkpoint=<name>` banner and a SENTINEL_DONE line.
     """
     abs_path, kind = resolve_checkpoint(checkpoint)
-    pipe = build_inpaint_pipe(abs_path, kind, offload=offload)
     done = 0
-    for item in items:
-        image = Image.open(item["image"]).convert("RGB")
-        mask = Image.open(item["mask"]).convert("L")
-        composited, bbox = inpaint_item(
-            pipe, image, mask, prompt, negative, strength, steps, guidance, seed)
-        out_dir = item["out"]
-        os.makedirs(out_dir, exist_ok=True)
-        cand_path = os.path.join(out_dir, f"{item['slug']}_sdxl_cand.png")
-        json_path = os.path.join(out_dir, f"{item['slug']}_sdxl.json")
-        _atomic_write_png(cand_path, composited)
-        _atomic_write_json(
-            json_path,
-            build_params(checkpoint, strength, steps, guidance, seed, bbox))
-        done += 1
-        log(f"LW SDXL | {item['slug']} -> {cand_path} bbox={bbox}")
+    # ONE hold spanning the checkpoint load and EVERY item. The pipe stays
+    # resident on the card for the whole worklist (that is the point of the
+    # cache), so releasing between items would hand another process a card LW
+    # still occupies - the exact OOM this serializes away. Nothing inside this
+    # block spawns a subprocess, so the child-waits-on-parent trap does not
+    # apply here.
+    with gpu_lock("cuda", log=log):
+        pipe = build_inpaint_pipe(abs_path, kind, offload=offload)
+        for item in items:
+            image = Image.open(item["image"]).convert("RGB")
+            mask = Image.open(item["mask"]).convert("L")
+            composited, bbox = inpaint_item(
+                pipe, image, mask, prompt, negative, strength, steps, guidance,
+                seed)
+            out_dir = item["out"]
+            os.makedirs(out_dir, exist_ok=True)
+            cand_path = os.path.join(out_dir, f"{item['slug']}_sdxl_cand.png")
+            json_path = os.path.join(out_dir, f"{item['slug']}_sdxl.json")
+            _atomic_write_png(cand_path, composited)
+            _atomic_write_json(
+                json_path,
+                build_params(checkpoint, strength, steps, guidance, seed, bbox))
+            done += 1
+            log(f"LW SDXL | {item['slug']} -> {cand_path} bbox={bbox}")
     log(f"LW SDXL | done={done} checkpoint={checkpoint}")
     log("SENTINEL_DONE")
     return done
@@ -334,7 +456,11 @@ def selfcheck(checkpoint, offload=True):
         info["abs_path"] = abs_path
         info["kind"] = kind
         info["exists"] = os.path.exists(abs_path)
-        build_inpaint_pipe(abs_path, kind, offload=offload)
+        # selfcheck really does put SDXL weights on the card, so it takes the
+        # mutex like any other GPU consumer. A GpuBusy here is caught by the
+        # except below and reported as ready=False rather than a traceback.
+        with gpu_lock("cuda"):
+            build_inpaint_pipe(abs_path, kind, offload=offload)
         info["offload"] = bool(offload)
         info["loaded"] = True
         info["ready"] = True

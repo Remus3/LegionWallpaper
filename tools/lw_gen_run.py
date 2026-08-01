@@ -23,13 +23,131 @@ lw-gen. They are personal-use only and never uploaded to the recovery corpus.
 from __future__ import annotations
 
 import argparse
+import contextlib as _contextlib
 import datetime
+import importlib.util as _importlib_util
 import json
 import os
 import random
 import subprocess
 import sys
 from collections import namedtuple
+from pathlib import Path as _Path
+
+# --------------------------------------------------------------------------
+# Machine-wide GPU serialization (ops/loop/winmutex.py GPU_MUTEX)
+# --------------------------------------------------------------------------
+# One RTX 5070, shared by every headless loop on this machine. winmutex NAMES
+# the mutex; the tool that touches CUDA is what ACQUIRES it - that placement is
+# the only one under which a hand-run of this module is protected too, which is
+# what the winmutex docstring promises.
+#
+# LEAF ONLY, and this module is the one HYBRID in the repo: run() is both a CUDA
+# worker (SDXL, in process) and an orchestrator (it shells lw_gen_qa.py into
+# .venv-metrics and lw_gen_weaponpass.py into .venv-gen). A Windows named mutex
+# is re-entrant per THREAD, not per process tree, so if run() held across
+# _shell_stage and that child ever acquired, the parent would block on its own
+# child forever. The hold therefore lives in _load_pipeline and
+# _generate_candidates and never in run() - the accepted cost is that the SDXL
+# pipe stays resident on the card between the two, which no placement short of
+# the deadlocking one can avoid.
+#
+# This is one of four copies (lw_upscale / lw_clean_sdxl / lw_g1_gate /
+# lw_gen_run). A shared tools/ helper is not importable from all four venvs;
+# this module runs under .venv-gen.
+#
+# 1800s: the longest legitimate single hold is one generation round, minutes
+# not hours, so half an hour is generous for a healthy holder and still only a
+# third of the 5400s headless cycle deadline - leaving the cycle room to LOG
+# the failure and finish. timeout=None would instead turn a wedged holder in
+# another repo into an invisible hang.
+GPU_MUTEX_TIMEOUT_S = 1800.0
+_WINMUTEX_MOD = "lw_loop_winmutex"
+_GPU_TAG = "lw_gen_run"
+
+
+class GpuBusy(RuntimeError):
+    """GPU_MUTEX did not free within GPU_MUTEX_TIMEOUT_S.
+
+    A tool-native type so a caller can report "the GPU is busy elsewhere"
+    instead of leaking a winmutex traceback; the MutexTimeout stays on __cause__
+    for anyone who needs the raw reason. Raised before any candidate PNG is
+    saved, so a timeout never leaves a half-written output behind.
+    """
+
+
+def _gpu_log(msg):
+    """Append one line to logs/YYYY-MM-DD.log. Never raises.
+
+    Not print(): under pythonw.exe there is no stdout at all. The daily log is
+    what the operator already reads, and it is what makes a hold window
+    measurable after a concurrent run.
+    """
+    try:
+        stamp = datetime.datetime.now()
+        log_dir = _Path(__file__).resolve().parent.parent / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / f"{stamp:%Y-%m-%d}.log", "a", encoding="utf-8") as fo:
+            fo.write(f"{stamp:%H:%M:%S} [{_GPU_TAG}] {msg}\n")
+    except OSError:
+        pass
+
+
+def _winmutex():
+    """Bind ops/loop/winmutex.py BY PATH (the loop_controller._bind pattern).
+
+    ops/loop has no __init__.py, and .venv-gen does not have the repo root on
+    sys.path, so a package-style import would fail everywhere the code actually
+    executes while passing in CI.
+    """
+    mod = sys.modules.get(_WINMUTEX_MOD)
+    if mod is not None:
+        return mod
+    path = _Path(__file__).resolve().parent.parent / "ops" / "loop" / "winmutex.py"
+    spec = _importlib_util.spec_from_file_location(_WINMUTEX_MOD, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load winmutex from {path}")
+    mod = _importlib_util.module_from_spec(spec)
+    sys.modules[_WINMUTEX_MOD] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@_contextlib.contextmanager
+def gpu_lock(device="cuda", log=None):
+    """Hold GPU_MUTEX around real CUDA work. A no-op when device is not cuda.
+
+    The CPU fallback must NOT take it: serializing CPU work across repos buys
+    nothing and costs throughput. A winmutex import failure DEGRADES to unheld
+    with the same UNSERIALIZED marker winmutex itself emits - the mutex is a
+    cross-repo governor, not a dependency of this tool, and a venv that cannot
+    see it must still be able to generate.
+    """
+    if str(device) != "cuda":
+        yield None
+        return
+
+    def sink(msg):
+        _gpu_log(msg)
+        if log is not None:
+            log(msg)
+
+    try:
+        wm = _winmutex()
+    except Exception as exc:  # noqa: BLE001 - a governor must never be fatal
+        sink(f"winmutex: UNSERIALIZED GPU - cannot bind ops/loop/winmutex.py "
+             f"({type(exc).__name__}: {exc}); proceeding WITHOUT the lock")
+        yield None
+        return
+
+    try:
+        with wm.hold(wm.GPU_MUTEX, timeout=GPU_MUTEX_TIMEOUT_S, log=sink) as handle:
+            yield handle
+    except wm.MutexTimeout as exc:
+        sink(f"winmutex: TIMEOUT on {wm.GPU_MUTEX} after {GPU_MUTEX_TIMEOUT_S}s "
+             f"- another process still holds the GPU; abandoning this step")
+        raise GpuBusy(
+            f"GPU busy elsewhere for more than {GPU_MUTEX_TIMEOUT_S}s") from exc
 
 # slugify is stdlib-only in lw_pipeline (no torch/PIL on that path), so importing
 # it here is CI-safe. Mirror the sibling path-shim pattern (LEDGER.md:310).
@@ -416,6 +534,23 @@ def _load_pipeline(config, model_abs, fast, controlnet_path=None):
             ".venv-gen). See docs/GEN_MODELS.md Phase-0 setup.",
             code=4,
         ) from exc
+    # The hold covers weight loading + device placement. It cannot be widened to
+    # cover generation as well, because run()'s round loop shells lw_gen_qa.py
+    # between the two - see the module header on the hybrid case.
+    try:
+        with gpu_lock("cuda"):
+            return _load_pipeline_locked(config, model_abs, fast, controlnet_path)
+    except GpuBusy as exc:
+        raise GenError(
+            "the GPU is held by another run and did not free in time; "
+            "generation skipped. See logs/ for the winmutex trace.",
+            code=4) from exc
+
+
+def _load_pipeline_locked(config, model_abs, fast, controlnet_path):
+    """The body of _load_pipeline, run while GPU_MUTEX is held."""
+    import torch
+
     try:
         if controlnet_path:
             from diffusers import ControlNetModel, StableDiffusionXLControlNetPipeline
@@ -490,44 +625,57 @@ def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir
         round_pos = f"{pos}, {emphasis}"
 
     out = []
-    for i in range(count):
-        idx = start_index + i
-        seed = random.randint(0, 2**31 - 1)
-        fname = f"cand_{idx:02d}.png"
-        fpath = os.path.join(batch_dir, fname)
-        try:
-            import torch
-            generator = torch.Generator(device="cuda").manual_seed(seed)
-            if control_image is not None:
-                image = pipe(
-                    prompt=round_pos, negative_prompt=neg,
-                    image=control_image,
-                    controlnet_conditioning_scale=float(plan.get("controlnet_scale", 0.75)),
-                    width=res[0], height=res[1],
-                    num_inference_steps=steps, guidance_scale=cfg,
-                    generator=generator,
-                ).images[0]
-            elif init_image is not None:
-                image = pipe(
-                    prompt=round_pos, negative_prompt=neg,
-                    image=init_image,
-                    strength=float(plan.get("img2img_strength", 0.55)),
-                    num_inference_steps=steps, guidance_scale=cfg,
-                    generator=generator,
-                ).images[0]
-            else:
-                image = pipe(
-                    prompt=round_pos, negative_prompt=neg,
-                    width=res[0], height=res[1],
-                    num_inference_steps=steps, guidance_scale=cfg,
-                    generator=generator,
-                ).images[0]
-            image.save(fpath)
-        except GenError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            raise GenError(f"generation failed on {fname}: {exc}", code=4) from exc
-        out.append(new_candidate_record(fname, seed, round_no))
+    # ONE hold for the whole round rather than one per candidate: the pipe is
+    # already resident, and releasing between candidates would only hand another
+    # process a card LW still occupies. The caller shells lw_gen_qa AFTER this
+    # returns, never inside - see the module header on the hybrid case.
+    try:
+        with gpu_lock("cuda"):
+            for i in range(count):
+                idx = start_index + i
+                seed = random.randint(0, 2**31 - 1)
+                fname = f"cand_{idx:02d}.png"
+                fpath = os.path.join(batch_dir, fname)
+                try:
+                    import torch
+                    generator = torch.Generator(device="cuda").manual_seed(seed)
+                    if control_image is not None:
+                        image = pipe(
+                            prompt=round_pos, negative_prompt=neg,
+                            image=control_image,
+                            controlnet_conditioning_scale=float(
+                                plan.get("controlnet_scale", 0.75)),
+                            width=res[0], height=res[1],
+                            num_inference_steps=steps, guidance_scale=cfg,
+                            generator=generator,
+                        ).images[0]
+                    elif init_image is not None:
+                        image = pipe(
+                            prompt=round_pos, negative_prompt=neg,
+                            image=init_image,
+                            strength=float(plan.get("img2img_strength", 0.55)),
+                            num_inference_steps=steps, guidance_scale=cfg,
+                            generator=generator,
+                        ).images[0]
+                    else:
+                        image = pipe(
+                            prompt=round_pos, negative_prompt=neg,
+                            width=res[0], height=res[1],
+                            num_inference_steps=steps, guidance_scale=cfg,
+                            generator=generator,
+                        ).images[0]
+                    image.save(fpath)
+                except GenError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    raise GenError(f"generation failed on {fname}: {exc}",
+                                   code=4) from exc
+                out.append(new_candidate_record(fname, seed, round_no))
+    except GpuBusy as exc:
+        raise GenError(
+            "the GPU is held by another run and did not free in time; "
+            "generation skipped. See logs/ for the winmutex trace.",
+            code=4) from exc
     return out
 
 
