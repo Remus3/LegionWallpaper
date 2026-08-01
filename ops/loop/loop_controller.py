@@ -13,11 +13,16 @@ ancestor loop - process mechanics unchanged, product references TBD.
 import importlib.util
 import json
 import os
+import re
 import uuid
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+# Legion focus-steal rule: the controller runs under pythonw, so any console
+# child would allocate its own window and flash on the operator's desktop.
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # ops/loop is never on sys.path (the controller is launched by absolute path);
 # bind the sibling executor module explicitly, same pattern as the adjudicator.
@@ -291,6 +296,77 @@ def directive_title(body):
         if s:
             return s[:160]
     return "(empty)"
+
+def parse_claimed_count(text):
+    """The executor's claimed pass count, or None when it did not claim one.
+
+    `DoneRecord.tests_pass` is free text and defaults to "?". Coercing that to 0
+    would INVENT a claim the executor never made and then quarantine the cycle
+    for failing it, which is worse than not checking.
+    """
+    if not isinstance(text, str):
+        return None
+    m = re.search(r"\d+", text)
+    return int(m.group(0)) if m else None
+
+
+def build_truth_gate_claims(run_id, cycle, done, manifest):
+    """PURE: the claims doc tools/truth_gate.py reconciles against ground truth.
+
+    Every manifest slice contributes a FILE-EXISTENCE claim. The suite-count
+    claim goes on ONE synthetic `cycle-<n>` slice instead of being copied onto
+    each real slice: `tests_pass` is a run-level number, and hanging it on every
+    slice would quarantine all of them over one wrong count and hide which claim
+    actually failed.
+
+    `must_contain` stays empty deliberately. We do not have the per-slice diff
+    here, and asserting content we cannot source is how a gate starts REFUSING
+    on its own invention.
+    """
+    slices = []
+    for sl in ((manifest or {}).get("slices") or []):
+        slices.append({
+            "id": sl.get("id", "?"),
+            "claim": sl.get("title", ""),
+            "files": [{"path": p, "must_contain": []} for p in (sl.get("files") or [])],
+        })
+    claimed = parse_claimed_count((done or {}).get("tests_pass"))
+    if claimed is not None:
+        slices.append({"id": f"cycle-{cycle}",
+                       "claim": f"cycle {cycle} reported {claimed} passing",
+                       "files": [], "claimed_passed": claimed})
+    return {"run_id": run_id, "check_ci": True, "slices": slices}
+
+
+def run_truth_gate(claims, *, claims_path, report_path, runner=None,
+                   skip_suite=False):
+    """Invoke tools/truth_gate.py and return (verdict, report).
+
+    Exit 2 is a REAL REFUSE, not a broken tool - a wrapper that read nonzero as
+    failure would silently downgrade a refusal into a shrug, so the VERDICT is
+    read from the report the gate wrote, never inferred from the exit code.
+
+    Fail-CLOSED on the verdict, fail-OPEN on the loop: if the report cannot be
+    read the answer is ERROR, which is never permission to proceed - but it is
+    also not an exception, because a reconciliation tool must not be able to
+    wedge the run it is only observing.
+    """
+    run = runner if runner is not None else subprocess.run
+    claims_path, report_path = Path(claims_path), Path(report_path)
+    claims_path.parent.mkdir(parents=True, exist_ok=True)
+    claims_path.write_text(json.dumps(claims, indent=2), encoding="utf-8")
+    argv = [sys.executable, str(ROOT / "tools" / "truth_gate.py"),
+            "--claims", str(claims_path), "--report", str(report_path)]
+    if skip_suite:
+        argv.append("--skip-suite")
+    try:
+        run(argv, capture_output=True, text=True, creationflags=NO_WINDOW)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - an observer may never wedge the run
+        log(f"truth_gate: could not complete ({type(exc).__name__}: {exc})")
+        return "ERROR", {"verdict": "ERROR", "error": str(exc)}
+    return report.get("verdict", "ERROR"), report
+
 
 def record_directive_outcome(cycle, body, sha_before, sha_after, done, verdict,
                              ctl=None, done_record=None, run_id=None):
@@ -721,6 +797,30 @@ def main():
         done = rec.raw
         last_done = done
         new_sha = rec.sha or head()
+
+        # Independent reconciliation of what the executor CLAIMED against ground
+        # truth. Until now truth_gate.py existed, was tested, and was invoked by
+        # nothing - its report had never been written on this machine, so the
+        # loop's most documented failure class (an unbacked green claim) was
+        # answered only by whatever the cycle said about itself.
+        # ADVISORY by default: the verdict is logged, reported and carried into
+        # the audit, but `truth_gate_blocking` (default False) decides whether a
+        # REFUSE actually stops the cycle. Landing a new control-flow branch as
+        # blocking, on a loop that is not currently running, would be shipping
+        # an unmeasured change to the one thing that must not wedge.
+        tg_verdict = None
+        if CFG.get("truth_gate", True):
+            manifest = rjson(ROOT / "ops" / "runtime" / "slice_manifest.json", None)
+            tg_verdict, tg_report = run_truth_gate(
+                build_truth_gate_claims(RUN_ID, cycle, done, manifest),
+                claims_path=CTL / "truth_gate_claims.json",
+                report_path=ROOT / "ops" / "runtime" / "truth_gate_report.json",
+                skip_suite=bool(CFG.get("truth_gate_skip_suite", False)))
+            log(f"cycle {cycle}: truth_gate -> {tg_verdict} "
+                f"quarantined={tg_report.get('quarantined') or []}")
+            if tg_verdict == "REFUSE" and CFG.get("truth_gate_blocking", False):
+                log(f"cycle {cycle}: truth_gate REFUSE is blocking - "
+                    f"{tg_report.get('action', 'commit blocked')}")
         log(f"cycle {cycle}: claude.done sha={new_sha[:8]} tests={done.get('tests_pass')} regress={done.get('regressions')}")
 
         # NO Claude dollar accounting (operator 2026-07-26). Two reasons, both

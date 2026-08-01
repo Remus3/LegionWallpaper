@@ -48,8 +48,11 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   observations; map the three run-id
   namespaces to each other (the spine only fixed `directive_history.jsonl`);
   mirror at-risk agent metadata out of the transcript dir before Claude Code's
-  cleanup reaps it; `truth_gate.py` is never invoked by the run flow so its
-  report has never been written on this machine; P4 and P5 panels unbuilt.
+  cleanup reaps it; P4 and P5 panels unbuilt.
+  truth_gate DONE 2026-08-01 (LEDGER 68) - wired into the run flow, ADVISORY
+  until observed on a live run (`truth_gate_blocking` false); its first real
+  invocation found the gate's own suite command swept the whole tree and
+  manufactured a REFUSE on a green tree.
   Do-not-redo: do NOT collapse `lw_httpd.parse_ts` and
   `lw_rundash_state.parse_iso` - naive UTC vs naive LOCAL, 5h apart here, and
   `loop_controller.py:303` writes naive LOCAL so `parse_iso` is correct.

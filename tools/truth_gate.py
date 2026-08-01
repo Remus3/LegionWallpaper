@@ -11,7 +11,7 @@ Reconciliation report written atomically to ops/runtime/truth_gate_report.json.
 
 Claims JSON shape:
   {"run_id": "...",
-   "suite_cmd": "C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe -m pytest -q",            # optional; default full root suite
+   "suite_cmd": "C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe -m pytest tests/ -q",     # optional; default = what CI runs
    "check_ci": true,                           # optional; default true
    "slices": [{"id": "S1", "claim": "...",
                "files": [{"path": "rel/or/abs.py", "must_contain": ["snippet"]}],
@@ -47,7 +47,14 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _CANONICAL_PY = Path(r"C:\Users\Administrator\AppData\Local\Programs\Python"
                      r"\Python314\python.exe")
 SUITE_PY = str(_CANONICAL_PY if _CANONICAL_PY.exists() else Path(sys.executable))
-DEFAULT_SUITE_CMD = f'"{SUITE_PY}" -m pytest -q'
+# `tests/` is NOT optional. A bare `-m pytest -q` collects from the repo root and
+# sweeps in files the project suite never runs - tools/test_lw_clean_dekel.py
+# (imports skimage, which lives only in the lw-clean venv) and a vendored MCP
+# extension's conftest under Claude/. Collection then dies, counts come back
+# zeroed, and every count claim quarantines: the gate manufactures a REFUSE on a
+# green tree. Measured 2026-08-01, the first time anything actually invoked this.
+# This must stay identical to what .github/workflows/ci.yml runs.
+DEFAULT_SUITE_CMD = f'"{SUITE_PY}" -m pytest tests/ -q'
 
 _SUMMARY_TOKEN = re.compile(r"(\d+)\s+(passed|failed|error|errors|skipped|"
                             r"xfailed|xpassed|deselected|warnings?)")

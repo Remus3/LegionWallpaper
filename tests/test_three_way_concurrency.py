@@ -33,6 +33,8 @@ import json
 import subprocess
 import sys
 import time
+
+import pytest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -176,6 +178,13 @@ def test_a_stale_lock_is_reaped_under_live_contention(tmp_path):
 # ---------------------------------------------------------------------------
 # the GPU mutex, three real processes - the OPPOSITE guarantee
 # ---------------------------------------------------------------------------
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="winmutex.hold is a DOCUMENTED no-op off Windows (winmutex.py:27) - "
+           "on a POSIX runner all three processes enter at once, so this "
+           "assertion is not merely vacuous, it is false. The serialization "
+           "guarantee is a Windows named-mutex property and is measured where "
+           "it exists. Caught by CI going red on 55033cf.")
 def test_the_gpu_mutex_serializes_three_processes_to_one(tmp_path):
     """Slots admit three; the GPU mutex must admit exactly one.
 

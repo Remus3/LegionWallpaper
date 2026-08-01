@@ -27,6 +27,58 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+68. DONE **2026-08-01 (truth_gate wired into the run flow - and it immediately
+    caught two real things, one of them mine).** Instrumentation backlog item 7
+    of `docs/RUNDASH_SPEC_2026-08-01.md`.
+    Premise VERIFIED first: `tools/truth_gate.py` had `main`, an atomic
+    `write_report_atomic` and a PROCEED/REFUSE `reconcile`, and NOTHING under
+    `ops/` referenced it. `slice_orchestrator.OBSERVERS` already listed
+    `truth_gate` as a legal observer - the verdict slot was reserved for a caller
+    that never existed. `ops/runtime/truth_gate_report.json` did not exist on
+    disk; confirmed by `ls` before the first run, exactly as the spec said.
+    Bridge in `loop_controller`: `parse_claimed_count` (free-text `tests_pass`;
+    "?" yields None, because coercing it to 0 would INVENT a claim the executor
+    never made and then quarantine the cycle for failing it),
+    `build_truth_gate_claims` (pure), and `run_truth_gate` (injectable runner).
+    Two design calls: the suite-count claim goes on ONE synthetic `cycle-<n>`
+    slice rather than being copied onto every real slice - `tests_pass` is a
+    run-level number and smearing it would quarantine all N slices over one
+    wrong count and bury which claim failed; and `must_contain` stays EMPTY,
+    because the per-slice diff is not available here and asserting content we
+    cannot source is how a gate starts REFUSING on its own invention.
+    Exit 2 is read as a real REFUSE, not a broken tool - the verdict comes from
+    the report, never from the exit code. Fail-CLOSED on the verdict (an
+    unreadable report is ERROR, never permission) and fail-OPEN on the loop (an
+    observer may not wedge the run it is watching).
+    ADVISORY by default: `truth_gate` true, `truth_gate_blocking` FALSE,
+    `truth_gate_skip_suite` false, all in `ops/loop/config.json` with a note.
+    Landing a new control-flow branch as blocking, on a loop that is not
+    currently running, would ship an unmeasured change to the one thing that
+    must not wedge. Flipping one key makes it halt.
+    **FIRST REAL INVOCATION FOUND A BUG IN THE GATE ITSELF.** It returned
+    0 passed / 2 errors on a green tree. `DEFAULT_SUITE_CMD` was a bare
+    `-m pytest -q` with NO path, so pytest collected from the repo root and swept
+    in `tools/test_lw_clean_dekel.py` (imports skimage, present only in the
+    lw-clean venv) plus a vendored MCP extension's conftest under `Claude/`.
+    Collection died, counts zeroed, every count claim quarantined - the gate
+    manufactured a REFUSE on a green tree, which is worse than no gate. Pinned to
+    `pytest tests/ -q`, identical to `.github/workflows/ci.yml`, with a test that
+    fails if CI and the gate ever diverge again. Nothing had ever run it, which
+    is precisely why the bug survived.
+    **IT ALSO CAUGHT MY OWN CI BREAK.** `ci: failure at 55033cf` was TRUE:
+    LEDGER 67's `test_the_gpu_mutex_serializes_three_processes_to_one` fails on
+    Linux CI because `winmutex.hold` is a documented no-op off Windows
+    (`winmutex.py:27`), so all three processes enter at once and the assertion is
+    not vacuous but FALSE. I reported that item green on a local Windows pass
+    without confirming CI, which the Session-End Ritual explicitly requires.
+    Now `skipif(sys.platform != "win32")` with the reason naming the no-op.
+    Verified after both fixes: gate re-run live -> suite 1458 passed / 0 failed /
+    0 errors / exit 0, and the only remaining REFUSE reasons were legitimate (a
+    deliberately wrong 1459 count claim, correctly quarantined, and the still-
+    unpushed CI red). 1458 passed / 16 skipped locally, ruff clean.
+    Do-not-redo: do NOT drop `tests/` from `DEFAULT_SUITE_CMD`. Do NOT assert
+    mutex serialization on a POSIX runner.
+
 67. DONE **2026-08-01 (three-way concurrency MEASURED - the mechanism, not the
     three repos).** Full numbers in `docs/CONCURRENCY_MEASURED_2026-08-01.md`;
     harness `tests/test_three_way_concurrency.py`, 4 tests, 6.4s.
