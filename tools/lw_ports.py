@@ -27,8 +27,15 @@ LW_BLOCK = (8900, 8919)
 # entry is pinned against it by test, so the two cannot drift apart.
 MONITOR = 8901
 
+# The run dashboard: serves web/rundash.html plus the run/resume JSON APIs on
+# 127.0.0.1. Same rule as MONITOR - tools/lw_rundash.py DEFAULT_PORT is
+# authoritative and the pin test holds the two together. Took the block low
+# because next_free() said so, not because 8900 reads nicely.
+RUNDASH = 8900
+
 ALLOCATIONS = {
     "monitor": MONITOR,
+    "rundash": RUNDASH,
 }
 
 
