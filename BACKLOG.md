@@ -78,9 +78,11 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     the fix made them accurate rather than obsolete, and they cover waterfall
     routing the replay file does not. Still open from the original scope: a
     recorded quota BLOCK (could not be captured - `original=true` was not
-    blocked on 2026-08-01, rc=0 and a 1.77 MB original came back, which also
-    makes memory `reference-deviantart-recovery` stale on that point) and a
-    paginated gallery. gallery-dl is a subprocess, not http, so mockd cannot
+    blocked on 2026-08-01, rc=0 and a 1.77 MB original came back) and a
+    paginated gallery. Memory `reference-deviantart-recovery` was CORRECTED in
+    that same session and is no longer stale on the quota point - it now records
+    the 2026-08-01 re-measurement and that the 2026-07-15 exhaustion was a
+    point-in-time state, not a standing block. Do not re-file it as stale. gallery-dl is a subprocess, not http, so mockd cannot
     mock it; proxying its https needs the MITM CA trusted machine-wide, which
     is an operator call. Original scope, kept for reference:
     One zero-dependency
@@ -196,6 +198,58 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     "unverified, not verified-good" instead of letting silence read as a pass -
     which is LW's own NOT OBSERVED chip and the `verdicts` absent-means-unobserved
     rule. LW got there first; nothing to take.
+  - **P6 - stop replaying cookie jars in the recovery waterfall. LATER, no
+    dependency, no install.** QUEUED 2026-08-01 - it was in the dive's
+    replacement plan from the start and never made it onto this list, which is
+    the same drop that created this whole entry ("the triage was filed but never
+    queued"). From CCR-136: `navigator.webdriver` is set at browser LAUNCH by
+    `--enable-automation`, NOT by attaching over CDP, so launching with only
+    `--remote-debugging-port` and attaching afterwards is never flagged; and an
+    exported cookie jar rots silently as its session token expires. The rule for
+    LW's DeviantArt lane is to attach to a live profile and let the PAGE issue
+    the request, rather than replaying credentials.
+    Do-not-redo: Reddit's specific cookie names and modhash endpoint do NOT
+    transfer - only the three structural rules do. Note the source is an
+    r/ClaudeWorkflows post, and the dive established all six of those are
+    bot-generated summaries whose checkable claims were wrong two times in four,
+    so verify the `--enable-automation` behaviour on this box before building on
+    it.
+    Relevance check before funding: LW's DeviantArt lane is gallery-dl with a
+    configured OAuth client (memory `reference-deviantart-recovery`), which
+    mints a public access token per run and replays no cookie jar at all - so
+    this may already be a non-issue here and the honest first step is to confirm
+    whether any LW path replays credentials before changing one.
+  - **P7 - task-orchestrator's server-ENFORCED gate. LATER, method-only.**
+    Dived 5 -> 7, the highest-scoring row never given a phase. The unique
+    property, verbatim: "if a required design note isn't filled, `advance_item`
+    returns an error" - an agent cannot skip a gate because the CALL fails,
+    versus prompt-based frameworks where instructions are merely what agents
+    "should follow". State is local (SQLite + Exposed ORM with FTS5, default
+    `data/current-tasks.db`), loopback needs no auth, MIT.
+    NARROWED by P4: its other headline feature, `claim_item` multi-agent
+    ownership, is exactly the primitive LW shipped 2026-08-01 in
+    `slice_orchestrator.py`, so the only thing left to want here is the enforced
+    gate. That folds into the same unbuilt half P4 left open - nothing yet
+    refuses to start an agent without a granted claim (f1-phase6 item 7).
+    Do NOT install to get it: distribution is a Kotlin DOCKER image and Windows
+    support is UNSTATED. Lift the shape into `slice_orchestrator.py`, the same
+    call P4 made about depwire.
+    Page anomalies recorded so nobody re-reads them as server properties: the
+    marketplace title says "1 Tools" against 14 in its body, and it carries a
+    Spanish-language line advertising an `/api/orchestrate` endpoint at "Fee:
+    $0.20 USDC via x402" matching no listed tool.
+  - **P8 - gitwand for merge-conflict auto-resolution. LATER.** Held at 6 and
+    "verified better than expected", but never phased. Auto-resolution is a
+    LOCAL pattern registry with no key and no LLM call - LLM involvement is
+    opt-in via `gitwand_resolve_hunk_llm` only - and it "never touches complex
+    or ambiguous hunks". MIT, v3.6.0, Windows first-class (.msi, .exe, winget).
+    Fit: LW runs worktree-isolated agents on disjoint file sets with a sole
+    merger, so conflicts are rare BY DESIGN and this earns its place only if the
+    orchestrator pattern is widened past disjointness.
+    One probe decides it, and it is the reason this was not simply adopted: the
+    worktree support quoted on the page describes the DESKTOP GUI, and whether
+    the 7 MCP tools accept a worktree path is UNKNOWN. If they do not, it cannot
+    touch LW's merge path at all.
   - **CLOSED by the dive, do not reopen:** viznoir as a render backend - its
     glTF is an EXPORT format on a list with PNG/MP4, so it is the wrong
     direction for `glb-render-fetch`, and there is zero skinned-mesh evidence
@@ -209,6 +263,18 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
   Do-not-redo: do NOT inherit the sibling project's scores - it closed an entire
   class as "no image need", which is LW's whole domain. Do NOT triage by slug:
   measured, three of four name-based guesses were wrong in both directions.
+  **Queue hygiene (2026-08-01):** P1-P5 are done, P6-P8 are queued above and
+  none is started. P6 existed in the dive but was missing from this list for the
+  whole run; P7 and P8 were dived and scored (7 and 6) but never given a phase
+  at all. Before calling this entry finished, diff the dive's replacement plan
+  and its promotions section against the P-numbers here - a row that lives only
+  in a doc's prose does not get worked.
+  Still open from L2, and NOT discharged by P1: the RETROSPECTIVE half. P1
+  shipped the live gate (`claimed_green_gate.py` reads a Stop-hook payload from
+  stdin, no CLI, no history mode), but the question the triage actually posed -
+  retroactively, how often was a green claim in this repo unbacked - is
+  untouched. Lift the detector design, do NOT install red-handed (two confirmed
+  path-separator bugs, no Windows CI).
 
 - **next-session-handoff-enforcement - the file exists, the guard does not.**
   `C:\Users\Administrator\Desktop\LW-NEXT-SESSION.txt` is now written each
