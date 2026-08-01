@@ -368,6 +368,26 @@ def run_truth_gate(claims, *, claims_path, report_path, runner=None,
     return report.get("verdict", "ERROR"), report
 
 
+def run_agent_mirror(runner=None):
+    """Snapshot the agent fleet into ops/runtime/ before Claude Code reaps it.
+
+    Called once per cycle because the reaping window is exactly the window in
+    which nobody is watching - a mirror that only ran when the dashboard was
+    open would miss the runs it exists to preserve.
+
+    Fail-OPEN and silent on success: this is bookkeeping about the run, and
+    bookkeeping that can wedge the run is worse than no bookkeeping.
+    """
+    run = runner if runner is not None else subprocess.run
+    try:
+        run([sys.executable, str(ROOT / "tools" / "lw_agent_mirror.py"), "--quiet"],
+            capture_output=True, text=True, creationflags=NO_WINDOW, timeout=60)
+    except Exception as exc:  # noqa: BLE001 - an observer may never wedge the run
+        log(f"agent_mirror: could not complete ({type(exc).__name__}: {exc})")
+        return False
+    return True
+
+
 def read_manifest_run_id(path=None):
     """The slice manifest's OWN run id, or None. Never raises.
 
@@ -889,6 +909,7 @@ def main():
         record_directive_outcome(cycle, body, prev_sha, new_sha, done, verdict,
                                  done_record=rec, run_id=RUN_ID,
                                  manifest_run_id=read_manifest_run_id())
+        run_agent_mirror()
         prev_sha = new_sha
 
     stop(f"max_cycles {CFG['max_cycles']} reached")

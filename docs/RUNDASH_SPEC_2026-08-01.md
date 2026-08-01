@@ -239,8 +239,18 @@ token counts, never dollars.
    `unjoined_cycles`, never bucketed under a neighbouring run, and a caller whose
    two ids disagree with the recorded pairing gets `conflict` with BOTH reported
    rather than a picked winner.
-6. **Mirror at-risk agent metadata into `ops/runtime/`** before Claude Code's
-   cleanup reaps it.
+6. ~~**Mirror at-risk agent metadata into `ops/runtime/`** before Claude Code's
+   cleanup reaps it.~~ DONE 2026-08-01. `tools/lw_agent_mirror.py` folds every
+   session's fleet into `ops/runtime/agent_fleet_mirror.json`; first run captured
+   136 agents across 36 sessions back to 2026-07-03, including all 18 of the
+   2026-07-30 fleet this spec exists for. A separate tool rather than a hook in
+   the dashboard, invoked once per cycle by the controller, because the reaping
+   window is exactly the window in which nobody has the board open. Counts move
+   ONE WAY - a poll that catches a truncated transcript is information lost, not
+   news - and no volatile verdict is stored, since a mirrored `running: true`
+   from four days ago paints a live agent that does not exist. The board unions
+   mirrored rows scoped to the resolved session and STATES the full mirror total
+   rather than dropping it silently.
 7. **`truth_gate.py` is never invoked by the run flow** - its report has never
    been written on this machine. The atomic writer already exists; only the call
    is missing.

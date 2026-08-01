@@ -76,6 +76,11 @@ CONFIG_PATH = ROOT / "ops" / "loop" / "config.json"
 PAGE_PATH = ROOT / "web" / "rundash.html"
 RUNDASH_LOG = ROOT / "logs" / "lw_rundash.log"
 
+# The durable half of the fleet, written by tools/lw_agent_mirror.py. The
+# transcript dir below is reaped without warning; this survives it, so an agent
+# missing from the source is served from here rather than vanishing off the board.
+MIRROR_PATH = ROOT / "ops" / "runtime" / "agent_fleet_mirror.json"
+
 # How many resolved cycles the /api/run payload carries. The file is append-only
 # and NEVER cleared, so it grows without bound - the payload must not.
 CYCLE_HISTORY_N = 40
@@ -322,7 +327,7 @@ def _attribute(slice_id, agents):
 
 def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=None,
                    repo_root=None, now_ts=None, cache=None, runner=None, pid_alive=None,
-                   stuck_after_s=STUCK_S, git="git"):
+                   stuck_after_s=STUCK_S, git="git", mirror_path=None):
     """The /api/run payload - P1 plus the P2 chip.
 
     Pure and injectable in the same sense as lw_monitor.build_pipeline_view:
@@ -338,9 +343,14 @@ def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=
     liveness = rundash_state.run_liveness(
         control_dir, now_ts, manifest_path=manifest_path, pid_alive=pid_alive,
         repo_root=repo_root)
-    fleet = (rundash_state.read_agent_fleet(session_dir, now_ts) if session_dir
+    # Read even with no session dir when a mirror exists: the reaped fleet is
+    # precisely the case where the transcript dir has nothing left to say.
+    fleet = (rundash_state.read_agent_fleet(session_dir or (repo_root / "no-session"),
+                                            now_ts, mirror_path=mirror_path)
+             if (session_dir or mirror_path)
              else {"ok": True, "present": False, "agents": [],
-                   "counts": {"total": 0, "running": 0, "worktree": 0, "other": 0},
+                   "counts": {"total": 0, "running": 0, "worktree": 0, "other": 0,
+                              "mirrored": 0},
                    "output_tokens": 0})
     # The resolved-cycle chain. read_cycle_history was built and tested but had
     # NO production consumer, so nothing the controller records about a finished
@@ -512,8 +522,10 @@ def build_resume_view(*, control_dir, manifest_path, repo_root, now_ts=None, cac
 class RunDashServer(LWServer):
     def __init__(self, addr, handler, *, control_dir=CONTROL_DIR, manifest_path=MANIFEST_PATH,
                  config_path=CONFIG_PATH, page_path=PAGE_PATH, repo_root=ROOT,
-                 session_dir=None, runner=None, pid_alive=None, cache=None):
+                 session_dir=None, runner=None, pid_alive=None, cache=None,
+                 mirror_path=MIRROR_PATH):
         super().__init__(addr, handler)
+        self.mirror_path = Path(mirror_path) if mirror_path else None
         self.control_dir = Path(control_dir)
         self.manifest_path = Path(manifest_path)
         self.config_path = Path(config_path)
@@ -553,7 +565,8 @@ class Handler(BaseLWHandler):
                     control_dir=srv.control_dir, manifest_path=srv.manifest_path,
                     config_path=srv.config_path, session_dir=srv.resolve_session_dir(),
                     repo_root=srv.repo_root, cache=srv.view_cache,
-                    runner=srv.runner, pid_alive=srv.pid_alive)
+                    runner=srv.runner, pid_alive=srv.pid_alive,
+                    mirror_path=srv.mirror_path)
                 self._send_json(200, view, {"Cache-Control": "no-store"})
                 return
             if path == "/api/resume":

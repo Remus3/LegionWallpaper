@@ -437,18 +437,27 @@ function rFleet(p) {
       "Claude Code reaps session history, so absent is normal here.</div>";
     return;
   }
+  // The mirror total is stated, never silently dropped: the board is scoped to
+  // this session, and "6 agents" next to a mirror holding 136 would read as the
+  // whole history being gone.
+  var mirrored = (f.counts.mirrored || 0);
   var html = '<div class="wrow meta">' + esc(f.counts.total) + " agents, " +
     esc(f.counts.worktree) + " on worktrees, " + esc(f.counts.running) + " active, " +
-    esc(f.output_tokens) + " output tokens total</div>";
+    esc(f.output_tokens) + " output tokens total" +
+    (mirrored ? " - " + esc(mirrored) + " served from the mirror" : "") +
+    (f.mirror_total ? '<span class="meta"> / mirror holds ' + esc(f.mirror_total) +
+      " agents across all sessions</span>" : "") + "</div>";
   for (var i = 0; i < agents.length; i++) {
     var a = agents[i];
+    var reaped = a.source === "mirror";
     html += '<div class="wrow">' +
       '<span class="badge ' + (a.running ? "b-progress" : "b-pending") + '">' +
-      (a.running ? "ACTIVE" : "IDLE") + "</span>" +
+      (a.running ? "ACTIVE" : reaped ? "REAPED" : "IDLE") + "</span>" +
       '<span class="mono">' + esc(a.id.slice(0, 8)) + "</span>" +
       "<span>" + esc(a.type) + "</span>" +
       '<span class="mono meta">' + esc(a.worktree_branch || "no worktree") + "</span>" +
-      '<span class="meta">ran ' + esc(a.elapsed_human) + ", quiet " + esc(a.idle_human) + "</span>" +
+      '<span class="meta">ran ' + esc(a.elapsed_human) +
+      (reaped ? ", transcript reaped" : ", quiet " + esc(a.idle_human)) + "</span>" +
       '<span class="meta">' + esc(a.output_tokens) + " tok</span>" +
       '<span class="ell meta" title="' + esc(a.description) + '">' + esc(a.description) + "</span>" +
       "</div>";

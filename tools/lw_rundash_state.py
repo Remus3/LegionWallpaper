@@ -1064,7 +1064,67 @@ def _agent_jsonl_stats(path):
     return stats
 
 
-def read_agent_fleet(session_dir, now_ts=None, *, running_within_s=AGENT_RUNNING_WITHIN_S):
+def _same_session(a, b):
+    """Path equality that tolerates the two spellings the mirror may hold."""
+    try:
+        return Path(a).resolve() == Path(b).resolve()
+    except (OSError, ValueError, TypeError):
+        return str(a) == str(b)
+
+
+def _mirrored_agents(mirror_path, now_ts, session_root=None):
+    """Agents from the ops/runtime mirror, shaped like a live fleet row.
+
+    `running` is FORCED False and `idle` is left unknown. The mirror stores no
+    volatile verdict on purpose (tools/lw_agent_mirror.py), and re-deriving one
+    from a four-day-old last_event would paint a live agent on the board that
+    does not exist - nothing is appending to a transcript that is gone.
+    """
+    data, _ = _read_json(mirror_path)
+    agents = data.get("agents") if isinstance(data, dict) else None
+    if not isinstance(agents, dict):
+        return {}, 0
+    out = {}
+    for agent_id, rec in agents.items():
+        if not isinstance(rec, dict):
+            continue
+        # The board answers "which agents are on THIS run". The mirror holds
+        # every session ever observed - 136 agents across 36 sessions the first
+        # time it ran - so an unscoped union would bury the live fleet in
+        # history. The full file stays on disk for a history view to use.
+        if session_root is not None and not _same_session(rec.get("session"), session_root):
+            continue
+        elapsed = _float_or_none(rec.get("elapsed_s"))
+        out[str(agent_id)] = {
+            "id": str(agent_id),
+            "type": _str_or_none(rec.get("type")) or "unknown",
+            "description": _str_or_none(rec.get("description")) or "",
+            "worktree_path": _str_or_none(rec.get("worktree_path")),
+            "worktree_branch": _str_or_none(rec.get("worktree_branch")),
+            "is_worktree_agent": bool(rec.get("is_worktree_agent")),
+            "spawn_depth": _int_or_none(rec.get("spawn_depth")),
+            "transcript_present": False,
+            "start": _str_or_none(rec.get("start")),
+            "start_epoch": _float_or_none(rec.get("start_epoch")),
+            "last_event": _str_or_none(rec.get("last_event")),
+            "last_event_epoch": _float_or_none(rec.get("last_event_epoch")),
+            "elapsed_s": elapsed,
+            "elapsed_human": human_age(elapsed),
+            "idle_s": None,
+            "idle_human": "-",
+            "running": False,
+            "events": _int_or_none(rec.get("events")) or 0,
+            "torn_lines": _int_or_none(rec.get("torn_lines")) or 0,
+            "output_tokens": _int_or_none(rec.get("output_tokens")) or 0,
+            "source": "mirror",
+            "first_mirrored": _str_or_none(rec.get("first_mirrored")),
+            "last_mirrored": _str_or_none(rec.get("last_mirrored")),
+        }
+    return out, len(agents)
+
+
+def read_agent_fleet(session_dir, now_ts=None, *, running_within_s=AGENT_RUNNING_WITHIN_S,
+                     mirror_path=None):
     r"""The agent fleet from ~/.claude/projects/C--LegionWallpaper/<session>/subagents/.
 
     Accepts either the session dir or the subagents dir - the caller's notion of
@@ -1094,17 +1154,27 @@ def read_agent_fleet(session_dir, now_ts=None, *, running_within_s=AGENT_RUNNING
         "present": False,
         "path": str(base),
         "agents": [],
-        "counts": {"total": 0, "running": 0, "worktree": 0, "other": 0},
+        "counts": {"total": 0, "running": 0, "worktree": 0, "other": 0,
+                   "mirrored": 0},
         "output_tokens": 0,
+        "mirror_path": str(mirror_path) if mirror_path else None,
+        "mirror_total": 0,
         "checked_at": iso_from_epoch(now_ts),
     }
+    # Reaped agents first, so a live read of the same id overwrites them: the
+    # source dir is always the better answer while it still exists.
+    rows, out["mirror_total"] = (
+        _mirrored_agents(mirror_path, now_ts,
+                         session_root=base.parent if base.name == "subagents" else base)
+        if mirror_path else ({}, 0))
     try:
         metas = sorted(base.glob("agent-*.meta.json"))
     except (OSError, ValueError):
-        return out
-    if not base.is_dir():
-        return out
-    out["present"] = True
+        metas = []
+    if base.is_dir():
+        out["present"] = True
+    else:
+        metas = []
 
     for meta_path in metas:
         data, _ = _read_json(meta_path)
@@ -1143,10 +1213,15 @@ def read_agent_fleet(session_dir, now_ts=None, *, running_within_s=AGENT_RUNNING
             "events": stats["events"],
             "torn_lines": stats["torn_lines"],
             "output_tokens": stats["output_tokens"],
+            "source": "live",
         }
+        rows[agent_id] = agent
+
+    for agent in rows.values():
         out["agents"].append(agent)
         out["counts"]["total"] += 1
-        out["counts"]["running"] += 1 if running else 0
+        out["counts"]["running"] += 1 if agent["running"] else 0
+        out["counts"]["mirrored"] += 1 if agent["source"] == "mirror" else 0
         if agent["is_worktree_agent"]:
             out["counts"]["worktree"] += 1
         else:
