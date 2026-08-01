@@ -58,7 +58,11 @@ from PIL import Image
 # lw_g1_gate is stdlib+numpy at import time (pyiqa/torch are lazy inside it), so
 # reusing its luma primitive here is CI-safe. Spec sanctions reusing _to_gray.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lw_g1_gate import _to_gray  # noqa: E402
+# gpu_lock/GpuBusy come from the same module rather than being forked into a
+# fifth copy: lw_g1_gate and this module run in the SAME venv, and two copies
+# inside one venv is two chances for GPU_MUTEX_TIMEOUT_S to drift apart. The
+# four copies that do exist are one per venv - see the header of lw_upscale.
+from lw_g1_gate import GpuBusy, _to_gray, gpu_lock  # noqa: E402,F401
 
 # --------------------------------------------------------------------------
 # Paths (Legion machine).
@@ -600,6 +604,22 @@ def _union_envelope(boxes):
 _MODELS = {}
 
 
+def _cuda_device():
+    """"cuda" or "cpu", decided BEFORE any weights are loaded.
+
+    gpu_lock has to know the device before load_models picks one, and a
+    capability probe is the only way to know that without having already
+    allocated. torch is lazy so the pure suite never touches it; any import
+    failure reports cpu, which degrades to an unheld (and unaccelerated) run
+    rather than crashing the cleaner.
+    """
+    try:
+        import torch
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:  # noqa: BLE001 - a device probe must never be fatal
+        return "cpu"
+
+
 def load_models(langs=("en", "ch_sim"), device=None):
     """Load + cache the YOLO detector, EasyOCR reader and SimpleLama singletons.
 
@@ -665,11 +685,18 @@ def detect_image(image_path, out_dir=None, models=None,
     classifies as a watermark are added to the box set; YOLO confidences drive
     conf_max. This is the seam the dry-run triage test replaces (no ML in CI).
     """
-    models = models or load_models(langs)
-    with Image.open(image_path) as im:
-        arr = np.asarray(im.convert("RGB"))
-    ydet = detect_yolo(arr, models["yolo"])
-    odet = detect_ocr(arr, models["reader"])
+    dev = models["device"] if models else _cuda_device()
+    # The hold covers the model LOAD as well as the two inferences: load_models
+    # puts YOLO + EasyOCR weights on the card, and a half-resident model racing
+    # another process's allocation is the OOM this prevents. On a box with no
+    # CUDA, dev is "cpu" and gpu_lock is a no-op - serializing CPU detection
+    # across three repos would be pure loss.
+    with gpu_lock(dev):
+        models = models or load_models(langs, device=dev)
+        with Image.open(image_path) as im:
+            arr = np.asarray(im.convert("RGB"))
+        ydet = detect_yolo(arr, models["yolo"])
+        odet = detect_ocr(arr, models["reader"])
     boxes = [d["box"] for d in ydet]
     ocr_texts = [d["text"] for d in odet]
     for d in odet:
@@ -906,7 +933,7 @@ def process_slug(slug, image=None, out_dir=None, dry_run=False,
 def _auto_inpaint(slug, image_path, boxes, w, h, out_dir, max_attempts,
                   models, langs, rec):
     """Mask -> LaMa -> verify loop (up to max_attempts). Prints commands on pass."""
-    models = models or load_models(langs)
+    dev = models["device"] if models else _cuda_device()
     os.makedirs(out_dir, exist_ok=True)
     with Image.open(image_path) as im:
         base = im.convert("RGB")
@@ -917,53 +944,60 @@ def _auto_inpaint(slug, image_path, boxes, w, h, out_dir, max_attempts,
     atomic_write_png(os.path.join(out_dir, f"{slug}_mask.png"), mask)
 
     last = None
-    for attempt in range(1, max_attempts + 1):
-        out_img = inpaint_lama(base, mask, models["lama"])
-        out_arr = np.asarray(out_img)
-        ssim_out, mad_out = masked_identity(base_arr, out_arr, mask_bool)
-        change = _inside_change_ssim(base_arr, out_arr, mask_bool)
-        try:
-            residue = any(
-                _residue_decision(
-                    text_energy(base_arr, b, models["reader"]),
-                    text_energy(out_arr, b, models["reader"]))
-                for b in boxes)
-        except Exception:   # noqa: BLE001 - residue probe is advisory, not fatal
-            residue = False
-        seam = seam_ring_ssim(out_arr, ring)
-        v = verify_verdict(ssim_out, mad_out, change, residue, seam)
-        v["metrics"] = {"outside_ssim": round(ssim_out, 6),
-                        "mad_outside": round(mad_out, 6),
-                        "change_ssim": round(change, 6),
-                        "seam_ssim": round(seam, 6),
-                        "residue": residue, "attempt": attempt}
-        last = v
-        if v["verdict"] == "discard":
-            atomic_write_json(os.path.join(out_dir, f"{slug}_verify.json"),
-                              {**rec, "verify": v})
-            print(f"LW CLEAN {slug}: HARD DISCARD (outside-mask violation) "
-                  f"- halt: {'; '.join(v['reasons'])}")
-            rec["status"] = "discard"
-            rec["verify"] = v
-            return rec
-        if v["verdict"] == "pass":
-            cand = os.path.join(out_dir, f"{slug}_clean_cand.png")
-            atomic_write_png(cand, out_img)
-            params = {"mask_bbox": _union_envelope(boxes),
-                      "mask_area_pct": round(rec["mask_area_pct"], 4),
-                      "conf": round(rec["conf"], 4), "engine": "simple-lama",
-                      "ocr": [], "attempts": attempt}
-            save = build_save_working_cmd(slug, cand, params)
-            sub = build_submit_cmd(slug)
-            atomic_write_json(os.path.join(out_dir, f"{slug}_verify.json"),
-                              {**rec, "verify": v})
-            flag = " [seam-flag]" if "seam" in v["flags"] else ""
-            print(f"LW CLEAN {slug}: inpaint PASS{flag} (attempt {attempt})")
-            _print_cmds([save, sub])
-            rec["status"] = "inpainted"
-            rec["verify"] = v
-            rec["commands"] = [save, sub]
-            return rec
+    # ONE hold spanning the LaMa load and every retry. The weights stay resident
+    # between attempts either way, so releasing mid-loop would only hand another
+    # process a card LW still occupies. The candidate PNG write sits inside it
+    # too: sub-second next to a multi-second inpaint, and moving it out would
+    # mean restructuring the early returns for no measurable gain.
+    with gpu_lock(dev):
+        models = models or load_models(langs, device=dev)
+        for attempt in range(1, max_attempts + 1):
+            out_img = inpaint_lama(base, mask, models["lama"])
+            out_arr = np.asarray(out_img)
+            ssim_out, mad_out = masked_identity(base_arr, out_arr, mask_bool)
+            change = _inside_change_ssim(base_arr, out_arr, mask_bool)
+            try:
+                residue = any(
+                    _residue_decision(
+                        text_energy(base_arr, b, models["reader"]),
+                        text_energy(out_arr, b, models["reader"]))
+                    for b in boxes)
+            except Exception:   # noqa: BLE001 - residue probe is advisory, not fatal
+                residue = False
+            seam = seam_ring_ssim(out_arr, ring)
+            v = verify_verdict(ssim_out, mad_out, change, residue, seam)
+            v["metrics"] = {"outside_ssim": round(ssim_out, 6),
+                            "mad_outside": round(mad_out, 6),
+                            "change_ssim": round(change, 6),
+                            "seam_ssim": round(seam, 6),
+                            "residue": residue, "attempt": attempt}
+            last = v
+            if v["verdict"] == "discard":
+                atomic_write_json(os.path.join(out_dir, f"{slug}_verify.json"),
+                                  {**rec, "verify": v})
+                print(f"LW CLEAN {slug}: HARD DISCARD (outside-mask violation) "
+                      f"- halt: {'; '.join(v['reasons'])}")
+                rec["status"] = "discard"
+                rec["verify"] = v
+                return rec
+            if v["verdict"] == "pass":
+                cand = os.path.join(out_dir, f"{slug}_clean_cand.png")
+                atomic_write_png(cand, out_img)
+                params = {"mask_bbox": _union_envelope(boxes),
+                          "mask_area_pct": round(rec["mask_area_pct"], 4),
+                          "conf": round(rec["conf"], 4), "engine": "simple-lama",
+                          "ocr": [], "attempts": attempt}
+                save = build_save_working_cmd(slug, cand, params)
+                sub = build_submit_cmd(slug)
+                atomic_write_json(os.path.join(out_dir, f"{slug}_verify.json"),
+                                  {**rec, "verify": v})
+                flag = " [seam-flag]" if "seam" in v["flags"] else ""
+                print(f"LW CLEAN {slug}: inpaint PASS{flag} (attempt {attempt})")
+                _print_cmds([save, sub])
+                rec["status"] = "inpainted"
+                rec["verify"] = v
+                rec["commands"] = [save, sub]
+                return rec
 
     atomic_write_json(os.path.join(out_dir, f"{slug}_verify.json"),
                       {**rec, "verify": last})

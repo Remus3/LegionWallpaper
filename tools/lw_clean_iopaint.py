@@ -322,11 +322,16 @@ def _file_link(path):
 # ==========================================================================
 # ML layer (LAZY imports - never touched by the pure TDD suite / CI)
 # ==========================================================================
-def _load_lama():
-    """Construct a SimpleLama on cuda if available (lazy heavy import)."""
+def _load_lama(device=None):
+    """Construct a SimpleLama on cuda if available (lazy heavy import).
+
+    `device` is accepted so the caller can probe it BEFORE deciding whether to
+    take the GPU mutex, and then load on the same device it locked for. Without
+    that the lock decision and the placement could disagree.
+    """
     import torch
     from simple_lama_inpainting import SimpleLama
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
     return SimpleLama(device=torch.device(dev)), dev
 
 
@@ -495,12 +500,23 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
         log(f"  mask   {_file_link(mask_path)}")
         return rec
 
-    lama, dev = _load_lama()
-    log(f"  simple-lama on {dev}")
-    if progressive:
-        roi_after = inpaint_progressive(roi, mask, lama, max_iter=max_iter, log=log)
-    else:
-        roi_after = inpaint_once(roi, mask, lama)
+    # The hold spans the LaMa load AND the inpaint: loading puts weights on the
+    # card, and a half-resident model racing another process's allocation is the
+    # OOM this prevents. The device is probed first so a CPU-only box never
+    # takes the machine-wide mutex - serializing CPU inpainting across three
+    # repos would be pure loss. The dry-run branch returned above without ever
+    # reaching here, so a mask-only run never blocks on the GPU.
+    # gpu_lock comes from lw_clean_pass (already imported as C) rather than a
+    # sixth copy of the helper - same venv, one timeout constant.
+    dev = C._cuda_device()
+    with C.gpu_lock(dev, log=log):
+        lama, dev = _load_lama(dev)
+        log(f"  simple-lama on {dev}")
+        if progressive:
+            roi_after = inpaint_progressive(roi, mask, lama, max_iter=max_iter,
+                                            log=log)
+        else:
+            roi_after = inpaint_once(roi, mask, lama)
 
     full_after = paste_region_back(full, roi_after, roi_box)
     assert_region_identity(full, full_after, roi_box)      # tripwire
