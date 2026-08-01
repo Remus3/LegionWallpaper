@@ -146,7 +146,11 @@ def test_a_recycled_pid_is_dead_however_alive_the_pid_table_says_it_is(tmp_path)
 
 
 def test_the_board_carries_one_row_per_slice_with_time_in_status(tmp_path):
-    now = time.time()
+    # A whole-second epoch, not time.time(): the ISO round-trip truncates
+    # sub-microsecond precision, so a live clock makes the age land a few
+    # hundred nanoseconds OVER the interval it was built from and the upper
+    # bound flaps on the fractional part of whenever the suite happened to run.
+    now = 1800000000.0
     manifest = write_manifest(tmp_path, {
         "run_id": "r1", "head": "55b9e95", "updated": iso(now),
         "slices": [
