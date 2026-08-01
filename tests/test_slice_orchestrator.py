@@ -96,8 +96,12 @@ def test_add_without_a_manifest_fails_rather_than_inventing_one(tmp_path):
 def test_every_status_round_trips_through_set(tmp_path, status):
     target = _target(tmp_path)
     _init(target)
-    _run(target, "add", "--id", "S1", "--title", "t")
-    assert _run(target, "set", "--id", "S1", "--status", status,
+    # Files + a claim so `in_progress` clears the start gate (see
+    # tests/test_slice_orchestrator_start_gate.py); every other status ignores
+    # both, so one setup covers the whole ladder.
+    _run(target, "add", "--id", "S1", "--title", "t", "--files", "tools/a.py")
+    _run(target, "claim", "--agent", "A1", "--files", "tools/a.py")
+    assert _run(target, "set", "--id", "S1", "--status", status, "--agent", "A1",
                 "--commit", "cafe123", "--note", "why it moved") == 0
     entry = _load(target)["slices"][0]
     assert entry["status"] == status
@@ -127,9 +131,12 @@ def test_resume_lists_every_non_committed_status_and_hides_committed(
     target = _target(tmp_path)
     _init(target)
     _run(target, "add", "--id", "KEEP", "--title", "already durable")
-    _run(target, "add", "--id", "REDO", "--title", "needs redoing")
+    _run(target, "add", "--id", "REDO", "--title", "needs redoing",
+         "--files", "tools/redo.py")
+    _run(target, "claim", "--agent", "A1", "--files", "tools/redo.py")
     _run(target, "set", "--id", "KEEP", "--status", "committed", "--commit", "f00")
-    _run(target, "set", "--id", "REDO", "--status", status)
+    assert _run(target, "set", "--id", "REDO", "--status", status,
+                "--agent", "A1") == 0
     capsys.readouterr()
     assert _run(target, "resume") == 0
     out = capsys.readouterr().out
@@ -314,9 +321,11 @@ def test_verdict_without_a_manifest_fails_rather_than_inventing_one(tmp_path):
 def test_advancing_the_status_never_erases_the_verdict_history(tmp_path):
     target = _target(tmp_path)
     _init(target)
-    _run(target, "add", "--id", "B1", "--title", "t")
+    _run(target, "add", "--id", "B1", "--title", "t", "--files", "tools/b1.py")
+    _run(target, "claim", "--agent", "A1", "--files", "tools/b1.py")
     _run(target, "verdict", "--id", "B1", "--state", "REFUTE", "--observer", "verifier")
-    _run(target, "set", "--id", "B1", "--status", "in_progress")
+    assert _run(target, "set", "--id", "B1", "--status", "in_progress",
+                "--agent", "A1") == 0
     _run(target, "set", "--id", "B1", "--status", "committed", "--commit", "db168ff")
     history = _load(target)["slices"][0][so.VERDICT_FIELD]
     assert [r["state"] for r in history] == ["REFUTE"]
@@ -328,8 +337,10 @@ def test_recording_a_verdict_does_not_reset_time_in_status(tmp_path):
     here would report a slice parked for hours as "just now"."""
     target = _target(tmp_path)
     _init(target)
-    _run(target, "add", "--id", "S1", "--title", "t")
-    _run(target, "set", "--id", "S1", "--status", "in_progress")
+    _run(target, "add", "--id", "S1", "--title", "t", "--files", "tools/a.py")
+    _run(target, "claim", "--agent", "A1", "--files", "tools/a.py")
+    assert _run(target, "set", "--id", "S1", "--status", "in_progress",
+                "--agent", "A1") == 0
     before = _load(target)["slices"][0]["updated"]
     _run(target, "verdict", "--id", "S1", "--state", "REFUTE", "--observer", "verifier")
     assert _load(target)["slices"][0]["updated"] == before

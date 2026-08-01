@@ -84,7 +84,11 @@ proceed. Caveman ULTRA output default (compress ~90 percent; code/paths/numbers 
   round = `"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe" tools/truth_gate.py --claims <claims.json>` (fresh suite to file, content-level
   claimed-edit re-read via must_contain, gh CI probe, atomic report to
   ops/runtime/truth_gate_report.json). Exit 2 = commit BLOCKED + `quarantined` slices re-dispatch.
-- Checkpoint each slice in the manifest (in_progress -> verified -> committed --commit <sha>).
+- `claim --agent <id> --files <files> --slice <S>` BEFORE dispatch, then checkpoint
+  (`set --status in_progress --agent <id>` -> verified -> committed --commit <sha>).
+  The in_progress set is REFUSED unless that agent holds every file the slice declares,
+  and a slice added without `--files` cannot start - so `add` with the real file list.
+  `release --agent <id>` on the way out.
 - Bug/data slices follow `root-cause-fix` (failing repro first, sibling sweep, backfill).
 - After ALL merges: full relevant test gate, restart as needed, ONE surgical living-docs commit.
 

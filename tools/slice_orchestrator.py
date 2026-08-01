@@ -19,6 +19,12 @@ single-valued field would have left only the CONFIRM. The refutation that was
 later fixed is exactly the thing an operator needs to still be able to see (spec
 docs/RUNDASH_SPEC_2026-08-01.md, instrumentation backlog items 1 and 2).
 
+Entering `in_progress` is GATED, not merely recorded: the call is REFUSED unless
+the named agent holds a claim on every file the slice declares (start_gate, below
+- BACKLOG mcp-lift-phases P7 / f1-phase6 queue item 7). A dispatcher therefore
+claims first and starts second, and a directive that forgets to fails loudly
+instead of silently handing two agents the same file.
+
 The `verdicts` field is OPTIONAL and its ABSENCE means NOT OBSERVED. Every
 manifest written before this subcommand existed therefore stays valid and none of
 them silently become "verified" - `add` does not seed the key, only `verdict`
@@ -27,6 +33,8 @@ creates it.
 Usage:
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py init --run-id 2026-07-29-01 --head <sha> [--force]
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py add --id S1 --title "run infra" [--files a.py,b.py]
+  C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py claim --agent wt-a --files tools/a.py,tests/test_a.py [--slice S1] [--note text]
+  C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py set --id S1 --status in_progress --agent wt-a
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py set --id S1 --status committed [--commit <sha>] [--note text]
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py verdict --id S1 --state CONFIRM --observer verifier [--agent-id <id>] [--passed N --skipped N --failed N] [--discrepancy line]... [--note text] [--at <iso>] [--backfilled]
   C:/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe tools/slice_orchestrator.py resume
@@ -44,6 +52,11 @@ DEFAULT_MANIFEST = ROOT / "ops" / "runtime" / "slice_manifest.json"
 SCHEMA = 1
 STATUSES = ("pending", "in_progress", "verified", "committed", "failed")
 DONE = "committed"
+
+# The one rung of the ladder that is GATED: entering it means an agent is about
+# to edit files, and that is the only moment a claim can still prevent a
+# collision. Everything above it records work already done - see start_gate.
+START_STATUS = "in_progress"
 
 # The per-slice verdict history. Optional by contract - see the module docstring.
 VERDICT_FIELD = "verdicts"
@@ -152,7 +165,7 @@ def cmd_add(path, slice_id, title, files):
     return 0
 
 
-def cmd_set(path, slice_id, status, commit, note):
+def cmd_set(path, slice_id, status, commit, note, agent_id=None):
     if status not in STATUSES:
         print("ERROR: unknown status {!r} - allowed: {}"
               .format(status, ", ".join(STATUSES)), file=sys.stderr)
@@ -162,6 +175,17 @@ def cmd_set(path, slice_id, status, commit, note):
         print(f"ERROR: no manifest at {path} - run `init` first",
               file=sys.stderr)
         return 2
+    if status == START_STATUS:
+        ok, problems = start_gate(manifest, slice_id, agent_id)
+        if not ok:
+            print(f"REFUSED: {slice_id} may not start ({len(problems)} "
+                  "unmet precondition(s)):", file=sys.stderr)
+            for line in problems:
+                print(f"  {line}", file=sys.stderr)
+            print("Claim the slice's files first: `claim --agent <id> --files "
+                  "<paths>`, then re-run this set with the same --agent.",
+                  file=sys.stderr)
+            return 2
     for entry in manifest.get("slices", []):
         if entry.get("id") == slice_id:
             entry["status"] = status
@@ -459,6 +483,72 @@ def release_files(manifest, agent_id, files=None):
     return True, []
 
 
+def start_gate(manifest, slice_id, agent_id):
+    """May `agent_id` BEGIN `slice_id`? Returns (ok, problems).
+
+    The enforcement half of the claim table (BACKLOG mcp-lift-phases P7, shape
+    lifted from task-orchestrator: an unmet precondition makes the CALL fail,
+    which is what separates a gate from a line in a directive that an agent is
+    merely supposed to follow). f1-phase6 queue item 7 is this: until now nothing
+    refused to start an agent whose files were not claimed.
+
+    Every problem is collected, never short-circuited. The operator fixes what
+    the refusal lists, and one-problem-per-run turns a single bad dispatch into
+    three round-trips.
+
+    A slice declaring NO files is refused. It cannot prove disjointness about
+    anything, so waving it through would make every other rule here optional -
+    declare nothing, claim nothing, start anyway.
+
+    Gates ONLY the pending -> in_progress rung. `verified` / `committed` /
+    `failed` are observations about work already finished, and a crashed agent's
+    claims may legitimately be gone by then; gating those would strand a done
+    slice with no way to record that it is done.
+    """
+    who = (agent_id or "").strip()
+    problems = []
+    if not who:
+        problems.append("no --agent given - a start has to name who is starting,"
+                        " or the claim table cannot be checked against anyone")
+
+    entry = None
+    for candidate in manifest.get("slices", []) if isinstance(manifest, dict) else []:
+        if isinstance(candidate, dict) and candidate.get("id") == slice_id:
+            entry = candidate
+            break
+    if entry is None:
+        problems.append(f"no slice with id {slice_id} in the manifest")
+        return False, problems
+
+    declared = [f for f in entry.get("files", []) or [] if str(f).strip()]
+    if not declared:
+        problems.append(
+            f"slice {slice_id} declares no files - a slice with no declared blast"
+            " radius cannot be claimed, and so cannot be started; `add` it with"
+            " --files, or add the files it will touch before dispatching")
+        return False, problems
+
+    active = get_active_claims(manifest)
+    for raw in declared:
+        key = normalize_claim_path(raw)
+        if key is None:
+            problems.append(f"slice file {raw!r} is not a usable repo-relative"
+                            " path, so no claim can cover it")
+            continue
+        holder = None
+        for other_key, rec in active.items():
+            if _contains(other_key, key):
+                holder = rec
+                break
+        if holder is None:
+            problems.append(f"{key} is claimed by nobody - claim it before starting")
+        elif holder.get("agent") != who:
+            problems.append(
+                f"{key} is held by {holder.get('agent')} since {holder.get('at')},"
+                f" not by {who}")
+    return (not problems), problems
+
+
 def cmd_claim(path, agent_id, files, slice_id=None, note=None):
     manifest = load_manifest(path)
     if manifest is None:
@@ -585,6 +675,10 @@ def build_parser():
     p.add_argument("--status", required=True)
     p.add_argument("--commit", default=None)
     p.add_argument("--note", default=None)
+    p.add_argument("--agent", default=None, dest="agent_id",
+                   help="who is starting; REQUIRED for --status " + START_STATUS
+                        + ", which is refused unless that agent holds a claim on"
+                          " every file the slice declares")
 
     p = sub.add_parser("verdict", parents=[common],
                        help="append an observation to a slice's verdict history")
@@ -636,7 +730,8 @@ def main(argv=None):
     if args.cmd == "add":
         return cmd_add(path, args.slice_id, args.title, args.files)
     if args.cmd == "set":
-        return cmd_set(path, args.slice_id, args.status, args.commit, args.note)
+        return cmd_set(path, args.slice_id, args.status, args.commit, args.note,
+                       agent_id=args.agent_id)
     if args.cmd == "verdict":
         return cmd_verdict(path, args.slice_id, args.state, args.observer,
                            agent_id=args.agent_id, passed=args.passed,
