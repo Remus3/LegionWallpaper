@@ -9,7 +9,7 @@
   "channel": "sdk",
   "_channel_note": "ahk = legacy GUI bridge (machine-wide singleton, cannot run concurrently). sdk = headless claude -p (concurrent-safe, returns cost + structured output). Flip back to ahk to roll back. See docs/specs/2026-07-26-f1-sdk-executor-channel.md",
   "executor_model": "claude-opus-5",
-  "max_concurrent_lanes": 2,
+  "max_concurrent_lanes": 3,
   "_lanes_note": "Machine-wide cap on concurrent executor calls across ALL callers (LW + RC), enforced via C:/ProgramData/lw-loop/slots. Both repos should agree on this number.",
   "dry_run": false,
   "ignore_no_progress": false,

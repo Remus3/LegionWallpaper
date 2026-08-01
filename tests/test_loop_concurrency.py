@@ -346,7 +346,12 @@ def test_mutex_serializes_two_threads():
 # and only then write the new digest here and in RC's copy in the same round.
 SHARED_SHA256 = {
     # unchanged since the 2026-07-26 sync
-    "slots.py": "95077a62527c9764e896e3bd1da9027e5efd2b15631feb725fe6138cee5054f9",
+    # Re-pinned 2026-08-01 for the three-repo docstring (two repos -> three, and
+    # "either repo" -> "ANY of them"). Docstring only: no code, no protocol, no
+    # behaviour. Bytes authored by RC, applied here VERBATIM and re-hashed from
+    # this disk rather than trusted from the note. Provisional until all three
+    # trees hash equal. Previous: 95077a62527c9764e896e3bd1da9027e5efd2b15631feb725fe6138cee5054f9
+    "slots.py": "5297f2d041030398a9ba240aad527b2b01a86d6e7f57a196719af8f0a91cb0a6",
     # re-pinned 2026-07-26 for f1-phase6 item 9 (POSIX branch now emits
     # UNSERIALIZED); previous c21bfe4f309c9ed27e68f7cdf0458d001a9942e6a35c61869e6dedd16cc23b79
     "winmutex.py": "f1b4b011112685efb88616c52752657cf896fbb0993b2d2d264e7b3edde8b4f4",

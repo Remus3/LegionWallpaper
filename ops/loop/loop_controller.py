@@ -699,7 +699,7 @@ def main():
         # budget.json and the metering below.
         # Slot held ONLY around the executor call - never around git or the
         # adjudicator, so a long merge in this repo cannot starve the other one.
-        with slots.hold(int(CFG.get("max_concurrent_lanes", 2)),
+        with slots.hold(int(CFG.get("max_concurrent_lanes", 3)),
                         repo=str(ROOT), run_id=RUN_ID, cycle=cycle, log=log):
             rec = EXEC.run(cycle, body, src)
         done = rec.raw
