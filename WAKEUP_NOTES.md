@@ -17,8 +17,36 @@ Detail: LEDGER 62. Suite 1178 -> **1346 passed / 16 skipped / 0 failed**, ruff
 clean, drift 0 breaches, CI green. HEAD `7879af2`, 14 commits. Six worktree
 slices, all verifier-gated; two REFUTED and reworked rather than merged.
 
-- **OWED, and this is the first thing to do.** Two slices were IN FLIGHT when
-  the session ended, both recorded `in_progress` in `ops/runtime/slice_manifest.json`:
+- **THE PRIORITY NEXT SESSION, operator-directed 2026-08-01: DRAIN STAGE 2.**
+  Merge B5/B6 first (below) since they are cheap and already committed, then
+  spend the session on the product rather than more infrastructure.
+  **Nothing has EVER flowed past Stage 2** - `clean_scratch: 21, clean_done: 0`,
+  unchanged since the attack plan was written 2026-07-16. Everything shipped on
+  2026-08-01 was infrastructure.
+  The work is already triaged in `docs/research/IOPAINT_TRIAGE.md`:
+  **CLEAN-AUTO 9 | PARTIAL 7 | MANUAL 2** (+3 gate-FP KEEPs = the 21). Three
+  PARTIAL fixes are already CONFIRMED in that doc and just need landing:
+  `--chroma-thr 12` clears `spirit-blossom-ahri-mono-01`; a full-width banner
+  band `(860,958,1720,1035)` + chroma clears `viego-...slimshadywallpaper`;
+  widen region right + chroma clears `aidraw-...watercolornessie`. That takes
+  PARTIAL 7 -> 4.
+  Route to the manual IOPaint lane, do not fight them: `fantasy-design-...aivio`
+  (ornate filigree smeared) and `prestige-coven-xayah-...pebano1` (busy feathers,
+  a KNOWN LaMa failure) - plus `fury-tempest-sona` if fidelity demands, since it
+  has no residue but softens folds and gold trim.
+  Then re-run the worker over CLEAN-AUTO 9 + the cleared PARTIALs ->
+  `save-working --tool iopaint` -> `submit`. Acceptance: `3.Cleaning Scratch`
+  holds ONLY manual-lane slugs and the needauth queue holds the auto-cleaned set.
+  Tooling: `tools/lw_clean_iopaint.py`, venv `C:\Tools\lw-clean\venv`, ritual
+  `.claude/commands/cleaning-pass.md`. HARD RULE: never inpaint without a mask,
+  and every auto-clean must pass the outside-mask identity assertion.
+  **Note this will be the FIRST real exercise of the GPU mutex** - B4 wired
+  `lw_clean_iopaint` and `lw_clean_pass`, so a cleaning run now acquires
+  `Global\LW_GPU` and will wait up to 1800s then raise `GpuBusy` if a sibling
+  repo holds the card. If that fires, it is the guard working, not a bug.
+
+- **ALSO OWED.** Two slices were IN FLIGHT when the session ended, both recorded
+  `in_progress` in `ops/runtime/slice_manifest.json`:
   - **B5** persist verifier verdicts - **COMMITTED `d570d42` on branch
     `worktree-agent-a902870319ee6443d`, NOT verified and NOT merged.** Nothing
     to salvage; run the `verifier` subagent against it, then merge. It reports
