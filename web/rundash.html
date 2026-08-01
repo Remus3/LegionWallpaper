@@ -57,6 +57,17 @@ h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.6px;
 .srow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
   letter-spacing:.6px;border-bottom:1px solid var(--line)}
 .srow.stuck{outline:1px solid var(--org);outline-offset:3px;border-radius:4px}
+.crow{display:grid;grid-template-columns:70px 150px minmax(220px,3fr) 110px 110px
+  minmax(160px,1fr);gap:12px;align-items:center;min-width:1000px;
+  padding:10px 0;border-bottom:1px solid rgba(30,45,68,.6)}
+.crow:last-child{border-bottom:none}
+.crow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
+  letter-spacing:.6px;border-bottom:1px solid var(--line)}
+/* A run boundary is a fact the operator reads off the left edge; it must not
+   depend on hue alone, so it is a rule plus a label, not a colour swap. */
+.crow.newrun{border-top:2px solid var(--gold);margin-top:6px;padding-top:12px}
+.runtag{color:var(--gold);font-size:var(--fs-xs);letter-spacing:.6px}
+.unbacked{color:var(--org)}
 .badge{display:inline-block;padding:4px 12px;border-radius:12px;
   font-size:var(--fs-sm);font-weight:700;white-space:nowrap}
 .b-pending{background:rgba(124,134,156,.18);color:var(--mut)}
@@ -136,6 +147,18 @@ pre{font:var(--fs-sm)/1.45 ui-monospace,Consolas,monospace;color:var(--mut);
   </div>
   <h3>Agent fleet</h3>
   <div id="fleet"></div>
+</div>
+
+<div class="card">
+  <h2>P1b - Cycle History</h2>
+  <div id="cyclenote" class="meta subhead"></div>
+  <div class="scroll">
+    <div class="crow head">
+      <span>Cycle</span><span>When</span><span>Directive</span><span>Tests</span>
+      <span>Commit</span><span>Audit</span>
+    </div>
+    <div id="cycleboard"></div>
+  </div>
 </div>
 
 <div class="card">
@@ -330,6 +353,60 @@ function rSlices(p) {
   $("sliceboard").innerHTML = html;
 }
 
+function rCycles(p) {
+  var c = p.cycles || {};
+  var rows = c.records || [];
+  if (!c.present) {
+    $("cyclenote").textContent = "no directive history yet - written when the " +
+      "first cycle resolves.";
+    $("cycleboard").innerHTML = '<div class="crow meta">nothing recorded.</div>';
+    return;
+  }
+  // Say which segmentation is in force. An unbacked count is a guess and must
+  // read as one - legacy records carry no run id and never can.
+  var note = esc(c.parsed) + " resolved cycles, " + esc(c.run_count) + " run" +
+    (c.run_count === 1 ? "" : "s");
+  note += c.run_id_backed
+    ? ", split on the recorded run id."
+    : ', split by a CYCLE-NUMBER GUESS - these records carry no run id, so a ' +
+      "restart that resumed lower reads as a new run.";
+  if (c.corrupt_lines) {
+    note += " " + esc(c.corrupt_lines) + " corrupt line(s) - a producer bug, " +
+      "not the expected torn tail.";
+  }
+  $("cyclenote").innerHTML = c.run_id_backed
+    ? esc(note) : '<span class="unbacked">' + esc(note) + "</span>";
+
+  var html = "";
+  var prevRun = null;
+  for (var i = rows.length - 1; i >= 0; i--) {   // newest first
+    var r = rows[i];
+    // Rows render newest-first, so the FIRST row is the head of the newest run
+    // and needs its tag too - tagging only on change left the top block
+    // unlabelled and the operator unable to say which run they were reading.
+    // The divider RULE is separate: only a real change draws one, so there is
+    // no stray line under the header.
+    var boundary = prevRun === null || r.run_index !== prevRun;
+    var divider = prevRun !== null && r.run_index !== prevRun;
+    prevRun = r.run_index;
+    var tests = r.tests == null ? "-" : String(r.tests);
+    html += '<div class="crow' + (divider ? " newrun" : "") + '">' +
+      '<span class="mono">' + esc(r.cycle == null ? "?" : r.cycle) +
+      (boundary ? ' <span class="runtag">RUN ' + esc(r.run_index) + "</span>" : "") +
+      "</span>" +
+      '<span class="meta" title="' + esc(r.ts) + '">' +
+      esc(r.age_human || r.ts || "-") + " ago</span>" +
+      '<span class="ell" title="' + esc(r.title) + '">' + esc(r.title || "-") + "</span>" +
+      '<span class="' + (r.regress ? "bad" : "") + '">' + esc(tests) +
+      (r.regress ? " REGRESS" : "") + "</span>" +
+      '<span class="mono">' + esc(r.sha_after || "-") + "</span>" +
+      '<span class="ell meta" title="' + esc(r.verdict) + '">' +
+      esc(r.verdict || "-") + "</span>" +
+      "</div>";
+  }
+  $("cycleboard").innerHTML = html;
+}
+
 function rFleet(p) {
   var f = p.fleet || {};
   var agents = f.agents || [];
@@ -460,7 +537,7 @@ async function load() {
     $("downbanner").style.display = "inline-block";
     if (lastRun) { p = lastRun; if (p.manifest) { p.manifest.stale = true; } }
   }
-  if (p) { rHeader(p); rAlerts(p); rFacts(p); rSlices(p); rFleet(p); }
+  if (p) { rHeader(p); rAlerts(p); rFacts(p); rSlices(p); rCycles(p); rFleet(p); }
   if (r) { lastResume = r; }
   rResume(r || lastResume);
   timer = setTimeout(load, delayMs);

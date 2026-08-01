@@ -230,7 +230,9 @@ def test_the_api_payload_carries_the_cycle_history(tmp_path):
     assert cycles["present"] is True
     assert cycles["run_count"] == 2
     assert cycles["run_id_backed"] is True
-    assert cycles["records"][0]["cost_usd"] == 1.5
+    # cost_usd is deliberately projected OUT at this boundary - see
+    # test_cost_never_crosses_into_the_api_payload.
+    assert "cost_usd" not in cycles["records"][0]
     assert cycles["records"][0]["session_id"] == "sess-a"
 
 
@@ -247,3 +249,115 @@ def test_a_missing_history_file_is_absent_not_an_error(tmp_path):
     assert view["ok"] is True
     assert view["cycles"]["present"] is False
     assert view["cycles"]["records"] == []
+
+
+# ---------------------------------------------------------------------------
+# the dashboard boundary: the FILE keeps cost, the PAYLOAD must not carry it
+# ---------------------------------------------------------------------------
+def test_cost_never_crosses_into_the_api_payload(tmp_path):
+    """LEDGER 40 and the spec's rejected cost panel: tokens, never dollars.
+
+    Recording cost_usd in directive_history.jsonl is legitimate - it is the
+    executor's raw receipt and belongs in runtime forensics. Serving it to a
+    panel is the settled-against thing. The existing page-level guard only
+    exercised an EMPTY history, so it could not have caught this.
+    """
+    import time as _time
+
+    lw_rundash = _rundash()
+    ctl = tmp_path / "control"
+    ctl.mkdir()
+    _write(ctl / "directive_history.jsonl", [
+        {"cycle": 1, "ts": "2026-08-01T01:00:00", "run_id": "aaaa1111",
+         "cost_usd": 4.25, "session_id": "sess-a", "title": "t"},
+    ])
+    view = lw_rundash.build_run_view(
+        control_dir=ctl, manifest_path=tmp_path / "none.json", repo_root=tmp_path,
+        now_ts=_time.time(), cache={}, runner=None, pid_alive=lambda pid: False)
+    blob = json.dumps(view).lower().replace(
+        json.dumps(str(tmp_path))[1:-1].lower(), "<tmp>")
+    for word in ("usd", "dollar", "cost"):
+        assert word not in blob, f"'{word}' reached the payload"
+    # the useful half still arrives
+    rec = view["cycles"]["records"][0]
+    assert rec["session_id"] == "sess-a"
+    assert rec["run_id"] == "aaaa1111"
+
+
+def test_the_reader_still_exposes_cost_for_forensics(tmp_path):
+    """Only the API projection drops it - read_cycle_history stays complete."""
+    p = tmp_path / "directive_history.jsonl"
+    _write(p, [{"cycle": 1, "ts": "2026-08-01T01:00:00", "cost_usd": 4.25}])
+    assert read_cycle_history(p)["records"][0]["cost_usd"] == 4.25
+
+
+# ---------------------------------------------------------------------------
+# UI fixture ritual, as assertions - STRUCTURE / TYPOGRAPHY / ASCII / HIERARCHY
+# ---------------------------------------------------------------------------
+PAGE = ROOT / "web" / "rundash.html"
+
+
+def test_page_ascii_and_the_new_rules_use_the_token_scale():
+    """ASCII phase + TYPOGRAPHY phase, by byte scan and by rule scan."""
+    import re
+
+    raw = PAGE.read_bytes()
+    assert not [(i, b) for i, b in enumerate(raw) if b > 127]
+    html = PAGE.read_text(encoding="ascii")
+    for value in re.findall(r"font-size:\s*([^;}]+)", html):
+        assert value.strip().startswith("var(--fs-")
+    assert "style=" not in html
+
+
+def test_the_cycle_panel_exists_and_is_wired():
+    """STRUCTURE phase: a panel nothing calls is the bug this slice just fixed."""
+    html = PAGE.read_text(encoding="ascii")
+    assert "Cycle History" in html
+    assert 'id="cycleboard"' in html
+    assert "function rCycles(" in html
+    assert "rCycles(p)" in html.split("function rCycles(")[0] \
+        or "rCycles(p);" in html
+
+
+def test_the_run_boundary_does_not_rely_on_hue_alone():
+    """HIERARCHY phase - the same rule the REFUTED / NOT OBSERVED chips follow."""
+    import re
+
+    html = PAGE.read_text(encoding="ascii")
+    rule = re.search(r"\.crow\.newrun\{([^}]*)\}", html).group(1)
+    assert "border-top" in rule
+    assert "RUN " in html
+
+
+def test_an_unbacked_run_count_is_labelled_as_a_guess():
+    """The whole point of run_id_backed. A guess rendered as a fact is the
+    unbacked-green failure this project keeps getting burned by."""
+    html = PAGE.read_text(encoding="ascii")
+    assert "CYCLE-NUMBER GUESS" in html
+    assert "run_id_backed" in html
+
+
+def test_every_cycle_field_goes_through_the_escaper():
+    """No raw interpolation into innerHTML."""
+    import re
+
+    body = PAGE.read_text(encoding="ascii").split("function rCycles(")[1]
+    body = body.split("\nfunction ")[0]
+    raw = re.findall(r"\+\s*(r\.\w+)", body)
+    assert raw == [], f"concatenated without esc(): {raw}"
+
+
+def test_the_newest_run_block_is_tagged_too_not_just_the_older_one():
+    """Caught by the fixture audit against live data, not by a fixture.
+
+    Rows render newest-first. Tagging only on a CHANGE of run_index left the
+    top block - the newest run, the one the operator actually reads - with no
+    label at all, while the older block below it got one. The tag fires on the
+    first row as well; the divider RULE still only fires on a real change, so
+    no stray line appears under the header.
+    """
+    html = PAGE.read_text(encoding="ascii")
+    body = html.split("function rCycles(")[1].split("\nfunction ")[0]
+    assert "prevRun === null || r.run_index !== prevRun" in body, "tag never fires on row 0"
+    assert "prevRun !== null && r.run_index !== prevRun" in body, "divider lost its guard"
+    assert 'divider ? " newrun" : ""' in body, "the rule must follow divider, not boundary"

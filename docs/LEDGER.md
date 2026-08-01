@@ -27,6 +27,43 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+66. DONE **2026-08-01 (P1b Cycle History panel + the cost boundary the spine
+    would have breached).**
+    Renders `view["cycles"]` as a newest-first table: cycle, human age, directive
+    title, tests (REGRESS called out), resulting commit, audit verdict.
+    The important half is what it refuses to assert. When `run_id_backed` is
+    False the run count is labelled a CYCLE-NUMBER GUESS in amber, in prose, on
+    the panel - because for every record currently on disk it IS a guess, and a
+    guess rendered as a fact is precisely the unbacked-green failure mode the
+    spec exists to stop. Run boundaries carry a rule plus a "RUN n" text tag, not
+    a hue change, following the same rule the REFUTED / NOT OBSERVED chips set.
+    **Caught before commit, by the fixture audit run against LIVE data rather
+    than a fixture:** rows render newest-first, and tagging only on a CHANGE of
+    `run_index` left the TOP block - the newest run, the one actually read -
+    with no label at all, while the older block below it got one. Tag now fires
+    on the first row too; the divider rule still only fires on a real change so
+    no stray line sits under the header. Regression test pins both.
+    **A defect this slice introduced in LEDGER 65 and fixed here:** adding
+    `cost_usd` to the history records put a dollar figure into `/api/run`.
+    LEDGER 40 settles that Claude cost is notional on a Max plan and the spec
+    rejects a cost panel outright - tokens, never dollars. The existing page
+    guard `test_no_dollar_figure_appears_anywhere...` did NOT catch it because
+    its fixture used an EMPTY history, so no record dict ever reached the blob.
+    Fixed by projecting `cost_usd` out at the API boundary - the file keeps it
+    for forensics, `read_cycle_history` stays complete - and by adding a guard
+    that exercises a POPULATED history. An earlier assertion of mine that the
+    payload SHOULD carry cost was wrong and is corrected in the same file.
+    Verified: 1437 passed / 16 skipped (was 1429), ruff clean over `tools/` +
+    `tests/` + `ops/`. Rendering verified against the LIVE service on
+    127.0.0.1:8900 after a restart - 14 records, 2 runs, `run_id_backed` False,
+    both blocks tagged, one divider, no horizontal body scroll. DOM-level rather
+    than a screenshot: the Browser pane could not composite frames in this
+    session, and per R1/R2 the DOM is the stronger check for text and structure
+    anyway.
+    FUTURE: every record on disk is legacy, so the panel shows the amber guess
+    banner today; it flips to the id-backed wording on the first cycle the
+    controller resolves after LEDGER 65.
+
 65. DONE **2026-08-01 (the directive-history data spine: run id, cost, session
     id - and the reader nothing called).** Instrumentation backlog items 4 and 5
     of `docs/RUNDASH_SPEC_2026-08-01.md`.

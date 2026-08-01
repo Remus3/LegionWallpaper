@@ -40,9 +40,12 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `cost_usd` and `session_id` now reach the file, the reader segments runs on a
   real id with the cycle heuristic kept as the legacy fallback, and
   `read_cycle_history` is wired into `/api/run`, which it never was.
-  Next, from `docs/RUNDASH_SPEC_2026-08-01.md`: RENDER the cycle history - the
-  data reaches the API but no panel draws it, and a page change owes the UI
-  fixture ritual; persisted per-slice suite observations; map the three run-id
+  ALSO DONE 2026-08-01 (LEDGER 66): the P1b Cycle History panel renders it, and
+  the cost boundary is enforced - `cost_usd` stays in the file for forensics and
+  is projected OUT of `/api/run`, because LEDGER 40 settles that Claude dollar
+  figures are notional and the spec rejects a cost panel outright.
+  Next, from `docs/RUNDASH_SPEC_2026-08-01.md`: persisted per-slice suite
+  observations; map the three run-id
   namespaces to each other (the spine only fixed `directive_history.jsonl`);
   mirror at-risk agent metadata out of the transcript dir before Claude Code's
   cleanup reaps it; `truth_gate.py` is never invoked by the run flow so its

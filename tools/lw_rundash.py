@@ -349,6 +349,15 @@ def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=
     # reader, so this stays a plain poll.
     cycles = rundash_state.read_cycle_history(
         Path(control_dir) / "directive_history.jsonl", now_ts, limit=CYCLE_HISTORY_N)
+    # cost_usd is recorded in the file on purpose - it is the executor's raw
+    # receipt and belongs in runtime forensics - but it must NOT be served.
+    # LEDGER 40 settles that Claude dollar figures are notional on a Max plan,
+    # and the spec rejects a cost panel outright: tokens, never dollars. The
+    # reader stays complete; this projection is where the boundary sits.
+    cycles = dict(cycles, records=[
+        dict({k: v for k, v in r.items() if k != "cost_usd"},
+             age_human=rundash_state.human_age(r.get("age_s")))
+        for r in cycles.get("records", [])])
 
     head = head_summary(repo_root, runner=runner, git=git)
     if not head["ok"] and head["error"]:
