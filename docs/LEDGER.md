@@ -27,6 +27,65 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+69. DONE **2026-08-01 (the run dashboard's last four spec items; 3e8ce6a,
+    1d3c2c5, 621e8d1, 27b22c3).** `docs/RUNDASH_SPEC_2026-08-01.md` is now
+    fully built out - items 3, 5 and 6 of the instrumentation backlog plus
+    panels P4 and P5. Suite 1458 -> **1524 passed / 16 skipped / 0 failed**,
+    ruff clean, CI CONFIRMED green on `27b22c3` with `gh` (not assumed - that
+    was last session's process miss).
+
+    **Item 3, per-slice suite observations (3e8ce6a).** truth_gate ran the
+    suite, reconciled every slice, then wrote the numbers to one report file the
+    next run overwrites; the ladder kept no trace. It now appends one
+    `observer: truth_gate` record per reconciled slice. Three rulings the tests
+    pin: a GLOBAL refusal (red suite, CI failure) quarantines no individual
+    slice, so it is carried down onto every row prefixed `global:` - otherwise
+    rows read "checked, and fine" during a red suite; `--skip-suite` records
+    `counts: null`, never 0/0/0, because "0 failed" reads as a pass for a suite
+    nobody ran; and the record shape gets ONE owner
+    (`slice_orchestrator.build_verdict_record`, with `cmd_verdict` rewired onto
+    it) since a second hand-rolled dict is how the reader ends up blind to one
+    shape and a verdict the board cannot parse renders as NOT OBSERVED.
+
+    **Item 5, the run-id join (1d3c2c5).** Cycle records now carry
+    `manifest_run_id` beside the controller `run_id` and `session_id`, so ONE
+    record pairs all three namespaces; `build_run_id_join` gathers them and
+    `resolve_run_identity` names a run across all three or says it cannot.
+    EVIDENCE ONLY: records predating the field are counted in `unjoined_cycles`,
+    never bucketed under a neighbour; a mid-run `init --force` shows as two
+    manifest ids flagged `ambiguous`, not collapsed; disagreeing ids yield
+    `conflict` with BOTH reported rather than a picked winner. The join is built
+    before `limit` truncates, or the live run reports as unjoinable. Header
+    renders `=` only on evidence, `/` plus an amber `unjoined` tag otherwise.
+
+    **Item 6, the agent mirror (621e8d1).** New `tools/lw_agent_mirror.py` folds
+    every session's fleet into `ops/runtime/agent_fleet_mirror.json`. First run
+    captured **136 agents across 36 sessions back to 2026-07-03**, including all
+    18 of the 2026-07-30 fleet this dashboard exists for. Separate tool, called
+    once per cycle by the controller, because the reaping window is exactly the
+    window in which nobody has the board open. Counts move ONE WAY (a truncated
+    transcript is information lost, not news) and no volatile verdict is stored
+    (a mirrored `running: true` from four days ago paints an agent that does not
+    exist) - mirrored rows render REAPED, never ACTIVE. The board unions them
+    SCOPED to the resolved session and STATES the full total.
+
+    **P4 + P5 (27b22c3).** `/api/queue`: two columns, yours vs the machine's;
+    29 NEEDAUTH slugs live, oldest first, capped at 25 with the cap stated. NOT
+    built and deliberately so - HELD (no such substate exists in
+    `pipeline_state.json`) and the run-attributed "this run added N" line (no
+    source attributes an image to a run); inventing either would be worse than
+    the gap. The ROADMAP grep declares itself fragile ON the panel and resolves
+    a marker on a WRAPPED line back to its bullet (3 of 6 live items wrap).
+    `/api/trajectory`: a delta is NEVER computed across an unmeasured commit.
+    First live render - 30 commits, 5 observed, 25 gaps, every observed row
+    "chain broken" - is the panel working and the most honest picture of this
+    repo's evidence coverage yet rendered.
+
+    UI fixture ritual run against LIVE data on 8900 (not a fixture) before each
+    page commit: no horizontal overflow, header does not wrap, ASCII-clean, no
+    console errors. FUTURE: `truth_gate_blocking` still false pending a live
+    run; the full 136-agent mirror is on disk with no history panel reading it.
+
 68. DONE **2026-08-01 (truth_gate wired into the run flow - and it immediately
     caught two real things, one of them mine).** Instrumentation backlog item 7
     of `docs/RUNDASH_SPEC_2026-08-01.md`.

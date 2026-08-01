@@ -11,6 +11,42 @@
 
 ---
 
+## 2026-08-01 (night) - the dashboard spec is fully built out; all four remaining items landed
+
+Four commits: 3e8ce6a (item 3), 1d3c2c5 (item 5), 621e8d1 (item 6), 27b22c3
+(P4 + P5). Suite 1458 -> **1524 passed / 16 skipped**. Ruff clean. CI
+**CONFIRMED green on 27b22c3 with `gh`** - not assumed, which was last
+session's stated process miss. Full detail in LEDGER 69.
+
+- **truth_gate now persists what it observed onto the slice ladder.** A global
+  refusal quarantines no individual slice, so red-suite discrepancies are
+  carried onto every row prefixed `global:`; `--skip-suite` writes
+  `counts: null`, never zeros. `build_verdict_record` is now the ONE owner of
+  the record shape.
+- **The three run-id namespaces are joined, on evidence only.** Two ids sitting
+  side by side is not a join - the header renders `=` only when a cycle record
+  carried both, `/` plus an amber `unjoined` tag otherwise.
+- **136 agents across 36 sessions are now durable**, back to 2026-07-03,
+  including all 18 of the 2026-07-30 fleet. `tools/lw_agent_mirror.py`, called
+  per cycle by the controller.
+- **P4 and P5 shipped.** P5's first live render is 30 commits / 5 observed /
+  25 gaps, every observed row "chain broken". That is the panel working, and it
+  indicts the tree it runs on - which is the point.
+- **Two things I deliberately did NOT build**: P4's HELD column (no HELD
+  substate exists in `pipeline_state.json`) and its run-attributed "this run
+  added N" line (nothing attributes an image to a run). Inventing a source for
+  either would have been worse than the gap. Do not "fix" these without a real
+  producer.
+
+NEXT: the dashboard spec has no open items. `truth_gate_blocking` is still
+false pending a live observed run. The 136-agent mirror is on disk with no
+history panel reading it - a P6 fleet-history view is the obvious next thing if
+the dashboard is continued. Otherwise the product work is Stage 2's remaining
+3 namakx ghosts (triage improvement 1) and the 29-slug NEEDAUTH queue, which
+the new P4 panel now shows you.
+
+---
+
 ## 2026-08-01 (evening) - Stage 2 finally drained; L1 closed; dashboard spine + panel; concurrency measured; truth_gate wired
 
 Six commits: d460e95 (stage-2 drain), c526c8b (MCP L1), 3cc0d92 (GpuBusy),
