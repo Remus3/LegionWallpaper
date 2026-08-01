@@ -10,9 +10,26 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
 
 - **gpu-mutex-inert - `GPU_MUTEX` is declared and acquired by NOTHING, and it
   now blocks a cross-project decision - NEXT.**
-  Next: wire `winmutex.GPU_MUTEX` into the CUDA-touching tools (DAT2 upscaler,
-  SDXL generator, DWPose localizer, LaMa inpainter), then tell RC that N=3 is
-  safe. Measured 2026-08-01: the ONLY `winmutex.hold(...)` anywhere is
+  Next: wire `winmutex.GPU_MUTEX` into the SIX real CUDA consumers, then tell RC
+  that N=3 is safe. Verified by grep 2026-08-01, cite these and not a guess:
+  `tools/lw_upscale.py` (`device="cuda"` :244, runs under `.venv-upscale`),
+  `tools/lw_clean_sdxl.py` (`.to("cuda")` :243), `tools/lw_clean_iopaint.py`
+  (SimpleLama on cuda :326-330), `tools/lw_clean_pass.py` (torch cu128 +
+  easyocr + lama), `tools/lw_g1_gate.py` (pyiqa, `cuda if available` :443),
+  `tools/lw_gen_run.py` (SDXL `.to("cuda")` :450).
+  **CORRECTION (this item first said DWPose was a CUDA consumer - it is not).**
+  `tools/lw_anat_probe.py`, `tools/lw_anat_metrics.py` and `tools/dwpose_onnx/`
+  carry ZERO cuda references and construct `onnxruntime.InferenceSession` with
+  no provider list, so they run CPUExecutionProvider - which is exactly what
+  CLAUDE.md:199 already settled ("DWPose onnx-CPU", LEDGER 19). Do NOT wire
+  them; serializing CPU work across three repos is pure loss.
+  Two design constraints, both load-bearing: acquire at the LEAF tool and never
+  at an orchestrator, because Windows named mutexes are re-entrant per THREAD
+  and `lw_first_pass` SPAWNS `.venv-upscale` - both layers acquiring would
+  deadlock first pass against itself; and a tool that falls back to CPU
+  (`lw_clean_iopaint`, `lw_g1_gate` both do `cuda if available else cpu`) must
+  not take the mutex on that path.
+  Measured 2026-08-01: the ONLY `winmutex.hold(...)` anywhere is
   `GEMINI_MUTEX` at `ops/loop/loop_controller.py:366`, and no file under
   `tools/` imports `winmutex` at all - so `winmutex.py`'s own docstring claim
   that `GPU_MUTEX` is "acquired by the TOOL that touches CUDA" is false. A
