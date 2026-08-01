@@ -53,6 +53,28 @@ GREEN_CLAIM = re.compile(
     re.I | re.X,
 )
 
+# A turn that REPORTS failures is not a turn CLAIMING green, even though the
+# count line it quotes contains "N passed". The retrospective sweep caught this
+# repo's own TDD reports - "Failing-first confirmed (12 failed / 4 passed)" -
+# as false green claims, and "7 failed, 529 passed, pre-existing" the same way.
+# Blocking the RED half of red-green would get the gate switched off in a day,
+# and it is the same ambiguity rule as everywhere else here: prefer allowing.
+RED_REPORT = re.compile(
+    r"(\b\d+\s+failed\b|\bfailures?\b|failing[-\s]first|\bRED\b)", re.I)
+
+# A turn that quotes a subagent's number and REFUSES to carry it forward is not
+# asserting green - it is doing what CLAUDE.md's Verification Discipline demands
+# ("NEVER trust a subagent's claim about test counts"). The sweep flagged those
+# turns, which would have made the gate punish the exact behaviour the rule
+# mandates. Asserting the number as your own is still caught: the exemption is
+# for declining to trust, not for relaying.
+HEDGED = re.compile(
+    r"(do(es)?\s*n[o']?t\s+trust|don'?t\s+trust|not\s+(yet\s+)?verified"
+    r"|verification\s+discipline|awaiting\s+verification|verifying\s+now"
+    r"|(claims?|reports?|says)\s+(green|\d+\s+passed))",
+    re.I,
+)
+
 # The operator can always waive it. Silence beats an accusation the operator
 # already answered.
 WAIVER = re.compile(
@@ -153,25 +175,16 @@ def _classify_run(action: dict) -> str:
     return "no-evidence"
 
 
-def _iter_actions(transcript: Path):
-    """Yield {command, output, code, interrupted} per tool call, in order.
+def _load_entries(transcript: Path) -> list:
+    """Every parseable JSON object in the file, in order. Never raises.
 
-    The result does NOT sit on the assistant entry that made the call - it
-    arrives on a LATER user entry joined by `tool_use_id`, with the payload at
-    entry-level `toolUseResult`. Measured on a live 1.4 MB transcript: 115
-    tool_use, 115 results, 115 paired. Reading only the same entry finds every
-    command and no outcome, which classifies a real green run as unknown.
-
-    The same-entry shape is still accepted, so a hand-built fixture works too.
-
-    Sidechain (subagent) lines are NOT filtered out: a suite run by a subagent
-    is still a run, and accusing on that is a false positive.
+    A malformed line is skipped, not fatal: one bad line in an 81-file sweep must
+    not abort it and report a smaller, cleaner-looking number.
     """
     try:
         raw_lines = transcript.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
-        return
-
+        return []
     entries = []
     for line in raw_lines:
         try:
@@ -180,8 +193,28 @@ def _iter_actions(transcript: Path):
             continue
         if isinstance(entry, dict):
             entries.append(entry)
+    return entries
 
-    # Pass 1: join every tool_result back to the id of the call it answers.
+
+def _result_map(entries: list) -> dict:
+    """tool_use_id -> the payload of the result that answers it.
+
+    The result does NOT sit on the assistant entry that made the call - it
+    arrives on a LATER user entry joined by `tool_use_id`, with the payload at
+    entry-level `toolUseResult`. Measured on a live 1.4 MB transcript: 115
+    tool_use, 115 results, 115 paired. Reading only the same entry finds every
+    command and no outcome, which classifies a real green run as unknown.
+
+    A SUBAGENT transcript has no entry-level `toolUseResult` AT ALL - measured on
+    a live sidechain file: 16 tool_use, 16 tool_result parts, zero payloads. The
+    output sits on the PART as `content` (a string or a block list) with
+    `is_error`. Reading only the main-thread shape joins nothing there and scores
+    every subagent suite run as no-evidence, which is what a first sweep of this
+    repo's history did: 172 of its 206 findings were this bug, not history.
+
+    The entry-level payload WINS where both exist - it carries the real stdout,
+    while the part can carry a truncated view.
+    """
     results = {}
     for entry in entries:
         message = entry.get("message")
@@ -189,22 +222,64 @@ def _iter_actions(transcript: Path):
         if not isinstance(content, list):
             continue
         payload = entry.get("toolUseResult")
-        if not isinstance(payload, dict):
-            continue
+        payload = payload if isinstance(payload, dict) else None
         for part in content:
-            if isinstance(part, dict) and part.get("type") == "tool_result":
-                results[part.get("tool_use_id")] = payload
+            if not isinstance(part, dict) or part.get("type") != "tool_result":
+                continue
+            results[part.get("tool_use_id")] = payload or _part_payload(part)
+    return results
 
-    def _shape(payload: dict, command: str) -> dict:
-        return {
-            "command": command,
-            "output": str(payload.get("stdout") or "")
-            + str(payload.get("stderr") or ""),
-            "code": payload.get("code"),
-            "interrupted": payload.get("interrupted"),
-        }
 
-    # Pass 2: walk the calls in order, pairing each with its result.
+def _part_text(content) -> str:
+    """The text of a tool_result part: a plain string, or a list of blocks."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(part.get("text") or "" for part in content
+                         if isinstance(part, dict))
+    return ""
+
+
+def _part_payload(part: dict) -> dict:
+    """A part-carried result, shaped like the entry-level one.
+
+    `is_error` is the ONE place a subagent result states an exit outcome, so it
+    maps to `code` - False means the command succeeded, which for a pytest call
+    is real evidence, and True is a genuine red. Absent, `code` stays None and
+    the count line remains the only evidence, exactly as in the main-thread path.
+    """
+    is_error = part.get("is_error")
+    code = None
+    if isinstance(is_error, bool):
+        code = 1 if is_error else 0
+    return {"stdout": _part_text(part.get("content")), "stderr": "",
+            "interrupted": False, "code": code}
+
+
+def _shape(payload: dict, command: str) -> dict:
+    return {
+        "command": command,
+        "output": str(payload.get("stdout") or "") + str(payload.get("stderr") or ""),
+        "code": payload.get("code"),
+        "interrupted": payload.get("interrupted"),
+    }
+
+
+def _iter_events(transcript: Path):
+    """Yield ("action", shaped) and ("claim", text) in FILE ORDER.
+
+    Order is the whole point of the retrospective mode: live, the transcript ends
+    at the claim so everything in it happened first, but a historical file keeps
+    going, and a run that lands AFTER a claim must not back it. That is the
+    "reported first, verified later" pattern the gate exists to catch.
+
+    The same-entry result shape is still accepted, so a hand-built fixture works.
+
+    Sidechain (subagent) lines are NOT filtered out: a suite run by a subagent
+    is still a run, and accusing on that is a false positive.
+    """
+    entries = _load_entries(transcript)
+    results = _result_map(entries)
     for entry in entries:
         message = entry.get("message")
         content = message.get("content") if isinstance(message, dict) else None
@@ -212,8 +287,16 @@ def _iter_actions(transcript: Path):
             continue
         same_entry = entry.get("toolUseResult")
         same_entry = same_entry if isinstance(same_entry, dict) else {}
+        texts = []
         for part in content:
-            if not isinstance(part, dict) or part.get("type") != "tool_use":
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") == "text" and entry.get("type") == "assistant":
+                text = part.get("text")
+                if isinstance(text, str) and text.strip():
+                    texts.append(text)
+                continue
+            if part.get("type") != "tool_use":
                 continue
             tool_input = part.get("input")
             if not isinstance(tool_input, dict):
@@ -221,8 +304,16 @@ def _iter_actions(transcript: Path):
             command = tool_input.get("command")
             if not isinstance(command, str) or not command.strip():
                 continue
-            payload = results.get(part.get("id"), same_entry)
-            yield _shape(payload, command)
+            yield "action", _shape(results.get(part.get("id"), same_entry), command)
+        if texts:
+            yield "claim", "\n".join(texts)
+
+
+def _iter_actions(transcript: Path):
+    """Yield {command, output, code, interrupted} per tool call, in order."""
+    for kind, event in _iter_events(transcript):
+        if kind == "action":
+            yield event
 
 
 def _user_text(transcript: Path) -> str:
@@ -258,23 +349,8 @@ def _block(reason: str) -> int:
     return 0
 
 
-def evaluate(payload: dict) -> str | None:
-    """Return a block reason, or None to allow. Pure - the tests drive this."""
-    # THE LOOP GUARD. Nothing above this line.
-    if payload.get("stop_hook_active"):
-        return None
-
-    raw_path = payload.get("transcript_path")
-    if not isinstance(raw_path, str) or not raw_path:
-        return None
-    transcript = Path(raw_path)
-    if not transcript.is_file():
-        return None
-
-    actions = list(_iter_actions(transcript))
-
-    # no-verify runs regardless of whether a green claim was made - bypassing a
-    # hook rejection is its own finding.
+def _no_verify_reason(actions: list) -> str | None:
+    """A commit with hooks off, right after a hook rejected one. Or None."""
     for index, action in enumerate(actions):
         if not _is_commit_bypass(action["command"]):
             continue
@@ -292,6 +368,70 @@ def evaluate(payload: dict) -> str | None:
                 "hooks off. The gate is the authority - fix what it flagged, do "
                 "not bypass it. Re-run the commit without --no-verify."
             )
+    return None
+
+
+def assess_claim(actions: list, claim: str):
+    """(detector, reason) for a green claim against the runs that PRECEDE it.
+
+    THE shared judgment. The live gate calls it with every action in the
+    transcript - at Stop the file ends at the claim, so that IS the prefix - and
+    the retrospective calls it with the prefix explicitly. One implementation, so
+    a historical count means the same thing the live gate would have said.
+
+    Returns None when the claim is not green or when the evidence backs it.
+    """
+    if not isinstance(claim, str) or not GREEN_CLAIM.search(claim):
+        return None
+    if RED_REPORT.search(claim) or HEDGED.search(claim):
+        return None
+
+    runs = [a for a in actions if TEST_COMMAND.search(a["command"])]
+    if not runs:
+        return ("claim-no-run",
+                "claim-no-run: this turn claims tests pass, but no pytest run "
+                "happened in this session - not in the main thread and not in a "
+                "subagent. Run `python -m pytest -q` and report the counts you "
+                "actually observed, or drop the claim.")
+
+    verdicts = [_classify_run(run) for run in runs]
+    decided = [v for v in verdicts if v in ("pass", "fail")]
+    if decided and decided[-1] == "fail":
+        return ("claim-vs-fail",
+                "claim-vs-fail: this turn claims tests pass, but the last pytest "
+                "run in this session was RED. Re-run it and report the counts "
+                "from that run, not from an earlier one.")
+    if not decided:
+        # The one place ambiguity does NOT allow: the missing evidence IS the
+        # thing the claim asserts. Cheap to satisfy - re-run and show counts.
+        return ("no-counts",
+                "no-counts: a pytest command ran but left no machine-readable "
+                "result - no pass/fail counts and no exit code. That is not "
+                "evidence of green. Re-run `python -m pytest -q` and report the "
+                "counts you actually observed.")
+    return None
+
+
+def evaluate(payload: dict) -> str | None:
+    """Return a block reason, or None to allow. Pure - the tests drive this."""
+    # THE LOOP GUARD. Nothing above this line.
+    if payload.get("stop_hook_active"):
+        return None
+
+    raw_path = payload.get("transcript_path")
+    if not isinstance(raw_path, str) or not raw_path:
+        return None
+    transcript = Path(raw_path)
+    if not transcript.is_file():
+        return None
+
+    actions = list(_iter_actions(transcript))
+
+    # no-verify runs regardless of whether a green claim was made - bypassing a
+    # hook rejection is its own finding.
+    bypass = _no_verify_reason(actions)
+    if bypass:
+        return bypass
 
     claim = payload.get("last_assistant_message")
     if not isinstance(claim, str) or not GREEN_CLAIM.search(claim):
@@ -300,40 +440,135 @@ def evaluate(payload: dict) -> str | None:
     if WAIVER.search(_user_text(transcript)):
         return None
 
-    runs = [a for a in actions if TEST_COMMAND.search(a["command"])]
-    if not runs:
-        return (
-            "claim-no-run: this turn claims tests pass, but no pytest run "
-            "happened in this session - not in the main thread and not in a "
-            "subagent. Run `python -m pytest -q` and report the counts you "
-            "actually observed, or drop the claim."
-        )
-
-    verdicts = [_classify_run(run) for run in runs]
-    decided = [v for v in verdicts if v in ("pass", "fail")]
-    if decided and decided[-1] == "fail":
-        return (
-            "claim-vs-fail: this turn claims tests pass, but the last pytest run "
-            "in this session was RED. Re-run it and report the counts from that "
-            "run, not from an earlier one."
-        )
-    if not decided:
-        # The one place ambiguity does NOT allow: the missing evidence IS the
-        # thing the claim asserts. Cheap to satisfy - re-run and show counts.
-        return (
-            "no-counts: a pytest command ran but left no machine-readable "
-            "result - no pass/fail counts and no exit code. That is not "
-            "evidence of green. Re-run `python -m pytest -q` and report the "
-            "counts you actually observed."
-        )
-    return None
+    found = assess_claim(actions, claim)
+    return found[1] if found else None
 
 
-def main() -> int:
-    reason = evaluate(_read_payload())
-    if reason:
-        return _block(reason)
+# ===========================================================================
+# RETROSPECTIVE MODE (L2's second half). The live gate above starts counting
+# today; this answers the question the triage actually posed - across the
+# transcripts already on disk, how often was a green claim unbacked?
+#
+# It REPORTS. Exit stays 0 whatever it finds: a historical audit that failed its
+# caller would be unrunnable in CI, and the number is the deliverable.
+# ===========================================================================
+PROJECT_SESSIONS = Path.home() / ".claude" / "projects" / "C--LegionWallpaper"
+
+CLAIM_EXCERPT = 220
+
+
+def _audit(transcript: Path):
+    """(findings, green_claims_seen, waived) for one transcript."""
+    waived = bool(WAIVER.search(_user_text(transcript)))
+    findings, claims, actions = [], 0, []
+    for kind, event in _iter_events(transcript):
+        if kind == "action":
+            actions.append(event)
+            continue
+        if (not GREEN_CLAIM.search(event) or RED_REPORT.search(event)
+                or HEDGED.search(event)):
+            continue
+        claims += 1
+        if waived:
+            continue
+        found = assess_claim(actions, event)
+        if found:
+            findings.append({
+                "transcript": str(transcript),
+                "detector": found[0],
+                "reason": found[1],
+                "claim": event.strip()[:CLAIM_EXCERPT],
+                "runs_before": sum(1 for a in actions
+                                   if TEST_COMMAND.search(a["command"])),
+            })
+    bypass = _no_verify_reason(actions)
+    if bypass:
+        findings.append({"transcript": str(transcript), "detector": "no-verify",
+                         "reason": bypass, "claim": "", "runs_before": 0})
+    return findings, claims, (claims if waived else 0)
+
+
+def audit_transcript(transcript) -> list:
+    """Every finding in one transcript, claims judged against PRIOR actions."""
+    return _audit(Path(transcript))[0]
+
+
+def audit_tree(root) -> list:
+    """Every finding under `root`, including nested <session>/subagents/ dirs."""
+    findings = []
+    for path in sorted(Path(root).rglob("*.jsonl")):
+        findings.extend(audit_transcript(path))
+    return findings
+
+
+def summarize(transcripts) -> dict:
+    """The RATE, not just the numerator.
+
+    "How often" needs a denominator: the number of green claims made. Reporting
+    findings alone is the same missing-evidence problem one level up.
+    """
+    paths = [Path(p) for p in transcripts]
+    all_findings, claims, waived = [], 0, 0
+    for path in paths:
+        found, seen, skipped = _audit(path)
+        all_findings.extend(found)
+        claims += seen
+        waived += skipped
+    by_detector = {}
+    for finding in all_findings:
+        by_detector[finding["detector"]] = by_detector.get(finding["detector"], 0) + 1
+    return {"transcripts": len(paths), "claims": claims, "waived": waived,
+            "findings": len(all_findings), "by_detector": by_detector}
+
+
+def _run_audit(paths, as_json: bool) -> int:
+    findings = []
+    for path in paths:
+        findings.extend(audit_transcript(path))
+    summary = summarize(paths)
+    if as_json:
+        json.dump({"summary": summary, "findings": findings}, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 0
+    print("transcripts={transcripts} green_claims={claims} waived={waived} "
+          "findings={findings}".format(**summary))
+    for detector, count in sorted(summary["by_detector"].items()):
+        print(f"  {detector}: {count}")
+    for finding in findings:
+        print("\n{}\n  {}\n  claim: {}".format(
+            finding["transcript"], finding["detector"],
+            finding["claim"].replace("\n", " ")[:160]))
     return 0
+
+
+def main(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    # No argv is the HOOK path and must stay untouched: argparse eating stdin
+    # mode is the most likely way adding a CLI breaks the live gate.
+    if not argv:
+        reason = evaluate(_read_payload())
+        return _block(reason) if reason else 0
+
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        description="Audit past transcripts for unbacked green claims (L2)")
+    ap.add_argument("--audit", nargs="+", default=None, metavar="TRANSCRIPT",
+                    help="one or more .jsonl transcripts to audit")
+    ap.add_argument("--history", nargs="?", const=str(PROJECT_SESSIONS),
+                    default=None, metavar="ROOT",
+                    help="sweep every .jsonl under ROOT (default: this project's"
+                         " session directory)")
+    ap.add_argument("--json", action="store_true", help="machine-readable output")
+    args = ap.parse_args(argv)
+
+    if args.history:
+        paths = sorted(Path(args.history).rglob("*.jsonl"))
+    elif args.audit:
+        paths = [Path(p) for p in args.audit]
+    else:
+        ap.error("give --audit <transcript>... or --history [ROOT]")
+    return _run_audit(paths, args.json)
 
 
 if __name__ == "__main__":

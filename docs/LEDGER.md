@@ -27,6 +27,51 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+82. DONE **2026-08-01 (L2's retrospective half - the number, and the three
+    measurement bugs under it; TDD).** P1 shipped the LIVE gate, which starts
+    counting today; the question the triage actually posed - retroactively, how
+    often was a green claim in this repo unbacked - was untouched.
+    `tools/claimed_green_gate.py` gains a retrospective mode
+    (`--history` / `--audit` / `--json`) and `docs/CLAIMED_GREEN_RETRO_2026-08-01.md`
+    holds the reviewed result. THE ANSWER, over **387 transcripts** (81 sessions
+    plus their `subagents/` files) and **269 green claims**: 25 flagged (9.3%),
+    **6 genuinely unbacked after reading every one by hand** (2.2%), and **ZERO**
+    cases of claiming green over a red suite. The failure class is real but rare,
+    and it is not the shape the doctrine assumes - all 6 real findings are the
+    SAME shape: a count somebody ELSE observed (a subagent's, a verifier's, a
+    previous session's baseline) restated as this turn's fact. Verification
+    Discipline's rule is right; its emphasis is wrong. The danger is not lying
+    about green, it is INHERITING a green.
+    THE NUMBER MOVED 8x ON MEASUREMENT BUGS BEFORE IT WAS BELIEVABLE - 206 -> 67
+    -> 31 -> 25 - which is the whole argument for hand-reviewing a sweep instead
+    of quoting its percentage: (a) 172 of the first 206 were ONE bug - a subagent
+    transcript carries NO entry-level `toolUseResult` at all (measured live: 16
+    `tool_use`, 16 `tool_result` parts, ZERO payloads; the output sits on the
+    PART as `content` with `is_error`), so every subagent suite run scored as
+    no-evidence. That is the SAME species of bug P1 already shipped and fixed
+    once, recurring against a second real shape; (b) a TDD RED report read as a
+    false green claim - "Failing-first confirmed (12 failed / 4 passed)" matches
+    `\d+ passed` and the last run really was red, so the LIVE gate would have
+    blocked THIS session twice for doing exactly what the TDD rule demands;
+    (c) relaying a subagent count while REFUSING to trust it - the turn shape
+    CLAUDE.md mandates - was flagged as a claim. (b) and (c) are now exemptions
+    (`RED_REPORT`, `HEDGED`), and both fixes improve the LIVE gate, not just the
+    audit. RETROSPECTIVE-ONLY RULE, tested: claims are judged against the actions
+    that PRECEDE them, because a historical file keeps going and a run landing
+    after a claim must not back it - evaluating the whole file would launder
+    "reported first, verified later" into a pass. TDD RED-first throughout: the
+    history tests ran 15 failed / 1 passed against the unmodified tool, then 3
+    failed for the subagent shape, then 2 more for the exemptions - each fix has
+    its own failing-first evidence. DELIBERATELY NOT DONE: tuning out the two
+    residual false-positive classes ("all green" about a probe/CUDA/a venv rather
+    than the suite, and CI-green claims whose evidence is `gh` not pytest).
+    Tightening a regex against the 25 samples it just produced is fitting the
+    detector to its own sweep; the honest version needs a separate corpus and a
+    held-out check, and a live false positive costs one re-run. Verified: suite
+    **1667 passed / 16 skipped** (1640 + 27 new), ruff clean, hook path
+    explicitly regression-tested to still work with NO argv and a stdin payload
+    (adding a CLI is the most likely way to kill the live gate).
+
 81. DONE **2026-08-01 (P8 - gitwand: probe answered YES, adoption DECLINED on
     fit; docs-only).** P8 was explicitly gated on ONE question - do the 7 MCP
     tools accept a worktree path, because the worktree support quoted on the

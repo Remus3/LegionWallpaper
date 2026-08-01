@@ -44,10 +44,23 @@ past disjointness, and do NOT re-run the probe. Gotcha if it ever is adopted:
 every explain/trace string is hardcoded FRENCH with em-dashes - it must never
 reach a commit message or a tracked doc.
 
-NEXT: **L2's retrospective half** - `tools/claimed_green_gate.py` reads a Stop-hook
-payload from stdin and has no CLI and no history mode, so the question the triage
-posed (retroactively, how often was a green claim in this repo unbacked?) is still
-untouched. Lift red-handed's detector design, do NOT install it. Also open:
+**L2's retrospective half followed, same session (LEDGER 82,
+`docs/CLAIMED_GREEN_RETRO_2026-08-01.md`).** `claimed_green_gate.py` gained
+`--history` / `--audit` / `--json`. THE ANSWER: 387 transcripts, 269 green
+claims, 25 flagged, **6 genuinely unbacked** after hand-reading every one, and
+**ZERO** claims of green over a red suite. All 6 are the same shape - a count a
+SUBAGENT or a previous session observed, restated as this turn's fact. So
+Verification Discipline is right and its emphasis is wrong: the danger is
+inheriting a green, not lying about one. Quote the reviewed 6, NEVER the raw
+sweep - the number moved 206 -> 67 -> 31 -> 25 on three measurement bugs, the
+biggest being that subagent transcripts carry NO entry-level `toolUseResult`
+(output is on the tool_result PART as `content` + `is_error`). Two of the fixes
+improved the LIVE gate: it would have blocked this very session twice for
+reporting TDD RED honestly. Do NOT tune the two residual false-positive classes
+against those 25 samples - that is fitting the detector to its own sweep.
+
+NEXT: no queued phase. Product work is the standing option - Stage 2's remaining
+cleaning queue and the NEEDAUTH backlog. Also open:
 `wiki-swap-manifest-hash-residue` (scan --verify HASH_MISMATCH on 21 of 22,
 bookkeeping only; plain scan is clean). Loose end unchanged: two stale worktrees
 still registered - check for unmerged work before removing.

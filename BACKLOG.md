@@ -327,6 +327,18 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
   at all. Before calling this entry finished, diff the dive's replacement plan
   and its promotions section against the P-numbers here - a row that lives only
   in a doc's prose does not get worked.
+  **L2's retrospective half is DONE 2026-08-01 (LEDGER 82,
+  `docs/CLAIMED_GREEN_RETRO_2026-08-01.md`) - do not re-run the sweep blind.**
+  387 transcripts, 269 green claims, 25 flagged, **6 genuinely unbacked** after
+  reading every one by hand, **0** claims of green over a red suite. All 6 are
+  one shape: a count somebody ELSE observed, restated as this turn's fact. The
+  raw number moved 206 -> 67 -> 31 -> 25 on THREE measurement bugs (subagent
+  results never joined; TDD RED reports read as green claims; hedged relays read
+  as claims) - quote the reviewed 6, never the raw sweep. Still open and
+  deliberately untuned: two residual false-positive classes ("all green" about a
+  non-suite probe, and CI-green claims whose evidence is `gh` not pytest) - they
+  need a separate corpus and a held-out check, not a regex fitted to the 25
+  samples that produced them. Original entry below.
   Still open from L2, and NOT discharged by P1: the RETROSPECTIVE half. P1
   shipped the live gate (`claimed_green_gate.py` reads a Stop-hook payload from
   stdin, no CLI, no history mode), but the question the triage actually posed -
