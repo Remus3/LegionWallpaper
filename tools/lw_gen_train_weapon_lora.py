@@ -22,10 +22,29 @@ run ONCE to precompute the (near-identical) caption embeds, then freed to keep
 the run inside the RTX 5070 12GB budget. Six base crops -> on-the-fly geometric
 + mild color augmentation per step to avoid memorization.
 
-CI constraint (torch-free): this module imports ONLY stdlib at top level. Every
-heavy dependency (torch / diffusers / peft / PIL / numpy) is imported lazily
-inside the training path, which the unit tests never reach. The pure helpers
-(list_pairs / read_caption / sample_aug) are unit-tested without torch.
+CI constraint (torch-free): this module imports ONLY stdlib plus lw_gen_run's
+GPU-mutex helper at top level (lw_gen_run is itself stdlib-only at import time,
+so the torch-free contract holds). Every heavy dependency (torch / diffusers /
+peft / PIL / numpy) is imported lazily inside the training path, which the unit
+tests never reach. The pure helpers (list_pairs / read_caption / sample_aug) are
+unit-tested without torch.
+
+GPU_MUTEX (ops/loop/winmutex.py). train() is a pure LEAF - grep confirms no
+spawn site for this script anywhere in tools/ or ops/, it is hand-run - so the
+hold simply wraps the whole training run, and there is no CPU path to exempt
+(train refuses outright without CUDA).
+
+ON THE TIMEOUT, which is the shared 1800s from lw_gen_run and NOT a bespoke
+longer one. The tempting argument is that a LoRA run outlives 1800s and would
+time itself out; it does not, because winmutex.hold passes timeout to
+WaitForSingleObject (winmutex.py:96-101), so it bounds how long this process
+WAITS TO ACQUIRE and places no deadline whatsoever on the body. A four-hour
+training hold is therefore unaffected. What the shared number does control here
+is the other direction - a tool that starts while training is running gives up
+after 30 minutes with a logged GpuBusy instead of hanging - and that is the
+behaviour we want, because the alternative is an invisible stall inside a
+headless cycle. So: one number, inherited by import, verified rather than
+assumed (tests/test_gpu_mutex_wiring.test_the_timeout_bounds_the_WAIT_not_the_HOLD).
 """
 from __future__ import annotations
 
@@ -41,6 +60,14 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+
+# No fifth copy of the GPU-mutex helper: this module runs in .venv-gen, the same
+# venv as lw_gen_run, which already owns one. Borrowing it is also what makes
+# the timeout literally un-driftable here - there is no second constant to edit.
+# Imported off tools/ (not `from tools import ...`) so the module object is the
+# same one the rest of the .venv-gen tools bind.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lw_gen_run import GpuBusy, gpu_lock  # noqa: E402
 
 # --- defaults (design_weapon.md sec 5: UNet-only, 1024px, adamw, rank 16, 1e-4) -
 _DEFAULT_MODEL = os.path.join(
@@ -185,7 +212,29 @@ def _atomic_save_lora(unet, out_dir, get_sd, convert_sd, pipe_cls):
 
 
 def train(args):
-    """Run the UNet-only SDXL LoRA training loop and save the adapter."""
+    """Run the UNet-only SDXL LoRA training loop under GPU_MUTEX.
+
+    The CUDA check happens BEFORE the acquire so a machine with no visible GPU
+    fails on its own terms instead of first taking a machine-wide lock it cannot
+    use. The hold spans the entire run - hours, legitimately; see the module
+    header on why the shared 1800s bounds the wait and not the hold.
+    """
+    import torch
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required for LoRA training (no GPU visible).")
+    try:
+        with gpu_lock("cuda"):
+            return _train_locked(args)
+    except GpuBusy as exc:
+        raise RuntimeError(
+            "the GPU is held by another run and did not free in time; LoRA "
+            "training skipped. See logs/ for the winmutex trace."
+        ) from exc
+
+
+def _train_locked(args):
+    """The body of train(), run while GPU_MUTEX is held."""
     import torch
     import torch.nn.functional as F
     from diffusers import DDPMScheduler, StableDiffusionXLPipeline
@@ -194,8 +243,6 @@ def train(args):
     from peft import LoraConfig
     from peft.utils import get_peft_model_state_dict
 
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA is required for LoRA training (no GPU visible).")
     device = torch.device("cuda")
     weight_dtype = torch.bfloat16
 
