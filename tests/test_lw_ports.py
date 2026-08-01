@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools import lw_monitor  # noqa: E402
 from tools import lw_ports  # noqa: E402
+from tools import lw_rundash  # noqa: E402
 
 TOOLS = Path(__file__).resolve().parent.parent / "tools"
 OPS = Path(__file__).resolve().parent.parent / "ops"
@@ -33,6 +34,17 @@ def test_monitor_is_pinned_against_the_live_definition_site():
     # Imports the module that actually binds rather than restating the literal
     # - this is the assertion that fails when lw_monitor moves.
     assert lw_ports.MONITOR == lw_monitor.DEFAULT_PORT
+
+
+def test_rundash_is_pinned_against_the_live_definition_site():
+    # Same shape as the monitor pin: the module that binds is the authority, so
+    # this fails the day lw_rundash moves and the registry does not.
+    assert lw_ports.RUNDASH == lw_rundash.DEFAULT_PORT
+    assert lw_ports.ALLOCATIONS["rundash"] == lw_rundash.DEFAULT_PORT
+
+
+def test_the_two_boards_do_not_share_a_port():
+    assert lw_monitor.DEFAULT_PORT != lw_rundash.DEFAULT_PORT
 
 
 def test_every_allocation_sits_inside_the_block():

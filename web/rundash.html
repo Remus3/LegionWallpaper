@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LW Run Dashboard</title>
+<style>
+:root{
+  --bg:#0a1428;--panel:#0f1c2e;--line:#1e2d44;--gold:#c8aa6e;--teal:#0ac8b9;
+  --tx:#cdd2e0;--mut:#7c869c;--red:#c8455a;--grn:#3fb950;--org:#d29922;
+  --fs-xs:13px;--fs-sm:14px;--fs-md:16px;--fs-lg:20px;--fs-xl:26px
+}
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:1600px;background:var(--bg);color:var(--tx);
+  padding:16px;font:var(--fs-md)/1.5 'Segoe UI',system-ui,sans-serif}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+header h1{font-size:var(--fs-lg);color:var(--gold);margin:0;letter-spacing:1px}
+h2{font-size:var(--fs-md);text-transform:uppercase;letter-spacing:.6px;
+  color:var(--teal);margin:0 0 10px 0}
+h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.6px;
+  color:var(--mut);margin:16px 0 8px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:14px 16px;margin-bottom:14px}
+.meta{color:var(--mut);font-size:var(--fs-sm)}
+.mono{font-family:ui-monospace,Consolas,monospace}
+
+/* the state chip and the stuck signal are the two things the eye must hit first */
+#statechip{font-size:var(--fs-xl);font-weight:700;padding:6px 20px;border-radius:10px;
+  letter-spacing:2px;background:rgba(124,134,156,.18);color:var(--mut)}
+.s-live{background:rgba(63,185,80,.18)!important;color:var(--grn)!important;
+  animation:lwpulse 1.8s ease-in-out infinite}
+.s-dead{background:rgba(200,69,90,.22)!important;color:var(--red)!important}
+.s-stopped{background:rgba(210,153,34,.22)!important;color:var(--org)!important}
+.s-finished{background:rgba(10,200,185,.16)!important;color:var(--teal)!important}
+@keyframes lwpulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+#alertbar{border:1px solid var(--org);background:rgba(210,153,34,.12);
+  border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:var(--fs-lg)}
+#alertbar.clear{border-color:var(--line);background:rgba(63,185,80,.08);
+  color:var(--grn);font-size:var(--fs-md)}
+#alertbar .arow{display:flex;gap:12px;align-items:center;padding:4px 0;flex-wrap:wrap}
+#alertbar .akind{font-size:var(--fs-xs);font-weight:700;letter-spacing:1px;
+  color:var(--org);text-transform:uppercase;min-width:130px}
+
+.facts{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.fact{border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-width:150px}
+.fact .lbl{display:block;font-size:var(--fs-xs);color:var(--mut);
+  text-transform:uppercase;letter-spacing:.6px}
+.fact .val{display:block;font-size:var(--fs-lg);font-weight:700}
+.fact .sub{display:block;font-size:var(--fs-xs);color:var(--mut)}
+
+.scroll{overflow-x:auto}
+.srow{display:grid;grid-template-columns:80px minmax(200px,2fr) 120px 90px 110px
+  minmax(160px,1fr) 150px;gap:12px;align-items:center;min-width:1040px;
+  padding:10px 0;border-bottom:1px solid rgba(30,45,68,.6)}
+.srow:last-child{border-bottom:none}
+.srow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
+  letter-spacing:.6px;border-bottom:1px solid var(--line)}
+.srow.stuck{outline:1px solid var(--org);outline-offset:3px;border-radius:4px}
+.badge{display:inline-block;padding:4px 12px;border-radius:12px;
+  font-size:var(--fs-sm);font-weight:700;white-space:nowrap}
+.b-pending{background:rgba(124,134,156,.18);color:var(--mut)}
+.b-progress{background:rgba(10,200,185,.15);color:var(--teal)}
+.b-verified{background:rgba(63,185,80,.15);color:var(--grn)}
+.b-committed{background:rgba(63,185,80,.15);color:var(--grn)}
+.b-failed{background:rgba(200,69,90,.2);color:var(--red)}
+.b-amber{background:rgba(210,153,34,.22);color:var(--org)}
+.b-safe{background:rgba(63,185,80,.18);color:var(--grn)}
+.b-salvage{background:rgba(200,69,90,.22);color:var(--red)}
+.badge.big{font-size:var(--fs-lg);padding:8px 18px}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subhead{margin:-4px 0 12px 0}
+
+details{border:1px solid var(--line);border-radius:6px;margin:6px 0}
+summary{cursor:pointer;padding:9px 14px;min-height:38px;font-size:var(--fs-sm);
+  color:var(--teal);list-style:none;display:flex;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary:hover{background:rgba(10,200,185,.08)}
+details .body{padding:4px 14px 12px 14px;font-size:var(--fs-sm);color:var(--mut)}
+button{font:700 var(--fs-sm)/1.2 'Segoe UI',system-ui,sans-serif;color:var(--tx);
+  background:transparent;border:1px solid var(--line);border-radius:8px;
+  padding:11px 20px;min-height:42px;cursor:pointer}
+button:hover{border-color:var(--teal);color:var(--teal)}
+
+.wrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;
+  border-bottom:1px solid rgba(30,45,68,.6);font-size:var(--fs-sm)}
+.wrow:last-child{border-bottom:none}
+pre{font:var(--fs-sm)/1.45 ui-monospace,Consolas,monospace;color:var(--mut);
+  white-space:pre-wrap;word-break:break-all;margin:0;max-height:220px;overflow-y:auto}
+.stale,.down{padding:6px 12px;border-radius:8px;font-weight:700;
+  font-size:var(--fs-sm);display:none}
+.stale{background:rgba(210,153,34,.25);color:var(--org)}
+.down{background:rgba(200,69,90,.2);color:var(--red)}
+.ok{color:var(--grn)}
+.warn{color:var(--org)}
+.bad{color:var(--red)}
+</style>
+</head>
+<body>
+<header>
+  <h1>LW RUN DASHBOARD</h1>
+  <span id="statechip">...</span>
+  <span id="runid" class="meta mono"></span>
+  <span id="stalebanner" class="stale">STALE - showing last good data</span>
+  <span id="downbanner" class="down">DASHBOARD ENDPOINT DOWN - retrying</span>
+  <span id="updated" class="meta"></span>
+  <button id="refresh" type="button">Refresh now</button>
+</header>
+<div id="reason" class="meta subhead"></div>
+
+<div id="alertbar" class="clear">checking...</div>
+
+<div class="card">
+  <h2>P1 - Run Ledger</h2>
+  <div id="runfacts" class="facts"></div>
+  <div class="scroll">
+    <div class="srow head">
+      <span>Slice</span><span>Title</span><span>Status</span><span>In status</span>
+      <span>Commit</span><span>Agent (hint)</span><span>Evidence</span>
+    </div>
+    <div id="sliceboard"></div>
+  </div>
+  <h3>Agent fleet</h3>
+  <div id="fleet"></div>
+</div>
+
+<div class="card">
+  <h2>P3 - Resume Decision</h2>
+  <div id="verdict"></div>
+  <div id="resumebody"></div>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+
+function esc(t) {
+  return (t == null ? "" : String(t)).replace(/[&<>"]/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c];
+  });
+}
+function fact(label, value, sub, cls) {
+  return '<span class="fact"><span class="lbl">' + esc(label) + '</span>' +
+    '<span class="val ' + (cls || "") + '">' + esc(value) + '</span>' +
+    '<span class="sub">' + esc(sub || "") + '</span></span>';
+}
+function statusBadge(status) {
+  var map = { pending: "b-pending", in_progress: "b-progress", verified: "b-verified",
+    committed: "b-committed", failed: "b-failed" };
+  return '<span class="badge ' + (map[status] || "b-pending") + '">' +
+    esc(String(status || "?").toUpperCase()) + '</span>';
+}
+function evidenceChip(ev) {
+  if (!ev) { ev = { label: "NOT OBSERVED", why: "", state: "NOT OBSERVED" }; }
+  return '<span class="badge b-amber" title="' + esc(ev.why) + '">' +
+    esc(ev.label || ev.state) + '</span>';
+}
+function fileList(label, files) {
+  if (!files || !files.length) { return ""; }
+  var html = '<details><summary>' + esc(label) + " (" + files.length + ")</summary>" +
+    '<div class="body mono">';
+  for (var i = 0; i < files.length; i++) { html += esc(files[i]) + "<br>"; }
+  return html + "</div></details>";
+}
+async function jget(u) {
+  try {
+    var r = await fetch(u, { cache: "no-store" });
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; }
+}
+
+function rHeader(p) {
+  var run = p.run || {};
+  var state = run.state || "UNKNOWN";
+  var chip = $("statechip");
+  chip.textContent = state;
+  chip.className = "s-" + state.toLowerCase();
+  $("runid").textContent = (run.run_id ? "run " + run.run_id : "no run id") +
+    (run.controller_run_id ? " / ctl " + run.controller_run_id : "");
+  $("updated").textContent = p.generated_at ?
+    "checked " + String(p.generated_at).slice(11, 19) + " UTC" : "";
+  // The verdict sentence, not just the word: "alive but the lock is 5d old" is
+  // the difference between a live run and the recycled-pid case.
+  $("reason").textContent = run.reason || "";
+  $("stalebanner").style.display = (p.manifest && p.manifest.stale) ? "inline-block" : "none";
+}
+
+function rAlerts(p) {
+  var rows = p.alerts || [];
+  var bar = $("alertbar");
+  if (!rows.length) {
+    bar.className = "clear";
+    bar.innerHTML = "Nothing stuck - no parked slice, no silent agent, no overlapping file set.";
+    return;
+  }
+  bar.className = "";
+  var html = "";
+  for (var i = 0; i < rows.length; i++) {
+    html += '<div class="arow"><span class="akind">' + esc(rows[i].kind) + "</span>" +
+      "<span>" + esc(rows[i].text) + "</span></div>";
+  }
+  bar.innerHTML = html;
+}
+
+function rFacts(p) {
+  var run = p.run || {};
+  var html = "";
+  var pidTxt = run.pid == null ? "none" : String(run.pid);
+  html += fact("Controller pid", pidTxt,
+    run.corroborated ? "corroborated live" : "not corroborated",
+    run.corroborated ? "ok" : "warn");
+  html += fact("Cycle", (run.cycle == null ? "-" : run.cycle) +
+    (run.cycle_cap ? " of " + run.cycle_cap : ""), "loop progress");
+  html += fact("Last write", run.newest_write_age_human || "-",
+    run.writes_fresh ? "disk is moving" : "disk is quiet",
+    run.writes_fresh ? "ok" : "warn");
+  html += fact("Lock age", run.lock_present ? (run.lock_age_human || "-") : "no lock",
+    run.pid_alive === true ? "pid answers" : "pid does not answer");
+  if (run.git_ok) {
+    html += fact("HEAD now", run.head_now || "-",
+      (run.branch || "-") + (run.ahead ? " +" + run.ahead + " unpushed" : ""),
+      run.ahead ? "warn" : "");
+    html += fact("HEAD at run start", run.manifest_head || "-",
+      run.head_moved === null ? "unknown" : (run.head_moved ? "moved since" : "unchanged"),
+      run.head_moved ? "warn" : "");
+  } else {
+    html += fact("Git", "unavailable", run.git_message || "", "warn");
+  }
+  if (run.stop_present) {
+    html += fact("STOP", "present", run.stop_reason || "no reason given", "warn");
+  }
+  html += fact("Open slices", p.open_count == null ? "-" : p.open_count,
+    (p.stuck_count || 0) + " stuck", p.stuck_count ? "warn" : "");
+  $("runfacts").innerHTML = html;
+}
+
+function overlapText(id, disjointness) {
+  var hits = [];
+  var dis = disjointness || [];
+  for (var i = 0; i < dis.length; i++) {
+    if ((dis[i].slices || []).indexOf(id) !== -1) { hits.push(dis[i].file); }
+  }
+  if (!hits.length) { return ""; }
+  return '<div class="warn ell">overlaps another open slice on ' +
+    esc(hits.join(", ")) + "</div>";
+}
+
+function rSlices(p) {
+  var rows = p.slices || [];
+  if (!rows.length) {
+    $("sliceboard").innerHTML = '<div class="wrow meta">no slice manifest - ' +
+      'nothing has been dispatched, or the run predates the manifest.</div>';
+    return;
+  }
+  var html = "";
+  for (var i = 0; i < rows.length; i++) {
+    var s = rows[i];
+    var a = s.agent;
+    html += '<div class="srow' + (s.stuck ? " stuck" : "") + '">' +
+      '<span class="mono">' + esc(s.id) + "</span>" +
+      '<span class="ell" title="' + esc(s.title) + '">' + esc(s.title || "-") +
+      overlapText(s.id, p.disjointness) + fileList("files", s.files) + "</span>" +
+      "<span>" + statusBadge(s.status) + "</span>" +
+      '<span class="' + (s.stuck ? "warn" : "") + '">' + esc(s.status_age_human || "-") + "</span>" +
+      '<span class="mono">' + esc(s.commit || "-") + "</span>" +
+      '<span class="ell mono" title="' + (a ? esc(a.worktree_path || "no worktree") : "") + '">' +
+      (a ? esc(a.type) + " " + esc(a.branch || a.id) +
+        ' <span class="meta">' + esc(a.output_tokens) + " tok</span>" : '<span class="meta">unattributed</span>') +
+      "</span>" +
+      "<span>" + evidenceChip(s.evidence) + "</span>" +
+      "</div>";
+  }
+  $("sliceboard").innerHTML = html;
+}
+
+function rFleet(p) {
+  var f = p.fleet || {};
+  var agents = f.agents || [];
+  if (!agents.length) {
+    $("fleet").innerHTML = '<div class="wrow meta">no agent transcripts found - ' +
+      "Claude Code reaps session history, so absent is normal here.</div>";
+    return;
+  }
+  var html = '<div class="wrow meta">' + esc(f.counts.total) + " agents, " +
+    esc(f.counts.worktree) + " on worktrees, " + esc(f.counts.running) + " active, " +
+    esc(f.output_tokens) + " output tokens total</div>";
+  for (var i = 0; i < agents.length; i++) {
+    var a = agents[i];
+    html += '<div class="wrow">' +
+      '<span class="badge ' + (a.running ? "b-progress" : "b-pending") + '">' +
+      (a.running ? "ACTIVE" : "IDLE") + "</span>" +
+      '<span class="mono">' + esc(a.id.slice(0, 8)) + "</span>" +
+      "<span>" + esc(a.type) + "</span>" +
+      '<span class="mono meta">' + esc(a.worktree_branch || "no worktree") + "</span>" +
+      '<span class="meta">ran ' + esc(a.elapsed_human) + ", quiet " + esc(a.idle_human) + "</span>" +
+      '<span class="meta">' + esc(a.output_tokens) + " tok</span>" +
+      '<span class="ell meta" title="' + esc(a.description) + '">' + esc(a.description) + "</span>" +
+      "</div>";
+  }
+  $("fleet").innerHTML = html;
+}
+
+function rResume(r) {
+  if (!r) {
+    $("verdict").innerHTML = '<span class="meta">resume check unavailable - retrying</span>';
+    $("resumebody").innerHTML = "";
+    return;
+  }
+  var salvage = r.verdict === "SALVAGE FIRST";
+  var html = '<span class="badge big ' + (salvage ? "b-salvage" : "b-safe") + '">' +
+    esc(r.verdict) + "</span>";
+  var reasons = r.reasons || [];
+  for (var i = 0; i < reasons.length; i++) {
+    html += '<div class="wrow ' + (salvage ? "warn" : "meta") + '">' + esc(reasons[i]) + "</div>";
+  }
+  $("verdict").innerHTML = html;
+
+  var body = "";
+  if (!r.inventory_ok) {
+    body += '<div class="wrow warn">' + esc(r.git_message || "git state unavailable") + "</div>";
+  }
+  var open = r.open_slices || [];
+  body += "<h3>Non-committed slices (" + open.length + ")</h3>";
+  if (!open.length) {
+    body += '<div class="wrow ok">every slice in the manifest is committed.</div>';
+  }
+  for (var j = 0; j < open.length; j++) {
+    body += '<div class="wrow"><span class="mono">' + esc(open[j].id) + "</span>" +
+      "<span>" + statusBadge(open[j].status) + "</span>" +
+      '<span class="ell">' + esc(open[j].title || "") + "</span>" +
+      '<span class="meta">' + esc(open[j].status_age_human) + " in status</span></div>";
+  }
+
+  var stranded = r.stranded || [];
+  body += "<h3>Stranded work (" + stranded.length + ")</h3>";
+  if (!stranded.length) {
+    body += '<div class="wrow ok">no uncommitted files outside the primary worktree.</div>';
+  }
+  for (var k = 0; k < stranded.length; k++) {
+    var w = stranded[k];
+    body += '<div class="wrow"><span class="bad">' + esc(w.dirty_count) +
+      " uncommitted</span>" + '<span class="mono ell">' + esc(w.branch || w.path) + "</span>" +
+      fileList("files at risk", w.files) + "</div>";
+  }
+
+  var unpushed = r.unpushed || [];
+  if (unpushed.length) {
+    body += "<h3>Unpushed commits (" + unpushed.length + ")</h3>";
+    for (var m = 0; m < unpushed.length; m++) {
+      body += '<div class="wrow"><span class="warn">+' + esc(unpushed[m].ahead) +
+        "</span>" + '<span class="mono ell">' + esc(unpushed[m].branch || unpushed[m].path) +
+        "</span></div>";
+    }
+  }
+
+  var orphans = r.orphan_worktrees || [];
+  if (orphans.length) {
+    body += "<h3>Worktrees no slice claims (" + orphans.length + ")</h3>";
+    for (var n = 0; n < orphans.length; n++) {
+      body += '<div class="wrow mono ell">' + esc(orphans[n].branch || orphans[n].path) + "</div>";
+    }
+  }
+
+  var dis = r.disjointness || [];
+  if (dis.length) {
+    body += "<h3>Overlapping file sets (" + dis.length + ")</h3>";
+    for (var q = 0; q < dis.length; q++) {
+      body += '<div class="wrow warn mono">' + esc(dis[q].file) + " - " +
+        esc((dis[q].slices || []).join(", ")) + "</div>";
+    }
+  }
+
+  var tail = r.log_tail || [];
+  if (tail.length) {
+    body += "<h3>Last controller lines (run is dead)</h3><pre>" +
+      esc(tail.join("\n")) + "</pre>";
+  }
+  $("resumebody").innerHTML = body;
+}
+
+var lastRun = null;
+var lastResume = null;
+var tick = 0;
+var delayMs = 5000;        // base poll
+var MAX_DELAY = 30000;     // backoff cap on failure
+var RESUME_EVERY = 3;      // the resume panel shells out to git - poll it slower
+var timer = null;
+
+async function load() {
+  // One loop, one model. Clearing first means the manual refresh reschedules
+  // the existing cycle instead of starting a second one beside it.
+  if (timer !== null) { clearTimeout(timer); timer = null; }
+  var wantResume = (tick % RESUME_EVERY === 0) || lastResume === null;
+  tick += 1;
+  var res = await Promise.all([jget("/api/run"), wantResume ? jget("/api/resume") : null]);
+  var p = res[0], r = res[1];
+  if (p) {
+    lastRun = p;
+    delayMs = 5000;
+    $("downbanner").style.display = "none";
+  } else {
+    delayMs = Math.min(delayMs * 2, MAX_DELAY);
+    $("downbanner").style.display = "inline-block";
+    if (lastRun) { p = lastRun; if (p.manifest) { p.manifest.stale = true; } }
+  }
+  if (p) { rHeader(p); rAlerts(p); rFacts(p); rSlices(p); rFleet(p); }
+  if (r) { lastResume = r; }
+  rResume(r || lastResume);
+  timer = setTimeout(load, delayMs);
+}
+$("refresh").addEventListener("click", function () { tick = 0; load(); });
+load();
+</script>
+</body>
+</html>
