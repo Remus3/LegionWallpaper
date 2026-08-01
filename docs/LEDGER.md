@@ -27,6 +27,38 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+78. DONE **2026-08-01 (the 12 flagged swaps APPROVED on operator override; the
+    swap is complete at 22/22).** Operator instruction after LEDGER 77 reported
+    the flags. `lw_pipeline.py approve <slug> --force` on the 12, which records
+    `gate_check: override`. Verified by reading the manifests back rather than
+    trusting exit codes: the 22 `APPROVE_FIRST` transitions carry
+    `audit.approval.gate_check` = **`pass` x10, `override` x12**, each override
+    keeping its `FLAG` verdict and exact reason strings, which is the
+    override-must-not-look-like-a-clean-pass property `_approval_record` exists
+    to preserve (`tools/lw_pipeline.py:971-993`). Final state, measured on disk:
+    `2.First Pass Done` back to **288 slug folders** (the pre-swap count, 22 of
+    them now built from canonical wiki sources), every swapped `_firstinitial`
+    matching its wiki original's exact dimensions and every `_firstdone` exactly
+    2560x1440, `1.First Pass Scratch` back to **20** (exactly the pre-existing
+    WIP slugs, nothing left behind), `scan` counts 267 first_done + 21
+    clean_scratch = 288 with **anomalies 0 / needs_attention 0**. TWO PROBE
+    BUGS OF MY OWN, both caught by disbelieving a clean-looking result: (1) a
+    bash `while read` loop over a slug list Python had written with
+    `write_text`, which translates `\\n` to `\\r\\n` on Windows - every slug
+    carried a trailing CR, matched no directory, and all 12 approvals failed
+    with "not in any scratch"; nothing was mutated, and the retry ran from
+    Python instead of the shell. (2) a probe reading `transition.audit.gate_check`
+    reported MISSING on all 22 and would have supported a false claim that
+    LEDGER 61's recording was never wired - the record is NESTED at
+    `transition.audit.approval`. Also corrected: an earlier count of "276 Done
+    folders" came from `ls -1`, which hides `.gitkeep`; `iterdir()` sees 289
+    entries = 288 dirs + the dotfile, so the two numbers never disagreed.
+    Residue filed as ROADMAP `wiki-swap-manifest-hash-residue`: `scan --verify`
+    reports 32 HASH_MISMATCH, 21 on the swapped slugs (the manifest INTAKE
+    transition still records the ORIGINAL intake hash) and 11 on slugs this
+    operation never touched. Bookkeeping only; the `_firstdone` files are
+    correct and a plain `scan` is clean.
+
 77. DONE **2026-08-01 (the 22 wiki upgrades SWAPPED IN; 10 approved, 12 queued
     at NEEDAUTH).** `tools/lw_wiki_swap_oneoff.py` +
     `tests/test_lw_wiki_swap_oneoff.py` (10 tests) +
