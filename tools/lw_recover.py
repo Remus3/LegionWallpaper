@@ -37,6 +37,7 @@ import json
 import os
 import re
 import subprocess
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, List, Optional
@@ -101,8 +102,22 @@ def _default_http(url: str, *, data: Optional[bytes] = None,
     if headers:
         merged.update(headers)
     req = urllib.request.Request(url, data=data, headers=merged)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.status, resp.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            return resp.status, resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as err:
+        # urlopen RAISES on 4xx/5xx, so without this the getter could only ever
+        # return 200 and every non-200 branch in oembed_liveness /
+        # saucenao_search was unreachable in production - live only from the
+        # injected test fakes, which DID return (404, ...). Measured against
+        # recorded DeviantArt bytes 2026-08-01: a dead deviation arrived as
+        # "probe could not complete" (the transport-error path) instead of the
+        # no_canonical_url / inconclusive verdicts the callers branch on, and
+        # SauceNAO's 429 quota handling had the same hole. HTTPError IS a
+        # readable response, so hand the caller the status and the body and let
+        # the verdict logic do its job. A genuine transport failure (no
+        # listener, DNS, timeout) still propagates to the caller's except.
+        return err.code, err.read().decode("utf-8", errors="replace")
 
 
 # ===========================================================================

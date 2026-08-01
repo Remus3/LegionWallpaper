@@ -1,0 +1,15 @@
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 4380
+Connection: keep-alive
+Date: Sat, 01 Aug 2026 19:31:51 GMT
+X-Backend: web_http_back
+Server: Apache
+Cache-control: max-age=180
+Expires: Sat, 01 Aug 2026 19:34:51 GMT
+Vary: Accept-Encoding
+X-Cache: Miss from cloudfront
+Via: 1.1 a9f98893f7a1d623b9cace367b0b4afe.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: DFW59-P8
+X-Amz-Cf-Id: 9Gcu9SeLOmtyFci74ikDWZ7KzFRjYdwBT0QSQ288vhQ9SSWT-Okpnw==
+
