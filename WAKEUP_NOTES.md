@@ -11,9 +11,10 @@
 
 ---
 
-## 2026-08-01 (latest) - P7: the claim table finally REFUSES something
+## 2026-08-01 (latest) - P7: the claim table finally REFUSES something; P8 closed on fit
 
-Two commits: `b7814b3` (the gate) + this docs sync. Suite **1640 passed /
+Commits `b7814b3` (the gate), `a26e690` (docs sync, CI **green, confirmed with
+`gh`** on the full sha), plus the P8 decision commit. Suite **1640 passed /
 16 skipped** (baseline 1624 + 16 new), ruff clean, drift_guard 0 breaches.
 
 - **P7 shipped as `start_gate()` (LEDGER 80).** `set --status in_progress` is now
@@ -32,11 +33,24 @@ Two commits: `b7814b3` (the gate) + this docs sync. Suite **1640 passed /
   without asserting the exit code, so they would have passed vacuously under the
   gate. Each now claims first and asserts the 0.
 
-NEXT: **P8** (gitwand, gated on one probe - do its 7 MCP tools accept a worktree
-path? if not it cannot touch LW's merge path at all). Also open: L2's
-retrospective half (`claimed_green_gate.py` has no CLI and no history mode), and
+**P8 followed, same session (LEDGER 81) - probe answered YES, adoption DECLINED
+on fit, nothing installed.** Read at source via `gh api`, not the marketplace
+page: all 7 gitwand MCP tools take a per-call `cwd`, every git access is
+`execFileSync("git", args, {cwd})` with no `.git`-as-directory assumption, so a
+worktree path works. The gate is cleared and the tool is still not worth taking -
+P7 shipped hours earlier makes LW's merge conflicts rare BY ENFORCEMENT, so an
+auto-resolver has ~nothing to resolve. REOPEN only if the orchestrator is widened
+past disjointness, and do NOT re-run the probe. Gotcha if it ever is adopted:
+every explain/trace string is hardcoded FRENCH with em-dashes - it must never
+reach a commit message or a tracked doc.
+
+NEXT: **L2's retrospective half** - `tools/claimed_green_gate.py` reads a Stop-hook
+payload from stdin and has no CLI and no history mode, so the question the triage
+posed (retroactively, how often was a green claim in this repo unbacked?) is still
+untouched. Lift red-handed's detector design, do NOT install it. Also open:
 `wiki-swap-manifest-hash-residue` (scan --verify HASH_MISMATCH on 21 of 22,
-bookkeeping only). Loose end unchanged: two stale worktrees still registered.
+bookkeeping only; plain scan is clean). Loose end unchanged: two stale worktrees
+still registered - check for unmerged work before removing.
 
 ---
 

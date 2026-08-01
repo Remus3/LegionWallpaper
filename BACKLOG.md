@@ -260,6 +260,42 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     marketplace title says "1 Tools" against 14 in its body, and it carries a
     Spanish-language line advertising an `/api/orchestrate` endpoint at "Fee:
     $0.20 USDC via x402" matching no listed tool.
+  - **P8 - gitwand. PROBE ANSWERED **YES**, ADOPTION DECLINED ON FIT
+    2026-08-01 (LEDGER 81) - do not re-run the probe.** The gate this was held
+    on is CLEARED, and the premise under it was WRONG: the page's worktree talk
+    does describe the desktop GUI, but the 7 MCP tools do not depend on it -
+    EVERY tool takes a per-call `cwd` ("Working directory (repo root). Defaults
+    to server cwd."), there is a server-level `--cwd` too, and every git access
+    in `packages/mcp` is `execFileSync("git", args, {cwd})` with NO
+    `.git`-as-a-directory assumption anywhere, so a linked worktree resolves
+    exactly as it does on the command line. Technically adoptable.
+    DECLINED anyway, and P7 is why: LW's conflicts were "rare by design" and are
+    now rare BY ENFORCEMENT - `start_gate` refuses to start an agent on a file
+    another agent holds, so the disjoint-file merge path has close to nothing
+    left to auto-resolve. Adding a node/npx MCP server to the merge path to
+    resolve conflicts that the gate prevents is cost against ~zero benefit.
+    REOPEN TRIGGER (unchanged, now explicit): the orchestrator being widened
+    past disjointness. Reopen with the probe already answered.
+    Measured while there, all at source, none of it from the marketplace page:
+    the "10 deterministic patterns" claim is EXACT (12 pattern modules minus
+    `complex` and `llm-proposed`); "never touches complex or ambiguous hunks" is
+    STRUCTURAL rather than a threshold - `complex` is a priority-999 pattern
+    whose `detect()` always returns true, so anything unmatched falls into it;
+    and the MCP path is fully OFFLINE - zero `fetch`/http/api-key hits across
+    `packages/mcp` and core's `resolver`/`config`/`index`, with
+    `gitwand_resolve_hunk_llm` VALIDATING a resolution the calling agent
+    proposed rather than calling any model itself ("the agent IS the LLM").
+    LW-specific gotcha if it is ever adopted: every classification rationale -
+    the exact payload `gitwand_explain_hunk` and the DecisionTrace exist to
+    deliver - is hardcoded FRENCH prose containing em-dashes, so it must never
+    be pasted into a commit message or a doc (ASCII hard rule).
+    Worth lifting with no install, both validated shapes: (a) refusal as a
+    priority-999 always-true fallback rather than a confidence cutoff, which is
+    the same "refuse by default, grant on positive evidence" shape `start_gate`
+    just shipped; (b) the propose/validate split, where the tool hands out
+    ours/base/theirs plus a trace and the CALLER proposes, then a second call
+    validates before applying - no vendor key anywhere in the design.
+    Original entry below for the evidence trail.
   - **P8 - gitwand for merge-conflict auto-resolution. LATER.** Held at 6 and
     "verified better than expected", but never phased. Auto-resolution is a
     LOCAL pattern registry with no key and no LLM call - LLM involvement is

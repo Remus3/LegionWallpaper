@@ -27,6 +27,59 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+81. DONE **2026-08-01 (P8 - gitwand: probe answered YES, adoption DECLINED on
+    fit; docs-only).** P8 was explicitly gated on ONE question - do the 7 MCP
+    tools accept a worktree path, because the worktree support quoted on the
+    page describes the DESKTOP GUI - and it is answered without installing
+    anything, by reading the MIT source through `gh api` (the standing
+    go-upstream-not-to-the-marketplace-page rule). ANSWER: **yes**, and the
+    premise underneath the doubt was wrong. `packages/mcp/src/tools/index.ts`
+    gives EVERY one of the 7 tools a per-call `cwd` parameter documented as
+    "Working directory (repo root). Defaults to server cwd."; `server.ts` also
+    accepts a launch-level `--cwd`; and every git access is
+    `execFileSync("git", args, {cwd})`, with `resolvePath(cwd, file)` the only
+    path construction and NO `.git`-as-a-directory assumption anywhere in the
+    package - so a linked worktree (where `.git` is a FILE) resolves exactly as
+    it does on the command line. The tool is technically adoptable on LW.
+    DECLINED ANYWAY, and the reason is item 80 shipped hours earlier: LW's
+    conflicts were "rare by design", and `start_gate` makes them rare BY
+    ENFORCEMENT - an agent cannot begin a slice holding a file another agent
+    holds, so the disjoint-file merge path has close to nothing left for an
+    auto-resolver to resolve. Standing up a node/npx MCP server inside the merge
+    path to handle conflicts the gate prevents is cost against ~zero benefit.
+    The BACKLOG's own condition is kept as the REOPEN TRIGGER: widen the
+    orchestrator past disjointness and this comes back, with the probe already
+    answered - do not re-run it.
+    Claims CHECKED at source rather than believed: "10 deterministic patterns"
+    is EXACT (12 modules in `packages/core/src/patterns/` minus `complex` and
+    `llm-proposed`); "never touches complex or ambiguous hunks" is STRUCTURAL,
+    not a tuned threshold - `complex` is registered at priority 999 with a
+    `detect()` that always returns true, and `classifier.ts` even calls the
+    no-match branch unreachable, so anything the deterministic patterns miss
+    falls into complex by construction; and the MCP path is fully OFFLINE -
+    `grep` for `fetch(`/`http`/`axios`/`apiKey` returns ZERO across
+    `packages/mcp/{server.ts,tools/index.ts,tools/resolve_hunk.ts}` and core's
+    `resolver.ts` / `config.ts` / `index.ts`. `gitwand_resolve_hunk_llm` does
+    not call a model at all: it VALIDATES and applies a resolution the calling
+    agent proposed (the package header calls this "the agent IS the LLM"), and
+    the "endpoint LLM configuré" wording survives only inside a description
+    string. So the BACKLOG's "LLM involvement is opt-in" was UNDERSTATED - there
+    is no LLM client in the MCP package to opt into.
+    LW-SPECIFIC GOTCHA recorded for any future adoption: every classification
+    rationale in `classifier.ts` - precisely the payload `gitwand_explain_hunk`
+    and the DecisionTrace exist to deliver - is hardcoded FRENCH prose carrying
+    em-dashes. It must never reach a commit message or a tracked doc (ASCII hard
+    rule); an adoption would need a translation/strip layer at the boundary.
+    LIFTED, no install: (a) refusal as a priority-999 always-true FALLBACK
+    pattern rather than a confidence cutoff - the same "refuse by default, grant
+    only on positive evidence" shape `start_gate` shipped in item 80, arrived at
+    independently, which is worth noting as convergent rather than borrowed;
+    (b) the propose/validate SPLIT - one call hands out ours/base/theirs plus a
+    classification trace and asks the caller to propose, a second call validates
+    before applying - the reusable shape if LW ever wants assisted resolution
+    without a vendor key. NOT INSTALLED, nothing added to the MCP config, no
+    dependency taken.
+
 80. DONE **2026-08-01 (P7 - the start gate: a slice cannot begin unclaimed;
     `b7814b3`).** P4 shipped the claim TABLE and nothing called it, so
     disjointness stayed advisory - f1-phase6 queue item 7 word for word: nothing
