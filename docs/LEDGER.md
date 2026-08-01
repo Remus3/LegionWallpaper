@@ -27,6 +27,49 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+72. DONE **2026-08-01 (P3 - the MediaWiki probe answered YES on the source and
+    NO on the server; docs-only).** `docs/MCP_LIFT_P3_2026-08-01.md`. Third
+    phase of `mcp-lift-phases`, operator gate lifted this session. Premise
+    CORRECTED: the dive framed P3 as "professionalwiki vs olgasafonova, decided
+    by whether `get-file-data` returns bytes from a Fandom wiki". The probe was
+    run against the MediaWiki Action API DIRECTLY - what BOTH candidate servers
+    wrap - and it answers in ~40 lines of stdlib `urllib`, the transport
+    `lw_recover.py` already uses. So the capability is real and NEITHER server is
+    warranted; the impl choice inverts a second time to "adopt the source,
+    decline both wrappers". Measured over three network-live read-only rounds
+    against 20 champions taken from real slug names in `2.First Pass Done`:
+    both wikis answer anonymously with no key or account (Fandom MW 1.43.9,
+    wiki.gg MW 1.45.3); 19 of 20 champions carry `*Skin_HD.jpg`, at least 147 HD
+    files, **143 of 147 at or above 2560x1440** (5000x2950 to 10000x6105, top
+    11084x6425) - which would make first pass a downscale-only passthrough for
+    any slug it covers rather than an AI upscale. Round 1 caught the trap that
+    makes this a fidelity finding and not just a coverage one: **Fandom's own
+    API-returned URL serves a lossy WEBP transcode under a `.jpg` name**,
+    2,473,238 B against a declared 8,799,303 B, with the 7200x4400 pixel
+    dimensions preserved so a dimensions check reads clean - the same shape as
+    `first-pass-alpha-letterbox`, an unannounced format conversion every cheap
+    check passes. `?format=original` fixes it. Round 2 then found NO fetch path
+    on EITHER host returns bytes matching the declared sha1 (8,792,719 Fandom /
+    8,740,911 wiki.gg vs 8,799,303 declared), so provenance must record the
+    sha256 of what was FETCHED and must never assert identity to the declared
+    hash. Round 3 existed only to kill two claims round 2 could not support, and
+    both were wrong: `ailimit=500` was the CAP not the count (following
+    `aicontinue` took Vayne from 12 HD to 19, Nidalee 12 to 17), so every round-2
+    number is reported as a LOWER BOUND; and `Velkoz_` -> 0 HD was a
+    title-normalization miss, not absence - `Vel'Koz_` returns 8 HD all over
+    target. Verification: no code shipped, so no suite delta; every number above
+    came from a live probe this session, and the two claims that could not be
+    verified in-round were re-probed rather than restated. Scope calls logged in
+    the doc as NOT claimed because NOT measured: whether this helps the EXISTING
+    corpus (the wiki hosts official Riot splash, much of LW's corpus is
+    DeviantArt fan art no wiki hosts), whether a wiki HD file beats the held
+    `_firstinitial` for any given slug, and licensing. Counting that intersection
+    is the honest next slice, ahead of any Tier-0.5 build. Do-not-redo: install
+    either MediaWiki MCP server; fetch a Fandom file URL without
+    `?format=original`; assert byte-identity to the API-declared sha1; read a
+    per-champion `allimages` count without `aicontinue`; read a 0-result name
+    guess as absence.
+
 71. DONE **2026-08-01 (P1 - the Stop-hook claimed-green gate, and the live
     probe that caught it lying).** `tools/claimed_green_gate.py` +
     `tests/test_claimed_green_gate.py` (26 tests), wired into the `Stop` slot in

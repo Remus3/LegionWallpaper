@@ -89,7 +89,34 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     real DeviantArt oEmbed + gallery-dl exchanges once, including a quota block,
     and replay them. Acceptance: recovery tests pass with the network unplugged
     and the hand-written stubs deleted.
-  - **P3 - MediaWiki canonical-source probe. OPERATOR-GATED.** Use
+  - **P3 - DONE 2026-08-01, result in `docs/MCP_LIFT_P3_2026-08-01.md`.** The
+    probe answered YES on the capability and NO on the server, so the impl
+    choice INVERTS a second time: **adopt the source, decline both wrappers.**
+    Both wikis serve splash art anonymously (Fandom MW 1.43.9, wiki.gg MW
+    1.45.3), 19 of 20 sampled champions carry `*Skin_HD.jpg` and 143 of 147 HD
+    files are at or above 2560x1440 (up to 11084x6425) - so a canonical source
+    could turn the AI upscale into a downscale-only passthrough for the slugs it
+    covers. But the probe ran against the Action API DIRECTLY, which is what
+    both candidate servers wrap, and it answers in ~40 lines of stdlib `urllib`
+    - the transport `lw_recover.py` already uses. Installing either buys a Node
+    or Go/Docker dependency for zero new capability.
+    Prefer **wiki.gg**; Fandom is the fallback and MUST carry `?format=original`.
+    NOT claimed because NOT measured: that this helps the EXISTING corpus (the
+    wiki hosts official Riot splash; much of LW's corpus is DeviantArt fan art
+    no wiki hosts), that a wiki HD file beats the held `_firstinitial` for any
+    given slug, or anything about licensing. Counting that intersection is the
+    honest next slice, ahead of any Tier-0.5 build.
+    Do-not-redo: installing either MediaWiki MCP server; fetching a Fandom file
+    URL WITHOUT `?format=original` (the default is a lossy WEBP transcode served
+    under a `.jpg` name at 28 percent of the declared size, with the pixel dims
+    preserved so a dimensions check reads clean); asserting byte-identity to the
+    API-declared sha1 (NO host serves bytes matching it - all three paths
+    re-encode, so record the sha256 of what was FETCHED); reading a
+    per-champion `allimages` count without following `aicontinue` (500 is the
+    cap, and the full walk took Vayne from 12 HD to 19); reading a 0-result name
+    guess as absence (`Velkoz_` -> 0, `Vel'Koz_` -> 8 HD all over target -
+    apostrophes are load-bearing).
+    Original scope, kept for reference: use
     `professionalwiki/mediawiki-mcp-server`, NOT olgasafonova: it is the only one
     of the two exposing `get-file-data` (inline image bytes) plus `get-file`
     download links, and LW's need is splash-art FILES, not article text. One
