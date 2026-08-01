@@ -61,7 +61,29 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     `text_first_guard.py` + `pytest_guard.py` for the exit-0-stdout asymmetry -
     for PreToolUse/PostToolUse/Stop, exit-0 stdout goes to the DEBUG LOG only
     and never reaches the model; use `additionalContext` or exit 2.
-  - **P2 - mockd for the recovery waterfall. NEXT after P1.** One zero-dependency
+  - **P2 - DONE 2026-08-01, commit `9d63303`.** mockd v0.7.1 installed at
+    `C:\Tools\mockd` (operator-approved, sha256 verified), real oEmbed
+    exchanges recorded to `tests/fixtures/deviantart/`, replayed by a headless
+    `mockd engine` in `tests/test_lw_recover_replay.py` (11 tests, skip when
+    mockd is absent). **The recording refuted the suite**: `_default_http`
+    wrapped `urlopen`, which RAISES on 4xx/5xx, so the getter could only ever
+    return 200 and every non-200 branch in `oembed_liveness` /
+    `saucenao_search` was unreachable in production - live only from the
+    hand-written fakes that DID return `(404, ...)`. A dead deviation was
+    landing on the transport-error verdict, so tier routing branched on the
+    wrong one. Fixed by consuming `HTTPError` as the response it is.
+    Do-not-redo: the mockd matcher key is `queryParams`, not `query`, and the
+    engine binds a control port derived from the serving port, so tests must
+    use `--port 0 --print-url`. The hand-written stubs were KEPT, not deleted:
+    the fix made them accurate rather than obsolete, and they cover waterfall
+    routing the replay file does not. Still open from the original scope: a
+    recorded quota BLOCK (could not be captured - `original=true` was not
+    blocked on 2026-08-01, rc=0 and a 1.77 MB original came back, which also
+    makes memory `reference-deviantart-recovery` stale on that point) and a
+    paginated gallery. gallery-dl is a subprocess, not http, so mockd cannot
+    mock it; proxying its https needs the MITM CA trusted machine-wide, which
+    is an operator call. Original scope, kept for reference:
+    One zero-dependency
     Go binary with prebuilt WINDOWS releases, fully offline, no account,
     Apache-2.0, stateful multi-step flows AND proxy record-and-replay. Record the
     real DeviantArt oEmbed + gallery-dl exchanges once, including a quota block,
