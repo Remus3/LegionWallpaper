@@ -27,6 +27,52 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+65. DONE **2026-08-01 (the directive-history data spine: run id, cost, session
+    id - and the reader nothing called).** Instrumentation backlog items 4 and 5
+    of `docs/RUNDASH_SPEC_2026-08-01.md`.
+    Premise VERIFIED at the source before coding: `loop_controller:705` really
+    does `done = rec.raw` and passes only that dict to
+    `record_directive_outcome`, so `cost_usd` and `session_id` - fields on the
+    `DoneRecord` itself, not on `raw` - were dropped on the floor and survived
+    only as prose in `controller.log`. The file carried no run id at all.
+    Writer: `record_directive_outcome` takes `done_record` and `run_id` as
+    separate optional args. `done` stays `rec.raw` carried through untouched -
+    the director prompt is built from it and reshaping it would be a behaviour
+    change. Both new args degrade rather than raise, because nothing here may
+    crash the loop.
+    Reader: a real `run_id` is authoritative for run segmentation. The old
+    cycle-number heuristic is KEPT as the fallback for records already on disk,
+    which can never gain an id retroactively. `run_id_backed` is False unless
+    EVERY parsed record carries an id, so a half-instrumented file never renders
+    as authoritative. `_float_or_none` returns None rather than 0.0 for a junk
+    field, because "no receipt" and "cost nothing" are different answers and the
+    AHK channel genuinely returns 0.0.
+    Third thing, unplanned: `read_cycle_history` had NO production consumer. It
+    was built, tested and never called - so nothing the controller recorded about
+    a resolved cycle ever reached the API. Wired into `build_run_view` as
+    `view["cycles"]`, capped at `CYCLE_HISTORY_N = 40` because the file is
+    append-only and never cleared.
+    TDD RED-first: `tests/test_directive_history_spine.py` written first, 9 of 11
+    red, then 2 more red for the API wiring. The controller function is extracted
+    from source (importing `loop_controller` RUNS a controller) using the same
+    pattern as `tests/test_director_prompt_budget.py`. Coverage includes the
+    heuristic's two blind spots stated as tests: two runs whose cycles ascend
+    across the boundary (merged) and a restart that resumes lower (split).
+    Verified: 1429 passed / 16 skipped (was 1416 - the 13 new tests), ruff clean
+    over `tools/` + `tests/` + `ops/`. The 60+ existing rundash-state tests pass
+    unchanged, which is the additive-schema check.
+    CORRECTION to LEDGER 64's L1 write-up: that doc dismissed
+    `read_cycle_history` as a skylos false positive on a raw count of 12
+    references. Every one was its own definition or a test. skylos was right;
+    counting references without reading them cannot tell a live consumer from a
+    test, and a grep count is not the source-of-truth re-probe CLAUDE.md asks
+    for. `docs/MCP_LIFT_L1_2026-08-01.md` is corrected in place.
+    FUTURE: the data reaches `/api/run` but no panel draws it - rendering is a
+    page change and owes the UI fixture ritual, so it is deliberately a separate
+    slice. The three run-id namespaces (`slice_manifest.run_id`, controller
+    `run_id`, Claude `sessionId`) still have no join; item 5 only fixed
+    `directive_history.jsonl`.
+
 64. DONE **2026-08-01 (GpuBusy fork unified + the two uncovered catch sites).**
     Premise VERIFIED before coding: `GpuBusy` really was declared four times -
     `lw_g1_gate:61`, `lw_upscale:64`, `lw_gen_run:69`, `lw_clean_sdxl:70`, with

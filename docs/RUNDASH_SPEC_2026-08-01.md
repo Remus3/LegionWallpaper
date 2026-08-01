@@ -211,13 +211,19 @@ token counts, never dollars.
 2. **Persisted verifier verdicts.** Currently chat-only.
 3. **Per-slice suite observations** as append-only events - the datum the whole
    evidence ledger is made of.
-4. **Cost and session id into `directive_history.jsonl`.** Both are live in the
-   `DoneRecord` and dropped when the record is built; today they exist only as
-   prose in `controller.log`. Roughly a two-line change.
-5. **One authoritative run id.** Three id spaces exist with no mapping:
-   `slice_manifest.run_id` (`2026-07-30-01`), controller `run_id` (`7dd1dc02`),
-   Claude `sessionId`. `directive_history.jsonl` has no run id at all, so cycle
-   numbers collide across runs.
+4. ~~**Cost and session id into `directive_history.jsonl`.**~~ DONE 2026-08-01
+   (LEDGER 65). `record_directive_outcome` now takes the `DoneRecord` alongside
+   `done` (which stays `rec.raw`, carried through untouched because the director
+   prompt is built from it) and writes `cost_usd` + `session_id`.
+5. ~~**One authoritative run id.**~~ DONE 2026-08-01 (LEDGER 65) for
+   `directive_history.jsonl`: records now carry the controller `run_id`, and the
+   reader segments on it when present. The cycle-number heuristic survives as
+   the fallback for records already on disk, which can never gain an id
+   retroactively; `run_id_backed` is False unless EVERY record has one, so a
+   half-instrumented file never renders as authoritative.
+   STILL OPEN, and the harder half: mapping the three id spaces to each other -
+   `slice_manifest.run_id` (`2026-07-30-01`), controller `run_id` (`7dd1dc02`)
+   and Claude `sessionId` are still three namespaces with no join.
 6. **Mirror at-risk agent metadata into `ops/runtime/`** before Claude Code's
    cleanup reaps it.
 7. **`truth_gate.py` is never invoked by the run flow** - its report has never

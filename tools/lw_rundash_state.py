@@ -219,6 +219,20 @@ def _int_or_none(value):
         return None
 
 
+def _float_or_none(value):
+    """None for junk, never 0.0 - "no receipt" and "cost nothing" differ.
+
+    The AHK channel genuinely returns 0.0 (no receipt at all); a torn or absent
+    field must not be presented as the same thing.
+    """
+    if value is None:
+        return None
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 # ------------------------------------------------------------ P1: manifest
 
 
@@ -604,16 +618,34 @@ def read_cycle_history(path, now_ts=None, *, limit=None):
             "tests_raw": obj.get("tests"),
             "regress": bool(obj.get("regress")),
             "verdict": _str_or_none(obj.get("verdict")) or "",
+            "run_id": _str_or_none(obj.get("run_id")),
+            "cost_usd": _float_or_none(obj.get("cost_usd")),
+            "session_id": _str_or_none(obj.get("session_id")),
             "line_no": i + 1,
         })
     out["parsed"] = len(recs)
 
     # File order is append order, which is chronological; ts is the tiebreaker
     # and the only cross-run-safe identity, so key on it rather than on cycle.
-    run_index, prev_cycle = 0, None
+    #
+    # Segmentation has two modes and the panel must be able to tell them apart.
+    # A real run_id is authoritative. The cycle heuristic - a number that fails
+    # to advance starts a new segment - is the fallback for the records already
+    # on disk, which can never gain an id retroactively. The heuristic is not
+    # wrong, it is UNBACKED: it cannot separate a genuine new run from a
+    # controller that restarted and resumed at a lower cycle, and it merges two
+    # runs whose cycle numbers happen to ascend across the boundary. run_id_backed
+    # is False unless EVERY parsed record carries an id, so a half-instrumented
+    # file never renders as authoritative.
+    out["run_id_backed"] = bool(recs) and all(r["run_id"] for r in recs)
+    run_index, prev_cycle, prev_run_id = 0, None, None
     for r in recs:
-        c = r["cycle"]
-        if prev_cycle is None or (c is not None and c <= prev_cycle):
+        c, rid = r["cycle"], r["run_id"]
+        if out["run_id_backed"]:
+            if rid != prev_run_id:
+                run_index += 1
+            prev_run_id = rid
+        elif prev_cycle is None or (c is not None and c <= prev_cycle):
             run_index += 1
         if c is not None:
             prev_cycle = c

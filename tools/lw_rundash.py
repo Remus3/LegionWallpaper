@@ -76,6 +76,10 @@ CONFIG_PATH = ROOT / "ops" / "loop" / "config.json"
 PAGE_PATH = ROOT / "web" / "rundash.html"
 RUNDASH_LOG = ROOT / "logs" / "lw_rundash.log"
 
+# How many resolved cycles the /api/run payload carries. The file is append-only
+# and NEVER cleared, so it grows without bound - the payload must not.
+CYCLE_HISTORY_N = 40
+
 # Where Claude Code keeps this project's sessions, and with them the only record
 # of which agent owned which worktree. AVAILABLE, NOT DURABLE - no
 # cleanupPeriodDays is set, so absent is a normal answer here.
@@ -338,6 +342,14 @@ def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=
              else {"ok": True, "present": False, "agents": [],
                    "counts": {"total": 0, "running": 0, "worktree": 0, "other": 0},
                    "output_tokens": 0})
+    # The resolved-cycle chain. read_cycle_history was built and tested but had
+    # NO production consumer, so nothing the controller records about a finished
+    # cycle - cost, session id, which run it belonged to - ever reached the API.
+    # Non-atomic producer: a torn TAIL line is expected and discarded inside the
+    # reader, so this stays a plain poll.
+    cycles = rundash_state.read_cycle_history(
+        Path(control_dir) / "directive_history.jsonl", now_ts, limit=CYCLE_HISTORY_N)
+
     head = head_summary(repo_root, runner=runner, git=git)
     if not head["ok"] and head["error"]:
         log.info("head_summary failed: %s", head["error"])
@@ -435,6 +447,7 @@ def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=
         "open_count": manifest["open_count"],
         "disjointness": disjoint,
         "fleet": fleet,
+        "cycles": cycles,
         "alerts": alerts,
         "stuck_count": stuck_count,
     }

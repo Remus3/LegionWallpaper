@@ -292,18 +292,34 @@ def directive_title(body):
             return s[:160]
     return "(empty)"
 
-def record_directive_outcome(cycle, body, sha_before, sha_after, done, verdict, ctl=None):
+def record_directive_outcome(cycle, body, sha_before, sha_after, done, verdict,
+                             ctl=None, done_record=None, run_id=None):
     """Append one resolved-cycle record to control/directive_history.jsonl.
 
     The controller is the single writer; the file is gitignored runtime state and
     is NEVER cleared (newest-first read via read_directive_history), so the
-    directive chain persists across the frequent mid-run controller restarts."""
+    directive chain persists across the frequent mid-run controller restarts.
+
+    `done` is `DoneRecord.raw` - the claude.done payload - and cost_usd and
+    session_id are NOT in it: they are fields on the DoneRecord itself, which is
+    why they used to be dropped here and survive only as prose in controller.log.
+    `done_record` is that DoneRecord, taken separately so the raw payload keeps
+    being carried through untouched (the director prompt is built from it).
+
+    `run_id` is the controller's own run id. Without it cycle numbers COLLIDE
+    across runs and a reader can only guess at run boundaries from a cycle number
+    that fails to advance - which cannot distinguish a new run from a restart
+    that resumed lower. Both stay optional: nothing here may crash the loop, and
+    a missing value must degrade to the old behaviour rather than raise."""
     base = Path(ctl) if ctl is not None else CTL
     d = done or {}
     rec = {"cycle": cycle, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+           "run_id": run_id,
            "title": directive_title(body),
            "sha_before": (sha_before or "")[:8], "sha_after": (sha_after or "")[:8],
            "tests": d.get("tests_pass"), "regress": bool(d.get("regressions")),
+           "cost_usd": float(getattr(done_record, "cost_usd", 0.0) or 0.0),
+           "session_id": getattr(done_record, "session_id", None),
            "verdict": ((verdict or "").strip().splitlines() or [""])[0]}
     try:
         with open(base / "directive_history.jsonl", "a", encoding="utf-8") as f:
@@ -746,7 +762,8 @@ def main():
         log(f"cycle {cycle}: audit -> {'REGRESS' if regress else 'CLEAN'}")
         # Persist the resolved directive to the chain so the NEXT director cycle
         # sees what was already issued + shipped and builds on it (continuity fix).
-        record_directive_outcome(cycle, body, prev_sha, new_sha, done, verdict)
+        record_directive_outcome(cycle, body, prev_sha, new_sha, done, verdict,
+                                 done_record=rec, run_id=RUN_ID)
         prev_sha = new_sha
 
     stop(f"max_cycles {CFG['max_cycles']} reached")

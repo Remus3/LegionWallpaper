@@ -36,13 +36,17 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   from an append-only per-slice verdict history written only through
   `slice_orchestrator.py`. A REFUTE with no later CONFIRM renders REFUTED even
   when the slice is `committed`; earlier refutations survive as `prior_refutes`.
-  Next, from `docs/RUNDASH_SPEC_2026-08-01.md`: persisted per-slice suite
-  observations; cost + sid into `directive_history.jsonl` (both live in the
-  `DoneRecord` and dropped when the record is built); ONE authoritative run id
-  (three id spaces exist with no mapping); mirror at-risk agent metadata out of
-  the transcript dir before Claude Code's cleanup reaps it; `truth_gate.py` is
-  never invoked by the run flow so its report has never been written on this
-  machine; P4 and P5 panels unbuilt.
+  ALSO DONE 2026-08-01 (LEDGER 65): the directive-history spine - `run_id`,
+  `cost_usd` and `session_id` now reach the file, the reader segments runs on a
+  real id with the cycle heuristic kept as the legacy fallback, and
+  `read_cycle_history` is wired into `/api/run`, which it never was.
+  Next, from `docs/RUNDASH_SPEC_2026-08-01.md`: RENDER the cycle history - the
+  data reaches the API but no panel draws it, and a page change owes the UI
+  fixture ritual; persisted per-slice suite observations; map the three run-id
+  namespaces to each other (the spine only fixed `directive_history.jsonl`);
+  mirror at-risk agent metadata out of the transcript dir before Claude Code's
+  cleanup reaps it; `truth_gate.py` is never invoked by the run flow so its
+  report has never been written on this machine; P4 and P5 panels unbuilt.
   Do-not-redo: do NOT collapse `lw_httpd.parse_ts` and
   `lw_rundash_state.parse_iso` - naive UTC vs naive LOCAL, 5h apart here, and
   `loop_controller.py:303` writes naive LOCAL so `parse_iso` is correct.
