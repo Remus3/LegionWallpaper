@@ -606,13 +606,22 @@ def claim_single_controller():
     if lock.exists():
         rec = rjson(lock, {})
         holder = int(rec.get("pid", 0) or 0)
-        if holder and holder != os.getpid() and slots.pid_alive(holder):
+        # A live pid does not prove the ORIGINAL holder lives: Windows reissues
+        # pids, and on 2026-08-01 this lock named a pid from a run that ended
+        # five days earlier which the OS had since handed to an unrelated
+        # conhost. Bare liveness wedged the repo. A holder owns it for at most a
+        # cycle, so a lock older than the stale window cannot be a live run.
+        age = time.time() - float(rec.get("ts", 0) or 0)
+        fresh = age < slots.DEFAULT_STALE_AFTER
+        alive = bool(holder) and holder != os.getpid() and slots.pid_alive(holder)
+        if alive and fresh:
             sys.stderr.write(
                 f"another controller is already running in this repo "
                 f"(pid={holder} run_id={rec.get('run_id')} since {rec.get('ts')}). "
                 f"Stop it first, or delete {lock} if it is a stale leftover.\n")
             sys.exit(2)
-        log(f"reclaiming stale RUNNING.lock (pid={holder} not alive)")
+        why = "not alive" if not alive else f"expired ({age:.0f}s old)"
+        log(f"reclaiming stale RUNNING.lock (pid={holder} {why})")
     run_id = uuid.uuid4().hex[:8]
     awrite(lock, json.dumps({"pid": os.getpid(), "run_id": run_id,
                              "ts": time.time(), "repo": str(ROOT)}))

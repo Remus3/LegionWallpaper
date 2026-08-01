@@ -178,6 +178,83 @@ def test_second_controller_in_the_same_repo_exits_nonzero(tmp_path: Path):
     assert "already running" in (r.stderr + r.stdout)
 
 
+def test_controller_reclaims_a_lock_whose_pid_was_recycled(tmp_path: Path):
+    """A live pid does not prove the ORIGINAL holder is still alive.
+
+    Measured on the real tree 2026-08-01: control/RUNNING.lock named pid 8532
+    from a run that ended 2026-07-27, and pid 8532 had since been reissued to a
+    conhost.exe started that morning. Bare pid liveness said "alive", so a fresh
+    launch refused to start and the loop was wedged for five days behind a lock
+    whose owner had exited cleanly (STOP was present the whole time).
+
+    The corroboration is lock AGE: the holder claims a repo for at most a cycle
+    deadline, so a lock far older than the stale window cannot belong to a live
+    run no matter what the pid table says.
+    """
+    import subprocess
+    ctl = tmp_path / "control"
+    ctl.mkdir()
+    cfg = json.loads((ROOT / "ops" / "loop" / "config.dry.json").read_text(encoding="utf-8"))
+    cfg.update({"control_dir": str(ctl), "max_cycles": 1, "cycle_deadline_sec": 3,
+                "poll_sec": 1, "fixed_directive": "noop", "session_jsonl": ""})
+    cfgp = tmp_path / "cfg.json"
+    cfgp.write_text(json.dumps(cfg), encoding="utf-8")
+
+    # os.getpid() is unambiguously alive - the point is that aliveness alone
+    # must not be enough when the lock predates any plausible run.
+    stale = _load("slots").DEFAULT_STALE_AFTER
+    (ctl / "RUNNING.lock").write_text(
+        json.dumps({"pid": os.getpid(), "run_id": "recycled",
+                    "ts": time.time() - (stale * 4)}),
+        encoding="utf-8")
+
+    proc = subprocess.Popen(
+        [sys.executable, str(ROOT / "ops" / "loop" / "loop_controller.py"), str(cfgp)],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        claimed = False
+        for _ in range(150):
+            if (ctl / "run_id.txt").is_file():
+                claimed = True
+                break
+            if proc.poll() is not None:
+                break
+            time.sleep(0.1)
+        assert claimed, "an expired lock must not wedge the repo behind a recycled pid"
+        rec = json.loads((ctl / "RUNNING.lock").read_text(encoding="utf-8"))
+        assert rec["pid"] == proc.pid
+    finally:
+        proc.kill()
+        proc.wait(timeout=30)
+
+
+def test_controller_still_refuses_a_live_holder_inside_the_stale_window(tmp_path: Path):
+    """The sibling of the case above: age must not become a way to steal a repo.
+
+    A genuinely running controller mid-cycle has a fresh lock, and the age
+    corroboration must not weaken that refusal.
+    """
+    import subprocess
+    ctl = tmp_path / "control"
+    ctl.mkdir()
+    cfg = json.loads((ROOT / "ops" / "loop" / "config.dry.json").read_text(encoding="utf-8"))
+    cfg.update({"control_dir": str(ctl), "max_cycles": 1, "cycle_deadline_sec": 5,
+                "poll_sec": 1, "fixed_directive": "noop", "session_jsonl": ""})
+    cfgp = tmp_path / "cfg.json"
+    cfgp.write_text(json.dumps(cfg), encoding="utf-8")
+
+    stale = _load("slots").DEFAULT_STALE_AFTER
+    (ctl / "RUNNING.lock").write_text(
+        json.dumps({"pid": os.getpid(), "run_id": "held",
+                    "ts": time.time() - (stale * 0.5)}),
+        encoding="utf-8")
+
+    r = subprocess.run([sys.executable, str(ROOT / "ops" / "loop" / "loop_controller.py"),
+                        str(cfgp)], capture_output=True, text=True, timeout=120)
+    assert r.returncode != 0, "a live holder inside the window still owns the repo"
+    assert "already running" in (r.stderr + r.stdout)
+
+
 def test_controller_reclaims_a_lock_held_by_a_dead_pid(tmp_path: Path):
     """Fail-open: a crashed controller must not lock the repo out forever."""
     import subprocess
