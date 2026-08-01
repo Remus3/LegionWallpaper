@@ -24,12 +24,26 @@ exactly that way - tools/lw_first_pass.py spawns .venv-upscale python for the
 upscale and .venv-metrics python for the metrics - so acquisition lives at the
 LEAF and never at an orchestrator. test_no_python_child_is_spawned_inside_a_hold
 and test_known_orchestrators_do_not_acquire are the guards that keep it there.
+
+TWO HYBRIDS, not one. lw_gen_run and lw_gen_weaponpass are each a CUDA worker
+AND a spawner of a child that acquires, so each is split: the hold sits on the
+in-process CUDA work and never spans the shell-out. The weapon pass is the
+harder of the two because it reaches its child through a CLOSURE in a local
+variable, which no lexical sweep can resolve - hence the named per-file guards
+test_gen_run_does_not_hold_across_its_qa_subprocess and
+test_weaponpass_does_not_hold_across_its_gate_subprocess alongside the generic
+sweep. The sweep itself was widened 2026-08-01 to see os.system, from-imported
+spawners, aliased modules, and a hold that calls a local helper which spawns one
+frame down; test_the_spawn_guard_catches_the_shapes_it_claims_to_catch is its
+self-test.
 """
 from __future__ import annotations
 
 import ast
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -42,6 +56,7 @@ import lw_clean_iopaint as iopaint  # noqa: E402
 import lw_clean_pass as cleanpass  # noqa: E402
 import lw_clean_sdxl as sdxl  # noqa: E402
 import lw_g1_gate as g1  # noqa: E402
+import lw_gen_qa as genqa  # noqa: E402
 import lw_gen_run as genrun  # noqa: E402
 import lw_upscale as upscale  # noqa: E402
 
@@ -78,7 +93,41 @@ ACQUIRE_SITES = [
     # test_gen_run_does_not_hold_across_its_qa_subprocess.
     ("lw_gen_run.py", "_load_pipeline"),
     ("lw_gen_run.py", "_generate_candidates"),
+    # open-clip QA scoring. score_batch takes ONE hold for the whole candidate
+    # list (the model is already resident; releasing between candidates would
+    # only hand another process a card LW still occupies) and weapon_crop_report
+    # takes one for the single --weapon-crop encode. Both are pure leaves: this
+    # module has no subprocess call at all, so no split is needed here.
+    ("lw_gen_qa.py", "score_batch"),
+    ("lw_gen_qa.py", "weapon_crop_report"),
+    # Weapon pass. TWO sites, both strictly inside the in-process CUDA work -
+    # see test_weaponpass_does_not_hold_across_its_gate_subprocess for why the
+    # fix loop itself must stay unheld.
+    ("lw_gen_weaponpass.py", "_build_real_inpainter"),
+    ("lw_gen_weaponpass.py", "_inpaint"),
+    # W4 LoRA training. Hand-run leaf with no spawn site anywhere in tools/ or
+    # ops/, and no CPU path at all (train() refuses without CUDA).
+    ("lw_gen_train_weapon_lora.py", "train"),
 ]
+
+# (file, class, method) for acquisitions that live on a METHOD. _funcs() keys on
+# the bare name and ClipScorer.load / WeaponClipScorer.load collide there, so a
+# bare-name guard would silently check only one of the two.
+ACQUIRE_METHODS = [
+    ("lw_gen_qa.py", "ClipScorer", "load"),
+    ("lw_gen_qa.py", "WeaponClipScorer", "load"),
+]
+
+# Tools that acquire but must NOT carry their own copy of the helper: each runs
+# in a venv where an existing owner is already importable, so a fresh copy would
+# be one more place for GPU_MUTEX_TIMEOUT_S to drift. lw_gen_qa runs in
+# .venv-metrics alongside lw_g1_gate; the other two run in .venv-gen alongside
+# lw_gen_run.
+BORROWERS = {
+    "lw_gen_qa.py": "lw_g1_gate",
+    "lw_gen_weaponpass.py": "lw_gen_run",
+    "lw_gen_train_weapon_lora.py": "lw_gen_run",
+}
 
 # Modules that carry their OWN copy of the helper. Four copies exist because
 # these tools run under four different venvs (.venv-upscale, .venv-metrics,
@@ -145,8 +194,10 @@ def _holds(node):
 
 def test_the_guard_has_something_to_guard():
     """An empty sweep must never read as a pass."""
-    assert len(ACQUIRE_SITES) >= 10
+    assert len(ACQUIRE_SITES) >= 15
     for fname, _ in ACQUIRE_SITES:
+        assert (TOOLS / fname).is_file(), f"tools/{fname} does not exist"
+    for fname, _cls, _meth in ACQUIRE_METHODS:
         assert (TOOLS / fname).is_file(), f"tools/{fname} does not exist"
 
 
@@ -165,6 +216,45 @@ def test_cuda_leaf_acquires_gpu_mutex(fname, func):
     assert _holds(fn), (
         f"tools/{fname}:{func}() does real CUDA work but never enters a "
         f"`with {LOCK_NAME}(...)` block - the GPU is unserialized there")
+
+
+@pytest.mark.parametrize("fname,cls,meth", ACQUIRE_METHODS,
+                         ids=[f"{f}:{c}.{m}" for f, c, m in ACQUIRE_METHODS])
+def test_cuda_method_acquires_gpu_mutex(fname, cls, meth):
+    """Same guard as the leaf one, resolved through the CLASS.
+
+    Both open-clip scorers name their loader load(); keying on the bare name
+    would check one of them twice and the other never.
+    """
+    tree = _parse(TOOLS / fname)
+    klass = next((n for n in ast.walk(tree)
+                  if isinstance(n, ast.ClassDef) and n.name == cls), None)
+    assert klass is not None, f"tools/{fname} has no class {cls}"
+    fn = next((n for n in klass.body
+               if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+               and n.name == meth), None)
+    assert fn is not None, f"tools/{fname}:{cls} has no method {meth}()"
+    assert _holds(fn), (
+        f"tools/{fname}:{cls}.{meth}() pulls CLIP weights onto the card but "
+        f"never enters a `with {LOCK_NAME}(...)` block")
+
+
+@pytest.mark.parametrize("fname,owner", sorted(BORROWERS.items()))
+def test_borrowers_reuse_an_existing_copy_rather_than_forking_one(fname, owner):
+    """A fifth/sixth/seventh copy of the helper is a drift surface, not safety.
+
+    The four copies that DO exist are forced by the four-venv split (see
+    LOCK_OWNERS). These three tools each run in a venv that already has an owner
+    importable, so they borrow it - which is also why they do not appear in the
+    LOCK_OWNERS parametrizations below.
+    """
+    src = (TOOLS / fname).read_text(encoding="utf-8")
+    assert f"def {LOCK_NAME}(" not in src, (
+        f"tools/{fname} forked its own copy of the helper; it must import "
+        f"{owner}'s - one venv, one number")
+    assert owner in src, (
+        f"tools/{fname} acquires the GPU mutex but never mentions {owner}, so "
+        f"it is not borrowing the copy this test claims it borrows")
 
 
 def test_every_lock_owner_exposes_the_helper():
@@ -261,6 +351,75 @@ def test_cuda_path_takes_the_mutex_and_logs_the_window(mod, monkeypatch):
     assert any("RELEASED" in ln for ln in lines)
 
 
+def _cuda_uses(tree):
+    """Real cuda USE in a module: `x.cuda` attributes and "cuda" string values.
+
+    AST rather than a line grep because the wiring comments and module headers
+    in these files discuss cuda at length, and a text sweep would read every one
+    of those sentences as a GPU consumer. Docstrings are excluded for the same
+    reason; comments never reach the AST at all.
+    """
+    docs = set()
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef)) or not body:
+            continue
+        head = body[0]
+        if (isinstance(head, ast.Expr) and isinstance(head.value, ast.Constant)
+                and isinstance(head.value.value, str)):
+            docs.add(id(head.value))
+
+    hits = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == "cuda":
+            hits.append(node)
+        elif (isinstance(node, ast.Constant) and isinstance(node.value, str)
+              and "cuda" in node.value.lower() and id(node) not in docs):
+            hits.append(node)
+    return hits
+
+
+def test_no_cuda_consumer_in_tools_is_left_unwired():
+    """The census, as a guard instead of a claim in a commit message.
+
+    Two sibling repos share this GPU and one of them is waiting on the answer to
+    "is LW's CUDA lane fully serialized". Answering that by reading a report
+    dated today is how it silently stops being true: the next tool that calls
+    .to("cuda") reopens the unserialized lane and no existing test says a word.
+    This turns the answer into something the suite re-derives every run.
+
+    Exemptions are the two settled onnx-CPU tools (LEDGER 19), and the failure
+    message names the two legitimate resolutions so nobody satisfies it by
+    deleting the string.
+    """
+    wired = {f for f, _ in ACQUIRE_SITES} | {f for f, _c, _m in ACQUIRE_METHODS}
+    # The exemption list is what makes this pass, so prove it is load-bearing:
+    # a _cuda_uses that silently matched nothing would turn the whole sweep into
+    # a green that means "I looked at no code".
+    assert _cuda_uses(_parse(TOOLS / "lw_upscale.py")), (
+        "_cuda_uses found no cuda in a known CUDA consumer - the detector is "
+        "broken and this test is passing vacuously")
+
+    exempt = wired | set(CPU_ONLY_TOOLS)
+    unwired = []
+    for py in sorted(TOOLS.glob("*.py")):
+        if py.name in exempt:
+            continue
+        try:
+            tree = _parse(py)
+        except SyntaxError:
+            continue
+        hits = _cuda_uses(tree)
+        if hits:
+            unwired.append(f"{py.name}:{hits[0].lineno}")
+    assert not unwired, (
+        f"these tools touch cuda but acquire no GPU mutex: {unwired}. Either "
+        f"wire the leaf and add it to ACQUIRE_SITES, or - if it genuinely runs "
+        f"on CPU like the DWPose tools - add it to CPU_ONLY_TOOLS with the "
+        f"evidence. Leaving it is an unserialized lane two other repos share.")
+
+
 @pytest.mark.parametrize("fname", CPU_ONLY_TOOLS)
 def test_cpu_only_tools_are_not_wired(fname):
     """DWPose is onnx-CPU (LEDGER 19). No cuda, therefore no mutex."""
@@ -348,17 +507,101 @@ def test_path_binding_reaches_the_real_winmutex():
 
 # ---- the self-deadlock guards ----------------------------------------------
 
-def _spawn_calls(node):
-    """Every subprocess.<spawn>(...) call lexically inside `node`."""
+# Widened 2026-08-01. The first version matched `subprocess.<attr>(...)` and
+# nothing else, so three real shapes walked straight past it: os.system, a
+# `from subprocess import run` binding, and - the one that actually mattered
+# here - a hold that calls a LOCAL helper which does the spawning one frame
+# down. lw_gen_run._shell_stage and lw_gen_weaponpass._build_real_gate are both
+# exactly that shape, so the widening is not hypothetical.
+#
+# WHAT IT STILL CANNOT SEE, stated rather than papered over: the weapon pass
+# invokes its shell-out through a CLOSURE held in a local variable
+# (`active_gate(crop_pil)`), and no lexical pass can resolve a variable to the
+# function it was assigned. That gap is why
+# test_weaponpass_does_not_hold_across_its_gate_subprocess exists as a named,
+# per-file guard rather than trusting this sweep to cover everything.
+_SUBPROCESS_SPAWNERS = {"run", "Popen", "call", "check_call", "check_output",
+                        "getoutput", "getstatusoutput"}
+_OS_SPAWNERS = {"system", "popen", "startfile", "execv", "execve", "execvp",
+                "execvpe", "spawnv", "spawnve", "spawnl", "spawnle",
+                "posix_spawn", "posix_spawnp", "fork", "forkpty"}
+
+
+def _spawn_imports(tree):
+    """(module-alias -> real module, {bare names bound to a spawn function})."""
+    aliases = {}
+    bare = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                if a.name in ("subprocess", "os"):
+                    aliases[a.asname or a.name] = a.name
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "subprocess":
+                pool = _SUBPROCESS_SPAWNERS
+            elif node.module == "os":
+                pool = _OS_SPAWNERS
+            else:
+                continue
+            for a in node.names:
+                if a.name in pool:
+                    bare.add(a.asname or a.name)
+    return aliases, bare
+
+
+def _spawn_calls(node, aliases=None, bare=frozenset()):
+    """Every process-spawning call lexically inside `node`."""
+    if aliases is None:
+        aliases = {"subprocess": "subprocess", "os": "os"}
     out = []
     for sub in ast.walk(node):
         if not isinstance(sub, ast.Call):
             continue
         f = sub.func
-        if (isinstance(f, ast.Attribute)
-                and isinstance(f.value, ast.Name) and f.value.id == "subprocess"):
+        if isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name):
+            mod = aliases.get(f.value.id)
+            if mod == "subprocess":
+                out.append(sub)
+            elif mod == "os" and f.attr in _OS_SPAWNERS:
+                out.append(sub)
+        elif isinstance(f, ast.Name) and f.id in bare:
             out.append(sub)
     return out
+
+
+def _local_spawners(tree, aliases, bare):
+    """Module-local function names that reach a spawn, transitively.
+
+    Deliberately over-approximating: a function whose NESTED def spawns counts
+    as spawning, because calling the outer one is how you get the inner one.
+    Over-approximating is the safe direction - a false positive costs one
+    justified SPAWN_INSIDE_HOLD_ALLOWED entry, a false negative costs a hang.
+    """
+    funcs = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            funcs.setdefault(node.name, node)
+    reach = {n for n, fn in funcs.items() if _spawn_calls(fn, aliases, bare)}
+    changed = True
+    while changed:
+        changed = False
+        for name, fn in funcs.items():
+            if name in reach:
+                continue
+            for sub in ast.walk(fn):
+                if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+                        and sub.func.id in reach):
+                    reach.add(name)
+                    changed = True
+                    break
+    return reach
+
+
+def _indirect_spawn_calls(node, spawners):
+    """Calls to a module-local function that reaches a spawn one frame down."""
+    return [sub for sub in ast.walk(node)
+            if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+            and sub.func.id in spawners]
 
 
 def _scan_files():
@@ -387,9 +630,16 @@ def test_no_python_child_is_spawned_inside_a_hold():
         except SyntaxError:  # py_compile's job, not this test's
             continue
         rel = py.relative_to(ROOT).as_posix()
+        if rel in SPAWN_INSIDE_HOLD_ALLOWED:
+            continue
+        aliases, bare = _spawn_imports(tree)
+        spawners = _local_spawners(tree, aliases, bare)
         for hold in _holds(tree):
-            if _spawn_calls(hold) and rel not in SPAWN_INSIDE_HOLD_ALLOWED:
-                offenders.append(f"{rel}:{hold.lineno}")
+            direct = _spawn_calls(hold, aliases, bare)
+            indirect = _indirect_spawn_calls(hold, spawners)
+            if direct or indirect:
+                via = ",".join(sorted({c.func.id for c in indirect})) or "direct"
+                offenders.append(f"{rel}:{hold.lineno} (via {via})")
     assert not offenders, (
         f"subprocess spawned while holding GPU_MUTEX at {offenders} - if that "
         f"child ever acquires the same mutex it blocks forever. Move the spawn "
@@ -432,3 +682,276 @@ def test_gen_run_does_not_hold_across_its_qa_subprocess():
             f"lw_gen_run.{name}() opened a gpu_lock block - it spawns "
             f"lw_gen_qa in .venv-metrics from inside its round loop, which "
             f"would deadlock the parent against its own child")
+
+
+def test_weaponpass_does_not_hold_across_its_gate_subprocess():
+    """The SECOND hybrid, and the one the generic sweep cannot see.
+
+    run_pass()'s clip lane alternates _inpaint_roll (CUDA, in process) with
+    active_gate(crop_pil), and the real gate closure shells
+    `lw_gen_qa.py --weapon-crop` into .venv-metrics. lw_gen_qa now acquires
+    GPU_MUTEX itself, so a hold widened over that loop is the textbook
+    parent-holds-while-child-waits deadlock - and because the gate arrives as a
+    closure in a local variable, no lexical sweep can resolve it. Hence this
+    named guard: the acquisitions live in _build_real_inpainter and in the real
+    _inpaint closure, both of which return before the gate is ever called.
+
+    The accepted cost is the same one lw_gen_run pays: the inpaint pipe stays
+    resident on the card between rolls while the mutex is free.
+    """
+    tree = _parse(TOOLS / "lw_gen_weaponpass.py")
+    funcs = _funcs(tree)
+    for name in ("weapon_pass", "main", "_build_real_gate"):
+        fn = funcs.get(name)
+        assert fn is not None, f"lw_gen_weaponpass has no {name}()"
+        assert not _holds(fn), (
+            f"lw_gen_weaponpass.{name}() opened a gpu_lock block - the weapon "
+            f"gate shells lw_gen_qa.py into .venv-metrics, and lw_gen_qa "
+            f"acquires the same mutex, so the parent would wait on its child "
+            f"forever")
+
+
+def test_inpaint_roll_itself_stays_unheld_so_stub_tests_take_no_machine_mutex():
+    """_inpaint_roll is called with an INJECTED inpainter throughout the suite.
+
+    tests/test_lw_gen_weaponpass.py drives the whole fix loop with a stub
+    inpainter, so a hold placed in _inpaint_roll would make an ordinary CI run
+    grab the machine-wide GPU mutex once per roll - and block for the full
+    timeout whenever a real generation happened to be running. The hold belongs
+    in the REAL closure, which a stub never reaches.
+    """
+    tree = _parse(TOOLS / "lw_gen_weaponpass.py")
+    fn = _funcs(tree).get("_inpaint_roll")
+    assert fn is not None
+    assert not _holds(fn), (
+        "lw_gen_weaponpass._inpaint_roll acquires GPU_MUTEX, but the test "
+        "suite calls it with a stub inpainter - CI would take a machine-wide "
+        "lock it has no business taking")
+
+
+def test_the_spawn_guard_catches_the_shapes_it_claims_to_catch():
+    """Self-test: an assertion nobody can prove is an assertion nobody trusts.
+
+    The original guard matched `subprocess.<attr>(...)` only. Each snippet here
+    is a real way to start a process that the original form let through, so this
+    is what makes the widening honest rather than decorative.
+    """
+    cases = {
+        "os.system": "import os\nwith gpu_lock('cuda'):\n    os.system('py x.py')\n",
+        "from-import": ("from subprocess import run\n"
+                        "with gpu_lock('cuda'):\n    run(['py', 'x.py'])\n"),
+        "aliased module": ("import subprocess as sp\n"
+                           "with gpu_lock('cuda'):\n    sp.Popen(['py'])\n"),
+    }
+    for label, src in cases.items():
+        tree = ast.parse(src)
+        aliases, bare = _spawn_imports(tree)
+        holds = _holds(tree)
+        assert holds, label
+        assert _spawn_calls(holds[0], aliases, bare), (
+            f"the spawn guard does not see the {label} form")
+
+    indirect = (
+        "import subprocess\n"
+        "def _shell(cmd):\n"
+        "    subprocess.run(cmd)\n"
+        "def work():\n"
+        "    with gpu_lock('cuda'):\n"
+        "        _shell(['py', 'x.py'])\n"
+    )
+    tree = ast.parse(indirect)
+    aliases, bare = _spawn_imports(tree)
+    spawners = _local_spawners(tree, aliases, bare)
+    assert "_shell" in spawners and "work" in spawners
+    hold = _holds(tree)[0]
+    assert not _spawn_calls(hold, aliases, bare), (
+        "the indirect case must be invisible to the DIRECT matcher - otherwise "
+        "this test is not proving the transitive layer does anything")
+    assert _indirect_spawn_calls(hold, spawners), (
+        "a hold that calls a local helper which spawns is the exact shape "
+        "lw_gen_run._shell_stage has, and the guard missed it")
+
+    clean = ("import subprocess\n"
+             "def _shell(cmd):\n    subprocess.run(cmd)\n"
+             "def work():\n    with gpu_lock('cuda'):\n        pass\n"
+             "    _shell(['py'])\n")
+    tree = ast.parse(clean)
+    aliases, bare = _spawn_imports(tree)
+    spawners = _local_spawners(tree, aliases, bare)
+    assert not _indirect_spawn_calls(_holds(tree)[0], spawners), (
+        "a spawn OUTSIDE the hold is the correct pattern and must not be "
+        "flagged - a guard that fires on the fix teaches people to disable it")
+
+
+# ---- lw_gen_qa: one hold per batch, none on the CPU fallback ----------------
+
+class _StubScore:
+    subject_cos = 0.9
+    off_cos = 0.1
+    aesthetic = 0.9
+    lap_var = 500.0
+    weapon_cos = 0.9
+    weapon_off = 0.1
+
+
+class _StubScorer:
+    """Stands in for ClipScorer. `device` is what score_batch keys the hold on."""
+
+    def __init__(self, device):
+        self.device = device
+        self.calls = 0
+
+    def __call__(self, path):
+        self.calls += 1
+        return _StubScore()
+
+
+def _qa_batch(tmp_path, n=3):
+    batch = tmp_path / "batch"
+    batch.mkdir()
+    manifest = {"subject": "Vayne", "candidates": [
+        {"file": f"cand_{i:02d}.png", "round": 1, "seed": i} for i in range(n)]}
+    (batch / "gen_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return batch
+
+
+def test_qa_batch_takes_exactly_one_hold_for_the_whole_candidate_list(tmp_path,
+                                                                     monkeypatch):
+    """Per-candidate acquire/release would hand the card away mid-batch.
+
+    The CLIP model is resident for the whole batch; dropping the mutex between
+    two candidates lets another repo start a load LW is about to interrupt. One
+    hold is safe here precisely because lw_gen_qa spawns nothing - unlike the
+    two hybrids, it has no shell-out to stay outside of.
+    """
+    fake, lines = _wire(g1, monkeypatch)
+    scorer = _StubScorer("cuda")
+    genqa.score_batch(str(_qa_batch(tmp_path, n=3)), scorer=scorer, config={})
+    assert scorer.calls == 3
+    assert [c["name"] for c in fake.calls] == ["Global\\LW_GPU"], (
+        f"expected ONE hold for the batch, got {len(fake.calls)}")
+    assert any("ACQUIRED" in ln for ln in lines)
+
+
+def test_qa_batch_on_a_cpu_scorer_takes_no_mutex(tmp_path, monkeypatch):
+    """The stub scorer the rest of the suite injects must stay lock-free too.
+
+    Every other lw_gen_qa test drives score_batch with a bare stub. If the hold
+    were unconditional, an ordinary CI run would take a machine-wide lock and
+    could sit on it while a real generation waited.
+    """
+    fake, lines = _wire(g1, monkeypatch)
+    genqa.score_batch(str(_qa_batch(tmp_path, n=2)),
+                      scorer=_StubScorer("cpu"), config={})
+    assert fake.calls == []
+    assert lines == []
+
+
+def test_qa_batch_with_a_deviceless_stub_defaults_to_cpu(tmp_path, monkeypatch):
+    """A plain function has no .device - it must read as CPU, not as CUDA.
+
+    tests/test_lw_gen_qa.py injects exactly that. Defaulting the unknown case to
+    "cuda" would be the fail-dangerous direction: it takes a real lock on the
+    strength of an attribute that is not there.
+    """
+    fake, _lines = _wire(g1, monkeypatch)
+    genqa.score_batch(str(_qa_batch(tmp_path, n=2)),
+                      scorer=lambda path: _StubScore(), config={})
+    assert fake.calls == []
+
+
+def test_weapon_crop_report_holds_only_for_a_cuda_scorer(monkeypatch):
+    fake, _lines = _wire(g1, monkeypatch)
+    genqa.weapon_crop_report("ignored.png", _StubScorer("cpu"))
+    assert fake.calls == []
+    genqa.weapon_crop_report("ignored.png", _StubScorer("cuda"))
+    assert [c["name"] for c in fake.calls] == ["Global\\LW_GPU"]
+
+
+# ---- nesting + timeout semantics, against the REAL winmutex -----------------
+
+class _NamedShim:
+    """The real winmutex, renamed.
+
+    Exercising nesting against the live Global\\LW_GPU would contend with any
+    generation actually running on this machine, so these tests take a
+    process-unique name through the same code path instead. The primitive under
+    test is identical; only the string differs.
+    """
+
+    def __init__(self, real, name):
+        self._real = real
+        self.GPU_MUTEX = name
+        self.MutexTimeout = real.MutexTimeout
+
+    def hold(self, name, *, timeout=None, log=None):
+        return self._real.hold(name, timeout=timeout, log=log)
+
+
+def test_nested_same_thread_acquisition_does_not_deadlock(monkeypatch):
+    """lw_clean_sdxl.run_worklist holds, then calls into the weapon pass.
+
+    lw_clean_sdxl imports lw_gen_weaponpass._build_real_inpainter IN-PROCESS
+    while run_worklist holds the mutex, and _build_real_inpainter now acquires
+    too - so that is a nested same-thread acquisition. A Windows named mutex is
+    recursive (N acquires need N releases) and the `with` blocks are symmetric,
+    so it is safe; a naive non-recursive lock would wedge right here. The
+    non-Windows branch is a no-op, so CI alone would never tell you either way -
+    which is exactly why this is pinned on the real primitive.
+
+    The short timeout is the point: on a non-recursive lock this FAILS in five
+    seconds instead of hanging the suite for the production 1800.
+    """
+    real = g1._winmutex()
+    name = f"Global\\LW_GPU_NESTTEST_{os.getpid()}"
+    for mod in (g1, genrun):
+        monkeypatch.setattr(mod, "_winmutex", lambda r=real, n=name: _NamedShim(r, n))
+        monkeypatch.setattr(mod, "_gpu_log", lambda _msg: None)
+        monkeypatch.setattr(mod, "GPU_MUTEX_TIMEOUT_S", 5.0)
+
+    reached = False
+    with g1.gpu_lock("cuda"):
+        with genrun.gpu_lock("cuda"):
+            with g1.gpu_lock("cuda"):
+                reached = True
+    assert reached, "a nested same-thread acquire never returned"
+
+    # And the mutex is genuinely free afterwards - N releases for N acquires.
+    with g1.gpu_lock("cuda"):
+        pass
+
+
+def test_the_timeout_bounds_the_WAIT_not_the_HOLD(monkeypatch):
+    """Why the LoRA trainer keeps the shared 1800 instead of a bespoke number.
+
+    winmutex.hold passes `timeout` to WaitForSingleObject (winmutex.py:96-101),
+    so it caps how long a caller waits to ACQUIRE - it is not a deadline on the
+    body. A multi-hour training hold therefore cannot time itself out, and the
+    argument for giving that tool a longer constant does not survive contact
+    with the primitive. Pinned here because the day someone "fixes" hold() to
+    bound the body instead, a legitimate overnight LoRA run starts dying at the
+    30 minute mark with no other test noticing.
+    """
+    real = g1._winmutex()
+    name = f"Global\\LW_GPU_WAITTEST_{os.getpid()}"
+    monkeypatch.setattr(g1, "_winmutex", lambda: _NamedShim(real, name))
+    monkeypatch.setattr(g1, "_gpu_log", lambda _msg: None)
+    monkeypatch.setattr(g1, "GPU_MUTEX_TIMEOUT_S", 0.01)
+
+    with g1.gpu_lock("cuda"):
+        time.sleep(0.2)  # 20x the timeout, uncontended
+
+
+def test_the_lora_trainer_inherits_the_shared_timeout_by_import(monkeypatch):
+    """No bespoke constant, so no way for it to drift out of the shared number.
+
+    The trainer borrows lw_gen_run's helper wholesale rather than declaring its
+    own GPU_MUTEX_TIMEOUT_S, which is what makes
+    test_timeout_is_the_same_number_in_every_tool cover it for free.
+    """
+    src = (TOOLS / "lw_gen_train_weapon_lora.py").read_text(encoding="utf-8")
+    assert "GPU_MUTEX_TIMEOUT_S =" not in src, (
+        "the trainer declared its own timeout - a fifth number to keep in sync")
+    trainer = __import__("lw_gen_train_weapon_lora")
+    assert trainer.gpu_lock is genrun.gpu_lock
+    assert trainer.GpuBusy is genrun.GpuBusy

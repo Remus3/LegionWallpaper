@@ -26,6 +26,20 @@ the real backend + real inpainter builders, which the test suite never reaches
 (it injects stub backend + stub inpainter). The pure helpers
 (select_wrist_inputs / paste_back / assert_outside_identity) are unit-tested
 without any heavy dep.
+
+GPU_MUTEX (ops/loop/winmutex.py), and why this module is SPLIT. This is the
+second hybrid in the repo after lw_gen_run: run_pass() is a CUDA worker (the
+masked SDXL rolls, in process) AND an orchestrator (the real weapon gate shells
+`lw_gen_qa.py --weapon-crop` into .venv-metrics, where lw_gen_qa acquires the
+same mutex). A Windows named mutex is re-entrant per THREAD, not per process
+tree, so a hold spun around the fix loop - which interleaves _inpaint_roll with
+active_gate(crop_pil) - would block the parent on its own child forever. The
+acquisitions therefore live in _build_real_inpainter (weights onto the card) and
+in the real _inpaint closure (one roll), both of which return before the gate is
+ever called. run_pass itself must never acquire; _inpaint_roll must not either,
+because the test suite drives it with a stub inpainter and CI has no business
+taking a machine-wide lock. No fifth copy of the helper: this module already
+imports lw_gen_run, runs in the same .venv-gen, and calls gr.gpu_lock directly.
 """
 from __future__ import annotations
 
@@ -227,56 +241,75 @@ def _build_real_inpainter(config, ip_adapter=None, weapon_lora=None):
     from diffusers import AutoPipelineForInpainting
 
     model_abs = os.path.join(ROOT, config["model_path"])
-    base = gr._load_pipeline(config, model_abs, fast=False)
-    inpipe = AutoPipelineForInpainting.from_pipe(base, controlnet=None)
+    # GPU_MUTEX (see the module header): every line in this block pushes weights
+    # onto the card. gr._load_pipeline acquires the SAME mutex on the same
+    # thread, so this is a nested acquire - safe, because a Windows named mutex
+    # is recursive and both blocks are symmetric `with` statements (N acquires,
+    # N releases). tests/test_gpu_mutex_wiring covers it against the real
+    # primitive, because the non-Windows branch is a no-op and would never show
+    # a non-recursive lock wedging here.
+    with gr.gpu_lock("cuda"):
+        base = gr._load_pipeline(config, model_abs, fast=False)
+        inpipe = AutoPipelineForInpainting.from_pipe(base, controlnet=None)
 
-    if ip_adapter is not None:
-        inpipe.load_ip_adapter(
-            ip_adapter["path"], subfolder=ip_adapter["subfolder"],
-            weight_name=ip_adapter["weight_name"],
-            image_encoder_folder=ip_adapter["image_encoder_folder"],
-        )
-        inpipe.set_ip_adapter_scale(ip_adapter["scale"])
+        if ip_adapter is not None:
+            inpipe.load_ip_adapter(
+                ip_adapter["path"], subfolder=ip_adapter["subfolder"],
+                weight_name=ip_adapter["weight_name"],
+                image_encoder_folder=ip_adapter["image_encoder_folder"],
+            )
+            inpipe.set_ip_adapter_scale(ip_adapter["scale"])
         # The base pipe got enable_model_cpu_offload (gr._load_pipeline) BEFORE
         # load_ip_adapter registered the CLIP image_encoder, so that encoder was
-        # never offload-hooked and stayed on CPU -> a CUDA/CPU device mismatch
-        # when it encodes ip_adapter_image (observed e2e 2026-07-16). The SDXL
-        # inpaint offload seq DOES include image_encoder (text_encoder->
-        # text_encoder_2->image_encoder->unet->vae), so re-running offload here
-        # rebuilds the hooks WITH the encoder present (enable_model_cpu_offload
-        # calls remove_all_hooks first, so this is idempotent). Gated on offload
-        # being the active strategy (the fast/all-resident path is already .to
-        # cuda, and re-enabling would wrongly force offload on).
-        if ((config or {}).get("gen") or {}).get("offload", True):
-            inpipe.enable_model_cpu_offload()
+            # never offload-hooked and stayed on CPU -> a CUDA/CPU device
+            # mismatch when it encodes ip_adapter_image (observed e2e
+            # 2026-07-16). The SDXL inpaint offload seq DOES include
+            # image_encoder (text_encoder->text_encoder_2->image_encoder->unet
+            # ->vae), so re-running offload here rebuilds the hooks WITH the
+            # encoder present (enable_model_cpu_offload calls remove_all_hooks
+            # first, so this is idempotent). Gated on offload being the active
+            # strategy (the fast/all-resident path is already .to cuda, and
+            # re-enabling would wrongly force offload on).
+            if ((config or {}).get("gen") or {}).get("offload", True):
+                inpipe.enable_model_cpu_offload()
 
-    if weapon_lora is not None:
-        inpipe.load_lora_weights(
-            weapon_lora["path"], adapter_name=weapon_lora["adapter_name"])
-        inpipe.set_adapters(
-            [weapon_lora["adapter_name"]], adapter_weights=[weapon_lora["scale"]])
-        # Mirror the W3 offload fix: the LoRA layers were patched onto the UNet
-        # AFTER enable_model_cpu_offload built its hooks, so re-run offload
-        # (idempotent - remove_all_hooks first) to hook the new params. Gated on
-        # offload being active (the all-resident path is already .to cuda).
-        if ((config or {}).get("gen") or {}).get("offload", True):
-            inpipe.enable_model_cpu_offload()
+        if weapon_lora is not None:
+            inpipe.load_lora_weights(
+                weapon_lora["path"], adapter_name=weapon_lora["adapter_name"])
+            inpipe.set_adapters(
+                [weapon_lora["adapter_name"]],
+                adapter_weights=[weapon_lora["scale"]])
+            # Mirror the W3 offload fix: the LoRA layers were patched onto the
+            # UNet AFTER enable_model_cpu_offload built its hooks, so re-run
+            # offload (idempotent - remove_all_hooks first) to hook the new
+            # params. Gated on offload being active (the all-resident path is
+            # already .to cuda).
+            if ((config or {}).get("gen") or {}).get("offload", True):
+                inpipe.enable_model_cpu_offload()
 
     def _inpaint(image, mask_image, prompt, negative_prompt, strength, seed,
                  ip_adapter_image=None):
         import torch
 
-        generator = torch.Generator("cuda").manual_seed(int(seed))
-        extra = {}
-        if ip_adapter_image is not None:
-            extra["ip_adapter_image"] = ip_adapter_image
-        return inpipe(
-            prompt=prompt, negative_prompt=negative_prompt,
-            image=image, mask_image=mask_image, strength=float(strength),
-            num_inference_steps=WEAPON_STEPS, guidance_scale=WEAPON_GUIDANCE,
-            width=image.width, height=image.height, generator=generator,
-            **extra,
-        ).images[0]
+        # GPU_MUTEX around ONE roll, and no wider. run_pass's clip lane calls
+        # the weapon gate between rolls, and that gate shells lw_gen_qa.py into
+        # .venv-metrics where it acquires this same mutex - a Windows named
+        # mutex is re-entrant per THREAD, not per process tree, so a hold spun
+        # around the roll loop would block the parent on its own child forever.
+        # Acquiring HERE, inside the real closure, is also what keeps the hold
+        # off the stub inpainter every test injects.
+        with gr.gpu_lock("cuda"):
+            generator = torch.Generator("cuda").manual_seed(int(seed))
+            extra = {}
+            if ip_adapter_image is not None:
+                extra["ip_adapter_image"] = ip_adapter_image
+            return inpipe(
+                prompt=prompt, negative_prompt=negative_prompt,
+                image=image, mask_image=mask_image, strength=float(strength),
+                num_inference_steps=WEAPON_STEPS, guidance_scale=WEAPON_GUIDANCE,
+                width=image.width, height=image.height, generator=generator,
+                **extra,
+            ).images[0]
 
     if weapon_lora is not None:
         _inpaint.unload_lora = inpipe.unload_lora_weights

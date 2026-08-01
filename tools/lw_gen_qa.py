@@ -33,6 +33,26 @@ from typing import Any, Callable, Dict, Optional
 import numpy as np
 
 # --------------------------------------------------------------------------
+# Machine-wide GPU serialization (ops/loop/winmutex.py GPU_MUTEX)
+# --------------------------------------------------------------------------
+# One RTX 5070, shared by every headless loop on this machine. The tool that
+# touches CUDA is what ACQUIRES, so a hand-run of this module is protected too.
+#
+# PURE LEAF. This module contains no subprocess call of any kind: it is always
+# the CHILD (lw_gen_run.py shells it into .venv-metrics, and
+# lw_gen_weaponpass._build_real_gate shells its --weapon-crop mode), never a
+# parent. So there is no shell-out for a hold to accidentally span, and
+# score_batch can take ONE hold for the whole candidate list.
+#
+# No fifth copy of the helper: this module runs in .venv-metrics, the same venv
+# as lw_g1_gate, which already owns one - and lw_g1_gate is stdlib+numpy at
+# import time (pyiqa/torch are lazy inside it), so borrowing it keeps the
+# numpy+Pillow CI contract in the module docstring intact. lw_clean_pass borrows
+# the same copy for the same reason.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lw_g1_gate import GpuBusy, gpu_lock  # noqa: E402,F401
+
+# --------------------------------------------------------------------------
 # Fallback thresholds + distractors, used only when tools/lw_gen_config.json
 # cannot be read. The live values come from config qa{} (see load_config).
 # --------------------------------------------------------------------------
@@ -327,24 +347,36 @@ class ClipScorer:
         self._subject_embed = None
         self._distractor_embed = None
         self._aes_embed = None
+        # PUBLIC, and "cpu" until load() proves otherwise: score_batch keys its
+        # hold on this, and an injected stub scorer has no device at all. See
+        # scorer_device() for why the unknown case must read as cpu.
+        self.device = "cpu"
 
     def load(self) -> "ClipScorer":
         import open_clip  # lazy heavy dep
         import torch  # lazy heavy dep
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model, _, preprocess = open_clip.create_model_and_transforms(
-            self.clip_model, pretrained=self.clip_pretrained
-        )
-        model = model.to(device).eval()
-        tokenizer = open_clip.get_tokenizer(self.clip_model)
-        self._model = model
-        self._preprocess = preprocess
-        self._tokenizer = tokenizer
-        self._device = device
-        self._subject_embed = self._encode_text(self.subject_texts)
-        self._distractor_embed = self._encode_text(self.distractor_texts)
-        self._aes_embed = self._encode_text(["a high quality image", "a low quality image"])
+        # The hold covers the weight pull onto the card plus the text encodes,
+        # which are themselves GPU work. It is released before the caller opens
+        # its own batch hold rather than nesting - same thread either way, so
+        # nesting would be safe, but two adjacent windows read more honestly in
+        # the log than one window with a load and a scoring phase inside it.
+        with gpu_lock(device):
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                self.clip_model, pretrained=self.clip_pretrained
+            )
+            model = model.to(device).eval()
+            tokenizer = open_clip.get_tokenizer(self.clip_model)
+            self._model = model
+            self._preprocess = preprocess
+            self._tokenizer = tokenizer
+            self._device = device
+            self.device = device
+            self._subject_embed = self._encode_text(self.subject_texts)
+            self._distractor_embed = self._encode_text(self.distractor_texts)
+            self._aes_embed = self._encode_text(
+                ["a high quality image", "a low quality image"])
         return self
 
     def _encode_text(self, texts):
@@ -404,23 +436,26 @@ class WeaponClipScorer:
         self._device = None
         self._positive_embed = None
         self._distractor_embed = None
+        self.device = "cpu"  # see ClipScorer.__init__
 
     def load(self) -> "WeaponClipScorer":
         import open_clip  # lazy heavy dep
         import torch  # lazy heavy dep
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model, _, preprocess = open_clip.create_model_and_transforms(
-            self.clip_model, pretrained=self.clip_pretrained
-        )
-        model = model.to(device).eval()
-        tokenizer = open_clip.get_tokenizer(self.clip_model)
-        self._model = model
-        self._preprocess = preprocess
-        self._tokenizer = tokenizer
-        self._device = device
-        self._positive_embed = self._encode_text(self.positive_texts)
-        self._distractor_embed = self._encode_text(self.distractor_texts)
+        with gpu_lock(device):
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                self.clip_model, pretrained=self.clip_pretrained
+            )
+            model = model.to(device).eval()
+            tokenizer = open_clip.get_tokenizer(self.clip_model)
+            self._model = model
+            self._preprocess = preprocess
+            self._tokenizer = tokenizer
+            self._device = device
+            self.device = device
+            self._positive_embed = self._encode_text(self.positive_texts)
+            self._distractor_embed = self._encode_text(self.distractor_texts)
         return self
 
     def _encode_text(self, texts):
@@ -453,6 +488,19 @@ class WeaponClipScorer:
         return WeaponScore(weapon_cos, weapon_off, lap)
 
 
+def scorer_device(scorer: Any) -> str:
+    """The device an injectable scorer runs on; "cpu" when it does not say.
+
+    Deliberately fail-SAFE rather than fail-open: a stub scorer (every test in
+    tests/test_lw_gen_qa.py injects one) has no .device, and treating unknown as
+    "cuda" would make an ordinary CI run take the machine-wide GPU mutex on the
+    strength of an attribute that is not there - and hold it while a real
+    generation waited. The only thing that reads "cuda" here is a loaded
+    ClipScorer / WeaponClipScorer that actually placed weights on the card.
+    """
+    return str(getattr(scorer, "device", "cpu"))
+
+
 def weapon_crop_report(crop_path: str, scorer: "Callable[[str], WeaponScore]") -> Dict[str, float]:
     """Score one ROI crop and return a flat JSON-able dict.
 
@@ -460,7 +508,8 @@ def weapon_crop_report(crop_path: str, scorer: "Callable[[str], WeaponScore]") -
     shells this in .venv-metrics so torch/open_clip stay in the metrics venv.
     scorer is injectable (a WeaponClipScorer live, a stub in CI).
     """
-    s = scorer(crop_path)
+    with gpu_lock(scorer_device(scorer)):
+        s = scorer(crop_path)
     return {"weapon_cos": s.weapon_cos, "weapon_off": s.weapon_off, "lap_var": s.lap_var}
 
 
@@ -504,44 +553,53 @@ def score_batch(batch_dir: str, scorer: Optional[Scorer] = None,
         scorer = ClipScorer(config, manifest).load()
 
     candidates = manifest.get("candidates", [])
-    for cand in candidates:
-        cand_file = cand.get("file")
-        if not cand_file:
-            continue
-        img_path = os.path.join(batch_dir, cand_file)
-        scores = scorer(img_path)
-        g = grade(scores, thresholds)
+    # ONE hold for the whole list. The CLIP weights are already resident by this
+    # point, so releasing between candidates would only hand another process a
+    # card LW still occupies - the same reasoning as
+    # lw_gen_run._generate_candidates. Unlike that module this one can afford the
+    # wide hold: it spawns nothing, so there is no child to deadlock against.
+    # The per-candidate sidecar writes ride inside it; they are microseconds
+    # against a CLIP image encode and splitting the hold around them would cost
+    # more in lock churn than it returns.
+    with gpu_lock(scorer_device(scorer)):
+        for cand in candidates:
+            cand_file = cand.get("file")
+            if not cand_file:
+                continue
+            img_path = os.path.join(batch_dir, cand_file)
+            scores = scorer(img_path)
+            g = grade(scores, thresholds)
 
-        cand["subject_cos"] = scores.subject_cos
-        cand["off_cos"] = scores.off_cos
-        cand["margin"] = g.margin
-        cand["aesthetic"] = scores.aesthetic
-        cand["lap_var"] = scores.lap_var
-        cand["stage_a_pass"] = g.stage_a_pass
-        cand["stage_b_pass"] = g.stage_b_pass
-        cand["verdict"] = g.verdict
-        cand["reason"] = g.reason
+            cand["subject_cos"] = scores.subject_cos
+            cand["off_cos"] = scores.off_cos
+            cand["margin"] = g.margin
+            cand["aesthetic"] = scores.aesthetic
+            cand["lap_var"] = scores.lap_var
+            cand["stage_a_pass"] = g.stage_a_pass
+            cand["stage_b_pass"] = g.stage_b_pass
+            cand["verdict"] = g.verdict
+            cand["reason"] = g.reason
 
-        sidecar = {
-            "file": cand_file,
-            "round": cand.get("round"),
-            "seed": cand.get("seed"),
-            "model": manifest.get("model"),
-            "clip_model": manifest.get("clip_model"),
-            "prompt": manifest.get("prompt"),
-            "negative": manifest.get("negative"),
-            "subject_cos": scores.subject_cos,
-            "off_cos": scores.off_cos,
-            "margin": g.margin,
-            "aesthetic": scores.aesthetic,
-            "lap_var": scores.lap_var,
-            "stage_a_pass": g.stage_a_pass,
-            "stage_b_pass": g.stage_b_pass,
-            "verdict": g.verdict,
-            "reason": g.reason,
-            "thresholds": thresholds,
-        }
-        _atomic_write_json(_qa_sidecar_path(batch_dir, cand_file), sidecar)
+            sidecar = {
+                "file": cand_file,
+                "round": cand.get("round"),
+                "seed": cand.get("seed"),
+                "model": manifest.get("model"),
+                "clip_model": manifest.get("clip_model"),
+                "prompt": manifest.get("prompt"),
+                "negative": manifest.get("negative"),
+                "subject_cos": scores.subject_cos,
+                "off_cos": scores.off_cos,
+                "margin": g.margin,
+                "aesthetic": scores.aesthetic,
+                "lap_var": scores.lap_var,
+                "stage_a_pass": g.stage_a_pass,
+                "stage_b_pass": g.stage_b_pass,
+                "verdict": g.verdict,
+                "reason": g.reason,
+                "thresholds": thresholds,
+            }
+            _atomic_write_json(_qa_sidecar_path(batch_dir, cand_file), sidecar)
 
     _atomic_write_json(manifest_path, manifest)
     return manifest
