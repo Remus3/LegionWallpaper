@@ -32,10 +32,25 @@ This file is the operating contract - rules, tiers, gates, rituals - inherited 1
   Scoped to Claude/Anthropic only - a genuine human co-author trailer is legitimate.
   **Why it needed a rule:** the policy existed but was never enforced - 84 of the last
   200 LW commits carried it (measured 2026-07-26).
-- **The git hooks are the AUTHORITATIVE gate; presence is not proof they fire.** A
-  headless `claude -p --permission-mode bypassPermissions` run does NOT load Claude
-  PreToolUse hooks (RC measured 2026-07-26), so `.githooks/` is the only backstop that
-  survives every channel. Two false-green traps, both hit on 2026-07-26: (1) `core.hooksPath`
+- **The git hooks are the AUTHORITATIVE gate; presence is not proof they fire.**
+  `.githooks/` is the backstop that survives every channel, and it stays the
+  authoritative gate.
+  **CORRECTED 2026-08-01, re-measured on CLI 2.1.220:** the old claim here was that
+  a headless `claude -p --permission-mode bypassPermissions` run does NOT load
+  PreToolUse hooks (RC measured 2026-07-26 on CLI **2.1.205**). That is FALSE on
+  2.1.220. Measured on Legion with a valid hook config, cwd inside the project and
+  the workspace trusted: the Bash tool provably ran AND both `SessionStart` and
+  `PreToolUse` fired. So Claude hooks are NOT dead headless on the version LW now
+  runs - treat them as defense in depth alongside `.githooks`, not as absent.
+  **Two confounds that each make a live hook look dead - check them BEFORE
+  concluding hooks do not fire:** (a) an invalid `.claude/settings.json` (single
+  backslashes in a Windows path are not valid JSON escapes) is silently unparsed,
+  which produced a false "hooks do not fire" in the first two arms of this very
+  probe; (b) an untrusted workspace makes headless DISCARD `permissions.allow`,
+  and `~/.claude.json` keys are path-separator- and case-sensitive - LW carried
+  THREE keys for one directory, the forward-slash one reading False, so headless
+  silently dropped permissions until it was fixed 2026-08-01.
+  Two false-green traps, both hit on 2026-07-26: (1) `core.hooksPath`
   points at the tracked `.githooks`, so ANY hook written into `.git/hooks` is dead;
   (2) `.githooks/pre-commit` invoked `precommit_gate.py` with no args from 2026-07-03,
   and with no args the gate self-gates to a silent no-op - it ran on every commit and
