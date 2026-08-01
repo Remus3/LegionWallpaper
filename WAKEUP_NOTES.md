@@ -55,8 +55,14 @@ slices, all verifier-gated; two REFUTED and reworked rather than merged.
     expect a conflict in `tests/test_lw_rundash.py` and keep main's version.
     ROADMAP `rundash-instrumentation`.
   - **B6** wire the 3 remaining CUDA consumers - branch
-    `worktree-agent-a62905cbcc5fa8ecb`, 0 commits and nothing written. Just redo.
-    ROADMAP `gpu-mutex-inert` carries the three constraints; read them first.
+    **COMMITTED `a76a05d` on branch `slice-b6-gpu-mutex-remaining`** - note that
+    is NOT a `worktree-agent-*` name. Nothing to redo; verify then merge.
+    It reports 1367 passed / 16 skipped and, critically, that **NO CUDA consumer
+    in the tree is left unwired** - which is the answer RC and RM are waiting on.
+    ROADMAP `gpu-mutex-inert` carries the constraints; read them first.
+    It also CORRECTED a premise I gave it: `winmutex.hold`'s timeout bounds the
+    WAIT TO ACQUIRE, not the hold duration (`winmutex.py:96-101`), so a long
+    training run cannot time itself out and needs no bespoke constant.
 - **Your headless loop could not start and had not been able to for five days.**
   `RUNNING.lock` named a pid recycled to an unrelated conhost. Fixed `e63a50d`.
   Do NOT re-investigate.
