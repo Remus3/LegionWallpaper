@@ -20,7 +20,45 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
 
 ## Developer experience
 
-- _No items yet. Candidates: pre-commit hooks hardening, suite speed, local tooling._
+- **mcp-lift-phases - act on the 2026-08-01 MCP triage.** Full evidence and the
+  per-entry rubric in `docs/MCP_LIFT_TRIAGE_2026-08-01.md`; the triage was
+  filed but never queued, which is why this entry exists.
+  - **L1, free and local, no install and no key:** a one-shot `skylos` scan over
+    `tools/` and `ops/` (dead code, secret-shaped literals - LW carries four
+    `_*_oneoff.py` and a month of accreted tooling), and verifying the two CLI
+    flags from L2 against the installed Claude version. Neither adds a
+    dependency.
+  - **L2, the highest-value item found and it was NOT on the operator's list:**
+    `--append-subagent-system-prompt` injects rules into EVERY nested subagent
+    and works headless - which is exactly the surface LW MEASURED that
+    PreToolUse hooks do not reach under `claude -p --permission-mode
+    bypassPermissions` (CLAUDE.md, 2026-07-26). Also `red-handed`, a local
+    deterministic MIT auditor of "tests pass" claims against git history - the
+    tool form of LW's most documented failure class, currently answered by
+    spending a whole verifier subagent.
+  - **L3, operator-gated:** a MediaWiki canonical-source probe ahead of Tier 1
+    in the recovery waterfall, and picdefenseio evaluated as a Tier-2 COMPLEMENT
+    to SauceNAO - not a replacement, it does backlink discovery rather than
+    reverse-image search. Both would add another metered service.
+  - **L4, blocked:** viznoir as a headless glTF render backend for
+    `glb-render-fetch`, gated first on whether its glTF path carries SKINNED
+    meshes. A matching file extension is not evidence.
+  Do-not-redo: do NOT inherit the sibling project's scores - it closed an entire
+  class as "no image need", which is LW's whole domain. Do NOT triage by slug:
+  measured, three of four name-based guesses were wrong in both directions.
+
+- **next-session-handoff-enforcement - the file exists, the guard does not.**
+  `C:\Users\Administrator\Desktop\LW-NEXT-SESSION.txt` is now written each
+  `/done` (adopted from the sibling convention so three concurrent sessions
+  cannot overwrite each other's hand-off). What is NOT built is the half that
+  makes it safe: the consumer enforcing the `LW-` prefix, with the write target
+  read from an on-disk intent document and ANY non-conforming value falling back
+  to the default - absolute paths, drive letters, `..` segments, empty,
+  non-string, or a filename not prefixed `LW-`. Without it a doctored or stale
+  intent document could redirect an LW session's write over a sibling's
+  hand-off. Cross-repo writes must be a deliberate act, never a fallback.
+
+- _Also candidates: pre-commit hooks hardening, suite speed, local tooling._
 
 ## Reliability / hardening
 
