@@ -162,9 +162,10 @@ def test_the_board_carries_one_row_per_slice_with_time_in_status(tmp_path):
     assert ids == ["B1", "B3"]
     b3 = view["slices"][1]
     assert b3["status"] == "in_progress"
-    # An hour in status, asserted as a range: the ISO round-trip truncates at
-    # the microsecond, so pinning the exact minute makes this flap.
-    assert 3540 < b3["status_age_s"] <= 3600
+    # An hour in status, asserted with a tolerance: the ISO round-trip is
+    # microsecond-resolution and the float can land either side of 3600 exactly,
+    # so a strict `<= 3600` flakes about one run in five (measured).
+    assert b3["status_age_s"] == pytest.approx(3600, abs=1.0)
     assert b3["status_age_human"] in ("59m", "60m")
     assert view["counts"]["committed"] == 1
     assert view["open_count"] == 1
@@ -277,6 +278,86 @@ def test_every_slice_ships_an_amber_not_observed_chip(tmp_path):
 
 def test_the_three_evidence_states_all_exist_even_though_one_is_reachable():
     assert lw_rundash.EVIDENCE_STATES == ("VERIFIED", "REFUTED", "NOT OBSERVED")
+
+
+def _row(verdicts, status="committed"):
+    """One normalized slice row, exactly as read_slice_manifest emits it."""
+    return {"id": "B1", "status": status, "verdicts": verdicts,
+            "verdict_count": len(verdicts)}
+
+
+def _verdict(state, observer="verifier", **kw):
+    rec = {"state": state, "observer": observer, "at": None, "at_age_s": None,
+           "at_age_human": "-", "agent_id": None, "counts": None,
+           "counts_human": None, "discrepancies": [], "note": "",
+           "backfilled": False}
+    rec.update(kw)
+    return rec
+
+
+def test_a_persisted_confirm_renders_verified():
+    chip = lw_rundash.evidence_for_slice(_row([
+        _verdict("CONFIRM", counts_human="1306 passed / 16 skipped / 0 failed")]))
+    assert chip["state"] == "VERIFIED"
+    assert chip["class"] == "green"
+    assert chip["observer"] == "verifier"
+    assert "1306 passed" in chip["why"]
+
+
+def test_a_refute_renders_refuted_even_when_the_slice_is_committed():
+    # The combination that matters most: work landed in git on a claim its own
+    # verifier knocked down and nobody re-checked. Rendering that green because
+    # the ladder says `committed` is the failure this panel exists to catch.
+    chip = lw_rundash.evidence_for_slice(_row(
+        [_verdict("REFUTE", discrepancies=["cited test file does not exist"])],
+        status="committed"))
+    assert chip["state"] == "REFUTED"
+    assert chip["class"] == "red"
+    assert chip["discrepancies"] == ["cited test file does not exist"]
+
+
+def test_a_refutation_that_was_later_confirmed_stays_visible():
+    chip = lw_rundash.evidence_for_slice(_row([
+        _verdict("REFUTE"), _verdict("CONFIRM", observer="merger")]))
+    assert chip["state"] == "VERIFIED"
+    assert chip["prior_refutes"] == 1
+    assert chip["history_count"] == 2
+    assert "refut" in chip["why"].lower()  # the fixed refutation is still stated
+
+
+def test_an_unreadable_latest_verdict_is_not_observed_never_optimistic():
+    for bad in (None, "", "MAYBE", "verified"):
+        chip = lw_rundash.evidence_for_slice(_row([_verdict(bad)]))
+        assert chip["state"] == "NOT OBSERVED"
+        assert chip["class"] == "amber"
+
+
+def test_the_chip_reads_the_manifest_end_to_end(tmp_path):
+    now = time.time()
+    manifest = write_manifest(tmp_path, {"slices": [
+        {"id": "B1", "status": "committed", "commit": "db168ff", "updated": iso(now),
+         "verdicts": [
+             {"state": "REFUTE", "observer": "verifier", "at": iso(now - 600)},
+             {"state": "CONFIRM", "observer": "merger", "at": iso(now - 300),
+              "counts": {"passed": 1306, "skipped": 16, "failed": 0}}]},
+        {"id": "B4", "status": "pending", "updated": iso(now)},
+    ]})
+    view = lw_rundash.build_run_view(
+        control_dir=tmp_path / "control", manifest_path=manifest, repo_root=tmp_path,
+        now_ts=now, cache={}, runner=fake_git(), pid_alive=lambda pid: False)
+    by_id = {r["id"]: r["evidence"] for r in view["slices"]}
+    assert by_id["B1"]["state"] == "VERIFIED"
+    assert by_id["B1"]["prior_refutes"] == 1
+    assert by_id["B4"]["state"] == "NOT OBSERVED"
+
+
+def test_neither_reader_module_ever_writes_a_verdict():
+    # slice_orchestrator.py is the single writer of the manifest. A dashboard
+    # that repaired what it read would be racing that writer.
+    for path in (MODULE, Path(lw_rundash.rundash_state.__file__)):
+        src = path.read_text(encoding="ascii")
+        for banned in ("write_text(", "write_bytes(", "mkdir(", "json.dump("):
+            assert banned not in src, f"{path.name} looks like it writes: {banned}"
 
 
 # ----------------------------------------------------------------- git facts
@@ -536,6 +617,35 @@ def test_the_page_carries_the_p1_and_p3_panels_and_the_amber_chip():
     assert "Resume Decision" in html
     assert "NOT OBSERVED" in html
     assert "esc(" in html  # every insertion goes through the escaper
+
+
+def test_the_page_renders_all_three_evidence_states_distinctly():
+    html = PAGE.read_text(encoding="ascii")
+    for cls in ("b-evok", "b-refuted", "b-notobs"):
+        assert "." + cls + "{" in html, f"{cls} has no rule"
+        assert '"' + cls + '"' in html, f"{cls} is never applied"
+
+
+def test_refuted_differs_from_not_observed_by_more_than_hue():
+    # Amber vs red is the one distinction an operator most needs to catch, and
+    # it is the one a colour-blind operator is most likely to miss. Border style
+    # and the "!!" text prefix carry it independently of hue.
+    html = PAGE.read_text(encoding="ascii")
+    refuted = re.search(r"\.b-refuted\{([^}]*)\}", html).group(1)
+    notobs = re.search(r"\.b-notobs\{([^}]*)\}", html).group(1)
+    assert "double" in refuted and "dashed" in notobs
+    assert '"!! "' in html
+
+
+def test_every_font_size_on_the_page_comes_from_the_token_scale():
+    # Five tokens, no magic pixels, no inline style attribute. A new rule that
+    # invents its own size is how a five-step scale becomes eleven.
+    html = PAGE.read_text(encoding="ascii")
+    sizes = re.findall(r"font-size:\s*([^;}]+)", html)
+    assert sizes
+    for value in sizes:
+        assert value.strip().startswith("var(--fs-"), f"raw font-size: {value}"
+    assert "style=" not in html
 
 
 def test_the_page_never_writes_with_fetch():
