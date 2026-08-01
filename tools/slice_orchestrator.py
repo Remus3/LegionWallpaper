@@ -293,6 +293,231 @@ def latest_verdict(entry):
     return records[-1] if records else None
 
 
+# ===========================================================================
+# file-claim table (BACKLOG mcp-lift-phases P4, method lifted from depwire's
+# claim_files / release_files / get_active_claims - the shape, NOT the code:
+# depwire is BSL 1.1 until 2029-02-25 and must not be vendored)
+#
+# LW dispatches N parallel worktree agents on "disjoint file sets" and the
+# disjointness is asserted by a human reading a directive today (f1-phase6 queue
+# item 7). This makes it checkable: an agent claims before it starts, an
+# overlapping claim is refused, and the refusal names the holder.
+# ===========================================================================
+CLAIM_FIELD = "claims"
+
+
+def normalize_claim_path(text):
+    """A repo-relative comparison key, or None when the value is unusable.
+
+    Case-folded and separator-normalized on purpose. LW has been bitten twice by
+    path identity - three ~/.claude.json keys for one directory, and a tool that
+    dropped subdirectory sessions on a separator assumption - and the two error
+    directions are not symmetric here: a missed conflict lets two agents edit one
+    file and silently loses a run's work, while a false conflict only refuses a
+    claim the operator can re-scope. So this over-collides deliberately.
+
+    Refuses rather than guesses on anything not repo-relative: absolute paths,
+    drive letters, and any `..` that escapes the root. Same discipline the
+    hand-off guard uses (BACKLOG next-session-handoff-enforcement).
+    """
+    display = normalize_claim_display(text)
+    return display.lower() if display else None
+
+
+def normalize_claim_display(text):
+    """The same normalization but case-PRESERVING, for what gets stored.
+
+    The key is folded so `TOOLS/X.PY` collides with `tools/x.py`; the stored path
+    keeps the author's casing so the record still reads as the file they meant.
+    """
+    if not isinstance(text, str):
+        return None
+    raw = text.strip().replace("\\", "/")
+    if not raw or raw.startswith("/"):
+        return None
+    if len(raw) >= 2 and raw[1] == ":" and raw[0].isalpha():
+        return None
+    parts = []
+    for seg in raw.split("/"):
+        if seg in ("", "."):
+            continue
+        if seg == "..":
+            if not parts:
+                return None
+            parts.pop()
+            continue
+        parts.append(seg)
+    return "/".join(parts) if parts else None
+
+
+def _contains(parent_key, child_key):
+    """Segment-wise containment: `tools` holds `tools/x.py`, `tool` does not.
+
+    A plain startswith would refuse `tool` against `tools/a.py` and teach the
+    operator that the table cries wolf, which ends with the table bypassed.
+    """
+    return child_key == parent_key or child_key.startswith(parent_key + "/")
+
+
+def get_active_claims(manifest):
+    """file key -> claim record. An ABSENT field means no claims, not an error.
+
+    Optional by contract exactly like `verdicts`: every manifest written before
+    this existed stays valid and none of them read as claimed.
+    """
+    if not isinstance(manifest, dict):
+        return {}
+    held = manifest.get(CLAIM_FIELD)
+    if not isinstance(held, list):
+        return {}
+    out = {}
+    for rec in held:
+        if isinstance(rec, dict) and isinstance(rec.get("key"), str):
+            out[rec["key"]] = rec
+    return out
+
+
+def claim_files(manifest, agent_id, files, slice_id=None, note=None):
+    """Claim every path or none of them. Returns (ok, problems).
+
+    All-or-nothing: a half-granted claim would let an agent start on the files it
+    did get, which loses work the same way no table at all does.
+    """
+    problems, wanted = [], []
+    for raw in files or []:
+        key = normalize_claim_path(raw)
+        if key is None:
+            problems.append(f"unusable path {raw!r} - must be repo-relative")
+            continue
+        wanted.append((key, normalize_claim_display(raw)))
+    if not wanted and not problems:
+        problems.append("no files given - a claim of nothing is not a claim")
+    if problems:
+        return False, problems
+
+    active = get_active_claims(manifest)
+    for key, _ in wanted:
+        for other_key, rec in active.items():
+            if rec.get("agent") == agent_id:
+                continue
+            if _contains(other_key, key) or _contains(key, other_key):
+                problems.append(
+                    f"{key} conflicts with {other_key} held by {rec.get('agent')}"
+                    f" since {rec.get('at')}")
+    if problems:
+        return False, problems
+
+    stamp = _now()
+    for key, display in wanted:
+        if key in active and active[key].get("agent") == agent_id:
+            continue                      # idempotent re-claim by the holder
+        manifest.setdefault(CLAIM_FIELD, []).append(
+            {"key": key, "path": display, "agent": agent_id, "at": stamp,
+             "slice": slice_id, "note": note or ""})
+    return True, []
+
+
+def release_files(manifest, agent_id, files=None):
+    """Release this agent's claims. Returns (ok, problems).
+
+    Holder-only, and all-or-nothing on an explicit list. An agent that could
+    release another's claim rebuilds the hole the table exists to close, so a
+    non-holder is refused rather than ignored.
+
+    With no list this releases everything the agent holds and succeeds even when
+    it holds nothing - it is the cleanup an agent runs on its way out, and a
+    crashed agent that never claimed must not leave the next one wedged.
+    """
+    active = get_active_claims(manifest)
+    if files is None:
+        keep = [r for r in manifest.get(CLAIM_FIELD, [])
+                if not (isinstance(r, dict) and r.get("agent") == agent_id)]
+        manifest[CLAIM_FIELD] = keep
+        return True, []
+
+    problems, keys = [], []
+    for raw in files:
+        key = normalize_claim_path(raw)
+        if key is None:
+            problems.append(f"unusable path {raw!r} - must be repo-relative")
+            continue
+        rec = active.get(key)
+        if rec is None:
+            problems.append(f"{key} is not claimed by anyone")
+        elif rec.get("agent") != agent_id:
+            problems.append(f"{key} is held by {rec.get('agent')}, not {agent_id}"
+                            " - only the holder may release")
+        else:
+            keys.append(key)
+    if not keys and not problems:
+        problems.append("no files given")
+    if problems:
+        return False, problems
+
+    manifest[CLAIM_FIELD] = [r for r in manifest.get(CLAIM_FIELD, [])
+                             if not (isinstance(r, dict) and r.get("key") in keys)]
+    return True, []
+
+
+def cmd_claim(path, agent_id, files, slice_id=None, note=None):
+    manifest = load_manifest(path)
+    if manifest is None:
+        print(f"ERROR: no manifest at {path} - run `init` first", file=sys.stderr)
+        return 2
+    parsed = [f for f in (files or "").split(",") if f.strip()]
+    ok, problems = claim_files(manifest, agent_id, parsed, slice_id, note)
+    if not ok:
+        print(f"REFUSED: {agent_id} claimed nothing ({len(problems)} problem(s)):",
+              file=sys.stderr)
+        for line in problems:
+            print(f"  {line}", file=sys.stderr)
+        return 2
+    write_manifest_atomic(manifest, path)
+    print(f"claim: {agent_id} holds {len(get_active_claims(manifest))} file(s)")
+    return 0
+
+
+def cmd_release(path, agent_id, files):
+    manifest = load_manifest(path)
+    if manifest is None:
+        print(f"ERROR: no manifest at {path} - run `init` first", file=sys.stderr)
+        return 2
+    parsed = None
+    if files is not None:
+        parsed = [f for f in files.split(",") if f.strip()]
+        if not parsed:
+            print("REFUSED: --files given but empty", file=sys.stderr)
+            return 2
+    ok, problems = release_files(manifest, agent_id, parsed)
+    if not ok:
+        print(f"REFUSED: {agent_id} released nothing:", file=sys.stderr)
+        for line in problems:
+            print(f"  {line}", file=sys.stderr)
+        return 2
+    write_manifest_atomic(manifest, path)
+    print(f"release: {agent_id} done, {len(get_active_claims(manifest))} claim(s) left")
+    return 0
+
+
+def cmd_claims(path):
+    manifest = load_manifest(path)
+    if manifest is None:
+        print(f"no manifest at {path}")
+        return 0
+    active = get_active_claims(manifest)
+    if not active:
+        print("no active claims")
+        return 0
+    print("{:<44} {:<14} {:<8} {}".format("FILE", "AGENT", "SLICE", "SINCE"))
+    for key in sorted(active):
+        rec = active[key]
+        print("{:<44} {:<14} {:<8} {}".format(
+            rec.get("path", key)[:44], str(rec.get("agent"))[:14],
+            str(rec.get("slice") or "-")[:8], rec.get("at", "-")))
+    print(f"{len(active)} active claim(s)")
+    return 0
+
+
 def cmd_resume(path):
     """Print only the slices still owed, one per line, tab-separated.
 
@@ -381,6 +606,22 @@ def build_parser():
     p.add_argument("--backfilled", action="store_true",
                    help="recorded after the fact from evidence, not live")
 
+    p = sub.add_parser("claim", parents=[common],
+                       help="claim files for an agent; refuses on any overlap")
+    p.add_argument("--agent", required=True, dest="agent_id")
+    p.add_argument("--files", required=True, help="comma-separated repo-relative paths")
+    p.add_argument("--slice", default=None, dest="slice_id",
+                   help="the slice this claim belongs to, when there is one")
+    p.add_argument("--note", default=None)
+
+    p = sub.add_parser("release", parents=[common],
+                       help="release an agent's claims; holder-only")
+    p.add_argument("--agent", required=True, dest="agent_id")
+    p.add_argument("--files", default=None,
+                   help="comma-separated; omit to release everything this agent holds")
+
+    sub.add_parser("claims", parents=[common], help="print the active file claims")
+
     sub.add_parser("resume", parents=[common],
                    help="print only the non-committed slices")
     sub.add_parser("status", parents=[common], help="print the whole manifest")
@@ -402,6 +643,12 @@ def main(argv=None):
                            skipped=args.skipped, failed=args.failed,
                            discrepancies=args.discrepancies, note=args.note,
                            at=args.at, backfilled=args.backfilled)
+    if args.cmd == "claim":
+        return cmd_claim(path, args.agent_id, args.files, args.slice_id, args.note)
+    if args.cmd == "release":
+        return cmd_release(path, args.agent_id, args.files)
+    if args.cmd == "claims":
+        return cmd_claims(path)
     if args.cmd == "resume":
         return cmd_resume(path)
     return cmd_status(path)
