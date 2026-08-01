@@ -11,6 +11,51 @@
 
 ---
 
+## 2026-08-01 (late) - three-repo N=3 landed; the hook rule was stale and is corrected
+
+Continues the entry below. HEAD `e436128`. Suite **1401 passed / 16 skipped /
+0 failed**, ruff clean, drift guard 0 breaches, CI green.
+
+**THIS ENTRY SUPERSEDES TWO THINGS IN THE ENTRY BELOW:** its "ALSO OWED"
+B5/B6 block (both are merged - nothing owed) and its "the shared lane cap stays
+at 2" (it is 3 on all three repos now). Its DRAIN STAGE 2 priority still stands
+and is still the product work.
+
+- **B5 and B6 are MERGED and verifier-CONFIRMED.** Nothing owed from them. The
+  dashboard's evidence chips now render real verdicts (B1 shows
+  `prior_refutes=1`), and NO CUDA consumer in the tree is left unwired - a
+  verifier swept all 55 files under `tools/` itself: 9 CUDA, 9 acquire, 16 sites.
+- **N=3 is live across all three repos.** LW 3 / RC 3 / RM 3, `slots.py`
+  byte-identical at `5297f2d041030398` (7154 bytes) on all three disks, each
+  re-hashed locally rather than trusted from a note. LW flipped first and
+  carried a deliberate red for ~20 minutes; RC and RM followed the same session.
+  A cross-repo equality guard makes an atomic change impossible by construction -
+  whoever moves first is red. RM is immune only because its guard pins
+  self-contained constants rather than a sibling's disk; that is the shape to
+  steal if we ever revisit.
+- **CLAUDE.md's hook hard rule was STALE and is corrected (`e436128`).**
+  PreToolUse hooks DO fire under headless `claude -p --permission-mode
+  bypassPermissions` on CLI **2.1.220** - measured here, Bash provably ran and
+  both SessionStart and PreToolUse fired. The old claim was measured on 2.1.205.
+  `.githooks` stays authoritative; Claude hooks are defense in depth, not absent.
+  **The probe returned a FALSE NEGATIVE twice before it was right** - an
+  invalid `settings.json` (heredoc collapsed the double backslashes; single
+  backslashes are not valid JSON escapes, so it silently never parsed), and the
+  trust bug below. Both make a live hook look dead. Both are now named in the rule.
+- **Trust bug found by RM, reproduced and FIXED on LW.** `~/.claude.json` held
+  THREE keys for one directory - `C:\LegionWallpaper` True, `C:/LegionWallpaper`
+  **False** (what headless reads), `C:/legionwallpaper` True - so headless was
+  silently discarding `permissions.allow`. Fixed LW's key only; backup at
+  `.claude.json.lwbak-2026-08-01`; RC and RM keys verified untouched.
+- **NOT fixed, and it is RC's call:** `"model": "rc-main"` is set machine-wide in
+  `C:\Users\Administrator\.claude\settings.json:17` and does not resolve. LW is
+  insulated only because its executor passes `--model` explicitly
+  (`executor.py:431-433`). Any LW call that does not would break. LW did not
+  touch it.
+- **Still unmeasured, by anyone:** three-way concurrency; a contended acquire
+  reaping a stale lock in a live run; recent two-way concurrency (LW contributed
+  zero for a week).
+
 ## 2026-08-01 - the loop was wedged for five days; run dashboard shipped
 
 Detail: LEDGER 62. Suite 1178 -> **1346 passed / 16 skipped / 0 failed**, ruff

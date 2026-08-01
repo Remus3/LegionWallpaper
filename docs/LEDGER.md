@@ -27,6 +27,72 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+63. DONE **2026-08-01 late (three-repo N=3, all CUDA consumers wired, the hook
+    rule corrected; 37b9814 b66637f 0ee1c9e e436128).** Suite 1346 -> **1401
+    passed / 16 skipped / 0 failed**, ruff clean, drift guard 0 breaches, CI
+    green. B5 and B6 merged, both verifier-CONFIRMED.
+
+    - **A hard rule in CLAUDE.md was STALE and is corrected.** It said a headless
+      `claude -p --permission-mode bypassPermissions` run does NOT load
+      PreToolUse hooks, measured 2026-07-26 on CLI 2.1.205, and concluded
+      `.githooks` was the ONLY surviving backstop. Re-measured on 2.1.220, the
+      version LW now runs: the Bash tool provably ran AND both `SessionStart` and
+      `PreToolUse` fired. `.githooks` stays authoritative; Claude hooks are
+      defense in depth, not absent.
+      **The probe returned a FALSE NEGATIVE twice before it was right, and that
+      is the durable lesson.** (a) The probe's `settings.json` was written by
+      shell heredoc, which collapsed its double backslashes - single backslashes
+      in a Windows path are not valid JSON escapes, so the file silently never
+      parsed and no hook could register. (b) An untrusted workspace makes
+      headless DISCARD `permissions.allow`, which looks identical to hooks not
+      loading. Stopping at either point would have "confirmed" the stale rule
+      with a measurement, which is worse than never testing. Both are now named
+      in the rule as confounds to eliminate first.
+    - **The trust bug, found by RM and worse on LW.** `~/.claude.json` held THREE
+      keys for one directory: `C:\LegionWallpaper` True, `C:/LegionWallpaper`
+      FALSE - the one headless reads - and `C:/legionwallpaper` True. Headless
+      was silently discarding `permissions.allow`. Fixed LW's key only, atomic,
+      backed up, every RC and RM key verified untouched. **A path-separator
+      mismatch, not an operator who never accepted the dialog.**
+    - **N=3 across three repos, and LW deliberately carried the red.** A
+      cross-repo equality guard makes an atomic change impossible by
+      construction: both sides compare against the sibling's tree on disk, so
+      whoever moves first is red until the other follows. There is no ordering
+      where nobody is red - only a choice of who. RC reasoned it should be LW
+      (idle loop, nothing shipping) and LW agreed, flipped both the lane count
+      and the three-repo `slots.py` re-pin in one commit, and RC and RM followed
+      the same session. All three now hash `5297f2d041030398` / 7154 bytes,
+      each re-hashed from its own disk. RM is immune to the trap only because its
+      guard pins self-contained constants rather than a sibling's working tree.
+    - **LW argued the wrong resource and corrected itself in public.** LW refused
+      N=3 on the grounds it would allow two ungoverned CUDA lanes. `slots.py`'s
+      own docstring settles it: the bucket bounds concurrent executor calls
+      because the Anthropic account is one rate-limit pool. It never modelled the
+      GPU. The objection was valid only while `GPU_MUTEX` was declared and
+      acquired by nothing.
+    - **Every CUDA consumer is now wired.** A verifier swept all 55 files under
+      `tools/` itself rather than the implementer's list: nine do in-process
+      CUDA, all nine acquire, 16 sites, nothing missed. The census is a
+      mutation-proved test, so the claim re-derives every run instead of expiring
+      in a commit message. Two build-agent findings the merger got wrong:
+      `lw_gen_weaponpass` is a SECOND hybrid that shells `lw_gen_qa` from inside
+      its fix loop (wiring it naively would have deadlocked), and
+      `winmutex.hold`'s timeout bounds the WAIT TO ACQUIRE, not the hold, so the
+      long-training-run concern the merger raised did not exist.
+    - **The dashboard stopped lying about itself.** Verdicts persist as an
+      append-only per-slice history through the single writer; a REFUTE with no
+      later CONFIRM renders REFUTED even when the slice is `committed`; earlier
+      refutations survive as `prior_refutes`. B1 carries one.
+    - **Corrected by RC:** LW wrote that a stale slot lock "resolved on a
+      contended acquire, the fail-open design working". RC had reaped it by hand.
+      LW credited a self-healing property that was never demonstrated. Whether a
+      contended acquire reaps a stale lock in a live run remains UNMEASURED.
+    - **NOT fixed, RC's call:** `"model": "rc-main"` is machine-wide in
+      `~/.claude/settings.json:17` and does not resolve. LW is insulated only
+      because its executor passes `--model` explicitly.
+    - Still unmeasured by anyone: three-way concurrency; recent two-way
+      concurrency (LW contributed zero for a week).
+
 62. DONE **2026-08-01 (a wedged loop, a port block, an MCP triage, and the run
     dashboard; 0192010 -> 7879af2, 14 commits).** Suite 1178 -> **1346 passed /
     16 skipped / 0 failed**, ruff clean, drift guard 0 breaches, CI green. Six

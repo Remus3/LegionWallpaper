@@ -8,75 +8,6 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
-- **gpu-mutex-inert - SIX of nine CUDA consumers wired (`4732eeb`); THREE remain
-  and the shared lane cap stays at 2 until they land - NEXT.**
-  Next: finish slice B6 - `tools/lw_gen_qa.py`, `tools/lw_gen_weaponpass.py`,
-  `tools/lw_gen_train_weapon_lora.py`. It was IN FLIGHT at session end on branch
-  `worktree-agent-a62905cbcc5fa8ecb` with 0 commits, so redo it rather than
-  hunting for salvage. Then tell RC and RM the N question is reopenable.
-  **Three constraints the verifier established, do not rediscover them:**
-  (1) `lw_gen_weaponpass` is a SECOND HYBRID, not a leaf - its fix loop
-  interleaves in-process CUDA at `:710` with `active_gate` at `:714`, and
-  `_build_real_gate` (`:289-311`) shells `lw_gen_qa.py` into `.venv-metrics`, so
-  a naive hold around that loop plus a wired `lw_gen_qa` is the
-  parent-holds-while-child-waits deadlock; split it the way `lw_gen_run` was.
-  (2) `lw_gen_train_weapon_lora` is a safe hand-run leaf with no spawn site, but
-  a LoRA run can exceed the shared 1800s `GPU_MUTEX_TIMEOUT_S`, which was sized
-  for a 4x upscale - decide its timeout deliberately.
-  (3) `lw_clean_sdxl` imports `lw_gen_weaponpass._build_real_inpainter`
-  IN-PROCESS while holding, so wiring weaponpass creates a NESTED SAME-THREAD
-  acquire - safe on Windows (recursive, N acquires need N releases) but
-  invisible in CI because the non-Windows branch is a no-op. Test it.
-  **Residual risk disclosed and accepted in `4732eeb`:** the mutex serializes
-  ACQUISITION, not VRAM RESIDENCY. `lw_gen_run` keeps the SDXL pipe on the card
-  between its two holds while a child runs unheld, so the OOM is reduced, not
-  eliminated. An explicit `pipe.to("cpu")` between rounds would close it and is
-  not done.
-  Already shipped, do not redo: ten acquisition sites across six tools, a
-  `gpu_lock(device)` helper with CPU-path exemption, `GpuBusy` on timeout,
-  import degradation to UNSERIALIZED, and a `test_known_orchestrators_do_not_acquire`
-  guard that was mutation-proved by adding an acquisition to `lw_first_pass`.
-  Original evidence, kept because it is the WHY: verified by grep 2026-08-01,
-  cite these and not a guess:
-  `tools/lw_upscale.py` (`device="cuda"` :244, runs under `.venv-upscale`),
-  `tools/lw_clean_sdxl.py` (`.to("cuda")` :243), `tools/lw_clean_iopaint.py`
-  (SimpleLama on cuda :326-330), `tools/lw_clean_pass.py` (torch cu128 +
-  easyocr + lama), `tools/lw_g1_gate.py` (pyiqa, `cuda if available` :443),
-  `tools/lw_gen_run.py` (SDXL `.to("cuda")` :450).
-  **CORRECTION (this item first said DWPose was a CUDA consumer - it is not).**
-  `tools/lw_anat_probe.py`, `tools/lw_anat_metrics.py` and `tools/dwpose_onnx/`
-  carry ZERO cuda references and construct `onnxruntime.InferenceSession` with
-  no provider list, so they run CPUExecutionProvider - which is exactly what
-  CLAUDE.md:199 already settled ("DWPose onnx-CPU", LEDGER 19). Do NOT wire
-  them; serializing CPU work across three repos is pure loss.
-  Two design constraints, both load-bearing: acquire at the LEAF tool and never
-  at an orchestrator, because Windows named mutexes are re-entrant per THREAD
-  and `lw_first_pass` SPAWNS `.venv-upscale` - both layers acquiring would
-  deadlock first pass against itself; and a tool that falls back to CPU
-  (`lw_clean_iopaint`, `lw_g1_gate` both do `cuda if available else cpu`) must
-  not take the mutex on that path.
-  Measured 2026-08-01: the ONLY `winmutex.hold(...)` anywhere is
-  `GEMINI_MUTEX` at `ops/loop/loop_controller.py:366`, and no file under
-  `tools/` imports `winmutex` at all - so `winmutex.py`'s own docstring claim
-  that `GPU_MUTEX` is "acquired by the TOOL that touches CUDA" is false. A
-  declared guard that fires nowhere is the same false-safety class as a git hook
-  that exists but was never wired.
-  Why it is urgent now: RC proposes raising the shared `max_concurrent_lanes`
-  from 2 to 3 because a THIRD loop (Red Moon) is joining the
-  `C:\ProgramData\lw-loop\slots` bucket. LW is the only GPU-heavy participant,
-  so N=3 would allow two CUDA lanes on one RTX 5070 with nothing serializing
-  them - and the failure mode is a thrash or OOM partway through an upscale,
-  which surfaces as a degraded image rather than a clean error. LW has REFUSED
-  N=3 until this is real; all three configs hold at 2.
-  Do-not-redo: do NOT edit `ops/loop/winmutex.py` to fix this - the constant
-  already exists, so wiring consumers needs no change to that byte-identical
-  file and no joint re-pin. Do NOT raise `max_concurrent_lanes` unilaterally;
-  the value must match across all three repos or the governor is theater.
-  Also worth weighing: the contention that matters is CUDA, not lanes, so the
-  honest governor may be the mutex with lanes left at 2 permanently.
-  Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*`; LW reply
-  `2026-08-01-1340-from-LW-hold-at-two-until-the-gpu-mutex-is-real.md`.
-
 - **gemini-removal - drop Gemini; the loop becomes Claude-only and
   self-adjudicating - OPERATOR-DIRECTED, own slice.**
   Next: flip the reversible part, keep the backend reachable as the rollback
@@ -99,35 +30,23 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   has a LIVE consumer at `loop_controller.py:366` today.
   Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*` section 7.
 
-- **rundash-instrumentation - the run dashboard ships blind on its own evidence
-  panel - NEXT (B5 was in flight at session end).**
-  Next: VERIFY then MERGE slice B5 - it is **COMMITTED as `d570d42` on branch
-  `worktree-agent-a902870319ee6443d`, unverified and unmerged**. Nothing to
-  salvage. It reports 1340 passed / 16 skipped, an optional per-slice `verdicts`
-  list, a `verdict` CLI on the single writer, and a backfill of the live
-  manifest. It also fixed the same flaky `status_age_s` bound that `7879af2`
-  fixed on main, so expect a conflict in `tests/test_lw_rundash.py` - keep
-  main's whole-second-epoch version. Design as agreed: an append-only verdict HISTORY per slice written only through
-  `slice_orchestrator.py` (the single writer), absence meaning NOT OBSERVED so
-  old manifests stay valid, and a slice whose latest record is a REFUTE with no
-  following CONFIRM rendering REFUTED even when `committed`.
-  Backfill only what is sourced: B1 REFUTE then CONFIRM, B2 CONFIRM at 1239
-  passed, B3 CONFIRM at 1306 passed, B4 CONFIRM at 1312 passed. Invent nothing -
-  a confident wrong record defeats the panel.
-  The rest of the instrumentation backlog is in
-  `docs/RUNDASH_SPEC_2026-08-01.md`: persisted per-slice suite observations, a
-  REFUTED state on the ladder, cost+sid into `directive_history.jsonl` (both are
-  live in the `DoneRecord` and dropped when the record is built), ONE
-  authoritative run id (three id spaces exist with no mapping), mirroring
-  at-risk agent metadata out of the transcript dir, and the fact that
-  `truth_gate.py` is never invoked by the run flow so its report has never been
-  written on this machine. P4 and P5 panels are unbuilt.
+- **rundash-instrumentation - the evidence panel shipped; the rest of the
+  backlog is open - LATER.**
+  DONE 2026-08-01 (`0ee1c9e`): chips render VERIFIED / REFUTED / NOT OBSERVED
+  from an append-only per-slice verdict history written only through
+  `slice_orchestrator.py`. A REFUTE with no later CONFIRM renders REFUTED even
+  when the slice is `committed`; earlier refutations survive as `prior_refutes`.
+  Next, from `docs/RUNDASH_SPEC_2026-08-01.md`: persisted per-slice suite
+  observations; cost + sid into `directive_history.jsonl` (both live in the
+  `DoneRecord` and dropped when the record is built); ONE authoritative run id
+  (three id spaces exist with no mapping); mirror at-risk agent metadata out of
+  the transcript dir before Claude Code's cleanup reaps it; `truth_gate.py` is
+  never invoked by the run flow so its report has never been written on this
+  machine; P4 and P5 panels unbuilt.
   Do-not-redo: do NOT collapse `lw_httpd.parse_ts` and
-  `lw_rundash_state.parse_iso` into one helper - the first reads a naive stamp
-  as UTC, the second as LOCAL, a 5 hour delta on this machine, and
-  `loop_controller.py:303` writes naive LOCAL while `:512` reads it local, so
-  `parse_iso` is correct for run-state.
-  Evidence: `docs/RUNDASH_SPEC_2026-08-01.md`; dashboard at 127.0.0.1:8900.
+  `lw_rundash_state.parse_iso` - naive UTC vs naive LOCAL, 5h apart here, and
+  `loop_controller.py:303` writes naive LOCAL so `parse_iso` is correct.
+  Evidence: `docs/RUNDASH_SPEC_2026-08-01.md`; dashboard 127.0.0.1:8900.
 
 - **usm-halo-calibration - our own unsharp mask manufactures every halo flag,
   and turning it down trades 7 soft flags for 6 hard fails - OPERATOR-GATED.**
