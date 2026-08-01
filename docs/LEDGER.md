@@ -27,6 +27,46 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+67. DONE **2026-08-01 (three-way concurrency MEASURED - the mechanism, not the
+    three repos).** Full numbers in `docs/CONCURRENCY_MEASURED_2026-08-01.md`;
+    harness `tests/test_three_way_concurrency.py`, 4 tests, 6.4s.
+    Closes two hand-off entries that sat as STILL UNMEASURED while N=3 was
+    already live in `ops/loop/config.json`.
+    Premise for the new harness, verified by reading the existing coverage
+    first: `tests/test_loop_concurrency.py` drives eight THREADS against two
+    slots. That proves the bucket arithmetic and structurally cannot prove the
+    two properties N=3 rests on - `try_acquire` is `O_CREAT|O_EXCL` on the
+    filesystem, which only separate PROCESSES exercise, and `reap` decides on
+    `pid_alive`, which every thread answers identically because they share a
+    pid. Hence real subprocesses with per-process enter/exit timestamps and peak
+    overlap by sweep line.
+    Measured: (A) three processes, `max_slots=3` -> peak EXACTLY 3, three
+    distinct slots, three distinct pids, all inside within 1 ms. The assertion
+    is `== 3` on purpose; `<= 3` would pass on a bucket that serialized
+    everything. (B) four processes -> peak 3, the fourth queued and reused slot
+    0 at +1.549s. (C) all three slots pre-planted with a lock owned by a dead
+    pid -> all three contenders entered at +0.000s, so the fail-open reap holds
+    under live contention and a crashed holder cannot deadlock the other repos.
+    (D) three processes on one named mutex -> peak 1, clean 0.000/0.400/0.801
+    serialization, ~1 ms hand-off. Slots admit three, the GPU admits one; both
+    governors verified in the same run.
+    NEW CHARACTERISTIC recorded, not a bug: the fourth process picked up the
+    freed slot 48 ms later under the harness's tight `backoff=0.05, jitter=0.05`.
+    Production uses the `slots.hold` defaults 2.0/2.0, so real pickup latency
+    after a slot frees is 0-4s. The jitter is what stops two loops lockstepping;
+    nobody should size a cycle budget assuming instant pickup.
+    Isolation, deliberate: every run injects its own slots root under `tmp_path`
+    (the machine-wide bucket at `C:\\ProgramData\\lw-loop\\slots` was observed
+    empty and never touched), and the serialization test uses a TEST-ONLY mutex
+    name - taking the real `Global\\LW_GPU` would block on, or starve, a live
+    sibling run.
+    Verified: 1441 passed / 16 skipped (was 1437), ruff clean.
+    SCOPE, stated so it is not overclaimed later: this measures the PROTOCOL the
+    three repos coordinate through, NOT three repositories running their real
+    loops. LW cannot drive RC or RM and nothing here reads or writes a sibling
+    tree. A live three-repo run remains unobserved - what changed is that the
+    mechanism is no longer taken on faith, and a regression now fails CI.
+
 66. DONE **2026-08-01 (P1b Cycle History panel + the cost boundary the spine
     would have breached).**
     Renders `view["cycles"]` as a newest-first table: cycle, human age, directive
