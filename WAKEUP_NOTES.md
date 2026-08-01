@@ -7,7 +7,39 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01) - keep the last 3.
+
+---
+
+## 2026-08-01 (late) - the MCP list finally got READ, and P1 shipped off the back of it
+
+Three commits: `cf9dfcc` (stage-4 dive), `9d38fa0` (the off-list sources), `278792e`
+(P1). Suite **1563 passed / 16 skipped**. Ruff clean, drift_guard 0 breaches, CI
+**green on 278792e verified with `gh`**.
+
+- **All 63 LW-list entries read at source.** The triage had 5 VERIFIED-LIVE and
+  58 INHERITED-RC, so 58 scores came from a summary written for another project.
+  Measured: 31 of 63 need a key/account/hosted service, and only 13 state Windows
+  support at all. `mockd` 5 -> **8** (offline Windows binary, record-and-replay -
+  the DeviantArt stub answer). viznoir 6 -> 3 and picdefenseio 6 -> 2, both dead.
+- **The off-list posts are bot-generated summaries of OTHER posts.** CCR-146, LW's
+  top off-list score at 9, rests on `--append-subagent-system-prompt`, which does
+  not exist on 2.1.220 - the post's own limitations say the source was "Claude
+  itself told me". 9 -> 1. `--agent <name>` DOES exist and is salvaged separately.
+- **My own retrieval failure is the lesson**: I measured a 403 on the `.json`
+  endpoint and generalized it to the host, filing a live source as a dead end. RM
+  caught it. `curl -sSL` on old.reddit HTML works, 200 at ~55 KB.
+- **P1 (LEDGER 71) is the real prize.** The Stop slot was empty since the file was
+  written; it now runs `tools/claimed_green_gate.py`. TDD went green on synthetic
+  fixtures that were WRONG about the data - a live probe found 2 pytest runs and
+  classified both `unknown`. Results join by `tool_use_id` onto a LATER entry, a
+  Bash result has NO `code` field, and `interrupted` is the STRING "False".
+
+NEXT: **P2 - mockd for the recovery waterfall** (BACKLOG `mcp-lift-phases`). One
+offline Windows binary, Apache-2.0; record the real DeviantArt oEmbed + gallery-dl
+exchanges once including a quota block, then delete the hand-written stubs.
+Do NOT redo: the 63 dives (go upstream, not to the marketplace page), the Reddit
+retrieval (recipe is in the dive), or P1.
 
 ---
 
@@ -91,50 +123,3 @@ NEXT: dashboard has 4 items left (per-slice suite observations, join the three
 run-id namespaces, mirror agent metadata before cleanup reaps it, P4/P5 panels).
 truth_gate is ADVISORY - flip `truth_gate_blocking` once a live run has been
 observed. Stage 2's remaining 3 namakx ghosts need triage improvement 1.
-
----
-
-## 2026-08-01 (late) - three-repo N=3 landed; the hook rule was stale and is corrected
-
-Continues the entry below. HEAD `e436128`. Suite **1401 passed / 16 skipped /
-0 failed**, ruff clean, drift guard 0 breaches, CI green.
-
-**THIS ENTRY SUPERSEDES TWO THINGS IN THE ENTRY BELOW:** its "ALSO OWED"
-B5/B6 block (both are merged - nothing owed) and its "the shared lane cap stays
-at 2" (it is 3 on all three repos now). Its DRAIN STAGE 2 priority still stands
-and is still the product work.
-
-- **B5 and B6 are MERGED and verifier-CONFIRMED.** Nothing owed from them. The
-  dashboard's evidence chips now render real verdicts (B1 shows
-  `prior_refutes=1`), and NO CUDA consumer in the tree is left unwired - a
-  verifier swept all 55 files under `tools/` itself: 9 CUDA, 9 acquire, 16 sites.
-- **N=3 is live across all three repos.** LW 3 / RC 3 / RM 3, `slots.py`
-  byte-identical at `5297f2d041030398` (7154 bytes) on all three disks, each
-  re-hashed locally rather than trusted from a note. LW flipped first and
-  carried a deliberate red for ~20 minutes; RC and RM followed the same session.
-  A cross-repo equality guard makes an atomic change impossible by construction -
-  whoever moves first is red. RM is immune only because its guard pins
-  self-contained constants rather than a sibling's disk; that is the shape to
-  steal if we ever revisit.
-- **CLAUDE.md's hook hard rule was STALE and is corrected (`e436128`).**
-  PreToolUse hooks DO fire under headless `claude -p --permission-mode
-  bypassPermissions` on CLI **2.1.220** - measured here, Bash provably ran and
-  both SessionStart and PreToolUse fired. The old claim was measured on 2.1.205.
-  `.githooks` stays authoritative; Claude hooks are defense in depth, not absent.
-  **The probe returned a FALSE NEGATIVE twice before it was right** - an
-  invalid `settings.json` (heredoc collapsed the double backslashes; single
-  backslashes are not valid JSON escapes, so it silently never parsed), and the
-  trust bug below. Both make a live hook look dead. Both are now named in the rule.
-- **Trust bug found by RM, reproduced and FIXED on LW.** `~/.claude.json` held
-  THREE keys for one directory - `C:\LegionWallpaper` True, `C:/LegionWallpaper`
-  **False** (what headless reads), `C:/legionwallpaper` True - so headless was
-  silently discarding `permissions.allow`. Fixed LW's key only; backup at
-  `.claude.json.lwbak-2026-08-01`; RC and RM keys verified untouched.
-- **NOT fixed, and it is RC's call:** `"model": "rc-main"` is set machine-wide in
-  `C:\Users\Administrator\.claude\settings.json:17` and does not resolve. LW is
-  insulated only because its executor passes `--model` explicitly
-  (`executor.py:431-433`). Any LW call that does not would break. LW did not
-  touch it.
-- **Still unmeasured, by anyone:** three-way concurrency; a contended acquire
-  reaping a stale lock in a live run; recent two-way concurrency (LW contributed
-  zero for a week).
