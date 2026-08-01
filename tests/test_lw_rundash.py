@@ -582,6 +582,29 @@ def test_http_run_route_is_enveloped_and_uncached(server):
     assert payload["slices"][0]["evidence"]["state"] == "NOT OBSERVED"
 
 
+def test_http_queue_route_splits_you_from_the_machine(server):
+    status, _ctype, cache, body = _get(server.server_address[1], "/api/queue")
+    assert status == 200
+    assert cache == "no-store"
+    payload = json.loads(body)
+    # The split is the point: a NEEDAUTH slug is yours and no machine time
+    # clears it; an in-progress slice is the machine's and no attention does.
+    assert set(payload["blocked_on_you"]) >= {"needauth", "gated", "gated_fragile"}
+    assert payload["blocked_on_machine"]["cycle_cap"] == 12
+    assert payload["blocked_on_you"]["gated_fragile"] is True
+
+
+def test_http_trajectory_route_never_interpolates_a_gap(server):
+    status, _ctype, cache, body = _get(server.server_address[1], "/api/trajectory")
+    assert status == 200
+    assert cache == "no-store"
+    payload = json.loads(body)
+    for row in payload["rows"]:
+        if not row["observed"]:
+            assert row["passed"] is None
+            assert row["delta"] is None
+
+
 def test_http_resume_route_returns_a_verdict(server):
     status, _ctype, cache, body = _get(server.server_address[1], "/api/resume")
     assert status == 200

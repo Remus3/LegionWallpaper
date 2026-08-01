@@ -157,7 +157,7 @@ killed five agents at once; one agent's uncommitted files were salvaged from its
 worktree and one slice's work was lost. The difference was somebody knowing to
 look. Best value per line on the list.
 
-### P4 - Operator Queue
+### P4 - Operator Queue - BUILT 2026-08-01 (`/api/queue`)
 
 **Answers:** what is waiting on ME, and for how long?
 
@@ -170,7 +170,19 @@ same reason"**. *Blocked on the machine:* slices in progress, cycles remaining.
 The ROADMAP half is a prose grep on `OPERATOR-GATED` - it works today and will
 rot. Label it as fragile on the panel rather than pretending it is structured.
 
-### P5 - Suite Trajectory
+**As built.** 29 NEEDAUTH slugs live, oldest first because AGE is the question;
+capped at 25 rows with the full count and the cap STATED, never silently
+truncated. HELD is not built: no HELD substate exists in `pipeline_state.json`
+on this machine, and inventing a source for it would have been worse than the
+gap. The run-attributed line ("this run added N") is likewise NOT built - no
+source attributes an image to a run - and the clustering pointer that survives
+the rejected gate-flag census IS built: one stage holding the whole queue reads
+structural, scattered reads as quality. The ROADMAP grep resolves a marker on a
+WRAPPED line back to the bullet above it (3 of the 6 live items wrap), which is
+the difference between the id `m1-gate-fund-or-close` and the useless fragment
+`OPERATOR-GATED on product direction`.
+
+### P5 - Suite Trajectory - BUILT 2026-08-01 (`/api/trajectory`)
 
 Observed passed / failed / skipped by sha, delta per commit, source of each
 datapoint, and **commits with no datapoint rendered as gaps, never
@@ -178,6 +190,16 @@ interpolated**. A count that drops is deleted tests or a collection error; a
 commit with no datapoint is the unbacked-green failure at repo scale.
 Interpolating would manufacture the false continuity this project keeps getting
 burned by. Shares a data spine with P2.
+
+**As built.** Datapoints are harvested from two producers - the controller's
+resolved-cycle chain (`tests` against `sha_after`) and the per-slice verdict
+counts item 3 now persists - and a count with NO commit is dropped rather than
+kept with a blank sha, since a number that certifies no commit is unbacked green
+in its purest form. Sha widths differ by producer (8 / 7 / 40) and are matched at
+the shorter width. First live render, 30 commits: 5 observed, 25 gaps, and every
+observed row reads `chain broken` because no two observations are adjacent. That
+is the panel working, and it is the most honest picture of this repo's evidence
+coverage that has ever been on a screen.
 
 ---
 

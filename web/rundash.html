@@ -63,6 +63,15 @@ h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.6px;
 .crow:last-child{border-bottom:none}
 .crow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
   letter-spacing:.6px;border-bottom:1px solid var(--line)}
+.trow{display:grid;grid-template-columns:90px minmax(240px,3fr) 110px 90px
+  minmax(150px,1fr);gap:12px;align-items:center;min-width:900px;
+  padding:9px 0;border-bottom:1px solid rgba(30,45,68,.6)}
+.trow:last-child{border-bottom:none}
+.trow.head{color:var(--mut);font-size:var(--fs-xs);text-transform:uppercase;
+  letter-spacing:.6px;border-bottom:1px solid var(--line)}
+/* A commit nobody measured is a GAP, and it must read as one at a glance -
+   dashed rule plus the word, never a blank cell that looks like a zero. */
+.trow.gap{color:var(--mut);border-bottom-style:dashed}
 /* A run boundary is a fact the operator reads off the left edge; it must not
    depend on hue alone, so it is a rule plus a label, not a colour swap. */
 .crow.newrun{border-top:2px solid var(--gold);margin-top:6px;padding-top:12px}
@@ -159,6 +168,27 @@ pre{font:var(--fs-sm)/1.45 ui-monospace,Consolas,monospace;color:var(--mut);
       <span>Commit</span><span>Audit</span>
     </div>
     <div id="cycleboard"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>P4 - Operator Queue</h2>
+  <div id="queuenote" class="meta subhead"></div>
+  <h3>Blocked on you</h3>
+  <div id="queueyou"></div>
+  <h3>Blocked on the machine</h3>
+  <div id="queuemachine"></div>
+</div>
+
+<div class="card">
+  <h2>P5 - Suite Trajectory</h2>
+  <div id="trajnote" class="meta subhead"></div>
+  <div class="scroll">
+    <div class="trow head">
+      <span>Commit</span><span>Subject</span><span>Passed</span><span>Delta</span>
+      <span>Observed by</span>
+    </div>
+    <div id="trajboard"></div>
   </div>
 </div>
 
@@ -545,11 +575,97 @@ function rResume(r) {
 
 var lastRun = null;
 var lastResume = null;
+var lastQueue = null;
+var lastTraj = null;
 var tick = 0;
 var delayMs = 5000;        // base poll
 var MAX_DELAY = 30000;     // backoff cap on failure
 var RESUME_EVERY = 3;      // the resume panel shells out to git - poll it slower
 var timer = null;
+
+function rQueue(q) {
+  if (!q) { return; }
+  var you = q.blocked_on_you || {}, mach = q.blocked_on_machine || {};
+  // The cluster line is a POINTER, not a target: one stage holding the whole
+  // queue means look at the pipeline, scattered means look at the images.
+  $("queuenote").textContent =
+    (you.present ? "pipeline scanned " + (you.scanned_at || "?") : "no pipeline scan on disk") +
+    (you.clustered ? " - all " + you.needauth_count + " waiting slugs sit in " +
+      you.cluster_stage + ", which reads structural" : "") +
+    (you.needauth_count && !you.clustered ? " - the queue is spread across stages" : "");
+
+  var rows = you.needauth || [];
+  var html = "";
+  if (!rows.length) {
+    html += '<div class="wrow meta">nothing waiting on your approval</div>';
+  } else {
+    html += '<div class="wrow meta">' + esc(you.needauth_count) +
+      " slug(s) NEEDAUTH, oldest " + esc(you.oldest_age_human) +
+      (you.needauth_shown < you.needauth_count
+        ? " - showing the " + esc(you.needauth_shown) + " oldest" : "") + "</div>";
+    for (var i = 0; i < rows.length; i++) {
+      html += '<div class="wrow"><span class="badge b-pending">NEEDAUTH</span>' +
+        '<span class="meta">' + esc(rows[i].age_human) + " waiting</span>" +
+        '<span class="mono meta">' + esc(rows[i].stage) + "</span>" +
+        '<span class="ell" title="' + esc(rows[i].slug) + '">' + esc(rows[i].slug) +
+        "</span></div>";
+    }
+  }
+  // Declared fragile on the panel: it is a prose grep on a heading convention,
+  // and an operator must be able to tell a stale row from a silently lost one.
+  html += '<div class="wrow meta">' + esc(you.gated_count || 0) +
+    " OPERATOR-GATED roadmap item(s)" +
+    (you.gated_fragile ? ' <span class="warn">- prose grep on ROADMAP.md, ' +
+      "fragile by construction</span>" : "") + "</div>";
+  var gated = you.gated || [];
+  for (var g = 0; g < gated.length; g++) {
+    html += '<div class="wrow"><span class="badge b-pending">DECIDE</span>' +
+      '<span class="mono">' + esc(gated[g].id) + "</span>" +
+      '<span class="ell meta" title="' + esc(gated[g].next) + '">' +
+      esc(gated[g].next || "no Next: line") + "</span></div>";
+  }
+  $("queueyou").innerHTML = html;
+
+  var slices = mach.in_progress || [];
+  var mhtml = '<div class="wrow meta">' + esc(slices.length) + " slice(s) in progress, " +
+    esc(mach.open_count || 0) + " open, cycle " + esc(mach.cycle === null ? "?" : mach.cycle) +
+    " of " + esc(mach.cycle_cap === null ? "?" : mach.cycle_cap) +
+    (mach.cycles_left === null ? "" : " (" + esc(mach.cycles_left) + " left)") +
+    " - run is " + esc(mach.state) + "</div>";
+  for (var s = 0; s < slices.length; s++) {
+    mhtml += '<div class="wrow"><span class="badge b-progress">' + esc(slices[s].id) +
+      "</span>" + '<span class="meta">' + esc(slices[s].in_status_human) +
+      " in status</span>" + '<span class="ell">' + esc(slices[s].title) + "</span></div>";
+  }
+  $("queuemachine").innerHTML = mhtml;
+}
+
+function rTrajectory(t) {
+  if (!t) { return; }
+  $("trajnote").textContent = t.git_ok
+    ? esc(t.commit_count) + " commits, " + esc(t.observed_count) + " with an observation, " +
+      esc(t.gap_count) + " never measured. A gap is left as a gap - no delta is " +
+      "computed across one, because that would credit one commit with another's work."
+    : t.git_message || "git unavailable";
+  var rows = t.rows || [];
+  var html = "";
+  for (var i = rows.length - 1; i >= 0; i--) {
+    var r = rows[i];
+    var delta = r.delta === null
+      ? (r.delta_broken_by_gap ? '<span class="warn">chain broken</span>' : "-")
+      : (r.regression ? '<span class="bad">' : '<span class="ok">') +
+        (r.delta > 0 ? "+" : "") + esc(r.delta) + "</span>";
+    html += '<div class="trow' + (r.observed ? "" : " gap") + '">' +
+      '<span class="mono">' + esc(r.sha_short) + "</span>" +
+      '<span class="ell" title="' + esc(r.subject) + '">' + esc(r.subject) + "</span>" +
+      "<span>" + (r.observed ? esc(r.passed) + " passed" : "NO DATAPOINT") + "</span>" +
+      "<span>" + delta + "</span>" +
+      '<span class="meta">' + esc(r.observed ? r.source : "nobody looked") +
+      (r.observation_count > 1 ? " (" + esc(r.observation_count) + " obs)" : "") +
+      "</span></div>";
+  }
+  $("trajboard").innerHTML = html || '<div class="wrow meta">no commits in the window</div>';
+}
 
 async function load() {
   // One loop, one model. Clearing first means the manual refresh reschedules
@@ -557,8 +673,15 @@ async function load() {
   if (timer !== null) { clearTimeout(timer); timer = null; }
   var wantResume = (tick % RESUME_EVERY === 0) || lastResume === null;
   tick += 1;
-  var res = await Promise.all([jget("/api/run"), wantResume ? jget("/api/resume") : null]);
+  // Queue and trajectory both shell out (git log / a full pipeline scan read),
+  // so they ride the same slow lane as resume rather than every 5s.
+  var res = await Promise.all([jget("/api/run"),
+                               wantResume ? jget("/api/resume") : null,
+                               wantResume ? jget("/api/queue") : null,
+                               wantResume ? jget("/api/trajectory") : null]);
   var p = res[0], r = res[1];
+  if (res[2]) { lastQueue = res[2]; }
+  if (res[3]) { lastTraj = res[3]; }
   if (p) {
     lastRun = p;
     delayMs = 5000;
@@ -571,6 +694,8 @@ async function load() {
   if (p) { rHeader(p); rAlerts(p); rFacts(p); rSlices(p); rCycles(p); rFleet(p); }
   if (r) { lastResume = r; }
   rResume(r || lastResume);
+  rQueue(lastQueue);
+  rTrajectory(lastTraj);
   timer = setTimeout(load, delayMs);
 }
 $("refresh").addEventListener("click", function () { tick = 0; load(); });

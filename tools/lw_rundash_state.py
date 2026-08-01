@@ -770,6 +770,258 @@ def read_cycle_history(path, now_ts=None, *, limit=None):
     return out
 
 
+# ------------------------------------------------------ P4: operator queue
+
+
+def read_operator_queue(pipeline_state_path, now_ts=None):
+    """Slugs parked on an operator decision, oldest first.
+
+    Oldest first because AGE is the question this panel answers - "what is
+    waiting on me, and for how long". A queue sorted by name buries the slug
+    that has been sitting for a week behind twenty that arrived this morning.
+
+    `clustered` is the one piece the spec kept from the rejected gate-flag
+    census: a queue that all sits in one stage is STRUCTURAL (look at the
+    pipeline), a scattered one is quality (look at the images). It is a pointer,
+    never a number to tune against.
+    """
+    now_ts = time.time() if now_ts is None else now_ts
+    out = {"ok": True, "present": False, "path": str(pipeline_state_path),
+           "needauth": [], "needauth_count": 0, "clustered": False,
+           "cluster_stage": None, "oldest_age_s": None, "oldest_age_human": "-",
+           "generated_ts": None, "checked_at": iso_from_epoch(now_ts)}
+    data, _ = _read_json(pipeline_state_path)
+    if not isinstance(data, dict):
+        return out
+    out["present"] = True
+    out["generated_ts"] = _str_or_none(data.get("generated_ts"))
+    images = data.get("images")
+    if not isinstance(images, dict):
+        return out
+
+    rows = []
+    for slug, rec in images.items():
+        if not isinstance(rec, dict) or rec.get("substate") != "NEEDAUTH":
+            continue
+        age = _age(now_ts, parse_iso(_str_or_none(rec.get("last_op_ts"))))
+        rows.append({"slug": str(slug),
+                     "stage": _str_or_none(rec.get("stage_folder")) or "?",
+                     "state": _str_or_none(rec.get("state")) or "?",
+                     "last_op_ts": _str_or_none(rec.get("last_op_ts")),
+                     "age_s": age, "age_human": human_age(age)})
+    # Unknown age sorts FIRST, not last: a row whose stamp cannot be read is the
+    # one most likely to have been forgotten.
+    rows.sort(key=lambda r: (r["age_s"] is not None, -(r["age_s"] or 0)))
+    out["needauth"] = rows
+    out["needauth_count"] = len(rows)
+    if rows:
+        out["oldest_age_s"] = rows[0]["age_s"]
+        out["oldest_age_human"] = rows[0]["age_human"]
+        stages = {r["stage"] for r in rows}
+        if len(stages) == 1 and len(rows) > 1:
+            out["clustered"] = True
+            out["cluster_stage"] = rows[0]["stage"]
+    return out
+
+
+def read_operator_gated(roadmap_path, *, marker="OPERATOR-GATED"):
+    """ROADMAP items parked on an operator decision, with their `Next:` line.
+
+    FRAGILE BY CONSTRUCTION and flagged as such. This is a prose grep on a
+    heading convention in a hand-written file: it works today and it will rot
+    the first time somebody words an item differently. Labelling it on the panel
+    is the difference between an operator seeing a stale row and an operator
+    never learning that a decision silently stopped being listed.
+    """
+    out = {"ok": True, "present": False, "path": str(roadmap_path),
+           "items": [], "count": 0, "fragile": True, "marker": marker}
+    text = _read_text(roadmap_path)
+    if text is None:
+        return out
+    out["present"] = True
+    lines = text.splitlines()
+    bullet_at, bullet_text = None, ""
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("- **"):
+            bullet_at, bullet_text = i, stripped
+        if marker not in line:
+            continue
+        # The marker often lands on a WRAPPED line of the bullet it belongs to
+        # (3 of the 6 live items today). Attributing it to the nearest preceding
+        # bullet is what keeps the id `m1-gate-fund-or-close` instead of the
+        # fragment `OPERATOR-GATED on product direction`.
+        if bullet_at is None:
+            continue
+        head = bullet_text
+        i = bullet_at
+        title = head.lstrip("- ").strip().strip("*").strip()
+        item_id = title.split(" - ", 1)[0].strip().strip("*").strip()
+        if any(existing["line_no"] == i + 1 for existing in out["items"]):
+            continue
+        nxt = ""
+        for follow in lines[i + 1:i + 6]:
+            stripped = follow.strip()
+            if stripped.startswith("Next:"):
+                nxt = stripped[len("Next:"):].strip()
+                break
+            if stripped.startswith("-") or not stripped:
+                break
+        out["items"].append({"id": item_id, "title": title, "next": nxt,
+                             "line_no": i + 1})
+    out["count"] = len(out["items"])
+    return out
+
+
+# ----------------------------------------------------- P5: suite trajectory
+
+
+def _sha_match(a, b):
+    """True when two abbreviations of a sha can be the same commit.
+
+    Three producers, three widths: directive_history stores 8, the slice
+    manifest stores 7, git gives 40. Comparing at the shorter width is the only
+    join that works across all three.
+    """
+    if not a or not b:
+        return False
+    a, b = a.strip().lower(), b.strip().lower()
+    width = min(len(a), len(b))
+    return width >= 6 and a[:width] == b[:width]
+
+
+def collect_suite_observations(cycles, manifest_raw):
+    """Every OBSERVED suite count that is attached to a commit.
+
+    Two producers today: the controller's resolved-cycle chain (`tests` against
+    `sha_after`) and the per-slice verdict history the truth gate now writes
+    (`counts` against the slice's commit).
+
+    A count with no commit is DROPPED, not kept with a blank sha. A number that
+    cannot be attached to a commit certifies nothing - it is the unbacked-green
+    claim in its purest form, and putting it on the trajectory would let it
+    stand in for a commit nobody measured.
+    """
+    obs = []
+    for rec in (cycles or {}).get("records") or []:
+        sha = _str_or_none(rec.get("sha_after"))
+        passed = _int_or_none(rec.get("tests"))
+        if not sha or passed is None:
+            continue
+        obs.append({"sha": sha, "passed": passed, "failed": None, "skipped": None,
+                    "source": "directive_history", "at": _str_or_none(rec.get("ts")),
+                    "observer": "controller"})
+    for entry in (manifest_raw or {}).get("slices") or []:
+        if not isinstance(entry, dict):
+            continue
+        sha = _str_or_none(entry.get("commit"))
+        if not sha:
+            continue
+        for rec in entry.get("verdicts") or []:
+            if not isinstance(rec, dict):
+                continue
+            counts = rec.get("counts")
+            if not isinstance(counts, dict):
+                continue
+            passed = _int_or_none(counts.get("passed"))
+            if passed is None:
+                continue
+            obs.append({"sha": sha, "passed": passed,
+                        "failed": _int_or_none(counts.get("failed")),
+                        "skipped": _int_or_none(counts.get("skipped")),
+                        "source": _str_or_none(rec.get("observer")) or "unknown",
+                        "at": _str_or_none(rec.get("at")),
+                        "observer": _str_or_none(rec.get("observer")),
+                        "slice": _str_or_none(entry.get("id"))})
+    return obs
+
+
+GIT_LOG_SEP = "\x1f"
+
+
+def recent_commits(repo_root, *, limit=25, runner=None, git="git", timeout=20.0):
+    """The newest `limit` commits, returned OLDEST FIRST for the trajectory.
+
+    One spawn, unit-separator delimited so a subject containing any printable
+    character cannot split the record. Fails soft to an empty list: a trajectory
+    with no commits renders as "no data", which is honest, where an exception
+    would take the whole board down with it.
+    """
+    run = runner if callable(runner) else (lambda argv: _git_runner(argv, timeout))
+    fmt = GIT_LOG_SEP.join(["%H", "%s", "%cI"])
+    try:
+        rc, stdout, _ = run([git, "-C", str(repo_root), "log", f"-n{int(limit)}",
+                             f"--format={fmt}"])
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+        return []
+    if rc != 0:
+        return []
+    out = []
+    for line in (stdout or "").splitlines():
+        parts = line.split(GIT_LOG_SEP)
+        if len(parts) != 3 or not parts[0].strip():
+            continue
+        out.append({"sha": parts[0].strip(), "subject": parts[1].strip(),
+                    "date": parts[2].strip()})
+    out.reverse()
+    return out
+
+
+def build_suite_trajectory(commits, observations):
+    """One row per commit, oldest first, with GAPS left as gaps.
+
+    THE rule: a delta is never computed across a commit nobody measured. 1400 at
+    one commit, nothing at the next, 1500 at the third - rendering "+100" on the
+    third attributes to it work that may have landed in the second. A commit
+    with no datapoint is the unbacked-green failure at repo scale, and
+    interpolating over it manufactures the false continuity this project keeps
+    getting burned by.
+    """
+    out = {"rows": [], "observed_count": 0, "gap_count": 0, "commit_count": 0}
+    rows = []
+    prev_passed = None
+    prev_observed = False
+    for commit in commits or []:
+        sha = _str_or_none((commit or {}).get("sha"))
+        hits = [o for o in observations or [] if _sha_match(sha, o.get("sha"))]
+        # Newest observation wins: a re-run on the same sha supersedes, it does
+        # not average. `at` may be absent, and those sort first so a stamped
+        # observation always beats an unstamped one.
+        hits.sort(key=lambda o: (o.get("at") is not None, o.get("at") or ""))
+        best = hits[-1] if hits else None
+        row = {
+            "sha": sha,
+            "sha_short": (sha or "")[:7],
+            "subject": _str_or_none((commit or {}).get("subject")) or "",
+            "date": _str_or_none((commit or {}).get("date")),
+            "observed": best is not None,
+            "passed": best.get("passed") if best else None,
+            "failed": best.get("failed") if best else None,
+            "skipped": best.get("skipped") if best else None,
+            "source": best.get("source") if best else None,
+            "observed_at": best.get("at") if best else None,
+            "observation_count": len(hits),
+            "delta": None,
+            "delta_broken_by_gap": False,
+            "regression": False,
+        }
+        if best is not None:
+            if prev_observed and prev_passed is not None:
+                row["delta"] = row["passed"] - prev_passed
+                row["regression"] = row["delta"] < 0
+            elif prev_passed is not None:
+                row["delta_broken_by_gap"] = True
+            prev_passed, prev_observed = row["passed"], True
+            out["observed_count"] += 1
+        else:
+            prev_observed = False
+            out["gap_count"] += 1
+        rows.append(row)
+    out["rows"] = rows
+    out["commit_count"] = len(rows)
+    return out
+
+
 # --------------------------------------------------------- P3: worktrees
 
 

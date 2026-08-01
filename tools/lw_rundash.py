@@ -81,9 +81,19 @@ RUNDASH_LOG = ROOT / "logs" / "lw_rundash.log"
 # missing from the source is served from here rather than vanishing off the board.
 MIRROR_PATH = ROOT / "ops" / "runtime" / "agent_fleet_mirror.json"
 
+PIPELINE_STATE_PATH = ROOT / "ops" / "runtime" / "pipeline_state.json"
+ROADMAP_PATH = ROOT / "ROADMAP.md"
+
 # How many resolved cycles the /api/run payload carries. The file is append-only
 # and NEVER cleared, so it grows without bound - the payload must not.
 CYCLE_HISTORY_N = 40
+
+# Caps on the two P4/P5 lists. Both are BOUNDED SOURCES that grow without bound
+# - 29 NEEDAUTH slugs today, every commit ever - and the payload must not. Both
+# panels state the full count next to what they show, per the no-silent-caps
+# rule: a truncated list that does not admit it reads as complete coverage.
+NEEDAUTH_ROWS_N = 25
+TRAJECTORY_N = 30
 
 # Where Claude Code keeps this project's sessions, and with them the only record
 # of which agent owned which worktree. AVAILABLE, NOT DURABLE - no
@@ -484,6 +494,82 @@ def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=
 # ------------------------------------------------------ P3: resume decision
 
 
+def build_queue_view(*, pipeline_state_path, roadmap_path, control_dir,
+                     manifest_path, config_path=None, now_ts=None, cache=None,
+                     pid_alive=None, repo_root=None):
+    """The /api/queue payload - P4, what is waiting on the operator.
+
+    Two columns, and the split is the point: a NEEDAUTH slug is the operator's
+    to clear and no amount of machine time moves it, while an in-progress slice
+    is the machine's and no amount of operator attention moves it either.
+    """
+    now_ts = time.time() if now_ts is None else now_ts
+    cache = {} if cache is None else cache
+    queue = rundash_state.read_operator_queue(pipeline_state_path, now_ts)
+    gated = rundash_state.read_operator_gated(roadmap_path)
+    manifest = rundash_state.read_slice_manifest(manifest_path, now_ts, cache=cache)
+    liveness = rundash_state.run_liveness(
+        control_dir, now_ts, manifest_path=manifest_path, pid_alive=pid_alive,
+        repo_root=repo_root if repo_root is not None else ROOT)
+    cap = read_cycle_cap(config_path) if config_path else None
+    cycle = liveness["cycle"]
+    return {
+        "ok": True,
+        "generated_at": rundash_state.iso_from_epoch(now_ts),
+        "blocked_on_you": {
+            "needauth": queue["needauth"][:NEEDAUTH_ROWS_N],
+            "needauth_count": queue["needauth_count"],
+            "needauth_shown": min(queue["needauth_count"], NEEDAUTH_ROWS_N),
+            "oldest_age_human": queue["oldest_age_human"],
+            "clustered": queue["clustered"],
+            "cluster_stage": queue["cluster_stage"],
+            "present": queue["present"],
+            "scanned_at": queue["generated_ts"],
+            "gated": gated["items"],
+            "gated_count": gated["count"],
+            "gated_fragile": gated["fragile"],
+            "gated_present": gated["present"],
+        },
+        "blocked_on_machine": {
+            "in_progress": [{"id": s["id"], "title": s["title"],
+                             "status": s["status"],
+                             "in_status_human": s["status_age_human"]}
+                            for s in manifest["slices"]
+                            if s["status"] == "in_progress"],
+            "open_count": manifest["open_count"],
+            "cycle": cycle,
+            "cycle_cap": cap,
+            "cycles_left": (cap - cycle) if (cap is not None and cycle is not None) else None,
+            "state": liveness["state"],
+        },
+    }
+
+
+def build_trajectory_view(*, repo_root, control_dir, manifest_path, now_ts=None,
+                          cache=None, runner=None, git="git", limit=TRAJECTORY_N):
+    """The /api/trajectory payload - P5, where the suite went and where nobody looked.
+
+    Every commit in the window gets a row. A commit with no observation renders
+    as a GAP and its successor's delta is suppressed: interpolating across it
+    would attribute to one commit the work of another, which is the unbacked
+    green this dashboard exists to make visible rather than to smooth over.
+    """
+    now_ts = time.time() if now_ts is None else now_ts
+    cache = {} if cache is None else cache
+    commits = rundash_state.recent_commits(repo_root, limit=limit, runner=runner, git=git)
+    cycles = rundash_state.read_cycle_history(
+        Path(control_dir) / "directive_history.jsonl", now_ts)
+    manifest_raw, _ = rundash_state._read_json(manifest_path)
+    observations = rundash_state.collect_suite_observations(cycles, manifest_raw)
+    out = rundash_state.build_suite_trajectory(commits, observations)
+    out["ok"] = True
+    out["generated_at"] = rundash_state.iso_from_epoch(now_ts)
+    out["git_ok"] = bool(commits)
+    out["git_message"] = None if commits else GIT_UNAVAILABLE
+    out["observation_total"] = len(observations)
+    return out
+
+
 def build_resume_view(*, control_dir, manifest_path, repo_root, now_ts=None, cache=None,
                       runner=None, pid_alive=None, git="git", tail_n=5):
     """The /api/resume payload - resume or restart, and is any work stranded.
@@ -523,9 +609,12 @@ class RunDashServer(LWServer):
     def __init__(self, addr, handler, *, control_dir=CONTROL_DIR, manifest_path=MANIFEST_PATH,
                  config_path=CONFIG_PATH, page_path=PAGE_PATH, repo_root=ROOT,
                  session_dir=None, runner=None, pid_alive=None, cache=None,
-                 mirror_path=MIRROR_PATH):
+                 mirror_path=MIRROR_PATH, pipeline_state_path=PIPELINE_STATE_PATH,
+                 roadmap_path=ROADMAP_PATH):
         super().__init__(addr, handler)
         self.mirror_path = Path(mirror_path) if mirror_path else None
+        self.pipeline_state_path = Path(pipeline_state_path)
+        self.roadmap_path = Path(roadmap_path)
         self.control_dir = Path(control_dir)
         self.manifest_path = Path(manifest_path)
         self.config_path = Path(config_path)
@@ -574,6 +663,22 @@ class Handler(BaseLWHandler):
                     control_dir=srv.control_dir, manifest_path=srv.manifest_path,
                     repo_root=srv.repo_root, cache=srv.view_cache,
                     runner=srv.runner, pid_alive=srv.pid_alive)
+                self._send_json(200, view, {"Cache-Control": "no-store"})
+                return
+            if path == "/api/queue":
+                view = build_queue_view(
+                    pipeline_state_path=srv.pipeline_state_path,
+                    roadmap_path=srv.roadmap_path, control_dir=srv.control_dir,
+                    manifest_path=srv.manifest_path, config_path=srv.config_path,
+                    cache=srv.view_cache, pid_alive=srv.pid_alive,
+                    repo_root=srv.repo_root)
+                self._send_json(200, view, {"Cache-Control": "no-store"})
+                return
+            if path == "/api/trajectory":
+                view = build_trajectory_view(
+                    repo_root=srv.repo_root, control_dir=srv.control_dir,
+                    manifest_path=srv.manifest_path, cache=srv.view_cache,
+                    runner=srv.runner)
                 self._send_json(200, view, {"Cache-Control": "no-store"})
                 return
             if path == "/api/health":
