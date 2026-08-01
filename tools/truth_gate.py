@@ -27,8 +27,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import slice_orchestrator as so  # noqa: E402  (sibling tool, not a package)
+
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPORT = ROOT / "ops" / "runtime" / "truth_gate_report.json"
+DEFAULT_MANIFEST = so.DEFAULT_MANIFEST
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 
 # Only these triggers honour paths-ignore. A schedule run fires whatever the
@@ -305,6 +309,63 @@ def reconcile(claims, suite_obs, file_obs_by_slice, git_obs, ci_obs):
                        "with the discrepancy list as added context")}
 
 
+def persist_slice_observations(report, manifest_path, *, suite_observed=True,
+                               at=None):
+    """Append ONE truth_gate observation per reconciled slice to the manifest.
+
+    The report file this gate already writes is overwritten by the next run, so
+    without this the only durable trace of an observation was whatever a human
+    typed in afterwards - the gap spec item 3 names. Here the observation lands
+    on the slice ladder itself, append-only, next to the claim it certifies.
+
+    Fail-soft by construction: a missing or unparsable manifest returns a reason
+    and changes nothing. This runs INSIDE the gate, and a bookkeeping write that
+    could fail the gate would make the gate less trustworthy, not more.
+    """
+    manifest_path = Path(manifest_path)
+    out = {"manifest": str(manifest_path), "appended": [], "unknown": [],
+           "reason": None}
+    try:
+        manifest = so.load_manifest(manifest_path)
+    except (OSError, ValueError) as exc:
+        out["reason"] = f"manifest unreadable ({type(exc).__name__})"
+        return out
+    if manifest is None:
+        out["reason"] = f"no manifest at {manifest_path}"
+        return out
+
+    suite = report.get("suite") or {}
+    counts = {"passed": suite.get("passed"), "skipped": suite.get("skipped"),
+              "failed": suite.get("failed")} if suite_observed else {}
+    # A global refusal (red suite, CI failure) quarantines no individual slice,
+    # so without carrying it down every row would read as "checked, and fine".
+    globals_ = ["global: " + d for d in report.get("global_discrepancies") or []]
+
+    for sl in report.get("slices") or []:
+        sid = sl.get("id")
+        if not sid:
+            continue
+        try:
+            record = so.build_verdict_record(
+                "CONFIRM" if sl.get("verdict") == "CONFIRM" else "REFUTE",
+                "truth_gate", at=at,
+                discrepancies=list(sl.get("discrepancies") or []) + globals_,
+                note=(sl.get("claim") or "")[:200], **counts)
+        except ValueError as exc:
+            out["reason"] = str(exc)
+            return out
+        (out["appended"] if so.append_verdict_record(manifest, sid, record)
+         else out["unknown"]).append(sid)
+
+    if out["appended"]:
+        try:
+            so.write_manifest_atomic(manifest, manifest_path)
+        except OSError as exc:
+            out["appended"] = []
+            out["reason"] = f"manifest write failed ({type(exc).__name__})"
+    return out
+
+
 def load_claims(path):
     """utf-8-sig tolerates the BOM PowerShell 5.1 Out-File -Encoding utf8 emits."""
     return json.loads(Path(path).read_text(encoding="utf-8-sig"))
@@ -325,6 +386,10 @@ def main(argv=None):
     ap.add_argument("--skip-suite", action="store_true",
                     help="reuse no suite run; suite counts come back zeroed "
                          "and count-claims will quarantine (debug only)")
+    ap.add_argument("--manifest", default=str(DEFAULT_MANIFEST),
+                    help="slice manifest to append the observations to")
+    ap.add_argument("--no-manifest", action="store_true",
+                    help="reconcile only; leave the slice ladder untouched")
     args = ap.parse_args(argv)
 
     claims = load_claims(args.claims)
@@ -343,6 +408,12 @@ def main(argv=None):
 
     report = reconcile(claims, suite_obs, file_obs, git_obs, ci_obs)
     write_report_atomic(report, args.report)
+    if not args.no_manifest:
+        obs = persist_slice_observations(report, args.manifest,
+                                         suite_observed=not args.skip_suite)
+        print("observations: appended={} unknown={} {}".format(
+            ",".join(obs["appended"]) or "-", ",".join(obs["unknown"]) or "-",
+            obs["reason"] or ""))
     print(json.dumps({k: report[k] for k in
                       ("verdict", "quarantined", "global_discrepancies")}))
     print(f"report: {args.report}")

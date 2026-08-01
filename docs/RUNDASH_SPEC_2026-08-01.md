@@ -209,8 +209,15 @@ token counts, never dollars.
    `in_progress` and the refutation leaves no trace - the one REFUTE on
    2026-07-30 exists only as prose in LEDGER 61. Highest-value single addition.
 2. **Persisted verifier verdicts.** Currently chat-only.
-3. **Per-slice suite observations** as append-only events - the datum the whole
-   evidence ledger is made of.
+3. ~~**Per-slice suite observations** as append-only events - the datum the whole
+   evidence ledger is made of.~~ DONE 2026-08-01. `truth_gate.py` now appends one
+   `observer: truth_gate` record per reconciled slice to the manifest verdict
+   history, carrying the OBSERVED counts. A global refusal (red suite, CI
+   failure) quarantines no individual slice, so it is carried down onto every
+   row prefixed `global:` - otherwise a slice reconciled during a red suite
+   renders as "checked, and fine". `--skip-suite` records `counts: null`, never
+   zeros. The record shape has ONE owner
+   (`slice_orchestrator.build_verdict_record`); truth_gate does not hand-roll it.
 4. ~~**Cost and session id into `directive_history.jsonl`.**~~ DONE 2026-08-01
    (LEDGER 65). `record_directive_outcome` now takes the `DoneRecord` alongside
    `done` (which stays `rec.raw`, carried through untouched because the director

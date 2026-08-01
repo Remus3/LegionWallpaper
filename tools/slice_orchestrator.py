@@ -178,6 +178,70 @@ def cmd_set(path, slice_id, status, commit, note):
     return 2
 
 
+def build_verdict_record(state, observer, *, agent_id=None, passed=None,
+                         skipped=None, failed=None, discrepancies=None,
+                         note=None, at=None, backfilled=False):
+    """THE owner of the verdict-record shape. Raises ValueError on a bad field.
+
+    Every writer of an observation - the CLI below, tools/truth_gate.py, and
+    whatever comes next - builds its record here. A second hand-rolled dict is
+    how the reader (lw_rundash_state._normalize_verdict) ends up tolerant of one
+    shape and blind to another, and a verdict the board cannot read is worse
+    than no verdict at all: it renders as NOT OBSERVED, which is a lie.
+    """
+    state_up = (state or "").strip().upper()
+    if state_up not in VERDICT_STATES:
+        raise ValueError("unknown verdict state {!r} - allowed: {}"
+                         .format(state, ", ".join(VERDICT_STATES)))
+    who = (observer or "").strip()
+    if who not in OBSERVERS:
+        raise ValueError("unknown observer {!r} - allowed: {}"
+                         .format(observer, ", ".join(OBSERVERS)))
+    stamp = _now() if at is None else normalize_stamp(at)
+    if stamp is None:
+        raise ValueError(
+            f"--at {at!r} must carry an explicit offset or a trailing Z - a naive"
+            " stamp is read as UTC by one consumer and as LOCAL by another"
+            )
+    counts = None
+    if any(v is not None for v in (passed, skipped, failed)):
+        counts = {"passed": passed, "skipped": skipped, "failed": failed}
+    return {
+        "state": state_up,
+        "observer": who,
+        "at": stamp,
+        "agent_id": (agent_id or "").strip() or None,
+        "counts": counts,
+        "discrepancies": [d.strip() for d in (discrepancies or []) if d and d.strip()],
+        "note": (note or "").strip(),
+        "backfilled": bool(backfilled),
+    }
+
+
+def append_verdict_record(manifest, slice_id, record):
+    """Append `record` to one slice in an already-loaded manifest. True if hit.
+
+    Does NOT write. The caller batches its writes, because one atomic write per
+    slice would leave a poller able to observe a half-recorded run.
+
+    `status` and `updated` are LEFT ALONE. The ladder is where the work is; this
+    is what somebody found when they looked, and a refutation that silently
+    rewound the ladder is what erased the 2026-07-30 REFUTE in the first place.
+    The dashboard also subtracts `updated` to show time in the current status,
+    so stamping it would report a slice parked for four hours as "just now".
+    """
+    for entry in manifest.get("slices", []):
+        if entry.get("id") != slice_id:
+            continue
+        history = entry.get(VERDICT_FIELD)
+        if not isinstance(history, list):
+            history = []
+        history.append(record)
+        entry[VERDICT_FIELD] = history
+        return True
+    return False
+
+
 def cmd_verdict(path, slice_id, state, observer, *, agent_id=None, passed=None,
                 skipped=None, failed=None, discrepancies=None, note=None,
                 at=None, backfilled=False):
@@ -193,60 +257,27 @@ def cmd_verdict(path, slice_id, state, observer, *, agent_id=None, passed=None,
     than an empty one, because the entire point is that a claim without evidence
     is visible as such.
     """
-    state_up = (state or "").strip().upper()
-    if state_up not in VERDICT_STATES:
-        print("ERROR: unknown verdict state {!r} - allowed: {}"
-              .format(state, ", ".join(VERDICT_STATES)), file=sys.stderr)
-        return 2
-    who = (observer or "").strip()
-    if who not in OBSERVERS:
-        print("ERROR: unknown observer {!r} - allowed: {}"
-              .format(observer, ", ".join(OBSERVERS)), file=sys.stderr)
-        return 2
-    stamp = _now() if at is None else normalize_stamp(at)
-    if stamp is None:
-        print(f"ERROR: --at {at!r} must carry an explicit offset or a trailing Z"
-              " - a naive stamp is read as UTC by one consumer and as LOCAL by"
-              " another", file=sys.stderr)
+    try:
+        record = build_verdict_record(
+            state, observer, agent_id=agent_id, passed=passed, skipped=skipped,
+            failed=failed, discrepancies=discrepancies, note=note, at=at,
+            backfilled=backfilled)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     manifest = load_manifest(path)
     if manifest is None:
         print(f"ERROR: no manifest at {path} - run `init` first", file=sys.stderr)
         return 2
-
-    counts = None
-    if any(v is not None for v in (passed, skipped, failed)):
-        counts = {"passed": passed, "skipped": skipped, "failed": failed}
-    lines = [d.strip() for d in (discrepancies or []) if d and d.strip()]
-    record = {
-        "state": state_up,
-        "observer": who,
-        "at": stamp,
-        "agent_id": (agent_id or "").strip() or None,
-        "counts": counts,
-        "discrepancies": lines,
-        "note": (note or "").strip(),
-        "backfilled": bool(backfilled),
-    }
-
-    for entry in manifest.get("slices", []):
-        if entry.get("id") != slice_id:
-            continue
-        history = entry.get(VERDICT_FIELD)
-        if not isinstance(history, list):
-            history = []
-        history.append(record)
-        entry[VERDICT_FIELD] = history
-        # `updated` is LEFT ALONE. The dashboard subtracts it to show time in
-        # the current status, and the status did not change here - stamping it
-        # would report a slice parked for four hours as "just now", which is the
-        # single most actionable number on the board.
-        write_manifest_atomic(manifest, path)
-        print(f"verdict: {slice_id} {state_up} by {who} "
-              f"({len(history)} record(s) on this slice)")
-        return 0
-    print(f"ERROR: no slice with id {slice_id} in {path}", file=sys.stderr)
-    return 2
+    if not append_verdict_record(manifest, slice_id, record):
+        print(f"ERROR: no slice with id {slice_id} in {path}", file=sys.stderr)
+        return 2
+    write_manifest_atomic(manifest, path)
+    count = len(next(e[VERDICT_FIELD] for e in manifest["slices"]
+                     if e.get("id") == slice_id))
+    print(f"verdict: {slice_id} {record['state']} by {record['observer']} "
+          f"({count} record(s) on this slice)")
+    return 0
 
 
 def latest_verdict(entry):
