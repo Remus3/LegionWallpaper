@@ -1,5 +1,16 @@
 # MCP lift triage - LW pass, 2026-08-01
 
+> **SUPERSEDED IN PART by `docs/MCP_LIFT_DIVE_2026-08-01.md` (stage 4, same
+> day).** This document scored 63 entries with 5 VERIFIED-LIVE and 58
+> INHERITED-RC. The dive fetched ALL 63 at source and moved rows in both
+> directions - `viznoir` 6 to 3, `picdefenseio` 6 to 2, `mockd` 5 to 8,
+> `task-orchestrator` 5 to 7, `depwire` 3 to 6, `memi` 4 to 6 - and it answers
+> the two questions this document filed as OPEN. **The scores below are NOT
+> rewritten**: the ranked table stands as the stage-3 record, exactly as RC's
+> own cull was left un-retro-edited, and the post-dive scores live in the dive.
+> Act on the dive. The `Phases` section at the end of this file is replaced by
+> the dive's section 4 and by `BACKLOG.md`'s `mcp-lift-phases` entry.
+
 Sources reviewed: the operator's `review prefix.txt` LW list (63 marketplace URLs,
 headed `LW:`), `First-Pass.md` (an RC-scoped triage, 146 entries), and
 `First-Pass-Addendum.md` (an RC competitor teardown).

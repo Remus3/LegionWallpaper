@@ -40,13 +40,53 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     `red-handed`, a local deterministic MIT auditor of "tests pass" claims
     against git history - the tool form of LW's most documented failure class,
     currently answered by spending a whole verifier subagent.
-  - **L3, operator-gated:** a MediaWiki canonical-source probe ahead of Tier 1
-    in the recovery waterfall, and picdefenseio evaluated as a Tier-2 COMPLEMENT
-    to SauceNAO - not a replacement, it does backlink discovery rather than
-    reverse-image search. Both would add another metered service.
-  - **L4, blocked:** viznoir as a headless glTF render backend for
-    `glb-render-fetch`, gated first on whether its glTF path carries SKINNED
-    meshes. A matching file extension is not evidence.
+  - **L3 and L4 are SUPERSEDED by the stage-4 deep dive, 2026-08-01 -
+    `docs/MCP_LIFT_DIVE_2026-08-01.md`.** All 63 LW-list entries were fetched at
+    source (the triage had 5 VERIFIED-LIVE and 58 INHERITED-RC), plus the 5
+    off-list entries. Read the dive, not the triage, before acting on any row.
+    The replacement plan, in order:
+  - **P1 - the Stop-hook claimed-green gate. NEXT, zero dependencies.** Build it
+    in Python in `tools/` from the official hook contract: `Stop` hands the hook
+    `last_assistant_message` (the claim) and `transcript_path` (the evidence);
+    block with `{"decision":"block","reason":...}` or exit 2. MUST read
+    `stop_hook_active` and exit 0 when true - the loop guard is COOPERATIVE, not
+    enforced, and an always-block Stop hook loops forever. Same slice: audit
+    `text_first_guard.py` + `pytest_guard.py` for the exit-0-stdout asymmetry -
+    for PreToolUse/PostToolUse/Stop, exit-0 stdout goes to the DEBUG LOG only
+    and never reaches the model; use `additionalContext` or exit 2.
+  - **P2 - mockd for the recovery waterfall. NEXT after P1.** One zero-dependency
+    Go binary with prebuilt WINDOWS releases, fully offline, no account,
+    Apache-2.0, stateful multi-step flows AND proxy record-and-replay. Record the
+    real DeviantArt oEmbed + gallery-dl exchanges once, including a quota block,
+    and replay them. Acceptance: recovery tests pass with the network unplugged
+    and the hand-written stubs deleted.
+  - **P3 - MediaWiki canonical-source probe. OPERATOR-GATED.** Use
+    `professionalwiki/mediawiki-mcp-server`, NOT olgasafonova: it is the only one
+    of the two exposing `get-file-data` (inline image bytes) plus `get-file`
+    download links, and LW's need is splash-art FILES, not article text. One
+    probe decides it - does it return bytes from a Fandom wiki. olgasafonova is
+    the fallback (Fandom named explicitly, Windows stated, 40+ tools). Anonymous
+    read needs no account on either, so this is a network dependency, not a
+    metered one.
+  - **P4 - file-claim table. LATER, METHOD ONLY.** Implement depwire's
+    `claim_files` / `release_files` / `get_active_claims` shape inside
+    `slice_orchestrator.py`, which is the primitive LW enforces by hand today.
+    Do NOT vendor depwire - BSL 1.1 until it converts to Apache 2.0 on
+    2029-02-25.
+  - **P5 - memi as a one-shot UI audit. LATER.** `npx`, no install, no key,
+    Windows explicitly supported, MIT, and the audit is STATIC over source - no
+    running page or screenshot needed. Run it against both pages and adopt only
+    if it catches something the 5-phase ritual missed.
+  - **CLOSED by the dive, do not reopen:** viznoir as a render backend - its
+    glTF is an EXPORT format on a list with PNG/MP4, so it is the wrong
+    direction for `glb-render-fetch`, and there is zero skinned-mesh evidence
+    (the question L4 was gated on: answered NO). picdefenseio in any role - all
+    its image tools take a public http/https URL and cannot read a local file,
+    so the corpus would have to be published first, against ADR-005's
+    private-use boundary. uniprof and neurostack - neither runs on a Windows
+    host. red-handed - lift the detector design, do NOT install: the repo is
+    four days old with 3 stars, has no Windows CI, and carries two confirmed
+    path-separator bugs that silently drop subdirectory sessions.
   Do-not-redo: do NOT inherit the sibling project's scores - it closed an entire
   class as "no image need", which is LW's whole domain. Do NOT triage by slug:
   measured, three of four name-based guesses were wrong in both directions.
