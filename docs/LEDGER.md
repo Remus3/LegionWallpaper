@@ -27,6 +27,51 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+83. DONE **2026-08-01 (wiki-swap-manifest-hash-residue - the decision, a latent
+    verify bug it exposed, and the backfill; TDD).** The 21 HASH_MISMATCH rows
+    left by the 22 canonical-source swaps were called "bookkeeping only" and they
+    were - but the fork underneath was real, so it was DECIDED on principle
+    rather than patched: **REJECTED** rewriting the INTAKE transition's hash,
+    **CHOSEN** appending a `REPLACE_SOURCE` transition carrying `sha256_in`
+    (what was there) and `sha256_out` (what replaced it). Rewriting makes verify
+    green by editing history; the manifest IS the provenance record, and one that
+    silently restates what was intaken can no longer answer what we started from.
+    Every other ledger here is append-only for that reason.
+    THE FIX EXPOSED A LATENT BUG THAT WAS NOT THE SWAP'S FAULT. `_verify_folders`
+    built its expected-hash map by iterating transitions in FILE ORDER with
+    last-write-wins, merged across all of a slug's folders, so which record a
+    file was checked against depended on dict-insertion luck. Isolated by
+    measurement, three ways: file-order + no backfill = **32** mismatches;
+    latest-by-timestamp + no backfill = **23**; latest-by-timestamp + backfill =
+    **2**. So **9 of the original 32 were the ordering bug alone** - files whose
+    newest record already agreed with disk, reported as mismatches because an
+    older or other-folder record won. That is now `_expected_hashes()`, ordered
+    by `ts`, with its own test.
+    BACKFILL (CLAUDE.md "Data Fixes" - a guard that only fixes future swaps
+    leaves the existing rows wrong): `tools/lw_backfill_replace_source.py`,
+    dry-run by default, 21 records written across 21 slugs. The 22nd, `1341679`,
+    carries no comparable hash and needed none, exactly as the ROADMAP predicted.
+    Integrity cross-check BEFORE writing: all 21 on-disk hashes matched the
+    `new_initial_sha256` the swap manifest recorded, 0 disagreements - so what
+    was recorded is provably the wiki file and not some other drift. Idempotency
+    proven by re-running with `--apply`: 0 written.
+    THE SAFETY PROPERTY, and it earned itself immediately: the tool REFUSES to
+    run unscoped. Scope comes from the swap manifest (which also supplies the
+    per-slug wiki source url) or explicit `--slug`. An unscoped sweep would have
+    recorded `vayne3` too - the 2 remaining mismatches, one slug in two folders,
+    which was NEVER part of the 22 and which nothing explains. Recording it would
+    have converted an unexplained anomaly into recorded history and silenced the
+    check that found it. It stays flagged and is now its own ROADMAP item.
+    A test pins the same property from the other side: a `REPLACE_SOURCE` whose
+    recorded hash does not match disk is STILL a mismatch, so the mechanism
+    cannot become a way to silence verify.
+    Verified: `scan --verify` 32 -> 2 (both `vayne3`), plain `scan` anomalies 0
+    (was 32 in `pipeline_state.json` at session start), suite **1674 passed /
+    16 skipped** (1667 + 7 new), ruff clean repo-wide, drift_guard 0 breaches.
+    NOTE: `images/**` is gitignored, so the 21 manifest edits are ON DISK ONLY -
+    not in this commit. They are append-only, idempotent, and the pre-swap
+    originals remain in `data/wiki_swap_backup_20260801/`.
+
 82. DONE **2026-08-01 (L2's retrospective half - the number, and the three
     measurement bugs under it; TDD).** P1 shipped the LIVE gate, which starts
     counting today; the question the triage actually posed - retroactively, how

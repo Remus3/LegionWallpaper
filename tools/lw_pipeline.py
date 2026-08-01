@@ -511,17 +511,66 @@ def scan_tree(ctx, verify=False, slug_filter=None):
     }
 
 
-def _verify_folders(slug, folders, anomalies):
-    """Diff on-disk hashes against manifest-recorded sha256_out (FM-11)."""
-    expected = {}
+def _expected_hashes(folders):
+    """basename -> the sha256_out of its LATEST transition, by TIMESTAMP.
+
+    By timestamp and not by file order: a file's current truth is whatever was
+    recorded about it most recently, and depending on dict-insertion order makes
+    a manifest with out-of-order entries verify against a superseded hash. That
+    matters now that REPLACE_SOURCE supersedes INTAKE for the same basename
+    (ROADMAP wiki-swap-manifest-hash-residue).
+    """
+    latest = {}
     for folder in folders:
         man = load_manifest(folder)
         if not man:
             continue
         for t in man.get("transitions", []):
             dst, sha = t.get("dst"), t.get("sha256_out")
-            if dst and sha:
-                expected[os.path.basename(dst)] = sha
+            if not dst or not sha:
+                continue
+            name = os.path.basename(dst)
+            stamp = str(t.get("ts") or "")
+            if name not in latest or stamp >= latest[name][0]:
+                latest[name] = (stamp, sha)
+    return {name: sha for name, (_, sha) in latest.items()}
+
+
+def record_replace_source(folder, target, note=None, source_url=None,
+                          actor="operator", tool=None):
+    """Append a REPLACE_SOURCE transition for a file swapped in place.
+
+    Returns True if one was written, False if there was nothing to record.
+
+    The alternative - rewriting the INTAKE transition's hash - was REJECTED
+    (ROADMAP wiki-swap-manifest-hash-residue): it makes `verify` green by editing
+    history, and the manifest is the provenance record. A record that silently
+    restates what was intaken can no longer answer what we actually started from,
+    and every other ledger in this repo is append-only for exactly that reason.
+
+    Idempotent by hash, so a backfill can be re-run: when the recorded hash
+    already agrees with what is on disk, there is nothing to say and nothing is
+    appended.
+    """
+    folder, target = Path(folder), Path(target)
+    man = load_manifest(folder)
+    if not man:
+        return False
+    current = sha256_file(target)
+    previous = _expected_hashes([folder]).get(target.name)
+    if previous == current:
+        return False
+    add_transition(man, "REPLACE_SOURCE", actor=actor, tool=tool,
+                   params={"source_url": source_url} if source_url else {},
+                   src=source_url, dst=f"{folder.name}/{target.name}",
+                   sha_in=previous, sha_out=current, note=note)
+    Ops(dry=False).write_json(folder / "manifest.json", man)
+    return True
+
+
+def _verify_folders(slug, folders, anomalies):
+    """Diff on-disk hashes against manifest-recorded sha256_out (FM-11)."""
+    expected = _expected_hashes(folders)
     for folder in folders:
         for p in sorted(folder.iterdir()):
             if not p.is_file() or not parse_milestone(p.name):

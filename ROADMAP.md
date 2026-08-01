@@ -6,31 +6,24 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
-- **wiki-swap-manifest-hash-residue - the 22 swapped slugs report HASH_MISMATCH
-  under `scan --verify` - LATER, bookkeeping only.**
-  The 22 canonical-source swaps are COMPLETE and all 22 are approved (LEDGER 77
-  + 78, `docs/WIKI_SWAP_22_2026-08-01.md`): `2.First Pass Done` is back to 288
-  folders, scratch back to the 20 pre-existing WIP slugs, plain `scan` clean at
-  anomalies 0 / needs_attention 0.
-  What is left is cosmetic: each manifest's INTAKE transition still records the
-  ORIGINAL intake hash while the `_firstinitial` has legitimately been replaced,
-  so `scan --verify` reports 21 of the 22 as HASH_MISMATCH (32 total; the other
-  11 are on slugs this operation never touched and pre-date it). `1341679` is
-  the one that does not report, its manifest carrying no comparable hash.
-  Next: decide whether a swapped source should rewrite the INTAKE hash, or
-  whether a REPLACE-SOURCE transition should be recorded instead so history
-  stays append-only. The `_firstdone` files are correct either way - this is a
-  provenance-bookkeeping call, not a defect, and it touches approved history so
-  it wants its own decision rather than a quiet fix.
-  Do-not-redo: staging a swap without moving `data/recovery/fetched/<slug>/`
-  aside - `select_source` prefers a fetched fullview over the staged
-  `_firstinitial`, so the run reports success having changed nothing (9 of the
-  22 hit this). Also: `audit.approval.gate_check` is nested at
-  `transition.audit.approval`, NOT at `transition.audit` - a probe reading the
-  outer level sees MISSING on every row and wrongly concludes it was never
-  written.
-  Evidence: LEDGER 77 + 78; `docs/WIKI_VS_FIRSTINITIAL_2026-08-01.md` for why
-  those 22 and not the other 55.
+- **vayne3 reports HASH_MISMATCH under `scan --verify` - the residue of the
+  wiki-swap sweep that nothing explains. LATER, one slug.**
+  The 22-swap bookkeeping is CLOSED (LEDGER 83): a REPLACE_SOURCE transition is
+  now the recorded way a swapped source is accounted for, `verify` resolves a
+  file's expected hash from its LATEST transition by timestamp, and the 21
+  affected slugs are backfilled. `scan --verify` went 32 -> 2 and plain `scan`
+  reports anomalies 0.
+  The 2 left are one slug, `vayne3`, in `2.First Pass Done` and
+  `3.Cleaning Scratch` - its `_firstinitial` matches no recorded hash in either
+  folder and it was NOT part of the 22, so the backfill deliberately refused to
+  touch it (the tool will not run unscoped, precisely so an unexplained anomaly
+  cannot be laundered into recorded history). Next: work out what replaced
+  vayne3's initial and when - if it was a deliberate swap, record it the same
+  way; if not, this is the first real corruption the check has found.
+  Do-not-redo: do NOT "fix" it by re-running the backfill with `--slug vayne3`
+  before establishing what happened - that records the drift as intentional,
+  which is the one thing the scoping guard exists to prevent.
+  Evidence: LEDGER 83; `docs/WIKI_SWAP_22_2026-08-01.md`.
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 

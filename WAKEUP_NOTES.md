@@ -59,6 +59,22 @@ improved the LIVE gate: it would have blocked this very session twice for
 reporting TDD RED honestly. Do NOT tune the two residual false-positive classes
 against those 25 samples - that is fitting the detector to its own sweep.
 
+**wiki-swap-manifest-hash-residue CLOSED too (LEDGER 83).** Decided on principle,
+not patched: a swapped source gets an APPENDED `REPLACE_SOURCE` transition; the
+INTAKE hash is never rewritten, because the manifest is the provenance record and
+every other ledger here is append-only. Fixing it exposed a latent bug that was
+not the swap's fault - `verify` picked a file's expected hash by dict-insertion
+order, so **9 of the original 32 mismatches were that alone** (measured three
+ways: 32 file-order / 23 latest-ts / 2 latest-ts+backfill). 21 slugs backfilled,
+all 21 cross-checked against the swap manifest's recorded wiki hash before
+writing (0 disagreements), idempotent on re-run. `scan --verify` 32 -> 2, plain
+`scan` anomalies 0. The backfill tool REFUSES to run unscoped and that earned
+itself immediately - the 2 leftovers are `vayne3`, never part of the 22 and
+unexplained; an unscoped sweep would have recorded the drift as intentional.
+`vayne3` is now its own ROADMAP item - do NOT clear it with `--slug vayne3`
+before establishing what actually happened. NOTE: `images/**` is gitignored, so
+those 21 manifest edits are on disk only, not in any commit.
+
 NEXT: no queued phase. Product work is the standing option - Stage 2's remaining
 cleaning queue and the NEEDAUTH backlog. Also open:
 `wiki-swap-manifest-hash-residue` (scan --verify HASH_MISMATCH on 21 of 22,
