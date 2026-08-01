@@ -27,6 +27,42 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+70. DONE **2026-08-01 (P6 Fleet History - a reader for the mirror; 71baedd).**
+    LEDGER 69 item 6 made the fleet durable and then nothing consumed it: 136
+    agents across 35 sessions sat in `ops/runtime/agent_fleet_mirror.json` with
+    no reader. `read_fleet_history` + `/api/fleet` + the P6 panel are that
+    reader. Suite 1524 -> **1537 passed / 16 skipped / 0 failed**, ruff clean,
+    CI CONFIRMED green on `71baedd` with `gh`. 12 new tests in
+    `tests/test_lw_rundash_p6.py` plus one HTTP route test.
+
+    **Answers two things the live fleet view cannot.** Where the tokens went -
+    per-session output spend, newest first, so an expensive run reads as ONE row
+    rather than twenty agent rows (3,439,867 output tokens total, 2026-07-03 to
+    2026-08-01, 25 worktree agents). What is already lost - each session is
+    labelled by whether its source transcripts still exist; `mirror only` means
+    reaping has been and gone and this file is the only copy left, which is the
+    single fact that says whether the mirror is earning its keep or quietly
+    failing to run. Reaping is per-FILE, so the half-reaped case reports
+    `N of M on disk` rather than collapsing to a boolean. First live render: all
+    136 still on disk, so the mirror is AHEAD of the reaper - stated explicitly
+    rather than left as a blank.
+
+    **Rules inherited rather than re-argued.** A session whose agents carry no
+    stamps has span None and renders unknown (P5's rule - zero would read as
+    "ran instantly"). A session is labelled with a controller run ONLY when
+    `join.by_session_id` pairs them; no cycle record on this machine carries a
+    session id yet, so every row renders `unjoined` - true, and it keeps the
+    remaining half of the join visible. 20 of 35 sessions render and the header
+    says so. Each row names its top 3 spenders with the full count beside them.
+    An undated session sorts LAST, not first: it is the least likely to be the
+    run being looked at, and an undated row at the top displaces the one that is.
+
+    UI fixture ritual run against LIVE data on 8900 before the commit: 20 rows
+    plus per-session top-agent lines, no horizontal overflow, ASCII-clean, no
+    console errors. FUTURE: `joined_sessions` is 0 only because no controller
+    cycle has run since the `session_id` field was wired - do not "fix" it in
+    code; the next live cycle populates it.
+
 69. DONE **2026-08-01 (the run dashboard's last four spec items; 3e8ce6a,
     1d3c2c5, 621e8d1, 27b22c3).** `docs/RUNDASH_SPEC_2026-08-01.md` is now
     fully built out - items 3, 5 and 6 of the instrumentation backlog plus

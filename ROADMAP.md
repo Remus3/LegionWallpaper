@@ -30,8 +30,7 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   has a LIVE consumer at `loop_controller.py:366` today.
   Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*` section 7.
 
-- **rundash-instrumentation - the evidence panel shipped; the rest of the
-  backlog is open - LATER.**
+- **rundash-instrumentation - DONE 2026-08-01; the spec has no open items.**
   DONE 2026-08-01 (`0ee1c9e`): chips render VERIFIED / REFUTED / NOT OBSERVED
   from an append-only per-slice verdict history written only through
   `slice_orchestrator.py`. A REFUTE with no later CONFIRM renders REFUTED even
@@ -44,11 +43,20 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   the cost boundary is enforced - `cost_usd` stays in the file for forensics and
   is projected OUT of `/api/run`, because LEDGER 40 settles that Claude dollar
   figures are notional and the spec rejects a cost panel outright.
-  Next, from `docs/RUNDASH_SPEC_2026-08-01.md`: persisted per-slice suite
-  observations; map the three run-id
-  namespaces to each other (the spine only fixed `directive_history.jsonl`);
-  mirror at-risk agent metadata out of the transcript dir before Claude Code's
-  cleanup reaps it; P4 and P5 panels unbuilt.
+  ALSO DONE 2026-08-01 (LEDGER 69-70): the last four spec items plus one that
+  was not in the spec. `3e8ce6a` truth_gate persists a per-slice observation
+  with the OBSERVED counts; `1d3c2c5` joins the three run-id namespaces on
+  evidence only; `621e8d1` mirrors the fleet before Claude Code reaps it (136
+  agents / 35 sessions / back to 2026-07-03 on first run); `27b22c3` P4
+  Operator Queue + P5 Suite Trajectory; `71baedd` P6 Fleet History, which reads
+  the mirror nothing was reading.
+  Do-not-build without a real producer: P4's HELD column (no HELD substate
+  exists in `pipeline_state.json`) and its run-attributed "this run added N"
+  line (nothing attributes an image to a run). Both were scoped OUT
+  deliberately - inventing a source is worse than the gap.
+  Next: nothing in the spec. `truth_gate_blocking` stays false until a live run
+  has been observed, and `joined_sessions` on P6 stays 0 until a controller
+  cycle writes a `session_id` - the field is wired, it just has not run.
   truth_gate DONE 2026-08-01 (LEDGER 68) - wired into the run flow, ADVISORY
   until observed on a live run (`truth_gate_blocking` false); its first real
   invocation found the gate's own suite command swept the whole tree and
