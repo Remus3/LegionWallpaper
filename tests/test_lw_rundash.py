@@ -261,6 +261,47 @@ def test_a_silent_worktree_agent_is_only_stalled_while_the_run_is_live(tmp_path)
     assert [a for a in live["alerts"] if a["kind"] == "stalled_agent"]
 
 
+# -------------------------------------------------------- P1: the id join
+
+
+def _history(ctl, recs):
+    (ctl / "directive_history.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+
+
+def test_the_header_carries_the_evidence_that_two_ids_are_one_run(tmp_path):
+    now = time.time()
+    ctl = control(tmp_path, lock={"pid": 4321, "run_id": "7dd1dc02",
+                                  "ts": iso(now)}, cycle=3)
+    _history(ctl, [{"cycle": 1, "ts": "2026-08-01T12:00:00", "run_id": "7dd1dc02",
+                    "manifest_run_id": "2026-08-01-01", "session_id": "sess-a"}])
+    manifest = write_manifest(tmp_path, {"run_id": "2026-08-01-01", "slices": []})
+
+    ident = lw_rundash.build_run_view(
+        control_dir=ctl, manifest_path=manifest, repo_root=tmp_path, now_ts=now,
+        cache={}, runner=fake_git(), pid_alive=lambda pid: True)["run"]["identity"]
+
+    assert ident["joined"] is True
+    assert ident["conflict"] is False
+    assert ident["session_ids"] == ["sess-a"]
+
+
+def test_two_ids_with_nothing_pairing_them_render_unjoined_not_joined(tmp_path):
+    # This is the state the header shipped in: a manifest id and a lock id side
+    # by side, which LOOKS like one run and was never evidence of one.
+    now = time.time()
+    ctl = control(tmp_path, lock={"pid": 4321, "run_id": "7dd1dc02",
+                                  "ts": iso(now)}, cycle=3)
+    manifest = write_manifest(tmp_path, {"run_id": "2026-08-01-01", "slices": []})
+
+    ident = lw_rundash.build_run_view(
+        control_dir=ctl, manifest_path=manifest, repo_root=tmp_path, now_ts=now,
+        cache={}, runner=fake_git(), pid_alive=lambda pid: True)["run"]["identity"]
+
+    assert ident["joined"] is False
+    assert "no cycle record" in ident["evidence"]
+
+
 # ------------------------------------------------------ P2: the evidence chip
 
 

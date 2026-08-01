@@ -126,6 +126,7 @@ pre{font:var(--fs-sm)/1.45 ui-monospace,Consolas,monospace;color:var(--mut);
   <h1>LW RUN DASHBOARD</h1>
   <span id="statechip">...</span>
   <span id="runid" class="meta mono"></span>
+  <span id="idjoin" class="meta"></span>
   <span id="stalebanner" class="stale">STALE - showing last good data</span>
   <span id="downbanner" class="down">DASHBOARD ENDPOINT DOWN - retrying</span>
   <span id="updated" class="meta"></span>
@@ -255,8 +256,29 @@ function rHeader(p) {
   var chip = $("statechip");
   chip.textContent = state;
   chip.className = "s-" + state.toLowerCase();
+  // Three namespaces name one run. The separator is the verdict: "=" only when
+  // a cycle record actually carried both ids, "/" when nothing on disk pairs
+  // them. A join is never inferred from two ids merely sitting side by side.
+  var id = run.identity || {};
+  var joined = id.joined && !id.conflict;
   $("runid").textContent = (run.run_id ? "run " + run.run_id : "no run id") +
-    (run.controller_run_id ? " / ctl " + run.controller_run_id : "");
+    (run.controller_run_id ? (joined ? " = ctl " : " / ctl ") + run.controller_run_id : "");
+  var tag = $("idjoin");
+  tag.title = id.evidence || "";
+  if (id.conflict) {
+    tag.className = "meta bad";
+    tag.textContent = "ID CONFLICT - " + (id.evidence || "");
+  } else if (joined) {
+    var n = (id.session_ids || []).length;
+    tag.className = "meta ok";
+    tag.textContent = "joined" + (n ? " / " + n + " session" + (n > 1 ? "s" : "") : "");
+  } else if (run.run_id || run.controller_run_id) {
+    tag.className = "meta warn";
+    tag.textContent = "unjoined - no cycle record pairs these ids";
+  } else {
+    tag.className = "meta";
+    tag.textContent = "";
+  }
   $("updated").textContent = p.generated_at ?
     "checked " + String(p.generated_at).slice(11, 19) + " UTC" : "";
   // The verdict sentence, not just the word: "alive but the lock is 5d old" is

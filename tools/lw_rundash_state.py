@@ -558,6 +558,114 @@ def run_liveness(control_dir, now_ts=None, *, manifest_path=None, extra_paths=()
 # ------------------------------------------------------- P2 spine: history
 
 
+def build_run_id_join(recs):
+    """Pair the three run-id namespaces from the cycle records that carry them.
+
+    LW names one run three ways - `slice_manifest.run_id` (`2026-08-01-01`), the
+    controller `run_id` (`7dd1dc02`) and the Claude `sessionId` - and until a
+    cycle record carried two of them at once, nothing on disk said they were the
+    same run.
+
+    A pairing exists here ONLY because a record carried both ids. Adjacency,
+    matching dates and being the only run that day are not evidence, and a
+    guessed join on a corroboration board is worse than an absent one. Records
+    predating the field are counted in `unjoined_cycles`, never bucketed under a
+    neighbouring run.
+    """
+    runs = []
+    index = {}
+    unjoined = 0
+    for r in recs:
+        rid = r.get("run_id")
+        if not rid:
+            unjoined += 1
+            continue
+        run = index.get(rid)
+        if run is None:
+            run = index[rid] = {"run_id": rid, "cycles": [], "manifest_run_ids": [],
+                                "session_ids": [], "first_ts": r.get("ts"),
+                                "last_ts": r.get("ts"), "cycle_count": 0}
+            runs.append(run)
+        run["cycle_count"] += 1
+        run["last_ts"] = r.get("ts") or run["last_ts"]
+        if run["first_ts"] is None:
+            run["first_ts"] = r.get("ts")
+        if r.get("cycle") is not None:
+            run["cycles"].append(r["cycle"])
+        for key, field in (("manifest_run_ids", "manifest_run_id"),
+                           ("session_ids", "session_id")):
+            val = r.get(field)
+            if val and val not in run[key]:
+                run[key].append(val)
+    by_manifest, by_session = {}, {}
+    for run in runs:
+        # More than one manifest ladder under one controller run is TRUE when a
+        # mid-run `init --force` mints a new one. Flagged, not collapsed.
+        run["ambiguous"] = len(run["manifest_run_ids"]) > 1
+        for mid in run["manifest_run_ids"]:
+            by_manifest.setdefault(mid, []).append(run["run_id"])
+        for sid in run["session_ids"]:
+            by_session.setdefault(sid, []).append(run["run_id"])
+    return {"runs": runs, "by_manifest_run_id": by_manifest,
+            "by_session_id": by_session, "unjoined_cycles": unjoined,
+            "joined_runs": len(runs)}
+
+
+def resolve_run_identity(join, *, controller_run_id=None, manifest_run_id=None):
+    """Name one run across all three namespaces, or say plainly that it cannot.
+
+    `evidence` is the field that matters: it states what backed the answer, so a
+    header can never show a joined-looking id whose join was assumed. When the
+    caller's two ids disagree with the recorded pairing, BOTH are reported and
+    `conflict` is set - picking a winner would put a confident wrong id on a
+    board whose whole job is corroboration.
+    """
+    join = join or {}
+    by_manifest = join.get("by_manifest_run_id") or {}
+    runs = {r["run_id"]: r for r in join.get("runs") or []}
+    out = {"controller_run_id": controller_run_id,
+           "manifest_run_id": manifest_run_id, "session_ids": [],
+           "joined": False, "conflict": False, "evidence": ""}
+
+    paired = by_manifest.get(manifest_run_id) or [] if manifest_run_id else []
+    run = runs.get(controller_run_id) if controller_run_id else None
+
+    if run is not None and run["manifest_run_ids"]:
+        out["joined"] = True
+        out["session_ids"] = list(run["session_ids"])
+        if manifest_run_id and manifest_run_id not in run["manifest_run_ids"]:
+            out["conflict"] = True
+            out["evidence"] = ("cycle record pairs {} with manifest {}, but the "
+                               "caller supplied manifest {}".format(
+                                   run["run_id"], "/".join(run["manifest_run_ids"]),
+                                   manifest_run_id))
+        else:
+            out["manifest_run_id"] = manifest_run_id or run["manifest_run_ids"][0]
+            out["evidence"] = "cycle record carries both ids ({} cycle(s))".format(
+                run["cycle_count"])
+        return out
+
+    if paired:
+        out["joined"] = True
+        out["session_ids"] = sorted(
+            {s for rid in paired for s in runs.get(rid, {}).get("session_ids", [])})
+        if controller_run_id and controller_run_id not in paired:
+            out["conflict"] = True
+            out["evidence"] = ("cycle record pairs manifest {} with {}, but the "
+                               "caller supplied controller run {}".format(
+                                   manifest_run_id, "/".join(paired),
+                                   controller_run_id))
+        else:
+            out["controller_run_id"] = controller_run_id or paired[0]
+            out["evidence"] = "cycle record carries both ids"
+        return out
+
+    known = controller_run_id or manifest_run_id
+    out["evidence"] = ("no cycle record carries both ids"
+                       + (f" for {known}" if known else ""))
+    return out
+
+
 def read_cycle_history(path, now_ts=None, *, limit=None):
     """Parse ops/loop/control/directive_history.jsonl.
 
@@ -583,6 +691,7 @@ def read_cycle_history(path, now_ts=None, *, limit=None):
         "torn_tail": False,
         "corrupt_lines": 0,
         "run_count": 0,
+        "join": build_run_id_join([]),
         "checked_at": iso_from_epoch(now_ts),
     }
     raw = _read_text(p)
@@ -619,6 +728,7 @@ def read_cycle_history(path, now_ts=None, *, limit=None):
             "regress": bool(obj.get("regress")),
             "verdict": _str_or_none(obj.get("verdict")) or "",
             "run_id": _str_or_none(obj.get("run_id")),
+            "manifest_run_id": _str_or_none(obj.get("manifest_run_id")),
             "cost_usd": _float_or_none(obj.get("cost_usd")),
             "session_id": _str_or_none(obj.get("session_id")),
             "line_no": i + 1,
@@ -652,6 +762,10 @@ def read_cycle_history(path, now_ts=None, *, limit=None):
         r["run_index"] = run_index
         r["key"] = f"{r['ts'] or 'no-ts'}#{c if c is not None else '?'}"
     out["run_count"] = run_index
+    # Built over EVERY parsed record, before `limit` truncates what renders -
+    # a join scoped to the visible window loses the pairing for any run older
+    # than it and reports the live run as unjoinable.
+    out["join"] = build_run_id_join(recs)
     out["records"] = recs[-limit:] if isinstance(limit, int) and limit > 0 else recs
     return out
 

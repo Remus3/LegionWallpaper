@@ -368,8 +368,31 @@ def run_truth_gate(claims, *, claims_path, report_path, runner=None,
     return report.get("verdict", "ERROR"), report
 
 
+def read_manifest_run_id(path=None):
+    """The slice manifest's OWN run id, or None. Never raises.
+
+    This is the join key for spec item 5. The manifest names a run
+    `2026-08-01-01` and the controller names the same run `7dd1dc02`; nothing on
+    disk paired them, so the dashboard header showed two ids and could not say
+    they were one run. Recording the manifest id on each cycle record makes the
+    pairing OBSERVED rather than inferred from adjacency.
+
+    Read at record time rather than threaded down from the cycle: the manifest
+    can be re-inited mid-run, and what belongs on the record is what the ladder
+    said at the moment the cycle resolved.
+    """
+    p = Path(path) if path is not None else ROOT / "ops" / "runtime" / "slice_manifest.json"
+    try:
+        data = json.loads(p.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return None
+    rid = data.get("run_id") if isinstance(data, dict) else None
+    return rid.strip() or None if isinstance(rid, str) else None
+
+
 def record_directive_outcome(cycle, body, sha_before, sha_after, done, verdict,
-                             ctl=None, done_record=None, run_id=None):
+                             ctl=None, done_record=None, run_id=None,
+                             manifest_run_id=None):
     """Append one resolved-cycle record to control/directive_history.jsonl.
 
     The controller is the single writer; the file is gitignored runtime state and
@@ -391,6 +414,7 @@ def record_directive_outcome(cycle, body, sha_before, sha_after, done, verdict,
     d = done or {}
     rec = {"cycle": cycle, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
            "run_id": run_id,
+           "manifest_run_id": manifest_run_id,
            "title": directive_title(body),
            "sha_before": (sha_before or "")[:8], "sha_after": (sha_after or "")[:8],
            "tests": d.get("tests_pass"), "regress": bool(d.get("regressions")),
@@ -863,7 +887,8 @@ def main():
         # Persist the resolved directive to the chain so the NEXT director cycle
         # sees what was already issued + shipped and builds on it (continuity fix).
         record_directive_outcome(cycle, body, prev_sha, new_sha, done, verdict,
-                                 done_record=rec, run_id=RUN_ID)
+                                 done_record=rec, run_id=RUN_ID,
+                                 manifest_run_id=read_manifest_run_id())
         prev_sha = new_sha
 
     stop(f"max_cycles {CFG['max_cycles']} reached")

@@ -416,9 +416,18 @@ def build_run_view(*, control_dir, manifest_path, config_path=None, session_dir=
         width = min(len(manifest_head), len(head_now))
         head_moved = manifest_head[:width].lower() != head_now[:width].lower()
 
+    # Three namespaces name one run: the manifest's `2026-08-01-01`, the
+    # controller's `7dd1dc02`, and the Claude session id. The header used to show
+    # the first two side by side with nothing saying they were the same run.
+    # `identity` carries the EVIDENCE for the pairing, or says there is none.
+    identity = rundash_state.resolve_run_identity(
+        cycles.get("join"), controller_run_id=liveness["run_id"],
+        manifest_run_id=manifest["run_id"])
+
     run = {
         "run_id": manifest["run_id"],
         "controller_run_id": liveness["run_id"],
+        "identity": identity,
         "state": liveness["state"],
         "reason": liveness["reason"],
         "pid": liveness["pid"],

@@ -228,9 +228,17 @@ token counts, never dollars.
    the fallback for records already on disk, which can never gain an id
    retroactively; `run_id_backed` is False unless EVERY record has one, so a
    half-instrumented file never renders as authoritative.
-   STILL OPEN, and the harder half: mapping the three id spaces to each other -
-   `slice_manifest.run_id` (`2026-07-30-01`), controller `run_id` (`7dd1dc02`)
-   and Claude `sessionId` are still three namespaces with no join.
+   The harder half - mapping the three id spaces to each other - is DONE too,
+   2026-08-01. Cycle records now carry `manifest_run_id` beside the controller
+   `run_id` and `session_id`, so one record pairs all three namespaces at once;
+   `build_run_id_join` gathers them and `resolve_run_identity` names a run across
+   all three or says plainly that it cannot. The pairing is EVIDENCE ONLY - two
+   ids sitting side by side, matching dates, being the only run that day are not
+   a join, and the header renders `=` only when a record carried both, `/` plus
+   an amber `unjoined` tag otherwise. Records predating the field are counted in
+   `unjoined_cycles`, never bucketed under a neighbouring run, and a caller whose
+   two ids disagree with the recorded pairing gets `conflict` with BOTH reported
+   rather than a picked winner.
 6. **Mirror at-risk agent metadata into `ops/runtime/`** before Claude Code's
    cleanup reaps it.
 7. **`truth_gate.py` is never invoked by the run flow** - its report has never
