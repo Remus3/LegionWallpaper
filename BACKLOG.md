@@ -124,15 +124,55 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     the fallback (Fandom named explicitly, Windows stated, 40+ tools). Anonymous
     read needs no account on either, so this is a network dependency, not a
     metered one.
-  - **P4 - file-claim table. LATER, METHOD ONLY.** Implement depwire's
-    `claim_files` / `release_files` / `get_active_claims` shape inside
-    `slice_orchestrator.py`, which is the primitive LW enforces by hand today.
-    Do NOT vendor depwire - BSL 1.1 until it converts to Apache 2.0 on
-    2029-02-25.
-  - **P5 - memi as a one-shot UI audit. LATER.** `npx`, no install, no key,
-    Windows explicitly supported, MIT, and the audit is STATIC over source - no
-    running page or screenshot needed. Run it against both pages and adopt only
-    if it catches something the 5-phase ritual missed.
+  - **P4 - DONE 2026-08-01.** `claim` / `release` / `claims` subcommands plus
+    `claim_files` / `release_files` / `get_active_claims` / `normalize_claim_path`
+    in `tools/slice_orchestrator.py`, 40 tests in
+    `tests/test_slice_orchestrator_claims.py`. Method lifted from depwire, code
+    NOT vendored (BSL 1.1 until 2029-02-25). Closes f1-phase6 queue item 7's
+    first half: disjointness is now checkable instead of asserted by a human
+    reading a directive. The `claims` field is OPTIONAL by contract, exactly
+    like `verdicts` - an absent key means no claims, so every manifest written
+    before this stays valid and none reads as claimed.
+    Design calls, all test-pinned: comparison keys are separator-normalized AND
+    case-folded, deliberately over-colliding, because the two error directions
+    are not symmetric (a missed conflict loses an agent's work; a false conflict
+    only refuses a claim the operator can re-scope) - this is the third time
+    path identity has bitten this operator, after the three `~/.claude.json`
+    keys for one directory and red-handed's subdirectory drop. Containment is
+    SEGMENT-wise, so `tools` holds `tools/x.py` but `tool` does not - a naive
+    startswith would cry wolf and end with the table bypassed. Claims and
+    releases are ALL-OR-NOTHING (a half-granted claim lets an agent start on the
+    files it did get, which loses work the same way no table does). Release is
+    holder-only. Non-repo-relative paths - absolute, drive-lettered, or any `..`
+    that escapes root - are REFUSED, never guessed, matching the discipline
+    `next-session-handoff-enforcement` asks for.
+    Still open, and NOT built: nothing calls it yet. The orchestrator exposes
+    the primitive; wiring it into directive dispatch so an agent cannot start
+    without a granted claim is the enforcement half, and it belongs with
+    f1-phase6 item 7's "executor serializes AND RECORDS the deviation".
+  - **P5 - DONE 2026-08-01, DO NOT ADOPT. Result in
+    `docs/MCP_LIFT_P5_2026-08-01.md`.** Ran against both pages, which was the
+    adoption test, and it caught nothing the 5-phase ritual missed. Its single
+    finding is a false positive that fires on the fix it recommends: it flags
+    `web/monitor.html:9` as "raw colors leaking into UI code" and recommends
+    moving colours into CSS variables, while quoting the `:root{}` custom-property
+    block as its evidence. Its colour metric is wrong in BOTH directions
+    (monitor.html has 11 unique hex, reported as 1; rundash.html has 10,
+    reported as 0) and it reports 29 and 175 "Tailwind classes" in two files
+    with zero Tailwind. Its scores are unbacked: rundash.html scores 38/100 with
+    ZERO findings, monitor.html scores 49 despite being the less tokenized of
+    the two, and the same unchanged rundash.html scores 81/100 under
+    `craft audit` against 38 under `diagnose`. `enforce-design-ci` is ruled out
+    specifically - wiring that into CI would be a false-green generator aimed at
+    the exact failure `claimed_green_gate.py` exists to catch.
+    Do-not-redo: `npx memi` is a DIFFERENT package (0.0.8, unrelated author);
+    the tool is `@memi-design/cli` 2.7.4 (MIT, node>=20, verified before
+    execution). Do not re-evaluate on one subcommand - they disagree by 43
+    points on the same file. The dive's own reservation was the whole story.
+    One idea confirmed rather than lifted: memi labels unassessed dimensions
+    "unverified, not verified-good" instead of letting silence read as a pass -
+    which is LW's own NOT OBSERVED chip and the `verdicts` absent-means-unobserved
+    rule. LW got there first; nothing to take.
   - **CLOSED by the dive, do not reopen:** viznoir as a render backend - its
     glTF is an EXPORT format on a list with PNG/MP4, so it is the wrong
     direction for `glb-render-fetch`, and there is zero skinned-mesh evidence
