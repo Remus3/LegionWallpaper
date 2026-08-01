@@ -27,6 +27,58 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+76. DONE **2026-08-01 (the 77 compared against the held `_firstinitial`; 46
+    favour the wiki, and the 7.43x headline does not survive).**
+    `docs/WIKI_VS_FIRSTINITIAL_2026-08-01.md`. Closes what LEDGER 75 explicitly
+    did not claim. Premise CORRECTED twice, both times by a control rather than
+    by inspection. (1) **A path bug that would have answered a different
+    question at full confidence**: `_firstinitial` keeps the SOURCE's extension,
+    not `.png` (`shyvana1` is .png, `drx-...-lea` and `dark-fire-sword-...` are
+    .jpg), so the first run's hard-coded `.png` glob found nothing for all 58
+    staged rows and silently fell back to comparing the 2560x1440 `_firstdone`
+    OUTPUT as the source. Caught by a provenance count reading 58 "no
+    _firstinitial" against a slug known to have one; run killed and discarded.
+    Held sources resolved correctly as 58 `_firstinitial` + 19 reference
+    pictures. (2) **A resampling confound on axis 2**: the wiki side was first
+    fetched as a MediaWiki `iiurlwidth=2560` thumbnail while a held reference
+    picture at exactly 2560x1440 was not resampled at all, and every
+    worst-scoring row was such a file. Measured on a 16-row spread rather than
+    assumed - original/thumbnail Laplacian ratio min 0.953, median **1.041**,
+    max 1.274 - too small to explain ratios of 0.18, so the axis stood, but all
+    final numbers were recomputed from the ORIGINAL bytes anyway (5-8 rows moved
+    band, no direction changed). RESULTS. Axis 1, native pixels: wiki larger in
+    54 of 77, **held larger in 23** - every one an aggregator 8K file (held
+    7680x4320 vs wiki 3840x2160 to 7000x3940), so LEDGER 75's "median 7.43x the
+    target" is true and IRRELEVANT to a source decision, because its denominator
+    is the target and not the held file. Axis 2 from originals, both sides
+    through the same 16:9 crop + LANCZOS path scored with
+    `lw_g1_gate.laplacian_var`: median lap_ratio **0.922**, wiki softer in 35,
+    a wash in 13, sharper in 29. ADJUDICATION - Laplacian variance rewards
+    SHARPENING, not detail, and this corpus is full of pre-sharpened aggregator
+    re-treatments, so LW's own `overshoot_halo` settled it rather than a second
+    definition of quality: over the 35 rows where the held file is sharper, the
+    HELD file's `halo_pct` against the authentic wiki original is median
+    **0.1032** (max 0.5505) with **26 of 35 over the 0.05 G1 line**, while the
+    wiki original against the held file is median **0.0089**. That asymmetry is
+    the finding - the held files' extra high-frequency energy is largely
+    ringing. VERDICT per slug: **22 clear upgrades** (more pixels AND sharper -
+    concentrated at held widths 1163/1192/1500/1920, median held 1.7 MPix, best
+    case `shan-hai-lillia` held 1192x670 against 25x the pixels and 7.6x the
+    detail), **24 where the held file is sharper only because it halos** so the
+    wiki is the cleaner source, and **31 keep-or-inconclusive** (23 because the
+    wiki file has FEWER pixels, 13 a sharpness wash, overlapping). 46 of 77
+    favour the wiki. NOT established, and said so: that the 46 should be
+    SWAPPED (cleaner is not wanted - LEDGER 75 already found 8 deliberate
+    derived treatments, and a haloed-but-chosen file is still the operator's
+    choice; this ranks candidates, it does not authorise replacement), the crop
+    question (every number is on a 16:9 CENTRE crop of both sides, and centre is
+    an assumption - the same open policy as `first-pass-alpha-letterbox`
+    sub-shape A), the other 253 attributed images and 122 unknowns, or
+    licensing. Do-not-redo: globbing `<slug>_firstinitial.png`; comparing a
+    MediaWiki thumbnail against a native-resolution local file; reading
+    Laplacian variance alone as detail; carrying the 7.43x figure into a source
+    decision.
+
 75. DONE **2026-08-01 (the corpus/wiki intersection, counted on pixels - 77
     confirmed).** `docs/WIKI_INTERSECTION_2026-08-01.md`. Closes the question
     LEDGER 72 refused to guess at. **77 corpus images are confirmed to be the

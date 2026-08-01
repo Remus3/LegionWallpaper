@@ -111,10 +111,19 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     median 7.43x the target pixel count.** That is 23.3 percent of the 330
     attributed corpus and a LOWER bound - the 122 `CHAMPION_UNKNOWNS.md` images
     were never swept. A Tier-0.5 canonical-source step is now justified on
-    evidence rather than on hope. Still owed BEFORE building it: a per-slug
-    comparison of the wiki file against the held `_firstinitial`, because this
-    measured wiki-vs-TARGET, not wiki-vs-what-LW-already-has, and resolution is
-    not fidelity. Also settled by that sweep: 8 of 81 structural matches are
+    evidence rather than on hope - but see the next line before sizing it.
+    **The per-slug comparison against the held `_firstinitial` is now DONE
+    (2026-08-01, LEDGER 76, `docs/WIKI_VS_FIRSTINITIAL_2026-08-01.md`) and it
+    cuts the prize down: 46 of 77 favour the wiki, not 77.** 23 held sources
+    have MORE pixels than their wiki twin (aggregator 8K files), and on raw
+    sharpness the wiki file is the softer of the two in 35 of 77. What rescues
+    the case is that the held file's extra sharpness is mostly RINGING - over
+    those 35 rows the held `halo_pct` against the authentic original is median
+    0.1032 with 26 of 35 over the 0.05 G1 line, while the wiki original comes
+    back at median 0.0089. So: 22 clear upgrades, 24 where the wiki is merely
+    the cleaner source, 31 keep-or-inconclusive. Do NOT carry the "median 7.43x
+    the target" figure into a source decision - its denominator is the target,
+    not the held file. Also settled by that sweep: 8 of 81 structural matches are
     fan-made 4K wallpapers DERIVED from the official splash (same composition,
     different pixels), so any such tier needs two metrics and must route the
     structure-agrees-content-differs band to operator review - a single-metric
