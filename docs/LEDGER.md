@@ -27,6 +27,41 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+79. DONE **2026-08-01 (P6 closed as NOT APPLICABLE - LW replays no credentials,
+    measured; docs-only).** The phase was queued the same day with a relevance
+    check ahead of it - "confirm whether any LW path replays credentials before
+    changing one" - and running that check first is what closed it, without
+    touching code. Four independent probes, all live: (a)
+    `tools/lw_recover.py:398-401` builds the COMPLETE gallery-dl argv as
+    `["gallery-dl", "--dest", dest]` + optional `-o original=true` + url, with
+    no `--cookies`, no cookie file and no browser flag; (b)
+    `%APPDATA%/gallery-dl/config.json` carries exactly five keys - `client-id`,
+    `client-secret`, `original`, `quality`, `intermediary` - with no `cookies`
+    key, no `browser` key and no refresh token, the OAuth client minting a
+    public access token per run; (c) grep across `tools/` and `ops/` for
+    `cookie|cookiejar|netscape|session_token|set-cookie` AND for
+    `playwright|selenium|puppeteer|remote-debugging|enable-automation|webdriver|CDP`
+    returns ZERO hits, so `navigator.webdriver` has no surface in LW at all;
+    (d) `docs/research/SOURCE_RECOVERY.md` plans no automated browser tier
+    either - "browser" appears only as a caveat that SauceNAO's own limits PAGE
+    403s non-browser fetches, and as Tier 3's MANUAL queue where a HUMAN uses
+    Google Lens or Yandex. DELIBERATELY NOT DONE: verifying the
+    `--enable-automation` claim on this box. The dive flagged it as needing
+    verification before being built on, but with no surface to apply it to,
+    verifying it is effort spent on a claim nothing consumes - verify it if the
+    rule is ever needed. KEPT as a forward constraint rather than deleted: the
+    one place this could bite is automating Tier 3, where Google Lens and Yandex
+    have no official API and the spec routes them to a human, which is exactly
+    where exporting a cookie jar becomes tempting; if that is ever built, attach
+    to a live profile and let the PAGE issue the request, because an exported
+    jar rots silently as its token expires and the failure presents as a source
+    going dead. Incidental find, filed not fixed: `git worktree list` shows two
+    stale agent worktrees still registered
+    (`.claude/worktrees/agent-a62905cbcc5fa8ecb` on branch
+    `slice-b6-gpu-mutex-remaining`, and `agent-a902870319ee6443d`), left over
+    from earlier orchestrator runs - gitignored, so no repo risk, but the
+    headless-upgrade doctrine calls for worktree cleanup and these survived it.
+
 78. DONE **2026-08-01 (the 12 flagged swaps APPROVED on operator override; the
     swap is complete at 22/22).** Operator instruction after LEDGER 77 reported
     the flags. `lw_pipeline.py approve <slug> --force` on the 12, which records

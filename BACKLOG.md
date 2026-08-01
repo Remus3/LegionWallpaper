@@ -198,27 +198,41 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
     "unverified, not verified-good" instead of letting silence read as a pass -
     which is LW's own NOT OBSERVED chip and the `verdicts` absent-means-unobserved
     rule. LW got there first; nothing to take.
-  - **P6 - stop replaying cookie jars in the recovery waterfall. LATER, no
-    dependency, no install.** QUEUED 2026-08-01 - it was in the dive's
-    replacement plan from the start and never made it onto this list, which is
-    the same drop that created this whole entry ("the triage was filed but never
-    queued"). From CCR-136: `navigator.webdriver` is set at browser LAUNCH by
-    `--enable-automation`, NOT by attaching over CDP, so launching with only
-    `--remote-debugging-port` and attaching afterwards is never flagged; and an
-    exported cookie jar rots silently as its session token expires. The rule for
-    LW's DeviantArt lane is to attach to a live profile and let the PAGE issue
-    the request, rather than replaying credentials.
+  - **P6 - CLOSED 2026-08-01 as NOT APPLICABLE, measured. LW replays no
+    credentials anywhere, so there is nothing to fix.** The queued relevance
+    check ran first, exactly as it was written to, and answered no on every
+    axis. Evidence, all live:
+    (a) `tools/lw_recover.py:398-401` builds the COMPLETE gallery-dl argv -
+    `["gallery-dl", "--dest", dest]` plus an optional `-o original=true` plus
+    the url. No `--cookies`, no cookie file, no browser flag.
+    (b) `%APPDATA%/gallery-dl/config.json` carries exactly five keys -
+    `client-id`, `client-secret`, `original`, `quality`, `intermediary`. No
+    `cookies` key, no `browser` key, no refresh token; the OAuth client mints a
+    public access token per run (memory `reference-deviantart-recovery`).
+    (c) grep across `tools/` and `ops/` for
+    `cookie|cookiejar|netscape|session_token|set-cookie` and for
+    `playwright|selenium|puppeteer|remote-debugging|enable-automation|webdriver|CDP`
+    returns ZERO hits. LW has no browser automation at all, so
+    `navigator.webdriver` has no surface here.
+    (d) `docs/research/SOURCE_RECOVERY.md` plans none either: "browser" appears
+    only as a caveat that SauceNAO's own limits PAGE 403s non-browser fetches
+    (a documentation-sourcing note, not an LW fetch path) and as Tier 3's
+    MANUAL queue, where a HUMAN uses browser Google Lens or Yandex.
+    Deliberately NOT done: verifying the `--enable-automation` claim itself on
+    this box. The dive flagged it as needing verification, but with no surface
+    to apply it to that is effort spent on a claim nothing consumes - if the
+    rule is ever needed, verify it THEN.
+    KEEP AS A FORWARD CONSTRAINT, which is the only residue worth carrying: the
+    one place this could ever bite is automating Tier 3. Google Lens and Yandex
+    have no official API and the spec explicitly routes them to a human, so
+    that is precisely where the temptation to export a cookie jar would arise.
+    If Tier 3 is ever automated, attach to a live profile and let the PAGE issue
+    the request; do not export a jar, because it rots silently as its session
+    token expires and the failure looks like a source going dead.
     Do-not-redo: Reddit's specific cookie names and modhash endpoint do NOT
-    transfer - only the three structural rules do. Note the source is an
-    r/ClaudeWorkflows post, and the dive established all six of those are
-    bot-generated summaries whose checkable claims were wrong two times in four,
-    so verify the `--enable-automation` behaviour on this box before building on
-    it.
-    Relevance check before funding: LW's DeviantArt lane is gallery-dl with a
-    configured OAuth client (memory `reference-deviantart-recovery`), which
-    mints a public access token per run and replays no cookie jar at all - so
-    this may already be a non-issue here and the honest first step is to confirm
-    whether any LW path replays credentials before changing one.
+    transfer - only the structural rules do. The source is an r/ClaudeWorkflows
+    post, and the dive established all six are bot-generated summaries whose
+    checkable claims were wrong two times in four.
   - **P7 - task-orchestrator's server-ENFORCED gate. LATER, method-only.**
     Dived 5 -> 7, the highest-scoring row never given a phase. The unique
     property, verbatim: "if a required design note isn't filled, `advance_item`
@@ -263,8 +277,8 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
   Do-not-redo: do NOT inherit the sibling project's scores - it closed an entire
   class as "no image need", which is LW's whole domain. Do NOT triage by slug:
   measured, three of four name-based guesses were wrong in both directions.
-  **Queue hygiene (2026-08-01):** P1-P5 are done, P6-P8 are queued above and
-  none is started. P6 existed in the dive but was missing from this list for the
+  **Queue hygiene (2026-08-01):** P1-P5 are done, P6 is CLOSED as not
+  applicable (measured, not assumed), P7 and P8 are queued above and unstarted. P6 existed in the dive but was missing from this list for the
   whole run; P7 and P8 were dived and scored (7 and 6) but never given a phase
   at all. Before calling this entry finished, diff the dive's replacement plan
   and its promotions section against the P-numbers here - a row that lives only
