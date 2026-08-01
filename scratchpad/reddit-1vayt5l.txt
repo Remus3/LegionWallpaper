@@ -1,0 +1,107 @@
+TITLE: [Workflow] Reliable Agent-Driven Browser Automation: Overcoming Bot Detection, Transient Blocks, and Session Challenges : ClaudeWorkflows
+
+# Reliable Agent-Driven Browser Automation: Overcoming Bot Detection, Transient Blocks, and Session Challenges
+
+Workflow value: 90/100
+
+Status: active - Freshness: 70/100 - Confidence: 0.95 - Level: advanced
+
+Categories: Quality Control, Token Saving, Context & Memory, Debugging, Shipping, Skills
+
+Original source: r/ClaudeAI post/comment
+
+## What problem this solves
+
+Reliably automating browser interactions with agent-driven browsers, specifically addressing common pitfalls like bot detection (navigator.webdriver), transient security checks ('Prove your humanity'), and session management (cookie expiration).
+
+## Summary
+
+This workflow provides three critical, non-obvious insights for driving web browsers with AI agents (like Claude Code), based on empirical measurements. It details how to manage navigator.webdriver detection, handle transient 'Prove your humanity' interstitials, and overcome cookie expiration issues. The recommended approach involves attaching to a live browser profile and letting the page itself handle requests to leverage native authentication and CSRF mechanisms. An agent skill is provided as an implementation example.
+
+## Why it is useful
+
+This workflow is highly valuable because it provides specific, empirically validated solutions to common and frustrating problems encountered when automating web browsers with AI agents. The detailed observations about navigator.webdriver, transient 'Prove your humanity' checks, and cookie expiration are crucial for building robust and reliable automation. The recommendation to attach to a live browser profile and let the page handle requests is a powerful, generalizable strategy. The inclusion of an open-source agent skill further enhances its utility by providing a concrete, ready-to-adapt implementation.
+
+## Workflow
+
+- Understand that navigator.webdriver is set at browser launch (e.g., by Puppeteer/Playwright's --enable-automation), not by attaching via CDP. To avoid detection, launch Chrome with only --remote-debugging-port and attach afterwards.
+
+- When encountering a 'Prove your humanity' interstitial (e.g., on Reddit), wait a few seconds for it to self-resolve, as it is often a transient proof-of-work check, not a hard block.
+
+- Avoid relying on exported cookie files for long-term sessions, as tokens like token_v2 expire in approximately 24 hours and reddit_session will not mint a fresh one, leading to a logged-out state.
+
+- Instead of replaying cookies, attach to a live browser profile that can refresh its own tokens.
+
+- For write operations (e.g., posting, commenting), let the page build the request using same-origin fetch calls from within the logged-in page. This ensures Reddit's own cookies and CSRF material are reused automatically.
+
+- Optionally, for legacy API calls, obtain the uh=<modhash> CSRF parameter from /api/me.json for authenticated sessions and use it with /api/submit and /api/comment.
+
+- Utilize the provided agent skill (npx skills add L4A-ai/agentic-gtm-skills) as a reference implementation, noting its dry-run default and audit log features.
+
+## Tools / artifacts
+
+- Puppeteer
+
+- Playwright
+
+- Chrome DevTools Protocol (CDP)
+
+- navigator.webdriver flag
+
+- --enable-automation Chrome flag
+
+- --remote-debugging-port Chrome flag
+
+- --disable-blink-features=AutomationControlled Chrome flag
+
+- token_v2 cookie
+
+- reddit_session cookie
+
+- uh=<modhash> CSRF parameter
+
+- /api/me.json Reddit endpoint
+
+- /api/submit Reddit endpoint (legacy API for posting/commenting via modhash param.)
+
+## Validation signals
+
+- Author spent a day getting Claude Code to reliably post and comment on Reddit.
+
+- Findings are based on direct measurement ('only find by measuring').
+
+- Observed 'Prove your humanity' interstitial self-resolving in seconds.
+
+- Measured page load size (13KB after interstitial).
+
+- Observed token_v2 cookie expiration in ~24 hours.
+
+- Verified uh=<modhash> CSRF parameter still works in 2026.
+
+- GitHub repository provides 'measured evidence including the parts where my first conclusions were wrong'.
+
+## Cautions
+
+- The provided agent skill is 'single-account by design'.
+
+- Every write operation in the skill is a dry run by default, requiring --yes for actual execution.
+
+- The skill includes an audit log for transparency.
+
+## Limitations
+
+- The Reddit post has a very low score and minimal community engagement at the time of review, though it is very new.
+
+- Requires an intermediate to advanced understanding of browser automation (Puppeteer/Playwright/CDP) and agent skill development.
+
+- Specific to browser automation, not directly applicable to general LLM prompting without browser interaction.
+
+## Rate this workflow
+
+Upvote this post if the workflow is useful, reproducible, or worth recommending.
+
+Downvote if it is vague, outdated, unsafe, overhyped, or not reproducible.
+
+Reply if it worked for you, failed, is outdated, or has a better alternative.
+
+This post was generated automatically from the workflow library database.

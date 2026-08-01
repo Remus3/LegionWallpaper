@@ -44,6 +44,16 @@ asked the right questions and filed them as OPEN rather than answering them.
   The watermark tool does return source plus confidence as claimed; it is
   unreachable for LW's corpus regardless. **6 -> 2.**
 
+**4. The off-list entries are not primary sources, and the highest-scored one is
+refuted at the root.** Added after RM corrected this document's own retrieval
+failure. All six r/ClaudeWorkflows posts are **bot-generated summaries of other
+posts**, carrying machine-assigned `Confidence` and `Workflow value` fields that
+read as measurements. CCR-146 - scored 9 by LW, the highest off-list score -
+rests on a CLI flag that does not exist and never did, sourced in the post's own
+words from "Claude itself told me". See section 3.0. This is the same failure
+class as the corpus's `n=119` header: a number that was read rather than
+counted, and a source that was cited rather than opened.
+
 **3. The best row on the list was scored 5 and its decisive features were in
 nobody's summary.** See `LWM-07 mockd` below. Two more entries rose the same
 way, on capabilities no one-line description carried: `depwire`'s file-claim
@@ -179,10 +189,77 @@ way, are not re-listed - the ranked table in the triage stands for them.
 ## 3. The off-list entries - and the one that outranks the whole list
 
 The triage asserted the highest-value items for LW were NOT on the list it was
-handed. All four were dived. **Their only recorded url is a Reddit post, and
-every Reddit fetch failed** - `Claude Code is unable to fetch from
-www.reddit.com`, five for five. Nothing below is inferred from a post title;
-each was traced to upstream source instead.
+handed. All were dived, first from upstream source, then - **on a correction
+from the sibling RM session** - from the Reddit posts themselves.
+
+**Retrieval, recorded because the first attempt got it wrong.** The first pass
+concluded these were unreachable and filed Item D as a permanent gap. That was
+wrong, and the error is worth naming: `www.reddit.com` is blocked at the tool
+level, the `.json` endpoint returns 403, and **the 403 was measured on `.json`
+and then generalized to the whole host**. The plain HTML page was never tested.
+RM measured it independently and it works. The recipe, verified six for six on
+this box, HTTP 200 at 54-57 KB each:
+
+```
+curl -sSL -b "over18=1" -A "<a real browser UA>" \
+  "https://old.reddit.com/r/<sub>/comments/<id>/"
+```
+
+`-L` is required - the bare comments url returns a 301. The post body is the
+**largest** `div.md` on the page, not the first; the first is the subreddit
+sidebar. Extractor kept at `scratchpad/extract_reddit.py`.
+
+### 3.0 What these posts actually are - and it disqualifies them as sources
+
+**Every one of the six ends with the line "This post was generated
+automatically from the workflow library database", and every one names its
+`Original source` as a DIFFERENT r/ClaudeAI or r/ClaudeCode post.** They are
+machine-written summaries of other people's posts, published into
+r/ClaudeWorkflows by a bot.
+
+They carry fields that look like measurements and are not: `Workflow value:
+90/100`, `Confidence: 0.95`, `Freshness: 70/100`. Those are machine-assigned
+scores on a summary of a summary. Three of the six also disclose, in their own
+Limitations section, that community validation is essentially zero - CCR-146's
+reads "Low community validation (score 1, 0 comments)".
+
+**Consequence for this project:** `First-Pass.md` scored CCR-127/136/142/143/
+144/146 as primary sources, and LW's triage then ranked four of them above its
+entire 63-entry list. They are tertiary. Where a post's claims can be checked
+against the actual tool or the official docs, **two of the four checked are
+wrong** - see CCR-146 and CCR-143 below. This does not make the underlying
+ideas worthless; it means a `Confidence: 0.95` field on an auto-generated post
+is not evidence, and neither is a score derived from one.
+
+### CCR-146 - REFUTED AT THE ROOT. It was 9, LW's highest off-list score, and the flag it rested on was never real.
+
+Not previously dived - L1 closed it empirically by probing the CLI, without ever
+reading the claim. Now read. The post states the flag is "available in
+v2.1.205+". **Its own Limitations section names the source: "The source 'Claude
+itself told me' is not an official Anthropic document."**
+
+Probed live on this box, 2026-08-01, `claude --version` = **2.1.220**:
+
+```
+claude --help | grep -iE "append|--agent "
+  --agent <agent>                  Agent for the current session. Overrides ...
+  --append-system-prompt <prompt>  Append a system prompt to the default ...
+```
+
+- `--append-subagent-system-prompt` - **DOES NOT EXIST.** Confirms L1.
+- `--agent <name>` - **EXISTS**, and that half of the post is true.
+
+So the highest-scored off-list item for LW traces to a flag an LLM asserted into
+existence, laundered through an auto-generated post, scored 8 by RC and 9 by LW.
+The post's non-flag claims are consistent with what the sibling project measured
+directly (custom subagents take their prompt from the agent file body; a `fork`
+subagent sees the identical prompt) - **but LW never needed the flag anyway**,
+because PreToolUse hooks were measured to fire headless on 2.1.220 (`e436128`).
+**Final: 9 -> 1. Closed, with the mechanism of the error recorded.**
+
+The one salvage: `--agent <name>` replaces the main-thread system prompt for a
+session. That is a real, verified capability with a possible use in the headless
+loop, and it is filed on its own merits, not on this entry's score.
 
 ### Item B - Claude Code hooks. SCORE 9, and it is the only NEXT with zero dependencies.
 
@@ -247,30 +324,83 @@ Stop hook. Also: only vitest, jest, mocha and pytest output is parsed - ruff and
 all; the `version` field is read and never validated (LW's transcripts currently
 carry `2.1.219`).
 
+**The post disagrees with the tool on three checkable facts, and the tool wins
+every time.** Read after the upstream dive, so both sides are in hand:
+
+| claim | the post | measured at source |
+|---|---|---|
+| sessions audited | 192, 5 unsupported | **249**, 124 claims, 117 with a real run, 7 no trace, **zero confirmed lies** (author's dev.to writeup) |
+| number of checks | 8 | **9 detectors** in `src/detectors/index.ts` |
+| read-only | asserted under **Cautions** as a safety property | `audit` is; **`hook install` writes `~/.claude/settings.json`** plus a backup and a temp file, to install itself as a Stop hook |
+
+The third is the one that matters: a reader trusting the post's Cautions section
+would install a tool believing it cannot write, and it modifies the harness
+config. Every one of these was recoverable only by reading the repo.
+
 **Ruling: do not install. Lift the design.** Item B is the mechanism, this is
 the check list, and LW can implement the two detectors it actually needs
 (`claim-no-run`, `no-verify` after a hook rejection) against its own transcripts
 in Python with no Windows bugs and no four-day-old dependency. Revisit the tool
 itself if it grows a Windows CI matrix.
 
-### Item C - browser automation findings. 7 -> 4. Two thirds of it is unverifiable.
+### Item C - browser automation findings. 7 -> 4 -> **7 restored**, and it is the most directly useful entry of the six.
 
-Only **`navigator.webdriver` is documentation-verified** (W3C WebDriver Level 2
-webdriver-active flag; MDN confirms Chrome sets it under `--headless` and
-`--remote-debugging-port`). **"Transient interstitials" does not appear in the
-WebDriver specification at all**, and no first-party ChromeDriver documentation
-defining the behaviour could be found. Cookie-expiry semantics could not be
-retrieved (the spec page truncated before section 14 on three attempts) and are
-recorded UNKNOWN rather than filled in. An entry scored 7 for carrying "three
-measured protocol facts" carries one.
+The first pass scored this 4 because "transient interstitials" appears nowhere
+in the W3C WebDriver spec. That was true and it was the wrong test: **these were
+never spec claims.** They are empirical measurements about one site's edge
+behaviour, and the spec is silent on all of them by construction. Now read:
 
-### Item D - the two prose entries. UNSCORABLE, recorded as a gap.
+- **`navigator.webdriver` is set at browser LAUNCH**, by Puppeteer/Playwright's
+  `--enable-automation` - **not by attaching over CDP**. Launch Chrome with only
+  `--remote-debugging-port` and attach afterwards, and it is never set. This is
+  a sharper and more actionable fact than the W3C flag definition the first pass
+  verified instead.
+- **"Prove your humanity" interstitials are transient proof-of-work, not a hard
+  block** - measured to self-resolve in seconds, 13 KB page after.
+- **Exported cookie files rot**: `token_v2` expires in about 24 hours and
+  `reddit_session` will not mint a fresh one, so a replayed cookie jar
+  silently becomes a logged-out session. **Attach to a live browser profile that
+  refreshes its own tokens.**
+- **For writes, let the PAGE build the request** via same-origin `fetch` from
+  inside the logged-in page, so the site's own cookies and CSRF material are
+  reused automatically. Legacy path: `uh=<modhash>` from `/api/me.json`.
 
-Both Reddit urls unreachable; no mirror, crosspost, archive or upstream artifact
-exists. Nothing was reconstructed from the titles. If this material is wanted,
-the post bodies have to be pasted in from a browser session that can reach
-Reddit. **This is a stage-4 GAP, not a completed dive** - same disposition RC
-gave its own unreachable Reddit row.
+**Why this is now a 7 for LW specifically.** The recovery waterfall drives
+DeviantArt, whose `original=true` fetch is weekly-quota-blocked (memory
+`reference-deviantart-recovery`), and LW's whole approach there is a decoded
+token plus gallery-dl. "Do not replay an exported cookie jar - attach to a live
+profile and let the page issue the request" is the generalizable rule for
+exactly that class of blocker, and it is a rule LW does not currently follow.
+
+Recorded with the irony intact: **this entry describes the precise failure this
+document hit twice** - a bot-detection block on Reddit - and its own advice is
+the route around it.
+
+Scope, stated: the cookie names and the modhash endpoint are Reddit-specific and
+must not be carried to DeviantArt as facts. The transferable claims are the
+launch-vs-attach distinction, cookie-jar rot, and same-origin fetch for writes.
+
+### Item D - the two prose entries. Now retrieved, and both are thin.
+
+**CCR-144, eliciting critical feedback: 6 -> 5.** The whole technique is three
+follow-up prompts - "Argue against me", "What are you least confident about",
+"What would a skeptical senior reviewer say". Real, and LW already encodes the
+substance: the `verifier` subagent is the institutional version, and this
+session's own dives were run adversarially. No lift; the post's own Limitations
+concede it is manual, not a setting, and costs extra turns.
+
+**CCR-142, rigorous engineering system prompt: 6 -> 6, held, with two lines
+worth stealing.** Most of it restates rules LW already has - provenance on every
+number, one owner per value, pin the convention before comparing, no prose
+estimation. Two are not in LW's rules and should be: **"derive verification
+benchmarks in-code from the model itself"** and **"report designations with
+their referents"**. The rest is corroboration, which is worth recording and is
+not a finding.
+
+**Both are UNSCORABLE AS SOURCES for the reason in section 3.0** - they are
+machine summaries of other posts, and CCR-142's `Confidence: 1.00` field is
+attached to a summary of a Reddit comment about someone's personal preferences
+file.
 
 ---
 
@@ -309,6 +439,15 @@ depwire - BSL 1.1 until 2029.
 supported. Run it against both pages and compare its findings to the ritual's;
 adopt only if it catches something the ritual missed.
 
+**P6 - stop replaying cookie jars in the recovery waterfall. LATER, no
+dependency.** From CCR-136, now readable: `navigator.webdriver` is set at browser
+LAUNCH by `--enable-automation`, not by attaching over CDP, so launching with
+only `--remote-debugging-port` and attaching afterwards is never flagged; and an
+exported cookie jar rots silently as its session token expires. The rule for
+LW's DeviantArt lane is attach to a live profile and let the page issue the
+request, rather than replaying credentials. Reddit's specific cookie names and
+modhash endpoint do NOT transfer - only the three structural rules do.
+
 **CLOSED, do not reopen:** viznoir as a render backend (glTF is export-only, no
 skinned meshes); picdefenseio in any role (public-URL input only); the whole
 keyed/hosted half of the list; uniprof and neurostack (cannot run on Windows).
@@ -319,8 +458,19 @@ keyed/hosted half of the list; uniprof and neurostack (cannot run on Windows).
 
 - Do NOT re-dive the 63 from the marketplace pages. They were all fetched
   2026-08-01 and the facts are above; go to the upstream repo instead.
-- Do NOT try Reddit for the off-list entries. Five for five unreachable this
-  session. Item D needs a paste from a browser, not another fetch.
+- Reddit IS retrievable - use `curl -sSL` against **old.reddit.com HTML**, and
+  take the LARGEST `div.md`. Recipe and extractor in section 3. What does NOT
+  work, so nobody re-tests them: WebFetch (refuses the host at the tool level),
+  the in-app browser pane ("blocked by policy"), the Apify cloud crawler (403),
+  and the `.json` endpoint (403).
+- Do NOT repeat this pass's own error: **the 403 was measured on `.json` and
+  generalized to the host**, which filed a retrievable source as a permanent
+  gap. Test the exact url you intend to use before recording a dead end. RM
+  caught it.
+- Do NOT treat an r/ClaudeWorkflows post as a primary source. All six are
+  bot-generated summaries of other posts, carrying machine-assigned
+  `Confidence` and `Workflow value` fields that read as measurements. Where
+  checkable, two of four checked were wrong.
 - Do NOT install red-handed on this box before checking for a Windows CI
   matrix. Two separator bugs are confirmed in the version dived here.
 - Do NOT read the marketplace page's tool COUNT as authoritative:

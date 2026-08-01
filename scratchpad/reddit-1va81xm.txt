@@ -1,0 +1,91 @@
+TITLE: [Workflow] Enforcing Code Quality and Safety with Claude Code Hooks (PreToolUse & Stop) : ClaudeWorkflows
+
+# Enforcing Code Quality and Safety with Claude Code Hooks (PreToolUse & Stop)
+
+Workflow value: 90/100
+
+Status: active - Freshness: 70/100 - Confidence: 1.00 - Level: intermediate
+
+Categories: Quality Control, Token Saving, Context & Memory, Debugging, Hooks
+
+Original source: r/ClaudeCode post/comment
+
+## What problem this solves
+
+Preventing Claude Code from executing unwanted or incorrect commands (e.g., wrong package manager, destructive actions, leaking secrets, failing typechecks) by enforcing rules via hooks.
+
+## Summary
+
+This workflow leverages Claude Code's PreToolUse and Stop hooks to implement automated checks and guardrails. PreToolUse hooks block specific tool calls (like using the wrong package manager, destructive commands, or commands containing secrets) before execution, providing a reason to Claude's context for self-correction. Stop hooks run when the agent thinks it's finished, allowing for final validation steps like typechecking, blocking handoff if errors are found.
+
+## Why it is useful
+
+This workflow provides concrete, actionable strategies for preventing common errors and enforcing best practices when using Claude Code. It leverages powerful, yet often overlooked, features (hooks) to create robust guardrails. The detailed examples, explanation of how Claude uses hook feedback, and a link to an open-source implementation make it highly transferable and immediately useful for improving the reliability and safety of AI-assisted development. It directly addresses the pain point of Claude doing "the exact thing you told it not to."
+
+## Workflow
+
+- Identify specific actions or conditions you want Claude Code to avoid or validate.
+
+- Choose the appropriate hook event: PreToolUse for blocking tool calls before they happen, or Stop for post-completion validation.
+
+- Write a shell script for the chosen hook.
+
+- For PreToolUse hooks: The script receives tool name and command as JSON on stdin. Parse the JSON to inspect the command. Return a JSON object with permissionDecision: "deny" and permissionDecisionReason if the command should be blocked. Alternatively, exit 2 and print the reason to stderr.
+
+- For Stop hooks: Run validation commands (e.g., tsc). If validation fails, block the handoff (e.g., by returning an error status). Ensure the Stop hook has a mechanism to prevent infinite loops (e.g., giving up after the first round of blocking).
+
+- Configure settings.json to wire the scripts to the respective hook events.
+
+- Test the hooks to ensure they block as intended and provide useful feedback to Claude.
+
+## Tools / artifacts
+
+- Claude Code
+
+- Shell scripts
+
+- settings.json
+
+- pnpm-lock.yaml
+
+- npm
+
+- pnpm
+
+- rm -rf
+
+- DROP DATABASE
+
+- API keys/tokens
+
+- tsc (TypeScript compiler)
+
+## Validation signals
+
+- Author's personal experience of improved workflow
+
+- Specific examples of successful blocking (pnpm, typecheck)
+
+- Link to a working, open-source implementation (techpotions.com/products/claude-code-hooks)
+
+- Explanation of how Claude self-corrects based on hook output
+
+## Cautions
+
+- The author explicitly warns about Stop hooks causing infinite loops if they always block, requiring a mechanism to give up after the first round.
+
+## Limitations
+
+- The settings.json wiring is described as "fiddlier" than the scripts themselves, which might be a minor hurdle for some users.
+
+- The Stop hook requires careful implementation to avoid infinite loops.
+
+## Rate this workflow
+
+Upvote this post if the workflow is useful, reproducible, or worth recommending.
+
+Downvote if it is vague, outdated, unsafe, overhyped, or not reproducible.
+
+Reply if it worked for you, failed, is outdated, or has a better alternative.
+
+This post was generated automatically from the workflow library database.

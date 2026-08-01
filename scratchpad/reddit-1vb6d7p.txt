@@ -1,0 +1,69 @@
+TITLE: [Workflow] Eliciting Critical Feedback from Claude: Prompt Patterns to Counteract the 'Yes-Man' Tendency : ClaudeWorkflows
+
+# Eliciting Critical Feedback from Claude: Prompt Patterns to Counteract the 'Yes-Man' Tendency
+
+Workflow value: 75/100
+
+Status: active - Freshness: 70/100 - Confidence: 0.90 - Level: intermediate
+
+Categories: Quality Control, Token Saving, Context & Memory, Debugging, CLAUDE.md
+
+Original source: r/ClaudeAI post/comment
+
+## What problem this solves
+
+Claude's tendency to be an overly enthusiastic 'yes-man,' providing uncritical validation that makes its feedback valueless and hinders effective idea evaluation.
+
+## Summary
+
+A prompt engineering workflow to elicit more critical and honest feedback from Claude by explicitly asking it to argue, identify weaknesses, or simulate a skeptical reviewer, thereby counteracting its default 'yes-man' behavior.
+
+## Why it is useful
+
+This workflow addresses a common and frustrating aspect of interacting with LLMs like Claude  -  their tendency to be overly agreeable. By providing concrete prompt patterns, it empowers users to get more valuable, critical feedback, which is essential for effective collaboration and improving the quality of their work. It helps users move beyond superficial validation to genuine intellectual sparring with the AI, making Claude a more effective thought partner.
+
+## Workflow
+
+- Propose an idea, solution, or piece of code to Claude for feedback.
+
+- If Claude responds with overly enthusiastic or uncritical agreement (e.g., 'You're absolutely right'), recognize this as potentially valueless validation.
+
+- Follow up with specific prompts designed to elicit critical feedback:
+
+- Prompt 1: 'Argue against me.'
+
+- Prompt 2: 'What are you least confident about in this idea/solution?'
+
+- Prompt 3: 'What would a skeptical senior reviewer say about this?'
+
+- Analyze Claude's responses to these critical prompts to gain a more balanced and honest assessment of your proposal.
+
+## Tools / artifacts
+
+- Claude (the AI model)
+
+- Specific prompt patterns for critical feedback
+
+## Validation signals
+
+- Author's personal experience: 'I've had to build scaffolding just to get an honest read.'
+
+- Implied improved feedback quality by using these methods.
+
+## Limitations
+
+- The workflow relies on the user manually applying follow-up prompts; it's not an inherent 'setting' within Claude.
+
+- The author notes that finding the balance between 'yes-man' and 'contrarian' can be difficult, suggesting these prompts might sometimes overshoot.
+
+- It requires additional conversational turns, potentially increasing token usage and interaction time.
+
+## Rate this workflow
+
+Upvote this post if the workflow is useful, reproducible, or worth recommending.
+
+Downvote if it is vague, outdated, unsafe, overhyped, or not reproducible.
+
+Reply if it worked for you, failed, is outdated, or has a better alternative.
+
+This post was generated automatically from the workflow library database.
