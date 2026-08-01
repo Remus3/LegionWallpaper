@@ -8,6 +8,54 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
+- **gpu-mutex-inert - `GPU_MUTEX` is declared and acquired by NOTHING, and it
+  now blocks a cross-project decision - NEXT.**
+  Next: wire `winmutex.GPU_MUTEX` into the CUDA-touching tools (DAT2 upscaler,
+  SDXL generator, DWPose localizer, LaMa inpainter), then tell RC that N=3 is
+  safe. Measured 2026-08-01: the ONLY `winmutex.hold(...)` anywhere is
+  `GEMINI_MUTEX` at `ops/loop/loop_controller.py:366`, and no file under
+  `tools/` imports `winmutex` at all - so `winmutex.py`'s own docstring claim
+  that `GPU_MUTEX` is "acquired by the TOOL that touches CUDA" is false. A
+  declared guard that fires nowhere is the same false-safety class as a git hook
+  that exists but was never wired.
+  Why it is urgent now: RC proposes raising the shared `max_concurrent_lanes`
+  from 2 to 3 because a THIRD loop (Red Moon) is joining the
+  `C:\ProgramData\lw-loop\slots` bucket. LW is the only GPU-heavy participant,
+  so N=3 would allow two CUDA lanes on one RTX 5070 with nothing serializing
+  them - and the failure mode is a thrash or OOM partway through an upscale,
+  which surfaces as a degraded image rather than a clean error. LW has REFUSED
+  N=3 until this is real; all three configs hold at 2.
+  Do-not-redo: do NOT edit `ops/loop/winmutex.py` to fix this - the constant
+  already exists, so wiring consumers needs no change to that byte-identical
+  file and no joint re-pin. Do NOT raise `max_concurrent_lanes` unilaterally;
+  the value must match across all three repos or the governor is theater.
+  Also worth weighing: the contention that matters is CUDA, not lanes, so the
+  honest governor may be the mutex with lanes left at 2 permanently.
+  Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*`; LW reply
+  `2026-08-01-1340-from-LW-hold-at-two-until-the-gpu-mutex-is-real.md`.
+
+- **gemini-removal - drop Gemini; the loop becomes Claude-only and
+  self-adjudicating - OPERATOR-DIRECTED, own slice.**
+  Next: flip the reversible part, keep the backend reachable as the rollback
+  path, file the rest as a sweep - the same split RC took rather than a
+  big-bang removal. RC completed its side 2026-08-01 (`adjudicator: claude`,
+  `DEFAULT_BACKEND` flipped, `RC-GeminiAudit` task disabled not deleted).
+  LW's shape is DIFFERENT and there is no one-line flip: LW has no adjudicator
+  key at all - Gemini is structurally the DIRECTOR and AUDITOR via
+  `gemini_model`, `gemini_cmd`, `director_prompt.md`, `auditor_prompt.md`,
+  `tools/gemini_audit.ps1`, the `ceiling_usd` accounting, and the mutex hold at
+  `loop_controller.py:366`. Removing it means replacing what AUTHORS each
+  cycle's directive, not switching a backend behind a flag.
+  Supporting evidence from LW's own runs: a read-only Claude verifier refuted a
+  Claude slice on a false behavior-identical claim, and a second refuted another
+  on a cache-eviction regression a 530-line test file missed - same vendor, both
+  caught, because the grader was adversarial and independent rather than
+  differently-branded. Vendor diversity was not what was catching errors.
+  Do-not-redo: do NOT delete `GEMINI_MUTEX` from `winmutex.py` - it is
+  byte-identical-by-contract, deleting it needs a three-way re-pin, and LW still
+  has a LIVE consumer at `loop_controller.py:366` today.
+  Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*` section 7.
+
 - **usm-halo-calibration - our own unsharp mask manufactures every halo flag,
   and turning it down trades 7 soft flags for 6 hard fails - OPERATOR-GATED.**
   Next: operator picks the axis - re-seed the halo threshold for the
