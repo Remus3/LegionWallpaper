@@ -23,19 +23,23 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
 - **mcp-lift-phases - act on the 2026-08-01 MCP triage.** Full evidence and the
   per-entry rubric in `docs/MCP_LIFT_TRIAGE_2026-08-01.md`; the triage was
   filed but never queued, which is why this entry exists.
-  - **L1, free and local, no install and no key:** a one-shot `skylos` scan over
-    `tools/` and `ops/` (dead code, secret-shaped literals - LW carries four
-    `_*_oneoff.py` and a month of accreted tooling), and verifying the two CLI
-    flags from L2 against the installed Claude version. Neither adds a
-    dependency.
-  - **L2, the highest-value item found and it was NOT on the operator's list:**
-    `--append-subagent-system-prompt` injects rules into EVERY nested subagent
-    and works headless - which is exactly the surface LW MEASURED that
-    PreToolUse hooks do not reach under `claude -p --permission-mode
-    bypassPermissions` (CLAUDE.md, 2026-07-26). Also `red-handed`, a local
-    deterministic MIT auditor of "tests pass" claims against git history - the
-    tool form of LW's most documented failure class, currently answered by
-    spending a whole verifier subagent.
+  - **L1 - DONE 2026-08-01, result in `docs/MCP_LIFT_L1_2026-08-01.md`.** Both
+    halves ran and both changed the plan. skylos is NOT wire-into-CI material
+    here: it flagged `lw_httpd.py:122 allow_reuse_address = False`, which IS the
+    single-instance bind guard, and most other high-confidence hits are
+    framework attrs or symbols with 12-55 live references. Usable only as a
+    one-shot human-read hint at `uvx skylos==3.0.0 <onedir>` (latest needs MSVC
+    build tools; it also takes ONE directory per run). Real yield was a finding
+    skylos did not make - see `gpu-busy-fork-unification`.
+  - **L2 - the `--append-subagent-system-prompt` half is CLOSED, not deferred.**
+    The flag DOES NOT EXIST on the installed CLI (2.1.220 ships only
+    `--append-system-prompt`, `--append-system-prompt-file`,
+    `--forward-subagent-text`). Its premise had already failed separately:
+    PreToolUse hooks DO reach headless `bypassPermissions` (`e436128`), so the
+    gap it was going to plug is not there either. Still OPEN on its own merits:
+    `red-handed`, a local deterministic MIT auditor of "tests pass" claims
+    against git history - the tool form of LW's most documented failure class,
+    currently answered by spending a whole verifier subagent.
   - **L3, operator-gated:** a MediaWiki canonical-source probe ahead of Tier 1
     in the recovery waterfall, and picdefenseio evaluated as a Tier-2 COMPLEMENT
     to SauceNAO - not a replacement, it does backlink discovery rather than
