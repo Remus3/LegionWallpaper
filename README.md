@@ -66,3 +66,11 @@ built inside that process.
 
 Full rules: `CLAUDE.md`. Agent-framework pattern: `docs/AGENTS.md`. Ops commands:
 `docs/OPERATIONS.md`.
+
+## License
+
+Apache License 2.0 - see `LICENSE`. The license covers the PROCESS shipped in
+this repo (pipeline code, gate ladder, docs, agent framework). It does not and
+cannot grant any right to the image corpus: the wallpapers are third-party
+illustrations, they are never tracked here (`images/**` is gitignored), and the
+restoration output stays private per `docs/RESTORATION_PLAN.md` section 10.

@@ -39,6 +39,13 @@ images/**
 !images/**/
 !images/**/.gitkeep
 
+# lw-gen style reference images at the repo root (locally generated, used
+# by no code path - only doc mentions). Same boundary as images/**: the
+# PROCESS is shareable, image bytes are not. Tracked 2026-07-29, untracked
+# + purged from history 2026-08-01 ahead of going public.
+/style.jpg
+/style2.jpg
+
 # Root pipeline status log - per-image transition history for THIS
 # machine's corpus. Untracked like LW_WORK_TRACKER.md (personal state,
 # not shareable process).
