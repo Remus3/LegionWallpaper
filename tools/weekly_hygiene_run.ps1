@@ -14,7 +14,11 @@
 #   powershell -ExecutionPolicy Bypass -File "C:\LegionWallpaper\tools\weekly_hygiene_run.ps1"
 
 param(
-    [string]$Model = "claude-sonnet-4-6"
+    # 2026-08-02: was claude-sonnet-4-6, which is not a current model id - this
+    # task is now ARMED (LW-WeeklyHygiene registered), so a stale id would have
+    # failed weekly with nobody watching. Sonnet is deliberate over Opus: the
+    # pass is relocate-only trims + a staleness scan, not design work.
+    [string]$Model = "claude-sonnet-5"
 )
 
 $ErrorActionPreference = "Continue"

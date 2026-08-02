@@ -1040,6 +1040,81 @@ def _latest_gate_audit(man, stage):
     return None
 
 
+# ---- ADR-008: vision reviewers FLAG, they never REJECT ---------------------
+# The anatomy percept needs a VISION reviewer (keypoint head-spine offset was
+# measured over all 288 approved firstdones and rejected as a gate, LEDGER 60).
+# Operator ruling 2026-08-02: it may FLAG only, and the flag BLOCKS a
+# non-operator approval.
+#
+# Why FLAG-only rather than may-REJECT, in one line each: a REJECT demotes, and
+# `clean-retry-degrades` measured that a further pass here makes the image WORSE,
+# so a false REJECT degrades the thing it was protecting; a vision 2AFC is not
+# reproducible, so the operator cannot re-derive a verdict they disagree with;
+# and splash art is deliberately non-anatomical with no ground truth to check
+# against (there is no finished ground truth in this corpus at all).
+VISION_GATES = frozenset({"vision-anat"})
+BLOCKING_FLAG_PREFIXES = ("anat_",)
+OPERATOR_ACTOR = "operator"
+_CLAMPED_VERDICTS = frozenset({"REJECT", "FAIL"})
+
+
+def is_vision_gate(gate):
+    return isinstance(gate, str) and gate in VISION_GATES
+
+
+def clamp_vision_audit(audit):
+    """Coerce a VISION audit's REJECT/FAIL down to FLAG, recording that it was.
+
+    Pure - returns a new dict, never mutates the caller's. Scoped to
+    `VISION_GATES`: G1's FAIL is a reproducible hard floor and clamping it would
+    silently disarm the gate ladder.
+
+    The coercion is at the WRITE boundary on purpose. A rule that lives only in a
+    reviewer's prompt is a request; enforced where the audit is recorded, no
+    future reviewer can demote an image no matter what it emits.
+    """
+    if not isinstance(audit, dict) or not is_vision_gate(audit.get("gate")):
+        return audit
+    verdict = audit.get("verdict")
+    if verdict not in _CLAMPED_VERDICTS:
+        return audit
+    out = dict(audit)
+    out["verdict"] = "FLAG"
+    out["clamped_from"] = verdict
+    return out
+
+
+def blocking_flags(reasons):
+    """The subset of `reasons` that blocks a non-operator approval."""
+    if not reasons:
+        return []
+    hits = {r for r in reasons
+            if isinstance(r, str) and r.startswith(BLOCKING_FLAG_PREFIXES)}
+    return sorted(hits)
+
+
+def assert_approval_allowed(slug, approval, actor=OPERATOR_ACTOR):
+    """Refuse a non-operator approval while a blocking flag is unresolved.
+
+    The operator is NEVER refused - approving over a flag is their judgement and
+    the approval record already writes it down as an `override`. Everything else
+    fails CLOSED: an unrecognised actor string does not inherit operator
+    authority just because it is not on a list.
+
+    This exists BEFORE auto-approval does (the autonomy ladder is still at Phase
+    A). Landing the rail first is the point - a gate written after the thing it
+    gates is a gate that was once open.
+    """
+    if actor == OPERATOR_ACTOR:
+        return
+    flags = list(approval.get("blocking_flags") or [])
+    if flags:
+        raise PipelineError(
+            f"approve: {slug} blocked by unresolved vision flag(s) "
+            f"{', '.join(flags)} - actor {actor!r} may not clear these; "
+            f"operator approval only", code=3)
+
+
 def _approval_record(man, stage):
     """The honest gate record for a promotion out of `stage`.
 
@@ -1053,7 +1128,7 @@ def _approval_record(man, stage):
     audit = _latest_gate_audit(man, stage)
     if audit is None:
         return {"gate_check": "no_audit", "override": False, "gate": None,
-                "verdict": None, "reasons": []}
+                "verdict": None, "reasons": [], "blocking_flags": []}
     verdict = audit.get("verdict")
     reasons = list(audit.get("reasons") or [])
     clean = verdict == "PASS" and not reasons
@@ -1063,6 +1138,7 @@ def _approval_record(man, stage):
         "gate": audit.get("gate"),
         "verdict": verdict,
         "reasons": reasons,
+        "blocking_flags": blocking_flags(reasons),
     }
 
 
@@ -1103,7 +1179,7 @@ def _complete_approve(ctx, ops, slug, stage, folder, done_src_name, force,
     return sha_done
 
 
-def cmd_approve(ctx, slug, force):
+def cmd_approve(ctx, slug, force, actor=OPERATOR_ACTOR):
     stage, folder = find_scratch(ctx, slug)
     if stage is None:
         raise PipelineError(f"approve: {slug} not in any scratch", code=2)
@@ -1111,6 +1187,12 @@ def cmd_approve(ctx, slug, force):
     done_local = folder / milestone_name(slug, stage, "done")
     if not needauth.exists() and not done_local.exists():
         raise PipelineError(f"approve: {slug} has nothing submitted", code=2)
+    # ADR-008: checked BEFORE anything moves. Refusing after the needauth ->
+    # done rename would leave the slug in the APPROVED_PENDING_MOVE shape for a
+    # promotion that was denied.
+    man_pre = load_manifest(folder)
+    if man_pre is not None:
+        assert_approval_allowed(slug, _approval_record(man_pre, stage), actor=actor)
     ops = Ops(ctx.dry)
     lock = acquire_lock(folder, ctx.dry)
     try:
@@ -1294,8 +1376,11 @@ def cmd_annotate(ctx, slug, source_url, metrics_obj, tool):
     try:
         if source_url is not None:
             man["source_url"] = source_url
+        # ADR-008: a vision audit may FLAG, never REJECT. Clamped HERE, at the
+        # write boundary, so the rule holds whatever a reviewer emits.
         add_transition(man, "ANNOTATE", actor=actor, tool=tool,
-                       audit=metrics_obj, note="provenance/metrics annotation")
+                       audit=clamp_vision_audit(metrics_obj),
+                       note="provenance/metrics annotation")
         ops.write_json(folder / "manifest.json", man)
         ctx.log(slug, "ANNOTATE", folder.parent.name, folder.parent.name,
                 "0" * 12, actor=actor)
@@ -1457,6 +1542,11 @@ def build_parser():
     s = sub.add_parser("approve", help="T5/T6: needauth -> done, set -> Done")
     s.add_argument("slug")
     s.add_argument("--force", action="store_true")
+    s.add_argument("--actor", default=OPERATOR_ACTOR,
+                   help="who is approving. Defaults to 'operator'. Any other "
+                        "value is refused while an ADR-008 vision flag is "
+                        "unresolved - pass e.g. tool:auto-approve from an "
+                        "unattended caller so the rail can see it.")
     s.add_argument("--dry-run", action="store_true")
 
     s = sub.add_parser("reject", help="T4r: needauth -> next working; --stage last = T7r")
@@ -1511,7 +1601,7 @@ def main(argv=None):
         if args.cmd == "submit":
             return cmd_submit(ctx, args.slug)
         if args.cmd == "approve":
-            return cmd_approve(ctx, args.slug, args.force)
+            return cmd_approve(ctx, args.slug, args.force, actor=args.actor)
         if args.cmd == "reject":
             return cmd_reject(ctx, args.slug, args.note, args.stage)
         if args.cmd == "finalize":

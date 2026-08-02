@@ -63,7 +63,9 @@ so the comparison protocol matters more than the metric:
    reference. A GOOD artifact cleanup will lower SSIM vs the artifacted source. Therefore
    FR gates are "drift alarms" with generous bands, not tight approval gates - the tight
    gates live in the targeted checks (section 3) and vision audit (section 4).
-6. COMPUTE BUDGET: the common scale is capped at `MAX_COMMON_PIXELS` (3840x2160 =
+6. COMPUTE BUDGET (**RATIFIED as ADR-007, 2026-08-02** - the value is a decision,
+   not a tuning knob; `tests/test_g1_common_scale_budget.py` pins it): the common
+   scale is capped at `MAX_COMMON_PIXELS` (3840x2160 =
    8.29 MPix, `lw_g1_gate.common_scale_for`). Over budget, BOTH sides are Lanczos-
    resampled down to fit, preserving aspect; under budget the source scale is used
    verbatim, so the rule above is unchanged for the common case. Rationale: DISTS

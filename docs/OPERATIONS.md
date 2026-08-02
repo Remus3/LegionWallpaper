@@ -68,40 +68,47 @@ schtasks /Run /TN "LW-Supervisor"   # NOT YET REGISTERED - see roster below
 
 ## Scheduled tasks (Legion)
 
-Naming convention: every LW scheduled task is named `LW-*`. **One is
-registered** (`LW-Wallpaper`, 2026-07-18). The rest of the roster below is
-the plan to arm LATER, each gated on (a) the product having code + a test
-suite and (b) an explicit operator directive. Do not register any of the
-NOT YET REGISTERED rows speculatively.
+Naming convention: every LW scheduled task is named `LW-*`. **Two are
+registered**: `LW-Wallpaper` (2026-07-18) and `LW-WeeklyHygiene` (2026-08-02).
+The remaining rows are NOT armed, and each is blocked on a MISSING SCRIPT rather
+than on operator approval - the roster review of 2026-08-02 settled the
+approvals. Do not register a row whose target file does not exist: an armed task
+pointing at a missing script fails on every trigger, silently, forever.
 
 | Task | Trigger | Context | Description | Status |
 |---|---|---|---|---|
 | `LW-Wallpaper` | At logon + time trigger, repeat PT3M | Administrator / LeastPrivilege | Runs `pythonw.exe tools/lw_wallpaper_rotate.py tick` - desktop wallpaper deck rotator, every image once before any repeat (LEDGER 34) | REGISTERED 2026-07-18 |
 | `LW-Supervisor` | At logon | Administrator / HIGHEST | Runs `pythonw.exe ops/lw_supervisor.py` - owns the main process lifecycle, PID lock, restart trigger (supervisor script TBD) | BLOCKED ON SCRIPT - `ops/lw_supervisor.py` does not exist, so this is gated on the file, not on operator approval; registering it today arms a task that fails every logon |
 | `LW-GeminiAudit` | Daily | Administrator | Gemini read-only auditor pass over the repo (`tools/gemini_audit.ps1` - exists) | **DROPPED 2026-08-02 - do not register.** `gemini-removal` retired the vendor this task exists to run; the loop's auditor role now runs read-only Claude. The script stays on disk as the rollback path, so this row stays here as a record rather than being deleted. |
-| `LW-WeeklyHygiene` | Weekly Sunday | Administrator | Unattended `/weekly-hygiene` pass via headless Claude (`tools/weekly_hygiene_run.ps1` - exists) | NOT YET REGISTERED |
-| `LW-CIWatchdog` | At startup + periodic (PT2M) | Administrator | Unattended headless-claude red-main CI auto-fixer; self-gates the merge on the ci-fix PR's OWN green CI; isolated worktree. Kill switch: create `ops\runtime\ci_watchdog\HALT` or `Disable-ScheduledTask LW-CIWatchdog` | NOT YET REGISTERED |
+| `LW-WeeklyHygiene` | Weekly Sunday 04:17 | Administrator | Unattended `/weekly-hygiene` pass via headless Claude (`tools/weekly_hygiene_run.ps1`) | **REGISTERED 2026-08-02** (operator direction). Verified `Ready`. Its `-Model` default was `claude-sonnet-4-6`, not a current model id - fixed to `claude-sonnet-5` in the same change, because arming a weekly task nobody watches with a stale id fails silently every Sunday. |
+| `LW-CIWatchdog` | At startup + periodic (PT2M) | Administrator | Unattended headless-claude red-main CI auto-fixer; self-gates the merge on the ci-fix PR's OWN green CI; isolated worktree. Kill switch: create `ops\runtime\ci_watchdog\HALT` or `Disable-ScheduledTask LW-CIWatchdog` | **BLOCKED ON SCRIPT** - `tools/ci_watchdog.py` does not exist. The operator approved arming it 2026-08-02; it could not be armed, and registering it anyway would spawn a failing task every 2 minutes at startup. Gate is the file, not the approval. |
 
-Example registration commands (for LATER - do not run today; the supervisor and
-ci_watchdog scripts do not exist yet; the gemini_audit and weekly_hygiene
-scripts exist but registration stays operator-gated):
+Registration commands. The `LW-WeeklyHygiene` line is the one that was actually
+RUN (2026-08-02); the other two are held until their target script exists, and
+`LW-GeminiAudit` is retired outright.
 
 ```
-REM NOT YET REGISTERED - example only
-schtasks /Create /TN "LW-Supervisor" /SC ONLOGON /RL HIGHEST /F ^
-  /TR "\"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\pythonw.exe\" C:\LegionWallpaper\ops\lw_supervisor.py"
-
-REM NOT YET REGISTERED - example only
-schtasks /Create /TN "LW-GeminiAudit" /SC DAILY /ST 03:30 /F ^
-  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\LegionWallpaper\tools\gemini_audit.ps1"
-
-REM NOT YET REGISTERED - example only
+REM REGISTERED 2026-08-02 - this exact command was run
 schtasks /Create /TN "LW-WeeklyHygiene" /SC WEEKLY /D SUN /ST 04:17 /F ^
   /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\LegionWallpaper\tools\weekly_hygiene_run.ps1"
 
-REM NOT YET REGISTERED - example only
+REM BLOCKED ON SCRIPT - ops\lw_supervisor.py does not exist
+schtasks /Create /TN "LW-Supervisor" /SC ONLOGON /RL HIGHEST /F ^
+  /TR "\"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\pythonw.exe\" C:\LegionWallpaper\ops\lw_supervisor.py"
+
+REM BLOCKED ON SCRIPT - tools\ci_watchdog.py does not exist
 schtasks /Create /TN "LW-CIWatchdog" /SC ONSTART /RI 2 /F ^
   /TR "\"C:\Users\Administrator\AppData\Local\Programs\Python\Python314\python.exe\" C:\LegionWallpaper\tools\ci_watchdog.py"
+
+REM RETIRED 2026-08-02 by gemini-removal - do NOT run this
+REM schtasks /Create /TN "LW-GeminiAudit" /SC DAILY /ST 03:30 /F ^
+REM   /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\LegionWallpaper\tools\gemini_audit.ps1"
+```
+
+Unregister (the kill path for anything armed above):
+
+```
+schtasks /Delete /TN "LW-WeeklyHygiene" /F
 ```
 
 `LW-Wallpaper` is registered by its own tool, not by hand:
@@ -120,7 +127,7 @@ trigger - `/RI` is rejected for `/SC ONLOGON`. Note that a `LogonTrigger`'s
 future `LW-*` task that wants a repeat from the moment it is armed.
 
 Check state: `Get-ScheduledTask -TaskName "LW-*" | Select TaskName, State`
-(expected today: `LW-Wallpaper` Ready, and nothing else).
+(expected today: `LW-Wallpaper` Ready and `LW-WeeklyHygiene` Ready, nothing else).
 
 ---
 

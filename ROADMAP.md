@@ -171,13 +171,30 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   clean one. Only the DATA decision is still owed.
   Evidence: LEDGER 60 + 61; `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md` (slugs listed).
 
-- **anat-vision-review - the anatomy percept needs a VISION reviewer, not keypoints
-  - OPERATOR-GATED on product direction.**
-  Next: operator decides whether a vision reviewer may FLAG only, or may REJECT.
-  Keypoint head-spine offset was built, measured over all 288 approved firstdones,
-  and REJECTED as a gate on the evidence; it ships as a diagnostic only
-  (`tools/lw_anat_metrics.py` + `tools/lw_anat_probe.py`). The right mechanism is
-  the Claude-vision 2AFC path `end-review` already uses.
+- **anat-vision-review - AUTHORITY RULED 2026-08-02 (ADR-008) and the rails are
+  SHIPPED. The reviewer itself is the remaining slice.**
+  Ruling: a vision reviewer may FLAG, never REJECT, and an unresolved flag
+  BLOCKS approval by any actor that is not the operator. Reasons, all measured:
+  a REJECT demotes, and `clean-retry-degrades` shows a further pass makes the
+  image WORSE, so a false REJECT degrades what it was protecting; a vision 2AFC
+  is not reproducible, so the operator cannot re-derive a verdict they dispute;
+  and splash art is deliberately non-anatomical with no ground truth to check.
+  SHIPPED in `tools/lw_pipeline.py`: `clamp_vision_audit()` coerces a vision
+  audit's REJECT/FAIL to FLAG at the ANNOTATE WRITE boundary (not in a prompt -
+  a rule in a prompt is a request), `_approval_record` reports `blocking_flags`,
+  and `assert_approval_allowed()` refuses a non-operator approval with exit 3
+  BEFORE the needauth rename. `approve --actor` defaults to `operator`.
+  The rail deliberately lands BEFORE auto-approval exists: a gate written after
+  the thing it gates is a gate that was once open.
+  Next: build the reviewer on the Claude-vision 2AFC path `end-review` already
+  uses. It must arrive already unable to exceed these rails.
+  Do-not-redo: keypoint head-spine offset as a gate metric - built, measured
+  over all 288 approved firstdones, rejected on the evidence; ships as a
+  diagnostic only (`tools/lw_anat_metrics.py` + `tools/lw_anat_probe.py`).
+  Revisit REJECT only when the Phase A shadow window has >= 50 operator-reviewed
+  images and flag precision is a NUMBER (`autonomy-phases-bc`).
+  Watch: `BLOCKING_FLAG_PREFIXES` is a prefix match - a future reason starting
+  with `anat_` becomes blocking silently.
   Do-not-redo: keypoint head-spine offset as a gate metric; swapping the localizer
   to rescue it (splash art is cropped at the waist, so most images have no confident
   hips - a better pose model cannot find hips outside the crop); reading a DWPose
@@ -514,13 +531,25 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   Do-not-redo: Dekel / pure algebraic (LEDGER 29 measured cap); white-only
   masks (mask MUST cover the dark edge).
 
-- **g1-dists-cap-ratify - ratify the FR common-scale pixel budget - OPERATOR-GATED.**
-  Next: ratify `MAX_COMMON_PIXELS` (3840x2160) as ADR-007, or set a different
-  value. Shipped and documented, but it changes the G1 measurement basis
-  corpus-wide (ADR-006-scale), so the value itself is an operator call.
-  Evidence: LEDGER 32 (b14b688); `docs/research/AUDIT_GATES.md` 1.2 point 6
-  (budget, rationale, proven-good ceiling 4096x2306 = 9.4 MPix).
-  Do-not-redo: native-8K DISTS (measured impossible on this box, both devices).
+- **g1-dists-cap-ratify - CLOSED 2026-08-02. `MAX_COMMON_PIXELS` = 3840x2160 is
+  ratified as ADR-007. Nothing open.**
+  The value was shipped unratified (LEDGER 32, `b14b688`) because DISTS was
+  otherwise uncomputable for 8K-class sources - 63 of 230 first-pass images had
+  lost it silently. Ratified as-is on three grounds: it sits BELOW the proven
+  ceiling 4096x2306 rather than at it, it lands on the scale 26 corpus images
+  already use natively (so the cap is a no-op for them), and the mechanism only
+  ever DOWNSCALES the reference, so AUDIT_GATES 1.2 caveat 2 still holds.
+  The premise that had to be corrected to answer it: the cap sets the
+  SOURCE-vs-OUTPUT COMPARISON scale, not the deliverable. Output stays exactly
+  2560x1440; sources run to 6500x3660, and FR metrics compare at source scale
+  because upscaling the reference manufactures a blurry reference.
+  Do-not-redo: native-8K DISTS (measured impossible on this box, both devices);
+  editing `MAX_COMMON_PIXELS` without a new ADR - `tests/test_g1_common_scale_budget.py`
+  now fails CI if it moves. Watch: any future `DEFAULT_G1_THRESHOLDS`
+  recalibration must SEGMENT on the `capped` flag, never pool capped and native
+  measurements - that is one threshold fitted to two measurement bases.
+  Evidence: `docs/adr/ADR-007-fr-common-scale-pixel-budget.md`;
+  `docs/research/AUDIT_GATES.md` 1.2 point 6; LEDGER 32.
 
 - **golden-sec6-ratify - GOLDEN_DEFINITION sec 6 Q1-Q4 - OPERATOR-BLOCKED.**
   Next: operator ratifies glasses shape / style-band steer / dodge lane /
@@ -561,11 +590,25 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   re-check on detector/LaMa weights.
   Evidence: `docs/RESTORATION_PLAN.md` section 9.
 
-- **arm-scheduled-tasks - register the LW-* roster - OPERATOR-GATED.**
-  Next: register `LW-Supervisor` / `LW-GeminiAudit` / `LW-WeeklyHygiene` /
-  `LW-CIWatchdog` ONLY on explicit operator direction; same gate for the
-  deep-audit program (DORMANT).
-  Evidence: `docs/OPERATIONS.md` + `docs/DEEP_AUDIT_CHARTER.md`.
+- **arm-scheduled-tasks - roster REVIEWED + acted on 2026-08-02. Every remaining
+  row is blocked on a MISSING SCRIPT, not on approval.**
+  `LW-WeeklyHygiene` is REGISTERED (Sunday 04:17, verified `Ready`). Its
+  `-Model` default was `claude-sonnet-4-6`, not a current model id - fixed to
+  `claude-sonnet-5` in the same change, since a weekly unattended task with a
+  stale id fails silently every week.
+  `LW-GeminiAudit` is RETIRED by `gemini-removal` - never registered, so nothing
+  was disabled; it is off the roster for good.
+  `LW-Supervisor` and `LW-CIWatchdog` were APPROVED by the operator and could
+  NOT be armed: `ops/lw_supervisor.py` and `tools/ci_watchdog.py` do not exist.
+  Arming either would spawn a task that fails on every trigger - CIWatchdog
+  every 2 minutes from startup - so the gate is the file, not the approval.
+  Next: write `tools/ci_watchdog.py` (the higher-value of the two; it is the
+  red-main auto-fixer and its design is already documented), then register it
+  with the command already in `docs/OPERATIONS.md`. `LW-Supervisor` stays
+  blocked until the product has a long-running process to supervise.
+  Deep-audit program stays DORMANT - separate gate, untouched by this review.
+  Evidence: `docs/OPERATIONS.md` roster + `docs/OPERATOR_ANSWERS_2026-08-02.md`
+  section 4; `docs/DEEP_AUDIT_CHARTER.md`.
 
 ## Status at a glance
 

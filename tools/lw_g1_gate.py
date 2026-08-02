@@ -517,6 +517,9 @@ def banding_delta(source_gray: np.ndarray, output_common_gray: np.ndarray) -> fl
 # comparable with them. A capped value is NOT interchangeable with a native
 # one (capping hides high-frequency difference) - fr_metrics reports which
 # it produced via the "capped" / "native_scale" keys.
+# RATIFIED as ADR-007 (2026-08-02). This is a decision, not a tuning knob: it
+# sets the G1 measurement BASIS corpus-wide. Changing it needs a new ADR, and
+# tests/test_g1_common_scale_budget.py fails CI if it moves silently.
 MAX_COMMON_PIXELS = 3840 * 2160
 
 

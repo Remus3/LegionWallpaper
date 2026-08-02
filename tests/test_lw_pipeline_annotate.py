@@ -256,7 +256,7 @@ def test_approve_over_clean_pass_records_a_clean_pass(root: Path, tmp_path: Path
     assert run(root, "approve", "ahri") == 0
     assert _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST") == {
         "gate_check": "pass", "override": False, "gate": "G1",
-        "verdict": "PASS", "reasons": [],
+        "verdict": "PASS", "reasons": [], "blocking_flags": [],
     }
 
 
@@ -267,6 +267,7 @@ def test_approve_over_fail_records_the_override(root: Path, tmp_path: Path):
     assert _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST") == {
         "gate_check": "override", "override": True, "gate": "G1",
         "verdict": "FAIL", "reasons": ["msssim 0.81 < fail 0.90"],
+        "blocking_flags": [],
     }
 
 
@@ -288,8 +289,55 @@ def test_approve_with_no_audit_is_its_own_outcome(root: Path, tmp_path: Path):
     assert run(root, "approve", "ahri") == 0
     assert _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST") == {
         "gate_check": "no_audit", "override": False, "gate": None,
-        "verdict": None, "reasons": [],
+        "verdict": None, "reasons": [], "blocking_flags": [],
     }
+
+
+# ---- ADR-008: a vision flag blocks a NON-OPERATOR approval -----------------
+
+VISION_FLAG_AUDIT = {"gate": "vision-anat", "verdict": "FLAG",
+                     "reasons": ["anat_head_spine"]}
+
+
+def test_a_tool_actor_cannot_approve_over_a_vision_flag(root: Path, tmp_path: Path):
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", VISION_FLAG_AUDIT)
+    assert run(root, "approve", "ahri", "--actor", "tool:auto-approve") == 3
+    # and NOTHING moved - the refusal happens before the needauth rename, so the
+    # slug is not left in the APPROVED_PENDING_MOVE shape for a denied promotion
+    assert not (root / "2.First Pass Done" / "ahri").exists()
+    assert (root / "1.First Pass Scratch" / "ahri" /
+            "ahri_firstneedauth.png").exists()
+
+
+def test_the_operator_may_still_approve_over_a_vision_flag(root: Path, tmp_path: Path):
+    """Operator judgement is never refused; it records as an override."""
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", VISION_FLAG_AUDIT)
+    assert run(root, "approve", "ahri") == 0
+    rec = _approval(root / "2.First Pass Done" / "ahri", "APPROVE_FIRST")
+    assert rec["blocking_flags"] == ["anat_head_spine"]
+    assert rec["gate_check"] == "override"
+
+
+def test_a_tool_actor_may_approve_when_no_vision_flag_is_open(
+        root: Path, tmp_path: Path):
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", PASS_AUDIT)
+    assert run(root, "approve", "ahri", "--actor", "tool:auto-approve") == 0
+
+
+def test_a_vision_reject_is_clamped_to_flag_on_the_way_into_the_manifest(
+        root: Path, tmp_path: Path):
+    """The reviewer may FLAG, never REJECT - enforced where the audit is
+    WRITTEN, so no future reviewer can demote an image by emitting a verdict."""
+    _needauth_in_first(root, tmp_path)
+    _gate(root, "ahri", {"gate": "vision-anat", "verdict": "REJECT",
+                         "reasons": ["anat_head_spine"]})
+    folder = root / "1.First Pass Scratch" / "ahri"
+    audit = _manifest(folder)["transitions"][-1]["audit"]
+    assert audit["verdict"] == "FLAG"
+    assert audit["clamped_from"] == "REJECT"
 
 
 def test_approve_uses_the_most_recent_verdict(root: Path, tmp_path: Path):
