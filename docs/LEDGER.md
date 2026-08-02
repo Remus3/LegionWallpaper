@@ -27,6 +27,58 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+88. DONE **2026-08-01 (the repo went PUBLIC; history purged, Apache-2.0
+    licensed, every sha rewritten).** Operator direction was one line: "go
+    public with the repo for LW", then four cleanup picks.
+    **THE PRE-FLIGHT AUDIT, run before anything was flipped.** All 306 commits
+    scanned as full diffs (`git log --all -p`) for `sk-ant-` / `AIza` / `ghp_` /
+    `github_pat_` / `xox?-` / `AKIA` / PEM private-key headers / the operator's
+    email: zero hits. No secret-named file (`API-Key-*.txt`, `.env`, `*.pem`)
+    was EVER tracked - checked with `--diff-filter=A` over all refs, not by
+    trusting `.gitignore`. No tracked binary over 1MB. 33 files cite
+    `C:\Users\Administrator`, which is a generic Windows account name and was
+    left alone. **THE ONE REAL FINDING:** `style.jpg` + `style2.jpg`, the two
+    lw-gen style refs tracked at the repo root by LEDGER 59, were the ONLY
+    tracked image bytes - referenced by no code path, only by doc prose, and
+    flatly contradicting the README's own boundary that the process is
+    shareable and the image bytes are not. Untracked, gitignored (`/style.jpg`,
+    `/style2.jpg`), and purged from all history with `git filter-repo
+    --invert-paths`; both files were restored to disk afterwards from a
+    pre-purge `git bundle` (filter-repo checks out the rewritten HEAD and had
+    deleted them). 306 commits in, 306 out. **THE DANGLING-OBJECT TRAP, the
+    part that would have defeated the purge.** After the force-push, GitHub
+    STILL served the old commit `e81eb74` and `style.jpg` at 122630 bytes via
+    the API - a force-push does not GC unreachable objects, so flipping to
+    public would have published exactly the bytes just purged to anyone holding
+    the 40-char sha. Measured, not assumed, by calling the commits + contents
+    endpoints at the dead sha. The operator chose delete-and-recreate over a
+    GitHub Support purge request; safe because the repo had 0 issues, 0 PRs, 0
+    forks, 0 stars, 0 Actions secrets and 0 variables - all verified via the
+    API first, after an earlier `gh repo view --jq` had reported `issues:1,
+    prs:1`, which was a jq artifact of counting a connection object rather than
+    a real count. `gh repo delete` needed a `delete_repo` scope the token
+    lacked; the operator granted it rather than take the offered
+    rename-the-old-repo fallback. **THE RESULT.**
+    <https://github.com/Remus3/legion-wallpaper> is PUBLIC, license detected
+    `Apache-2.0`, old sha -> HTTP 422, `style.jpg` -> HTTP 404, CI run
+    30728060440 `success` on the fresh repo. LICENSE is the canonical Apache
+    2.0 text pulled from `gh api licenses/apache-2.0` (202 lines, verified
+    7-bit ASCII) with `Copyright 2026 Moonbeam` filled in; the README gained a
+    License section scoping the grant to the PROCESS and stating explicitly
+    that it neither does nor can cover the third-party image corpus.
+    **THE COST, recorded because it is permanent:** every sha from `152d84f`
+    onward changed, so 43 shas cited in `docs/LEDGER.md`,
+    `docs/history_notes.md` and `WAKEUP_NOTES.md` no longer resolve. They were
+    NOT edited in place - this ledger is append-only and an old sha is still an
+    accurate label for what happened. The old -> new table lives at
+    `docs/_archive/2026-08-01-sha-rewrite-map.md`; the full 306-line
+    `.git/filter-repo/commit-map` is local plumbing, untracked, and will be
+    overwritten by any future rewrite, which is exactly why the cited subset
+    was durably captured. Pre-purge `git bundle` of the entire old history sits
+    in the session scratchpad, verified `complete history` before the rewrite
+    ran. **Do not re-litigate:** the corpus stays out of the repo, the license
+    covers code and docs only.
+
 87. DONE **2026-08-02 (all five operator recommendations executed: ADR-007,
     ADR-008, USM 70 -> 35 on a measured census, LW-WeeklyHygiene +
     LW-CIWatchdog armed).** The operator answered the five questions of LEDGER 86
