@@ -11,7 +11,47 @@
 
 ---
 
-## 2026-08-01 (latest) - THE REPO IS PUBLIC; history purged, Apache-2.0, every sha rewritten
+## 2026-08-02 (latest) - repo RENAMED, README made outward-facing, toolchain to 3.14, cv-lane, hand-off guarded
+
+Suite **1800 passed / 17 skipped**, ruff clean, drift_guard 0 breaches / 4 notes.
+Nine commits `15844aa`..`3a3f6f7`, CI green on every one.
+
+- **Repo is now `Remus3/LegionWallpaper`** (was `legion-wallpaper`). `origin`
+  updated; WAKEUP + LEDGER 88 URLs follow. Old URL redirects, but the old name
+  is claimable by anyone - do not rely on the redirect.
+- **README rewritten for a stranger** (`7809618`): CI + license badges, mermaid
+  stage diagram, a "what is reusable here" table (verifier subagent, gates,
+  drift guard, loop, state machine), scope/status section. It had NEVER been
+  revised for a public audience - going public only added a License section.
+- **Toolchain moved to 3.14** (`b096533`): CI was pinned 3.12 while Legion runs
+  3.14, and ruff's `target-version` still claimed `py39`. Runner confirmed on
+  CPython 3.14.6. `target-version` = the MINIMUM supported version; do NOT
+  raise it above the CI pin.
+- **`ruff.toml` `exclude` was INERT** (`f293428`) - it sat under `[lint]`, which
+  measurably excludes nothing on ruff 0.15.12. Moved top-level. Only
+  `tools/dwpose_onnx` was actually reaching the linter (everything else was
+  covered by `.gitignore` by accident). Vendored dwpose now genuinely excluded.
+- **UP017 + B905 cleared and un-ignored** (`7453936`, `a15394b`). B905 needed
+  OPPOSITE answers per site: `strict=True` in `lw_clean_dekel.align_rois`
+  (lengths guaranteed by construction), `strict=False` in the pairwise test
+  idiom. A blanket autofix would have broken the test.
+- **`align_rois` had ZERO tests** despite a docstring claiming "unit-tested".
+  10 tests added (`4184ad2`), mutation-checked (crippling `estimate_shift`
+  kills 2 of 3 correctness assertions), and **`cv-lane`** (`e31a91a`,
+  `0472a72`) now runs them in CI off `requirements-cv.txt` - with a junit-XML
+  guard that FAILS the job if the suite silently skips. Runner: `tests=10
+  skipped=0`.
+- **Desktop hand-off guarded** (`3a3f6f7`). BACKLOG claimed the file was
+  "written each /done" - FALSE, `done.md` never mentioned it. Now
+  `tools/lw_next_session.py` resolves + guards the target and `done.md` 10b
+  makes the write mandatory. A doctored intent doc naming `RC-NEXT-SESSION.txt`
+  falls back to LW's own file.
+- **Do NOT redo:** the rename, README, 3.14 bump, exclude fix, UP017/B905, the
+  align_rois tests, cv-lane, or the hand-off guard - all shipped and CI-green.
+
+---
+
+## 2026-08-01 - THE REPO IS PUBLIC; history purged, Apache-2.0, every sha rewritten
 
 Suite **1760 passed / 16 skipped**, ruff clean, drift_guard 0 breaches / 25 notes
 (the notes are the 43 intentionally-dead shas in the new map doc - expected, not drift).
@@ -77,41 +117,3 @@ LEDGER 87. Operator answered "do the recommendation" x2 and "yes" x2.
   (`claude-sonnet-4-6`) and would have failed silently every Sunday.
 - Still open and NOT implied: the 288 approved firstdones were made at usm70 and
   are now on a different recipe. Reprocessing is an operator call.
-
----
-
-## 2026-08-02 - the five owed answers delivered; gemini-removal's reversible half landed
-
-Suite **1695 passed / 16 skipped**, ruff clean, drift_guard 0 breaches. LEDGER 86.
-
-- **The five answers are on disk at `docs/OPERATOR_ANSWERS_2026-08-02.md`**, each
-  with evidence + a recommendation so a one-word reply closes the item. Headlines:
-  `anat-vision-review` -> FLAG only, but the flag BLOCKS auto-approval (a third
-  position; gets REJECT's safety without letting an irreproducible judge spend a
-  pass that `clean-retry-degrades` has just measured is NOT neutral).
-  `usm-halo-calibration` -> go toward usm35, but measure ms_ssim/lpips/dists per
-  variant FIRST; never take the threshold-only axis, the one axis that improves
-  the report and not the image. `g1-dists-cap-ratify` -> ratify 3840x2160 as
-  ADR-007; **the question's premise needed correcting** - the cap sets the
-  SOURCE-vs-OUTPUT COMPARISON scale, not the 1440p deliverable, sources run to
-  6500x3660, and it recovered 63 of 230 images whose DISTS was silently absent.
-  `arm-scheduled-tasks` -> register WeeklyHygiene + CIWatchdog, DROP GeminiAudit,
-  and relabel `LW-Supervisor` BLOCKED-ON-SCRIPT (its gate is a missing file, not
-  your approval).
-- **gemini-removal: the seam is built and Claude is the default.** LW had no key
-  to flip - Gemini structurally AUTHORED the directive and SCORED the diff - so
-  the slice built `oracle_backend()` / `claude_oracle()` / `oracle()` and routed
-  `director()` + `auditor()` through it. TDD RED first (14 of 16 failed; the 2
-  that passed were the deliberate do-not-delete guards).
-- **Rollback is TWO config keys** (`director_backend` / `auditor_backend` back to
-  `gemini`). Nothing deleted - same posture as the `channel` flip (LEDGER 40).
-  The Claude oracle is `--permission-mode plan`, NOT the executor's
-  `bypassPermissions`: an adjudicator that can write is not an adjudicator. An
-  unknown backend value resolves to `claude` - a typo must neither wedge an
-  unattended run nor silently bill the vendor being removed.
-- **Do NOT** delete `GEMINI_MUTEX` (byte-identical-by-contract with RC, and the
-  rollback path consumes it) and do NOT rename `gemini.ready` (AHK handshake
-  filename, not a vendor reference).
-- NEXT on this item: the physical deletion sweep, but only AFTER the Claude
-  oracle has authored directives on a live multi-cycle run. A backend that has
-  never run is not one you delete the fallback for.

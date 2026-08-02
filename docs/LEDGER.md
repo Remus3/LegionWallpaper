@@ -27,6 +27,73 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+89. DONE **2026-08-02 (repo rename, outward-facing README, 3.14 toolchain,
+    cv-lane, Desktop hand-off guard; `15844aa`..`3a3f6f7`).** Nine commits, CI
+    green on every one. Suite 1760 -> **1800 passed / 17 skipped**.
+    **THE RENAME.** `Remus3/legion-wallpaper` -> `Remus3/LegionWallpaper` via
+    `gh repo rename`; `origin` re-pointed rather than left on the redirect;
+    WAKEUP + LEDGER-88 URLs followed. Flagged and accepted: the old name is now
+    claimable by anyone, so the redirect is not a security boundary.
+    **README (`7809618`).** Premise CHECKED and it failed: `git log -- README.md`
+    showed the going-public commit `4e3b617` added 8 lines (a License section)
+    and nothing else - the prose had never been revised for a public audience.
+    Rewritten with badges, a mermaid stage diagram, a "what is reusable here"
+    table, and a scope/status section; every cited path verified to exist.
+    **TOOLCHAIN (`7d62062`, `b096533`).** ruff `target-version` claimed `py39`
+    ("project targets Python 3.9+", inherited verbatim from RC) while CI pinned
+    3.12 and Legion runs 3.14. Corrected to `py312` first on the rule that
+    target-version = MINIMUM supported, then to `py314` once the operator moved
+    both CI jobs to 3.14. Runner confirmed `CPython (3.14.6)`.
+    **THE INERT EXCLUDE (`f293428`) - the real find.** `ruff.toml`'s `exclude`
+    list sat under `[lint]`, i.e. `lint.exclude`, which a two-file isolation
+    test on ruff 0.15.12 proved excludes NOTHING (the file is still linted;
+    top-level `exclude` works). Inert since the RC port. Impact was masked
+    because ruff respects `.gitignore` and most entries are gitignored -
+    `tools/dwpose_onnx` (tracked, vendored, 3 .py files) was the only one
+    actually reaching the linter. Moved top-level, dwpose excluded with a
+    do-not-relint rationale.
+    **LINT DEBT CLEARED (`7453936`, `a15394b`).** UP017 autofixed at 10 sites
+    (`timezone.utc` -> `datetime.UTC`); ruff left `timezone` as a dead import in
+    7 of them, invisible because F401 is ignored, so those were collapsed by
+    hand. B905 needed OPPOSITE per-site answers: `strict=True` in
+    `align_rois` (marks is a comprehension over rois - equal length is
+    structural) and `strict=False` in the `zip(seen, seen[1:])` pairwise test
+    idiom, where `strict=True` would raise on every call. A blanket autofix
+    would have broken the test. Both rules un-ignored.
+    **align_rois COVERAGE (`4184ad2`, `e31a91a`, `0472a72`).** Its docstring
+    claimed "robust + unit-tested"; it had ZERO tests. Behaviour was MEASURED
+    under the lw-clean venv before assertions were written - which surfaced that
+    recovered shifts equal the negative applied offset plus an undefined global
+    constant (the reference is a median, not a frame), so the test compares
+    mean-centred differences. 10 tests, mutation-checked: crippling
+    `estimate_shift` to return (0,0) kills 2 of 3 correctness assertions.
+    Then `cv-lane` was added so they actually regress in CI, off a new
+    `requirements-cv.txt` (numpy/scipy/scikit-image/opencv-python-headless);
+    cp314 manylinux wheel availability was verified against the PyPI API first
+    (opencv ships cp37-abi3), and the tolerances were re-proven on BOTH numpy
+    1.26/cv2 4.11/skimage 0.24 and numpy 2.5.1/scipy 1.18/skimage 0.26/cv2 5.0.
+    The lane carries a junit-XML guard that FAILS the job if fewer than 10 tests
+    run or anything skips - a lane for skip-guarded tests is itself a
+    false-green risk. Runner output: `tests=10 skipped=0`. First push went RED
+    on `tests/test_ci_gate_arming.py`, a pre-existing workflow-parity guard
+    demanding every suite-running job arm the git-hook gate first; the guard was
+    right and was SATISFIED (arming step added to cv-lane, known-job set
+    updated), never loosened.
+    **DESKTOP HAND-OFF GUARD (`3a3f6f7`).** BACKLOG's premise was CORRECTED:
+    it claimed `LW-NEXT-SESSION.txt` "is now written each /done" - false,
+    `done.md` mentioned it zero times, so the Desktop copy was whatever an
+    earlier session wrote by hand. TDD RED-first: 40 tests written and observed
+    failing (module absent) before `tools/lw_next_session.py` existed. The tool
+    resolves `~/Desktop/LW-NEXT-SESSION.txt` and falls back to that default for
+    every non-conforming intent value - absolute path, drive letter, `..`, any
+    separator, empty, blank, non-string, malformed/missing document, or any
+    filename not prefixed `LW-`. Headline case pinned: an intent document
+    naming `RC-NEXT-SESSION.txt` is ignored, so a stale or doctored document
+    cannot aim an LW session at a sibling's hand-off. `done.md` section 10b
+    makes the write mandatory and the banner reports the path the tool printed.
+    **DO NOT REDO:** the rename, README, 3.14 bump, exclude fix, UP017/B905,
+    align_rois tests, cv-lane, or the hand-off guard.
+
 88. DONE **2026-08-01 (the repo went PUBLIC; history purged, Apache-2.0
     licensed, every sha rewritten).** Operator direction was one line: "go
     public with the repo for LW", then four cleanup picks.

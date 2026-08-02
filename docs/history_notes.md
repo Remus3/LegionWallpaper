@@ -174,6 +174,44 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-08-02 - the five owed answers delivered; gemini-removal's reversible half landed
+
+Suite **1695 passed / 16 skipped**, ruff clean, drift_guard 0 breaches. LEDGER 86.
+
+- **The five answers are on disk at `docs/OPERATOR_ANSWERS_2026-08-02.md`**, each
+  with evidence + a recommendation so a one-word reply closes the item. Headlines:
+  `anat-vision-review` -> FLAG only, but the flag BLOCKS auto-approval (a third
+  position; gets REJECT's safety without letting an irreproducible judge spend a
+  pass that `clean-retry-degrades` has just measured is NOT neutral).
+  `usm-halo-calibration` -> go toward usm35, but measure ms_ssim/lpips/dists per
+  variant FIRST; never take the threshold-only axis, the one axis that improves
+  the report and not the image. `g1-dists-cap-ratify` -> ratify 3840x2160 as
+  ADR-007; **the question's premise needed correcting** - the cap sets the
+  SOURCE-vs-OUTPUT COMPARISON scale, not the 1440p deliverable, sources run to
+  6500x3660, and it recovered 63 of 230 images whose DISTS was silently absent.
+  `arm-scheduled-tasks` -> register WeeklyHygiene + CIWatchdog, DROP GeminiAudit,
+  and relabel `LW-Supervisor` BLOCKED-ON-SCRIPT (its gate is a missing file, not
+  your approval).
+- **gemini-removal: the seam is built and Claude is the default.** LW had no key
+  to flip - Gemini structurally AUTHORED the directive and SCORED the diff - so
+  the slice built `oracle_backend()` / `claude_oracle()` / `oracle()` and routed
+  `director()` + `auditor()` through it. TDD RED first (14 of 16 failed; the 2
+  that passed were the deliberate do-not-delete guards).
+- **Rollback is TWO config keys** (`director_backend` / `auditor_backend` back to
+  `gemini`). Nothing deleted - same posture as the `channel` flip (LEDGER 40).
+  The Claude oracle is `--permission-mode plan`, NOT the executor's
+  `bypassPermissions`: an adjudicator that can write is not an adjudicator. An
+  unknown backend value resolves to `claude` - a typo must neither wedge an
+  unattended run nor silently bill the vendor being removed.
+- **Do NOT** delete `GEMINI_MUTEX` (byte-identical-by-contract with RC, and the
+  rollback path consumes it) and do NOT rename `gemini.ready` (AHK handshake
+  filename, not a vendor reference).
+- NEXT on this item: the physical deletion sweep, but only AFTER the Claude
+  oracle has authored directives on a live multi-cycle run. A backend that has
+  never run is not one you delete the fallback for.
+
+---
+
 ## 2026-08-01 - P7: the claim table finally REFUSES something; P8 closed on fit
 
 Commits `b7814b3` (the gate), `a26e690` (docs sync, CI **green, confirmed with
