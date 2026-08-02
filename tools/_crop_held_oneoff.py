@@ -13,7 +13,7 @@ HOLD audit so slug_state() returns 'editing' instead of 'held'.
 import hashlib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from PIL import Image
@@ -36,7 +36,7 @@ def sha256_file(p):
 
 
 def main():
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     for slug in SLUGS:
         d = SCRATCH / slug
         src = d / f"{slug}_firstinitial.jpg"

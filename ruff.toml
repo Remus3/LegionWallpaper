@@ -26,8 +26,6 @@ ignore = [
     "B006",   # mutable default args - known pattern in project
     "UP007",  # X | Y union syntax - legal on py314, defer to a dedicated sweep
     "UP035",  # deprecated typing imports - defer to a dedicated sweep
-    "UP017",  # datetime.timezone.utc -> datetime.UTC - legal on py314, 10 sites,
-              # safe autofix available; defer to a dedicated modernization sweep
     "UP037",  # remove quoted annotations - frozen files carry quoted forward-refs
     "F401",   # imported but unused - too noisy, especially in __init__.py
     "F841",   # local variable assigned but never used - noisy in callbacks

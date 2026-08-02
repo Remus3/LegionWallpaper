@@ -33,7 +33,7 @@ import json
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # 0 off Windows so the module still imports and tests under CI. Named as a
@@ -123,7 +123,7 @@ def default_pid_alive(root=None):
 def iso_from_epoch(epoch):
     """UTC ISO-8601 with a Z suffix, or None when the input is not a number."""
     try:
-        return datetime.fromtimestamp(float(epoch), tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        return datetime.fromtimestamp(float(epoch), tz=UTC).isoformat().replace("+00:00", "Z")
     except (TypeError, ValueError, OSError, OverflowError):
         return None
 

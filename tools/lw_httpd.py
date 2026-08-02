@@ -16,7 +16,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -25,7 +25,7 @@ from pathlib import Path
 
 def iso_from_epoch(epoch):
     try:
-        return datetime.fromtimestamp(float(epoch), tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        return datetime.fromtimestamp(float(epoch), tz=UTC).isoformat().replace("+00:00", "Z")
     except (OSError, OverflowError, ValueError, TypeError):
         return None
 
@@ -47,7 +47,7 @@ def parse_ts(value):
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     try:
         return dt.timestamp()
     except (OSError, OverflowError, ValueError):

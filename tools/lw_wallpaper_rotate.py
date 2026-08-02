@@ -36,7 +36,7 @@ import os
 import random
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from xml.sax.saxutils import escape as _xml_escape
 
@@ -78,7 +78,7 @@ def _log(msg: str) -> None:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _rng(rng):

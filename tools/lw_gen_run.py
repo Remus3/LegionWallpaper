@@ -460,7 +460,7 @@ def build_manifest(plan, config, style_def, res, pos, neg, batch_id, fast):
         "aspect": plan["aspect"],
         "model": config.get("model_path"),
         "clip_model": config.get("clip_model"),
-        "created_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "created_utc": datetime.datetime.now(datetime.UTC).isoformat(),
         "prompt": pos,
         "negative": neg,
         "config_snapshot": {
