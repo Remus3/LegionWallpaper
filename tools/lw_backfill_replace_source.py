@@ -66,7 +66,7 @@ def drifted(root: Path, slugs):
             for path in sorted(folder.iterdir()):
                 if not path.is_file() or not lp.parse_milestone(path.name):
                     continue
-                want = expected.get(path.name)
+                want = expected.get(lp._milestone_key(path.name))
                 if not want:
                     continue
                 have = lp.sha256_file(path)

@@ -6,24 +6,24 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
-- **vayne3 reports HASH_MISMATCH under `scan --verify` - the residue of the
-  wiki-swap sweep that nothing explains. LATER, one slug.**
-  The 22-swap bookkeeping is CLOSED (LEDGER 83): a REPLACE_SOURCE transition is
-  now the recorded way a swapped source is accounted for, `verify` resolves a
-  file's expected hash from its LATEST transition by timestamp, and the 21
-  affected slugs are backfilled. `scan --verify` went 32 -> 2 and plain `scan`
-  reports anomalies 0.
-  The 2 left are one slug, `vayne3`, in `2.First Pass Done` and
-  `3.Cleaning Scratch` - its `_firstinitial` matches no recorded hash in either
-  folder and it was NOT part of the 22, so the backfill deliberately refused to
-  touch it (the tool will not run unscoped, precisely so an unexplained anomaly
-  cannot be laundered into recorded history). Next: work out what replaced
-  vayne3's initial and when - if it was a deliberate swap, record it the same
-  way; if not, this is the first real corruption the check has found.
-  Do-not-redo: do NOT "fix" it by re-running the backfill with `--slug vayne3`
-  before establishing what happened - that records the drift as intentional,
-  which is the one thing the scoping guard exists to prevent.
-  Evidence: LEDGER 83; `docs/WIKI_SWAP_22_2026-08-01.md`.
+- **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**
+  `scan --verify` reports 0 mismatches and 0 milestone files go unchecked; all
+  726 have a recorded hash that matches disk. A source replaced outside a
+  transition is now recorded with an appended REPLACE_SOURCE (the INTAKE hash is
+  never rewritten), `verify` resolves a file's expected hash from its LATEST
+  transition by timestamp, and a milestone is identified by slug + stage + phase
+  + version rather than by filename - so a replacement that changes container
+  format stays checked instead of going silent.
+  Kept here because two things must not be un-learned: (1) the ordering bug and
+  the extension blind spot were both found only by investigating a single noisy
+  row (vayne3) rather than clearing it - 9 of the original 32 mismatches were the
+  ordering bug and 9 more files were unverifiable entirely; (2) the backfill tool
+  REFUSES to run unscoped, which is what stopped an unexplained anomaly being
+  laundered into recorded history.
+  Do-not-redo: do NOT reintroduce filename keying anywhere that compares against
+  a manifest, and do NOT record a REPLACE_SOURCE for a drift nobody has explained
+  - that converts a finding into history.
+  Evidence: LEDGER 83 + 84; `docs/WIKI_SWAP_22_2026-08-01.md`.
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 

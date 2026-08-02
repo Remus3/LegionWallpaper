@@ -71,9 +71,23 @@ writing (0 disagreements), idempotent on re-run. `scan --verify` 32 -> 2, plain
 `scan` anomalies 0. The backfill tool REFUSES to run unscoped and that earned
 itself immediately - the 2 leftovers are `vayne3`, never part of the 22 and
 unexplained; an unscoped sweep would have recorded the drift as intentional.
-`vayne3` is now its own ROADMAP item - do NOT clear it with `--slug vayne3`
-before establishing what actually happened. NOTE: `images/**` is gitignored, so
-those 21 manifest edits are on disk only, not in any commit.
+**vayne3 then got explained, and it was hiding something (LEDGER 84).** The
+2026-07-15 aspect-correction pass swapped operator-corrected 16:9 crops over
+non-16:9 initials; vayne3 was the documented PILOT for that flow (original intact
+in `9.Image Backup` at ar 1.725, on disk 1.781). Not corruption - the same class
+as the wiki swaps, predating the convention. The real finding: its **8 siblings
+from that same pass reported nothing**, because their crops were saved `.png`
+over a `.jpg` intake and `_expected_hashes` keyed by FILENAME, so verify checked
+NOTHING for them. 9 of 726 milestone files were unverifiable that way - including
+`1341679`, which LEDGER 83 wrote off as "no comparable hash": it was UNCHECKED,
+not fine. Root-cause fix: `_milestone_key()` identifies a milestone by slug +
+stage + phase + version, never by extension. All 9 backfilled after checking each
+went non-16:9 -> 16:9 with its original preserved.
+FINAL: `scan --verify` **0**, `scan` anomalies **0**, **0** unchecked files.
+The lesson worth keeping: clearing the one noisy row early would have recorded a
+file and left the hole open - investigating it is what surfaced the 8 silent
+ones. NOTE: `images/**` is gitignored, so those 32 manifest edits are on disk
+only, not in any commit.
 
 NEXT: no queued phase. Product work is the standing option - Stage 2's remaining
 cleaning queue and the NEEDAUTH backlog. Also open:

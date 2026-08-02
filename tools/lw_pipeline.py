@@ -511,14 +511,35 @@ def scan_tree(ctx, verify=False, slug_filter=None):
     }
 
 
+def _milestone_key(name):
+    """Identity of a milestone FILE, ignoring its container format.
+
+    slug + stage + phase + version, never the extension. The 2026-07-15
+    aspect-correction pass saved corrected crops as .png over a .jpg intake and
+    the 2026-08-01 wiki swap wrote .jpg over a .jpeg, and keying by filename made
+    every one of those 9 files match no recorded transition at all - so `verify`
+    checked NOTHING for them and reported clean. A replaced file that becomes
+    UNVERIFIABLE is worse than one that reports a mismatch: the mismatch is
+    noise, the silence reads as a pass. Found investigating vayne3, which was in
+    that same operation and was only ever visible because its crop happened to
+    keep the .jpg extension.
+    """
+    parsed = parse_milestone(os.path.basename(name or ""))
+    if not parsed:
+        return None
+    return (parsed["slug"], parsed["stage"], parsed["phase"], parsed["ver"])
+
+
 def _expected_hashes(folders):
-    """basename -> the sha256_out of its LATEST transition, by TIMESTAMP.
+    """milestone key -> the sha256_out of its LATEST transition, by TIMESTAMP.
 
     By timestamp and not by file order: a file's current truth is whatever was
     recorded about it most recently, and depending on dict-insertion order makes
     a manifest with out-of-order entries verify against a superseded hash. That
-    matters now that REPLACE_SOURCE supersedes INTAKE for the same basename
+    matters now that REPLACE_SOURCE supersedes INTAKE for the same milestone
     (ROADMAP wiki-swap-manifest-hash-residue).
+
+    Keyed by milestone identity rather than filename - see `_milestone_key`.
     """
     latest = {}
     for folder in folders:
@@ -529,11 +550,13 @@ def _expected_hashes(folders):
             dst, sha = t.get("dst"), t.get("sha256_out")
             if not dst or not sha:
                 continue
-            name = os.path.basename(dst)
+            key = _milestone_key(dst)
+            if key is None:
+                continue
             stamp = str(t.get("ts") or "")
-            if name not in latest or stamp >= latest[name][0]:
-                latest[name] = (stamp, sha)
-    return {name: sha for name, (_, sha) in latest.items()}
+            if key not in latest or stamp >= latest[key][0]:
+                latest[key] = (stamp, sha)
+    return {key: sha for key, (_, sha) in latest.items()}
 
 
 def record_replace_source(folder, target, note=None, source_url=None,
@@ -557,7 +580,7 @@ def record_replace_source(folder, target, note=None, source_url=None,
     if not man:
         return False
     current = sha256_file(target)
-    previous = _expected_hashes([folder]).get(target.name)
+    previous = _expected_hashes([folder]).get(_milestone_key(target.name))
     if previous == current:
         return False
     add_transition(man, "REPLACE_SOURCE", actor=actor, tool=tool,
@@ -575,7 +598,7 @@ def _verify_folders(slug, folders, anomalies):
         for p in sorted(folder.iterdir()):
             if not p.is_file() or not parse_milestone(p.name):
                 continue
-            want = expected.get(p.name)
+            want = expected.get(_milestone_key(p.name))
             if want and sha256_file(p) != want:
                 anomalies.append({"slug": slug, "class": "HASH_MISMATCH",
                                   "detail": str(p), "resumable": False})

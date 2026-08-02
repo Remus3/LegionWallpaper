@@ -124,6 +124,74 @@ def test_a_genuinely_corrupt_file_is_still_caught_after_a_replace(tmp_path):
     assert [a["class"] for a in anomalies] == ["HASH_MISMATCH"]
 
 
+# ------------------------------------------------- the extension blind spot
+def test_a_replacement_that_changed_extension_is_still_checked(tmp_path):
+    """The root cause behind vayne3's siblings, found investigating it.
+
+    The 2026-07-15 aspect-correction pass replaced 8 initials with corrected
+    crops saved as .png over a .jpg intake. Keying expected hashes by FILENAME
+    means `slug_firstinitial.png` matches no recorded transition, so verify
+    checked NOTHING for those files and reported clean. vayne3 is in that same
+    operation and was only visible because its crop kept the .jpg extension.
+
+    A milestone is identified by slug + stage + phase + version. The container
+    format is not part of its identity, and treating it as such turns a replaced
+    file into an unverifiable one - silence that reads as a pass.
+    """
+    folder = _slug_dir(tmp_path)
+    _write(folder, "a-slug_firstinitial.png", b"the corrected crop")
+    _manifest(folder, "a-slug", [
+        _transition("INTAKE", "2026-07-05T08:04:58Z",
+                    "1.First Pass Scratch/a-slug/a-slug_firstinitial.jpg",
+                    "0" * 64)])
+    anomalies = []
+    lp._verify_folders("a-slug", [folder], anomalies)
+    assert [a["class"] for a in anomalies] == ["HASH_MISMATCH"]
+
+
+def test_a_jpeg_to_jpg_rename_is_the_same_milestone(tmp_path):
+    # 1341679, the 22nd wiki-swap slug, recorded as .jpeg and on disk as .jpg.
+    # It was written off as "carries no comparable hash"; it was unchecked.
+    folder = _slug_dir(tmp_path)
+    target = _write(folder, "a-slug_firstinitial.jpg", b"the wiki source")
+    _manifest(folder, "a-slug", [
+        _transition("INTAKE", "2026-07-05T08:04:58Z",
+                    "1.First Pass Scratch/a-slug/a-slug_firstinitial.jpeg",
+                    lp.sha256_file(target))])
+    anomalies = []
+    lp._verify_folders("a-slug", [folder], anomalies)
+    assert anomalies == []
+
+
+def test_different_working_versions_stay_different_slots(tmp_path):
+    # Keying by milestone must not collapse _working_01 onto _working_02.
+    folder = _slug_dir(tmp_path)
+    one = _write(folder, "a-slug_firstworking_01.png", b"one")
+    two = _write(folder, "a-slug_firstworking_02.png", b"two")
+    _manifest(folder, "a-slug", [
+        _transition("SAVE_WORKING", "2026-07-05T09:00:00Z",
+                    "1/a-slug/a-slug_firstworking_01.png", lp.sha256_file(one)),
+        _transition("SAVE_WORKING", "2026-07-05T09:30:00Z",
+                    "1/a-slug/a-slug_firstworking_02.png", lp.sha256_file(two))])
+    anomalies = []
+    lp._verify_folders("a-slug", [folder], anomalies)
+    assert anomalies == []
+
+
+def test_a_non_milestone_transition_target_is_ignored(tmp_path):
+    # ANNOTATE records dst=None; a src/dst that is not a milestone name must not
+    # crash the keying or invent a slot.
+    folder = _slug_dir(tmp_path)
+    target = _write(folder, "a-slug_firstinitial.jpg", b"x")
+    _manifest(folder, "a-slug", [
+        _transition("ANNOTATE", "2026-07-05T08:00:00Z", None, None),
+        _transition("INTAKE", "2026-07-05T08:04:58Z",
+                    "0.Originals/a-slug.jpg", lp.sha256_file(target))])
+    anomalies = []
+    lp._verify_folders("a-slug", [folder], anomalies)
+    assert anomalies == []
+
+
 # ---------------------------------------------------------------- the recorder
 def test_record_replace_source_appends_and_never_edits_history(tmp_path):
     folder = _slug_dir(tmp_path)

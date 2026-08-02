@@ -27,6 +27,58 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+84. DONE **2026-08-01 (vayne3 explained - and it was the visible edge of a
+    verify blind spot that was hiding 9 files; TDD).** Asked what happened to
+    vayne3, the one slug still reporting HASH_MISMATCH after item 83.
+    WHAT HAPPENED, from the record and not from inference: on **2026-07-15** an
+    aspect-correction pass replaced non-16:9 `_firstinitial` files with
+    operator-corrected 16:9 crops and reprocessed each slug through the reopen
+    dance. vayne3 was the PILOT for that flow - the session transcript says so in
+    as many words ("pilot on vayne3 first - no crop needed - validates the
+    reopen->process->approve flow"), which is why its manifest carries a SECOND
+    full SAVE_WORKING -> SUBMIT -> APPROVE_FIRST chain on 2026-07-15 with no
+    INTAKE between. Measured, not assumed: the original is intact in
+    `9.Image Backup/vayne3/vayne3.JPG` at 1920x1113 (ar **1.725**) and the file
+    on disk is 1920x1078 (ar **1.781** = 16:9). So it is the same class as the 22
+    wiki swaps - a deliberate source replacement that predates the
+    REPLACE_SOURCE convention. **NOT corruption.**
+    THE REAL FINDING IS WHAT VAYNE3 WAS HIDING. Its 8 siblings from that SAME
+    pass (camille1, fiora1, hwei1, kaisa1, morgana1, shyvana1, soraka1, xayah1)
+    reported NOTHING - because their corrected crops were saved as `.png` over a
+    `.jpg` intake, and `_expected_hashes` keyed by FILENAME, so no recorded
+    transition matched the on-disk basename and verify checked NOTHING for them.
+    vayne3 was visible only because its crop happened to keep the `.jpg`
+    extension. Measured repo-wide: **9 of 726 milestone files were unverifiable**
+    this way - the 8 crops plus `1341679`, whose intake recorded `.jpeg` while
+    the wiki swap wrote `.jpg`. **This CORRECTS item 83**, which recorded that
+    1341679 "carries no comparable hash and needed none": it was not fine, it was
+    UNCHECKED, and by the same mechanism. A replaced file that becomes
+    unverifiable is worse than one that reports a mismatch - the mismatch is
+    noise, the silence reads as a pass.
+    ROOT-CAUSE FIX (the `root-cause-fix` sibling sweep is the whole point here):
+    `_milestone_key()` identifies a milestone by slug + stage + phase + version
+    and NEVER by extension, because the container format is not part of a
+    milestone's identity. Four new tests, RED first, including the two the
+    investigation produced (`.jpg` -> `.png` and `.jpeg` -> `.jpg`) plus guards
+    that `_working_01` does not collapse onto `_working_02` and that a
+    non-milestone `dst` (ANNOTATE writes None) invents no slot.
+    BACKFILL, evidence-checked per slug before writing: all 9 went from non-16:9
+    to 16:9 (1.637 -> 1.778 for the eight, 1.725 -> 1.781 for vayne3), and every
+    one has its original preserved in `9.Image Backup`. 10 REPLACE_SOURCE records
+    for the crop family (vayne3 has the file in two folders) with a note naming
+    the 2026-07-15 pass, plus 1 for 1341679 routed through the swap manifest so
+    it carries the wiki url instead. FINAL STATE: `scan --verify` **0**
+    mismatches (was 32 at session start, then 2, then 11 once the blind spot was
+    opened), plain `scan` anomalies **0**, and **0** milestone files left
+    unchecked - all 726 now have a recorded hash that matches disk.
+    The ROADMAP's do-not-redo held: it said do not clear vayne3 with
+    `--slug vayne3` before establishing what happened. Establishing it first is
+    what surfaced the 8 silent siblings; clearing it early would have recorded
+    one file and left the hole open.
+    Verified: suite **1678 passed / 16 skipped** (1674 + 4 new), ruff clean,
+    drift_guard 0 breaches. `images/**` is gitignored, so the 11 manifest edits
+    are ON DISK ONLY, append-only and idempotent.
+
 83. DONE **2026-08-01 (wiki-swap-manifest-hash-residue - the decision, a latent
     verify bug it exposed, and the backfill; TDD).** The 21 HASH_MISMATCH rows
     left by the 22 canonical-source swaps were called "bookkeeping only" and they
