@@ -218,7 +218,9 @@ def test_lateral_head_displacement_increases_offset_monotonically():
         assert res.ok
         seen.append(abs(res.offset_norm))
     assert seen == sorted(seen)
-    assert all(b > a for a, b in zip(seen, seen[1:]))
+    # strict=False is deliberate: seen[1:] is one shorter BY DESIGN - this is the
+    # pairwise idiom, not a length bug. strict=True would raise on every call.
+    assert all(b > a for a, b in zip(seen, seen[1:], strict=False))
 
 
 def test_head_displacement_along_the_spine_does_not_register():

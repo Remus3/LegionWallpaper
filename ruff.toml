@@ -50,11 +50,6 @@ ignore = [
     "I001",   # import block unsorted - defer to a dedicated cleanup pass
     "UP006",  # Dict/List -> dict/list - cosmetic only
     "UP045",  # Optional[X] -> X | None - legal on py314, defer to a dedicated sweep
-    "B905",   # zip() without strict= - NOT cosmetic: strict=True raises on
-              # length mismatch where the current code silently truncates.
-              # 2 authored sites left (tests/test_lw_anat_metrics.py,
-              # tools/lw_clean_dekel.py); the vendored pair is excluded below.
-              # Needs per-site review, not a blanket autofix.
     "E402",   # module import not at top - unavoidable in ops/ sys.path scripts
     "B904",   # raise without from inside except - inherited RC style
     "B007",   # unused loop variable - intentional in callbacks

@@ -566,7 +566,7 @@ def align_rois(rois, upsample=20, use_ecc=False):
     marks = [mark_signal(r) for r in rois]
     ref = np.median(np.array(marks), axis=0)
     aligned, fwd, inv, shifts = [], [], [], []
-    for roi, mk in zip(rois, marks):
+    for roi, mk in zip(rois, marks, strict=True):
         dy, dx = estimate_shift(ref, mk, upsample=upsample)
         m_fwd = np.array([[1.0, 0.0, dx], [0.0, 1.0, dy]], dtype=np.float64)
         if use_ecc:
