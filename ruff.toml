@@ -2,10 +2,10 @@
 # Ported 1:1 from Riot Commander ruff.toml (RC per-file product entries dropped).
 # Conservative config: catches real errors without churn
 # target-version is the MINIMUM Python this code must run on, not the newest.
-# Legion runs 3.14 locally but CI pins 3.12 (.github/workflows/ci.yml), so 3.12
+# Legion runs 3.14 locally and CI pins 3.14 (.github/workflows/ci.yml), so 3.14
 # is the real floor - do not raise this above the CI pin.
 
-target-version = "py312"
+target-version = "py314"
 line-length = 120
 
 [lint]
@@ -24,16 +24,16 @@ ignore = [
     "E741",   # ambiguous variable names - common in short math/callbacks
     "B008",   # function calls in default args - used intentionally
     "B006",   # mutable default args - known pattern in project
-    "UP007",  # X | Y union syntax - legal on py312, defer to a dedicated sweep
+    "UP007",  # X | Y union syntax - legal on py314, defer to a dedicated sweep
     "UP035",  # deprecated typing imports - defer to a dedicated sweep
-    "UP017",  # datetime.timezone.utc -> datetime.UTC - legal on py312, 10 sites,
+    "UP017",  # datetime.timezone.utc -> datetime.UTC - legal on py314, 10 sites,
               # safe autofix available; defer to a dedicated modernization sweep
     "UP037",  # remove quoted annotations - frozen files carry quoted forward-refs
     "F401",   # imported but unused - too noisy, especially in __init__.py
     "F841",   # local variable assigned but never used - noisy in callbacks
     "I001",   # import block unsorted - defer to a dedicated cleanup pass
     "UP006",  # Dict/List -> dict/list - cosmetic only
-    "UP045",  # Optional[X] -> X | None - legal on py312, defer to a dedicated sweep
+    "UP045",  # Optional[X] -> X | None - legal on py314, defer to a dedicated sweep
     "B905",   # zip() without strict= - NOT cosmetic: strict=True raises on
               # length mismatch where the current code silently truncates.
               # 4 sites, 2 of them vendored (tools/dwpose_onnx). Needs per-site
