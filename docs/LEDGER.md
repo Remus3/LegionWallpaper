@@ -59,7 +59,7 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
     a real count. `gh repo delete` needed a `delete_repo` scope the token
     lacked; the operator granted it rather than take the offered
     rename-the-old-repo fallback. **THE RESULT.**
-    <https://github.com/Remus3/legion-wallpaper> is PUBLIC, license detected
+    <https://github.com/Remus3/LegionWallpaper> is PUBLIC, license detected
     `Apache-2.0`, old sha -> HTTP 422, `style.jpg` -> HTTP 404, CI run
     30728060440 `success` on the fresh repo. LICENSE is the canonical Apache
     2.0 text pulled from `gh api licenses/apache-2.0` (202 lines, verified
