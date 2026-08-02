@@ -65,7 +65,7 @@ def test_the_workflow_parses_into_the_jobs_we_know_about():
     """Guard the guard: an indentation walk that silently found zero jobs would
     make every assertion below vacuously true."""
     jobs = _jobs()
-    assert set(jobs) == {"nightly-full-suite", "check"}, (
+    assert set(jobs) == {"nightly-full-suite", "check", "cv-lane"}, (
         f"unexpected job set {sorted(jobs)} - if a job was added or renamed, "
         "confirm the arming assertions below still cover it")
     assert all(body for body in jobs.values()), "a job parsed with an empty body"
@@ -95,9 +95,11 @@ def test_the_arming_step_runs_before_the_suite_in_every_such_job():
         assert text.index(ARMER) < text.index(SUITE), (
             f"job {name} runs `{ARMER}` after `{SUITE}` - the gate must be "
             "armed before the suite observes it")
-    # Both jobs are expected to have a suite step; if that ever stops being
-    # true the loop above would silently assert nothing.
-    assert sum(SUITE in "\n".join(b) for b in _jobs().values()) == 2
+    # All three jobs are expected to have a suite step (cv-lane runs a single
+    # file, which still matches the SUITE substring - deliberately, so a
+    # narrow-scope job cannot dodge the arming contract). If that ever stops
+    # being true the loop above would silently assert nothing.
+    assert sum(SUITE in "\n".join(b) for b in _jobs().values()) == 3
 
 
 def test_the_arming_step_also_verifies_with_check():

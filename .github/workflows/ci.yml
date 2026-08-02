@@ -229,6 +229,17 @@ jobs:
           # die, and that is the signal to pin.
           pip install -r requirements-cv.txt
 
+      - name: arm the git-hook gate
+        run: |
+          # Same reason as the `check` job: core.hooksPath is LOCAL config and
+          # is never cloned, so a fresh checkout has .githooks INERT. This lane
+          # runs a subset that does not itself read the gate, but arming is two
+          # cheap idempotent commands and it keeps tests/test_ci_gate_arming.py
+          # strict - the alternative was loosening that guard's matcher, which
+          # would punch a hole for the next job that DOES need the gate.
+          python tools/install_git_hooks.py
+          python tools/install_git_hooks.py --check
+
       - name: prove the CV deps actually imported
         run: |
           # Guard against a half-installed stack silently turning the suite
