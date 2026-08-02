@@ -27,6 +27,73 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+87. DONE **2026-08-02 (all five operator recommendations executed: ADR-007,
+    ADR-008, USM 70 -> 35 on a measured census, LW-WeeklyHygiene +
+    LW-CIWatchdog armed).** The operator answered the five questions of LEDGER 86
+    with "do the recommendation" on 1 and 2 and "yes" on 3 and 4.
+    **ADR-007 (g1-dists-cap-ratify).** `MAX_COMMON_PIXELS` = 3840x2160 ratified.
+    Pinned by `tests/test_g1_common_scale_budget.py` so it cannot move without a
+    CI failure; AUDIT_GATES 1.2 point 6, ROADMAP and the CLAUDE.md Settled list
+    all synced. Watch recorded: a future `DEFAULT_G1_THRESHOLDS` recalibration
+    must SEGMENT on the `capped` flag, never pool capped and native
+    measurements - that is one threshold fitted to two measurement bases.
+    **ADR-008 (anat-vision-review).** A vision reviewer may FLAG, never REJECT,
+    and the flag blocks a NON-operator approval. Two mechanisms, deliberately
+    separate: `clamp_vision_audit()` coerces a vision REJECT/FAIL to FLAG at the
+    ANNOTATE WRITE boundary (a rule that lives only in a prompt is a request),
+    scoped to vision gates so G1's reproducible hard FAIL is untouched; and
+    `assert_approval_allowed()` refuses a non-operator approval with exit 3
+    BEFORE the needauth rename, so a denied promotion cannot strand a slug in
+    APPROVED_PENDING_MOVE. `approve --actor` defaults to `operator`, and an
+    unrecognised actor fails CLOSED. The rail lands before auto-approval exists,
+    which is the point: a gate written after the thing it gates was once open.
+    **usm-halo-calibration - the two-step, and the measurement CHANGED the
+    expected answer.** Step 1 shipped `--fidelity` on `lw_usm_halo_probe.py`
+    (`attach_fidelity` with an injected runner; `fidelity_summary` reporting min
+    AND max per scalar because the gate is per-image and a mean hides the one
+    slug a milder mask ruins). Step 2 ran it over all 17 gated batch20 slugs at
+    70/50/35/none, 17/17 ok, halo reproducing the 2026-07-30 census to 4dp as
+    the control. Expected a trade-off curve; got none - **every fidelity metric
+    improves monotonically as the mask weakens, worst case included.** At 35 vs
+    70: ms_ssim min 0.9985 vs 0.9952, lpips max 0.0137 vs 0.0437, dists max
+    0.0211 vs 0.0373, with halo flags 7/17 -> 0/17 and worst gated `lap_ratio`
+    still 1.1399 over its 1.0 floor. So `USM_DEFAULT` moved to `(1.2, 35, 3)`
+    and the 0.05 threshold was NOT touched - at 35 nothing flags, so moving the
+    ruler would only have improved the report. Honest limit recorded in the doc
+    and the code comment: these are FR self-comparisons against the conditioned
+    source, so a weaker mask is closer BY CONSTRUCTION; they say the gate's own
+    metrics improve, not that the image looks sharper. `lap_ratio` is what stops
+    the argument at 35 rather than at 0.
+    Found while flipping it: the synthetic step-edge fixture in
+    `test_lw_usm_halo_probe.py` SATURATES - at 35 its `halo_pct` reads exactly
+    equal to the no-mask variant - so that test now pins the historical 70
+    instead of tracking `USM_DEFAULT`, or it would silently have measured
+    fixture saturation instead of mask sensitivity.
+    **arm-scheduled-tasks + ci-watchdog.** `LW-WeeklyHygiene` registered
+    (Sunday 04:17). Its `-Model` default was `claude-sonnet-4-6`, not a current
+    model id - fixed to `claude-sonnet-5`, because a weekly unattended task with
+    a stale id fails silently every week. CORRECTION to the answer given in
+    LEDGER 86: `LW-CIWatchdog` could not simply be armed, because
+    `tools/ci_watchdog.py` did not exist - so the operator directed it be
+    written, and it was. One pass per invocation (the task is the loop, so a
+    wedged pass dies with its process). HALT first, empty file counts; only a
+    settled `failure` acts, every ambiguous status waits; 2 attempts per sha with
+    a refund on a transient vendor condition; merge self-gated on the fix
+    branch's OWN green CI at its OWN head sha, so a stale success for a
+    different sha is refused. Reuses `truth_gate.check_ci` rather than
+    re-deriving the distinction f1 item 12 already built. Registration is by the
+    tool's own `--install` XML: `schtasks` rejects `/RI` for `/SC ONSTART`
+    outright, the same wall `lw_wallpaper_rotate` hit. Verified live -
+    `--status` read CI green and decided `idle`, the HALT path was exercised,
+    and all three LW tasks report `Ready`.
+    Verified: full suite **1760 passed / 16 skipped** (from 1679 at session
+    start), ruff clean, `drift_guard` 0 breaches.
+    FUTURE / do-not-redo: `LW-Supervisor` stays unarmed - blocked on a missing
+    `ops/lw_supervisor.py`, not on approval. The watchdog has never seen a real
+    red main; watch its first genuine fire. The 288 already-approved firstdones
+    were produced at usm70 and are now on a different recipe - reprocessing them
+    is an operator call and is NOT implied by this change.
+
 86. DONE **2026-08-02 (gemini-removal reversible half + the five owed operator
     answers; TDD, 16 new tests).** Two deliverables, one session.
     **(A) The five answers** live in `docs/OPERATOR_ANSWERS_2026-08-02.md`, each

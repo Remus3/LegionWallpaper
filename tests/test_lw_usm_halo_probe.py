@@ -195,12 +195,20 @@ def test_resample_alone_already_rings_without_any_unsharp_mask():
 
 def test_the_mask_measurably_moves_the_metric():
     # A and B must not be the same number, or the census has no signal to read.
-    # The DIRECTION is deliberately not asserted here: it is the open question
-    # the corpus measurement exists to answer, and on this degenerate bar
+    # The DIRECTION is deliberately not asserted here: on this degenerate bar
     # pattern the masked variant actually scores LOWER.
+    #
+    # The mask strength is PINNED at the historical 70 rather than tracking
+    # USM_DEFAULT, and that is the point of the test rather than a shortcut:
+    # this fixture is a synthetic hard step edge, where halo_pct SATURATES. At
+    # the 2026-08-02 default of 35 it reads exactly equal to the no-mask
+    # variant, so tracking the live default would make this assertion silently
+    # measure fixture saturation instead of mask sensitivity. Mask strength is
+    # a corpus question; it is settled in docs/USM_FIDELITY_CENSUS_2026-08-02.md
+    # over 17 real slugs, never on a bar pattern.
     src = _step_edge(800, 450)
     raw = src.resize((3200, 1800), Image.LANCZOS)
-    a = _halo(src, probe.finish_variant(raw, usm=USM_DEFAULT))
+    a = _halo(src, probe.finish_variant(raw, usm=(1.2, 70, 3)))
     b = _halo(src, probe.finish_variant(raw, usm=None))
     assert a != b
 
@@ -391,7 +399,10 @@ def test_main_default_usm_specs_are_the_shipped_recipe_plus_none(tmp_path, monke
 
     monkeypatch.setattr(probe, "run_census", _fake_census)
     probe.main(["--slug", "x", "--work-dir", str(tmp_path)])
-    assert captured["specs"] == ["1.2,70,3", "none"]
+    # tracks USM_DEFAULT rather than hardcoding it - the shipped recipe moved
+    # 70 -> 35 on 2026-08-02 and the probe's baseline must move with it, or the
+    # A/B census silently stops measuring what actually ships
+    assert captured["specs"] == ["1.2,35,3", "none"]
     assert probe.parse_usm_spec(captured["specs"][0]) == USM_DEFAULT
     # fidelity is OFF by default: it costs one .venv-metrics spawn per variant
     # per slug, so it is opt-in rather than a tax on every halo re-measure

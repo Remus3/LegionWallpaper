@@ -164,7 +164,23 @@ def gpu_lock(device="cuda", log=None):
 # the exact values Session 1 used; keep them identical so an IJN-vs-fallback
 # comparison isolates only the upscaler.
 TARGET = (2560, 1440)
-USM_DEFAULT = (1.2, 70, 3)
+# usm-halo-calibration, operator direction 2026-08-02: percent 70 -> 35.
+# MEASURED over all 17 gated batch20 slugs at 70 / 50 / 35 / none
+# (docs/USM_FIDELITY_CENSUS_2026-08-02.md), fidelity computed PER VARIANT - the
+# axis the 2026-07-30 halo census deliberately skipped, which is why no number
+# could be proposed then.
+#   halo_pct over 0.05:  70 -> 7/17   50 -> 2/17   35 -> 0/17   none -> 0/17
+#   worst gated lap_ratio (floor 1.0): 35 -> 1.1399, none -> 0.8175 (6 of 16
+#   under the floor, so dropping the mask entirely is strictly worse)
+#   fidelity worst case: every metric IMPROVES monotonically as the mask
+#   weakens - at 35 vs 70, ms_ssim min 0.9985 vs 0.9952, lpips max 0.0137 vs
+#   0.0437, dists max 0.0211 vs 0.0373. The mask was COSTING fidelity, not
+#   buying it, so this is not a trade.
+# Read the fidelity numbers for what they are: FR self-comparison against the
+# conditioned source, so a weaker mask is closer to the source by construction.
+# They say the gate's own metrics improve; they do not say the image looks
+# sharper. lap_ratio is the sharpness side of that, and it stays above its floor.
+USM_DEFAULT = (1.2, 35, 3)
 
 # UnsharpMask parameter caps (documented sane maxima). radius controls the
 # blur kernel used for the mask; a large radius produces coarse haloing, so we

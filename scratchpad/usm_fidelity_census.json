@@ -1,0 +1,2314 @@
+{
+  "probe": "lw_usm_halo_probe",
+  "halo_flag_threshold": 0.05,
+  "usm_default": [
+    1.2,
+    70,
+    3
+  ],
+  "usm_specs": [
+    "1.2,70,3",
+    "1.2,50,3",
+    "1.2,35,3",
+    "none"
+  ],
+  "work_dir": "C:/Users/ADMINI~1/AppData/Local/Temp/claude/C--LegionWallpaper/f5058762-b7cf-4ddc-873c-8ecce501df1e/scratchpad/usmwork",
+  "scratch_root": "C:/LegionWallpaper/images/2.First Pass Done",
+  "rows": [
+    {
+      "slug": "blood-moon-priestess-mel-by-aiaida-dmhckey-pre",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\blood-moon-priestess-mel-by-aiaida-dmhckey-pre\\deviantart\\AIaida\\deviantart_1359395674_Blood Moon Priestess Mel.jpg",
+      "conditioned_dims": [
+        1920,
+        1080
+      ],
+      "cropped": true,
+      "backend": "spandrel",
+      "up_dims": [
+        7680,
+        4320
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "FLAG",
+      "shipped_halo_pct": 0.0723,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0723,
+          "lap_ratio": 2.0596,
+          "band_delta": -0.008073,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\blood-moon-priestess-mel-by-aiaida-dmhckey-pre\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.984687,
+            "ms_ssim": 0.996874,
+            "lpips": 0.019704,
+            "dists": 0.019955,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0419,
+          "lap_ratio": 1.7679,
+          "band_delta": -0.008086,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\blood-moon-priestess-mel-by-aiaida-dmhckey-pre\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.989785,
+            "ms_ssim": 0.998129,
+            "lpips": 0.01217,
+            "dists": 0.014741,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0205,
+          "lap_ratio": 1.5177,
+          "band_delta": -0.008072,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\blood-moon-priestess-mel-by-aiaida-dmhckey-pre\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.993416,
+            "ms_ssim": 0.998933,
+            "lpips": 0.006883,
+            "dists": 0.010338,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 0.9914,
+          "band_delta": -0.007985,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\blood-moon-priestess-mel-by-aiaida-dmhckey-pre\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.996081,
+            "ms_ssim": 0.999486,
+            "lpips": 0.002522,
+            "dists": 0.005943,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        }
+      },
+      "worker_seconds": 37.971,
+      "delta_a_minus_b": 0.0723
+    },
+    {
+      "slug": "di0tao3-964d7366-e031-4a06-ba9d-a97ecea63add",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\di0tao3-964d7366-e031-4a06-ba9d-a97ecea63add\\deviantart\\DearAgonyAI\\deviantart_1089758019_Coven Irelia.png",
+      "conditioned_dims": [
+        3792,
+        2128
+      ],
+      "cropped": false,
+      "backend": "downscale-only",
+      "up_dims": [
+        3792,
+        2128
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "FLAG",
+      "shipped_halo_pct": 0.1157,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.1157,
+          "lap_ratio": 1.1399,
+          "band_delta": 0.038032,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\di0tao3-964d7366-e031-4a06-ba9d-a97ecea63add\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.984592,
+            "ms_ssim": 0.996148,
+            "lpips": 0.025017,
+            "dists": 0.0316,
+            "common_scale": [
+              3792,
+              2128
+            ],
+            "capped": false,
+            "native_scale": [
+              3792,
+              2128
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0747,
+          "lap_ratio": 0.9457,
+          "band_delta": 0.037798,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\di0tao3-964d7366-e031-4a06-ba9d-a97ecea63add\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.988335,
+            "ms_ssim": 0.997505,
+            "lpips": 0.017359,
+            "dists": 0.024892,
+            "common_scale": [
+              3792,
+              2128
+            ],
+            "capped": false,
+            "native_scale": [
+              3792,
+              2128
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0427,
+          "lap_ratio": 0.7879,
+          "band_delta": 0.038501,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\di0tao3-964d7366-e031-4a06-ba9d-a97ecea63add\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.991276,
+            "ms_ssim": 0.998511,
+            "lpips": 0.011348,
+            "dists": 0.019142,
+            "common_scale": [
+              3792,
+              2128
+            ],
+            "capped": false,
+            "native_scale": [
+              3792,
+              2128
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0032,
+          "lap_ratio": 0.4801,
+          "band_delta": 0.039721,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\di0tao3-964d7366-e031-4a06-ba9d-a97ecea63add\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.99376,
+            "ms_ssim": 0.999357,
+            "lpips": 0.008106,
+            "dists": 0.013315,
+            "common_scale": [
+              3792,
+              2128
+            ],
+            "capped": false,
+            "native_scale": [
+              3792,
+              2128
+            ]
+          }
+        }
+      },
+      "worker_seconds": 1.716,
+      "delta_a_minus_b": 0.1125
+    },
+    {
+      "slug": "faerie-court-evelynn-by-dragraceheart-dmgwj3g-pre",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\faerie-court-evelynn-by-dragraceheart-dmgwj3g-pre\\deviantart\\dragraceheart\\deviantart_1358647468_Faerie Court Evelynn.jpg",
+      "conditioned_dims": [
+        1280,
+        720
+      ],
+      "cropped": true,
+      "backend": "spandrel",
+      "up_dims": [
+        5120,
+        2880
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "FLAG",
+      "shipped_halo_pct": 0.0567,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0567,
+          "lap_ratio": 3.1446,
+          "band_delta": -0.002065,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\faerie-court-evelynn-by-dragraceheart-dmgwj3g-pre\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.983333,
+            "ms_ssim": 0.998096,
+            "lpips": 0.023064,
+            "dists": 0.025126,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0377,
+          "lap_ratio": 2.7178,
+          "band_delta": -0.002166,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\faerie-court-evelynn-by-dragraceheart-dmgwj3g-pre\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.986739,
+            "ms_ssim": 0.998573,
+            "lpips": 0.018071,
+            "dists": 0.021661,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.024,
+          "lap_ratio": 2.3577,
+          "band_delta": -0.00224,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\faerie-court-evelynn-by-dragraceheart-dmgwj3g-pre\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.989652,
+            "ms_ssim": 0.998957,
+            "lpips": 0.013666,
+            "dists": 0.018217,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0062,
+          "lap_ratio": 1.7266,
+          "band_delta": -0.00222,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\faerie-court-evelynn-by-dragraceheart-dmgwj3g-pre\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.993819,
+            "ms_ssim": 0.999448,
+            "lpips": 0.006656,
+            "dists": 0.012633,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        }
+      },
+      "worker_seconds": 21.644,
+      "delta_a_minus_b": 0.0505
+    },
+    {
+      "slug": "infernal-appetite-briar-by-aiaida-dmhijna-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\infernal-appetite-briar-by-aiaida-dmhijna-fullview\\deviantart\\AIaida\\deviantart_1359674614_Infernal Appetite Briar.jpg",
+      "conditioned_dims": [
+        1920,
+        1080
+      ],
+      "cropped": true,
+      "backend": "spandrel",
+      "up_dims": [
+        7680,
+        4320
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "FLAG",
+      "shipped_halo_pct": 0.0679,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0679,
+          "lap_ratio": 2.1529,
+          "band_delta": -0.007175,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-appetite-briar-by-aiaida-dmhijna-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.983217,
+            "ms_ssim": 0.996014,
+            "lpips": 0.026128,
+            "dists": 0.024852,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0433,
+          "lap_ratio": 1.8371,
+          "band_delta": -0.007187,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-appetite-briar-by-aiaida-dmhijna-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.988597,
+            "ms_ssim": 0.997599,
+            "lpips": 0.017734,
+            "dists": 0.019099,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0233,
+          "lap_ratio": 1.5693,
+          "band_delta": -0.007167,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-appetite-briar-by-aiaida-dmhijna-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.99253,
+            "ms_ssim": 0.998618,
+            "lpips": 0.011625,
+            "dists": 0.01408,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 1.0207,
+          "band_delta": -0.007192,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-appetite-briar-by-aiaida-dmhijna-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.995927,
+            "ms_ssim": 0.999449,
+            "lpips": 0.005546,
+            "dists": 0.007917,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        }
+      },
+      "worker_seconds": 37.926,
+      "delta_a_minus_b": 0.0679
+    },
+    {
+      "slug": "infernal-marionette-orianna-by-aiaida-dmhck57-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\infernal-marionette-orianna-by-aiaida-dmhck57-fullview\\deviantart\\AIaida\\deviantart_1359395323_Infernal Marionette Orianna.jpg",
+      "conditioned_dims": [
+        1920,
+        1080
+      ],
+      "cropped": true,
+      "backend": "spandrel",
+      "up_dims": [
+        7680,
+        4320
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "FLAG",
+      "shipped_halo_pct": 0.0578,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0578,
+          "lap_ratio": 2.0972,
+          "band_delta": -0.008765,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-marionette-orianna-by-aiaida-dmhck57-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.983918,
+            "ms_ssim": 0.995506,
+            "lpips": 0.022787,
+            "dists": 0.021193,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.042,
+          "lap_ratio": 1.8396,
+          "band_delta": -0.008826,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-marionette-orianna-by-aiaida-dmhck57-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.988844,
+            "ms_ssim": 0.997324,
+            "lpips": 0.015155,
+            "dists": 0.015868,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0285,
+          "lap_ratio": 1.6159,
+          "band_delta": -0.008904,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-marionette-orianna-by-aiaida-dmhck57-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.992461,
+            "ms_ssim": 0.998474,
+            "lpips": 0.00951,
+            "dists": 0.011738,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0004,
+          "lap_ratio": 1.1044,
+          "band_delta": -0.008917,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\infernal-marionette-orianna-by-aiaida-dmhck57-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.996057,
+            "ms_ssim": 0.999477,
+            "lpips": 0.003211,
+            "dists": 0.005519,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        }
+      },
+      "worker_seconds": 37.977,
+      "delta_a_minus_b": 0.0574
+    },
+    {
+      "slug": "league-of-legends-orianna-by-swofnir-dmhzlpn-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\league-of-legends-orianna-by-swofnir-dmhzlpn-fullview\\deviantart\\Swofnir\\deviantart_1360470443_League of Legends Orianna.jpg",
+      "conditioned_dims": [
+        1600,
+        901
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        6400,
+        3604
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "FLAG",
+      "shipped_halo_pct": 0.0619,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0619,
+          "lap_ratio": 2.2907,
+          "band_delta": 0.016744,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-orianna-by-swofnir-dmhzlpn-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.985694,
+            "ms_ssim": 0.997997,
+            "lpips": 0.022784,
+            "dists": 0.020012,
+            "common_scale": [
+              1600,
+              901
+            ],
+            "capped": false,
+            "native_scale": [
+              1600,
+              901
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0388,
+          "lap_ratio": 1.9334,
+          "band_delta": 0.016668,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-orianna-by-swofnir-dmhzlpn-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.989157,
+            "ms_ssim": 0.998656,
+            "lpips": 0.017167,
+            "dists": 0.016928,
+            "common_scale": [
+              1600,
+              901
+            ],
+            "capped": false,
+            "native_scale": [
+              1600,
+              901
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0217,
+          "lap_ratio": 1.6411,
+          "band_delta": 0.01667,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-orianna-by-swofnir-dmhzlpn-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.991701,
+            "ms_ssim": 0.999073,
+            "lpips": 0.013077,
+            "dists": 0.014351,
+            "common_scale": [
+              1600,
+              901
+            ],
+            "capped": false,
+            "native_scale": [
+              1600,
+              901
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0015,
+          "lap_ratio": 1.0956,
+          "band_delta": 0.01658,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-orianna-by-swofnir-dmhzlpn-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.994131,
+            "ms_ssim": 0.999337,
+            "lpips": 0.008809,
+            "dists": 0.011266,
+            "common_scale": [
+              1600,
+              901
+            ],
+            "capped": false,
+            "native_scale": [
+              1600,
+              901
+            ]
+          }
+        }
+      },
+      "worker_seconds": 26.858,
+      "delta_a_minus_b": 0.0604
+    },
+    {
+      "slug": "spirit-blossom-irelia-by-aiaida-dmhini0-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\spirit-blossom-irelia-by-aiaida-dmhini0-fullview\\deviantart\\AIaida\\deviantart_1359679608_Spirit Blossom Irelia.jpg",
+      "conditioned_dims": [
+        1920,
+        1075
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        7680,
+        4300
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "FLAG",
+      "shipped_halo_pct": 0.1196,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.1196,
+          "lap_ratio": 1.9874,
+          "band_delta": -0.008881,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-irelia-by-aiaida-dmhini0-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.978031,
+            "ms_ssim": 0.995207,
+            "lpips": 0.043743,
+            "dists": 0.03224,
+            "common_scale": [
+              1920,
+              1075
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1075
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0734,
+          "lap_ratio": 1.6283,
+          "band_delta": -0.008966,
+          "over_flag": true,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-irelia-by-aiaida-dmhini0-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.987477,
+            "ms_ssim": 0.997414,
+            "lpips": 0.024233,
+            "dists": 0.019628,
+            "common_scale": [
+              1920,
+              1075
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1075
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0309,
+          "lap_ratio": 1.3439,
+          "band_delta": -0.009052,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-irelia-by-aiaida-dmhini0-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.993473,
+            "ms_ssim": 0.998748,
+            "lpips": 0.011086,
+            "dists": 0.009821,
+            "common_scale": [
+              1920,
+              1075
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1075
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 0.8233,
+          "band_delta": -0.009108,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-irelia-by-aiaida-dmhini0-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.995859,
+            "ms_ssim": 0.999502,
+            "lpips": 0.00305,
+            "dists": 0.004694,
+            "common_scale": [
+              1920,
+              1075
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1075
+            ]
+          }
+        }
+      },
+      "worker_seconds": 37.695,
+      "delta_a_minus_b": 0.1196
+    },
+    {
+      "slug": "aurora-fanart-by-lulalakill-dlgo81i-pre",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\aurora-fanart-by-lulalakill-dlgo81i-pre\\deviantart\\lulalakill\\deviantart_1297793718_Aurora Fanart.jpg",
+      "conditioned_dims": [
+        1280,
+        721
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        5120,
+        2884
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0204,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0204,
+          "lap_ratio": 1.8731,
+          "band_delta": 0.002182,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\aurora-fanart-by-lulalakill-dlgo81i-pre\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.992101,
+            "ms_ssim": 0.999063,
+            "lpips": 0.013433,
+            "dists": 0.015988,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0103,
+          "lap_ratio": 1.6279,
+          "band_delta": 0.002065,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\aurora-fanart-by-lulalakill-dlgo81i-pre\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.994071,
+            "ms_ssim": 0.999344,
+            "lpips": 0.00867,
+            "dists": 0.012569,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0045,
+          "lap_ratio": 1.4189,
+          "band_delta": 0.002211,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\aurora-fanart-by-lulalakill-dlgo81i-pre\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.995464,
+            "ms_ssim": 0.999519,
+            "lpips": 0.005278,
+            "dists": 0.009453,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 1.0409,
+          "band_delta": 0.002173,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\aurora-fanart-by-lulalakill-dlgo81i-pre\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.996626,
+            "ms_ssim": 0.999618,
+            "lpips": 0.002297,
+            "dists": 0.006112,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        }
+      },
+      "worker_seconds": 21.287,
+      "delta_a_minus_b": 0.0204
+    },
+    {
+      "slug": "league-of-legends-aurora-by-swofnir-dmhqnjb-pre",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\league-of-legends-aurora-by-swofnir-dmhqnjb-pre\\deviantart\\Swofnir\\deviantart_1360052903_League of Legends Aurora.jpg",
+      "conditioned_dims": [
+        1280,
+        721
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        5120,
+        2884
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0178,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0178,
+          "lap_ratio": 1.5489,
+          "band_delta": 0.008157,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-aurora-by-swofnir-dmhqnjb-pre\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.987906,
+            "ms_ssim": 0.998778,
+            "lpips": 0.01562,
+            "dists": 0.028576,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0084,
+          "lap_ratio": 1.3259,
+          "band_delta": 0.00809,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-aurora-by-swofnir-dmhqnjb-pre\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.990904,
+            "ms_ssim": 0.99917,
+            "lpips": 0.010007,
+            "dists": 0.024139,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0024,
+          "lap_ratio": 1.1399,
+          "band_delta": 0.008211,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-aurora-by-swofnir-dmhqnjb-pre\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.992287,
+            "ms_ssim": 0.999287,
+            "lpips": 0.007392,
+            "dists": 0.021092,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 0.8175,
+          "band_delta": 0.008443,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-aurora-by-swofnir-dmhqnjb-pre\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.990994,
+            "ms_ssim": 0.998896,
+            "lpips": 0.010271,
+            "dists": 0.020137,
+            "common_scale": [
+              1280,
+              721
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              721
+            ]
+          }
+        }
+      },
+      "worker_seconds": 21.458,
+      "delta_a_minus_b": 0.0178
+    },
+    {
+      "slug": "league-of-legends-riven-reimagined-by-ruanyi-dmh8uat-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\league-of-legends-riven-reimagined-by-ruanyi-dmh8uat-fullview\\deviantart\\ruanyi\\deviantart_1359221861_League of Legends_ RIVEN Reimagined .jpg",
+      "conditioned_dims": [
+        1024,
+        577
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        4096,
+        2308
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0105,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0105,
+          "lap_ratio": 1.5612,
+          "band_delta": 0.030613,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-riven-reimagined-by-ruanyi-dmh8uat-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.995292,
+            "ms_ssim": 0.999411,
+            "lpips": 0.0077,
+            "dists": 0.01525,
+            "common_scale": [
+              1024,
+              577
+            ],
+            "capped": false,
+            "native_scale": [
+              1024,
+              577
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0046,
+          "lap_ratio": 1.3856,
+          "band_delta": 0.030566,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-riven-reimagined-by-ruanyi-dmh8uat-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.996554,
+            "ms_ssim": 0.999581,
+            "lpips": 0.005092,
+            "dists": 0.011846,
+            "common_scale": [
+              1024,
+              577
+            ],
+            "capped": false,
+            "native_scale": [
+              1024,
+              577
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0014,
+          "lap_ratio": 1.2318,
+          "band_delta": 0.030336,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-riven-reimagined-by-ruanyi-dmh8uat-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.997396,
+            "ms_ssim": 0.999689,
+            "lpips": 0.003231,
+            "dists": 0.008582,
+            "common_scale": [
+              1024,
+              577
+            ],
+            "capped": false,
+            "native_scale": [
+              1024,
+              577
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 0.9512,
+          "band_delta": 0.030178,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\league-of-legends-riven-reimagined-by-ruanyi-dmh8uat-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.997936,
+            "ms_ssim": 0.999758,
+            "lpips": 0.001666,
+            "dists": 0.00517,
+            "common_scale": [
+              1024,
+              577
+            ],
+            "capped": false,
+            "native_scale": [
+              1024,
+              577
+            ]
+          }
+        }
+      },
+      "worker_seconds": 21.795,
+      "delta_a_minus_b": 0.0105
+    },
+    {
+      "slug": "petals-of-spring-teemo-by-dragraceheart-dmfhrpd-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\petals-of-spring-teemo-by-dragraceheart-dmfhrpd-fullview\\deviantart\\dragraceheart\\deviantart_1356279169_Petals of Spring Teemo.png",
+      "conditioned_dims": [
+        1080,
+        602
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        4320,
+        2408
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0481,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0481,
+          "lap_ratio": 2.002,
+          "band_delta": 0.018006,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\petals-of-spring-teemo-by-dragraceheart-dmfhrpd-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.99153,
+            "ms_ssim": 0.998998,
+            "lpips": 0.015392,
+            "dists": 0.021484,
+            "common_scale": [
+              1080,
+              602
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              602
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.032,
+          "lap_ratio": 1.771,
+          "band_delta": 0.018039,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\petals-of-spring-teemo-by-dragraceheart-dmfhrpd-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.993424,
+            "ms_ssim": 0.999258,
+            "lpips": 0.011635,
+            "dists": 0.018491,
+            "common_scale": [
+              1080,
+              602
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              602
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0176,
+          "lap_ratio": 1.5721,
+          "band_delta": 0.017998,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\petals-of-spring-teemo-by-dragraceheart-dmfhrpd-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.99491,
+            "ms_ssim": 0.999454,
+            "lpips": 0.008559,
+            "dists": 0.01576,
+            "common_scale": [
+              1080,
+              602
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              602
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0009,
+          "lap_ratio": 1.2029,
+          "band_delta": 0.017935,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\petals-of-spring-teemo-by-dragraceheart-dmfhrpd-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.996757,
+            "ms_ssim": 0.999683,
+            "lpips": 0.004479,
+            "dists": 0.011399,
+            "common_scale": [
+              1080,
+              602
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              602
+            ]
+          }
+        }
+      },
+      "worker_seconds": 21.642,
+      "delta_a_minus_b": 0.0472
+    },
+    {
+      "slug": "queen-of-the-saltwind-by-rasrpunk-dmi98yq-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\queen-of-the-saltwind-by-rasrpunk-dmi98yq-fullview\\deviantart\\Rasrpunk\\deviantart_1360920482_Queen of the Saltwind.jpg",
+      "conditioned_dims": [
+        1920,
+        1081
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        7680,
+        4324
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.042,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.042,
+          "lap_ratio": 2.6011,
+          "band_delta": -0.007084,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\queen-of-the-saltwind-by-rasrpunk-dmi98yq-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.986424,
+            "ms_ssim": 0.997508,
+            "lpips": 0.032673,
+            "dists": 0.037271,
+            "common_scale": [
+              1920,
+              1081
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1081
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0239,
+          "lap_ratio": 2.1653,
+          "band_delta": -0.007122,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\queen-of-the-saltwind-by-rasrpunk-dmi98yq-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.990592,
+            "ms_ssim": 0.998429,
+            "lpips": 0.021537,
+            "dists": 0.027568,
+            "common_scale": [
+              1920,
+              1081
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1081
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0113,
+          "lap_ratio": 1.8023,
+          "band_delta": -0.007064,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\queen-of-the-saltwind-by-rasrpunk-dmi98yq-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.9938,
+            "ms_ssim": 0.999059,
+            "lpips": 0.012786,
+            "dists": 0.018475,
+            "common_scale": [
+              1920,
+              1081
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1081
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0001,
+          "lap_ratio": 1.1633,
+          "band_delta": -0.006904,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\queen-of-the-saltwind-by-rasrpunk-dmi98yq-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.99684,
+            "ms_ssim": 0.999562,
+            "lpips": 0.003231,
+            "dists": 0.007632,
+            "common_scale": [
+              1920,
+              1081
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1081
+            ]
+          }
+        }
+      },
+      "worker_seconds": 37.978,
+      "delta_a_minus_b": 0.0419
+    },
+    {
+      "slug": "spirit-blossom-springs-katarina-by-dragraceheart-dmfiqbq-fullvie",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\spirit-blossom-springs-katarina-by-dragraceheart-dmfiqbq-fullvie\\deviantart\\dragraceheart\\deviantart_1356324038_Spirit Blossom Springs Katarina.png",
+      "conditioned_dims": [
+        1080,
+        608
+      ],
+      "cropped": true,
+      "backend": "spandrel",
+      "up_dims": [
+        4320,
+        2432
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0269,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0269,
+          "lap_ratio": 2.1453,
+          "band_delta": 0.026892,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-springs-katarina-by-dragraceheart-dmfiqbq-fullvie\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.991264,
+            "ms_ssim": 0.999074,
+            "lpips": 0.014697,
+            "dists": 0.018827,
+            "common_scale": [
+              1080,
+              608
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              608
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0148,
+          "lap_ratio": 1.8882,
+          "band_delta": 0.026854,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-springs-katarina-by-dragraceheart-dmfiqbq-fullvie\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.99288,
+            "ms_ssim": 0.999279,
+            "lpips": 0.011425,
+            "dists": 0.016628,
+            "common_scale": [
+              1080,
+              608
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              608
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0069,
+          "lap_ratio": 1.6669,
+          "band_delta": 0.026851,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-springs-katarina-by-dragraceheart-dmfiqbq-fullvie\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.994212,
+            "ms_ssim": 0.999439,
+            "lpips": 0.00869,
+            "dists": 0.01444,
+            "common_scale": [
+              1080,
+              608
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              608
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0003,
+          "lap_ratio": 1.291,
+          "band_delta": 0.026825,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\spirit-blossom-springs-katarina-by-dragraceheart-dmfiqbq-fullvie\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.995853,
+            "ms_ssim": 0.999614,
+            "lpips": 0.005211,
+            "dists": 0.011355,
+            "common_scale": [
+              1080,
+              608
+            ],
+            "capped": false,
+            "native_scale": [
+              1080,
+              608
+            ]
+          }
+        }
+      },
+      "worker_seconds": 21.996,
+      "delta_a_minus_b": 0.0266
+    },
+    {
+      "slug": "viego-the-ruined-king-by-dada-wallpaperart-dmhz060-pre",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\viego-the-ruined-king-by-dada-wallpaperart-dmhz060-pre\\deviantart\\DaDa-WallpaperArt\\deviantart_1360442520_Viego, the Ruined King.jpg",
+      "conditioned_dims": [
+        1280,
+        718
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        5120,
+        2872
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0145,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0145,
+          "lap_ratio": 1.6288,
+          "band_delta": 0.042682,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\viego-the-ruined-king-by-dada-wallpaperart-dmhz060-pre\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.993968,
+            "ms_ssim": 0.999141,
+            "lpips": 0.006461,
+            "dists": 0.016129,
+            "common_scale": [
+              1280,
+              718
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              718
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0056,
+          "lap_ratio": 1.403,
+          "band_delta": 0.042606,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\viego-the-ruined-king-by-dada-wallpaperart-dmhz060-pre\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.995318,
+            "ms_ssim": 0.999361,
+            "lpips": 0.003858,
+            "dists": 0.013164,
+            "common_scale": [
+              1280,
+              718
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              718
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0016,
+          "lap_ratio": 1.2151,
+          "band_delta": 0.042631,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\viego-the-ruined-king-by-dada-wallpaperart-dmhz060-pre\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.996086,
+            "ms_ssim": 0.99947,
+            "lpips": 0.002475,
+            "dists": 0.01181,
+            "common_scale": [
+              1280,
+              718
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              718
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 0.8627,
+          "band_delta": 0.0427,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\viego-the-ruined-king-by-dada-wallpaperart-dmhz060-pre\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.996135,
+            "ms_ssim": 0.99945,
+            "lpips": 0.002702,
+            "dists": 0.013618,
+            "common_scale": [
+              1280,
+              718
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              718
+            ]
+          }
+        }
+      },
+      "worker_seconds": 23.107,
+      "delta_a_minus_b": 0.0145
+    },
+    {
+      "slug": "warrior-by-watercolornessie-dma7o9e-pre",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\warrior-by-watercolornessie-dma7o9e-pre\\deviantart\\WatercolorNessie\\deviantart_1347410066_Warrior.jpg",
+      "conditioned_dims": [
+        1280,
+        720
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        5120,
+        2880
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.031,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.031,
+          "lap_ratio": 1.8851,
+          "band_delta": 0.000397,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\warrior-by-watercolornessie-dma7o9e-pre\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.989739,
+            "ms_ssim": 0.998858,
+            "lpips": 0.013115,
+            "dists": 0.023283,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.016,
+          "lap_ratio": 1.6738,
+          "band_delta": 0.000351,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\warrior-by-watercolornessie-dma7o9e-pre\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.991835,
+            "ms_ssim": 0.999169,
+            "lpips": 0.009242,
+            "dists": 0.020617,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0066,
+          "lap_ratio": 1.4887,
+          "band_delta": 0.000176,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\warrior-by-watercolornessie-dma7o9e-pre\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.993364,
+            "ms_ssim": 0.999365,
+            "lpips": 0.006463,
+            "dists": 0.018302,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0001,
+          "lap_ratio": 1.1156,
+          "band_delta": 5.3e-05,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\warrior-by-watercolornessie-dma7o9e-pre\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.994865,
+            "ms_ssim": 0.999486,
+            "lpips": 0.003492,
+            "dists": 0.015739,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        }
+      },
+      "worker_seconds": 23.311,
+      "delta_a_minus_b": 0.0309
+    },
+    {
+      "slug": "yunara-by-pebano1-dm7zwfb-fullview",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\yunara-by-pebano1-dm7zwfb-fullview\\deviantart\\PeBaNO1\\deviantart_1343688167_Yunara.jpg",
+      "conditioned_dims": [
+        1920,
+        1080
+      ],
+      "cropped": false,
+      "backend": "spandrel",
+      "up_dims": [
+        7680,
+        4320
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0442,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0442,
+          "lap_ratio": 2.5609,
+          "band_delta": -0.01104,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\yunara-by-pebano1-dm7zwfb-fullview\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.990748,
+            "ms_ssim": 0.998556,
+            "lpips": 0.021014,
+            "dists": 0.021946,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.025,
+          "lap_ratio": 2.1265,
+          "band_delta": -0.011047,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\yunara-by-pebano1-dm7zwfb-fullview\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.99305,
+            "ms_ssim": 0.998993,
+            "lpips": 0.016132,
+            "dists": 0.018251,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0113,
+          "lap_ratio": 1.7748,
+          "band_delta": -0.011039,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\yunara-by-pebano1-dm7zwfb-fullview\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.994808,
+            "ms_ssim": 0.999298,
+            "lpips": 0.01236,
+            "dists": 0.014704,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0001,
+          "lap_ratio": 1.1516,
+          "band_delta": -0.011029,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\yunara-by-pebano1-dm7zwfb-fullview\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.9965,
+            "ms_ssim": 0.999554,
+            "lpips": 0.008244,
+            "dists": 0.010013,
+            "common_scale": [
+              1920,
+              1080
+            ],
+            "capped": false,
+            "native_scale": [
+              1920,
+              1080
+            ]
+          }
+        }
+      },
+      "worker_seconds": 38.957,
+      "delta_a_minus_b": 0.0441
+    },
+    {
+      "slug": "zyra-by-effernetti-djxe1j4-pre",
+      "status": "ok",
+      "source_choice": "fullview",
+      "source_path": "C:\\LegionWallpaper\\data\\recovery\\fetched\\zyra-by-effernetti-djxe1j4-pre\\deviantart\\Effernetti\\deviantart_1204939840_Zyra.jpg",
+      "conditioned_dims": [
+        1280,
+        720
+      ],
+      "cropped": true,
+      "backend": "spandrel",
+      "up_dims": [
+        5120,
+        2880
+      ],
+      "usm_applies": true,
+      "shipped_verdict": "PASS",
+      "shipped_halo_pct": 0.0041,
+      "variants": {
+        "usm_1.2_70_3": {
+          "usm": [
+            1.2,
+            70,
+            3
+          ],
+          "halo_pct": 0.0041,
+          "lap_ratio": 1.6418,
+          "band_delta": 0.024442,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\zyra-by-effernetti-djxe1j4-pre\\usm_1.2_70_3.png",
+          "fidelity": {
+            "ssim": 0.995456,
+            "ms_ssim": 0.999315,
+            "lpips": 0.003833,
+            "dists": 0.008886,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "usm_1.2_50_3": {
+          "usm": [
+            1.2,
+            50,
+            3
+          ],
+          "halo_pct": 0.0017,
+          "lap_ratio": 1.4528,
+          "band_delta": 0.024494,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\zyra-by-effernetti-djxe1j4-pre\\usm_1.2_50_3.png",
+          "fidelity": {
+            "ssim": 0.99607,
+            "ms_ssim": 0.999412,
+            "lpips": 0.002613,
+            "dists": 0.007081,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "usm_1.2_35_3": {
+          "usm": [
+            1.2,
+            35,
+            3
+          ],
+          "halo_pct": 0.0005,
+          "lap_ratio": 1.2874,
+          "band_delta": 0.024698,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\zyra-by-effernetti-djxe1j4-pre\\usm_1.2_35_3.png",
+          "fidelity": {
+            "ssim": 0.996497,
+            "ms_ssim": 0.99947,
+            "lpips": 0.00177,
+            "dists": 0.005799,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        },
+        "no_usm": {
+          "usm": null,
+          "halo_pct": 0.0,
+          "lap_ratio": 0.9545,
+          "band_delta": 0.025095,
+          "over_flag": false,
+          "png": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\C--LegionWallpaper\\f5058762-b7cf-4ddc-873c-8ecce501df1e\\scratchpad\\usmwork\\zyra-by-effernetti-djxe1j4-pre\\no_usm.png",
+          "fidelity": {
+            "ssim": 0.996778,
+            "ms_ssim": 0.999494,
+            "lpips": 0.00143,
+            "dists": 0.00529,
+            "common_scale": [
+              1280,
+              720
+            ],
+            "capped": false,
+            "native_scale": [
+              1280,
+              720
+            ]
+          }
+        }
+      },
+      "worker_seconds": 21.107,
+      "delta_a_minus_b": 0.0041
+    }
+  ],
+  "crossings": {
+    "usm_1.2_70_3": {
+      "over": 7,
+      "measured": 17,
+      "max": 0.1196,
+      "min": 0.0041
+    },
+    "usm_1.2_50_3": {
+      "over": 2,
+      "measured": 17,
+      "max": 0.0747,
+      "min": 0.0017
+    },
+    "usm_1.2_35_3": {
+      "over": 0,
+      "measured": 17,
+      "max": 0.0427,
+      "min": 0.0005
+    },
+    "no_usm": {
+      "over": 0,
+      "measured": 17,
+      "max": 0.0062,
+      "min": 0.0
+    }
+  },
+  "fidelity": {
+    "usm_1.2_70_3": {
+      "measured": 17,
+      "ssim": {
+        "min": 0.978031,
+        "max": 0.995456,
+        "mean": 0.988112,
+        "worse_is": "min"
+      },
+      "ms_ssim": {
+        "min": 0.995207,
+        "max": 0.999411,
+        "mean": 0.997914,
+        "worse_is": "min"
+      },
+      "lpips": {
+        "min": 0.003833,
+        "max": 0.043743,
+        "mean": 0.019245,
+        "worse_is": "max"
+      },
+      "dists": {
+        "min": 0.008886,
+        "max": 0.037271,
+        "mean": 0.022507,
+        "worse_is": "max"
+      }
+    },
+    "usm_1.2_50_3": {
+      "measured": 17,
+      "ssim": {
+        "min": 0.986739,
+        "max": 0.996554,
+        "mean": 0.99139,
+        "worse_is": "min"
+      },
+      "ms_ssim": {
+        "min": 0.997324,
+        "max": 0.999581,
+        "mean": 0.998659,
+        "worse_is": "min"
+      },
+      "lpips": {
+        "min": 0.002613,
+        "max": 0.024233,
+        "mean": 0.013065,
+        "worse_is": "max"
+      },
+      "dists": {
+        "min": 0.007081,
+        "max": 0.027568,
+        "mean": 0.017834,
+        "worse_is": "max"
+      }
+    },
+    "usm_1.2_35_3": {
+      "measured": 17,
+      "ssim": {
+        "min": 0.989652,
+        "max": 0.997396,
+        "mean": 0.993725,
+        "worse_is": "min"
+      },
+      "ms_ssim": {
+        "min": 0.998474,
+        "max": 0.999689,
+        "mean": 0.999139,
+        "worse_is": "min"
+      },
+      "lpips": {
+        "min": 0.00177,
+        "max": 0.013666,
+        "mean": 0.0086,
+        "worse_is": "max"
+      },
+      "dists": {
+        "min": 0.005799,
+        "max": 0.021092,
+        "mean": 0.013888,
+        "worse_is": "max"
+      }
+    },
+    "no_usm": {
+      "measured": 17,
+      "ssim": {
+        "min": 0.990994,
+        "max": 0.997936,
+        "mean": 0.995583,
+        "worse_is": "min"
+      },
+      "ms_ssim": {
+        "min": 0.998896,
+        "max": 0.999758,
+        "mean": 0.999481,
+        "worse_is": "min"
+      },
+      "lpips": {
+        "min": 0.00143,
+        "max": 0.010271,
+        "mean": 0.00476,
+        "worse_is": "max"
+      },
+      "dists": {
+        "min": 0.004694,
+        "max": 0.020137,
+        "mean": 0.009868,
+        "worse_is": "max"
+      }
+    }
+  }
+}

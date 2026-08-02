@@ -126,27 +126,53 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `loop_controller.py:303` writes naive LOCAL so `parse_iso` is correct.
   Evidence: `docs/RUNDASH_SPEC_2026-08-01.md`; dashboard 127.0.0.1:8900.
 
-- **usm-halo-calibration - our own unsharp mask manufactures every halo flag,
-  and turning it down trades 7 soft flags for 6 hard fails - OPERATOR-GATED.**
-  Next: operator picks the axis - re-seed the halo threshold for the
-  IllustrationJaNai path (its own comment at `tools/lw_g1_gate.py:31-34` says
-  the 0.05 seed is an n=10 realesrgan/USM70 number owed recalibration), or
-  soften `USM_DEFAULT` percent, or accept the flags. Measured over all 17 gated
-  slugs of batch20 (7 flagged + 10 controls, nothing inferred): condition A
-  reproduces every recorded manifest `halo_pct` to 4dp, so the probe measures
-  the real pipeline. Skip the USM and max `halo_pct` falls to 0.0062 with 0 of
-  17 over the line - the upscaler contributes almost none of it, so ADR-004 is
-  NOT implicated. But with no mask 6 of the 16 gated slugs fall through
-  `lap_ratio`'s 1.0 HARD FAIL floor. usm35 clears all halo flags with the
-  weakest gated `lap_ratio` at 1.1399; usm50 leaves 2 flagged.
-  Do-not-redo: proposing a final number on halo evidence alone - the census
-  deliberately did NOT recompute ms_ssim/lpips/dists per variant, so a milder
-  mask's fidelity cost is UNMEASURED, and a one-axis threshold pick is the
-  mistake that already got one gate rejected here. Measure fidelity per variant
-  first. Also settled by the census: `halo_pct` is monotone in USM percent on
-  every slug, so it reads as a strength dial, not a defect detector, and the
-  0.05 line cuts a continuum with no gap at it.
-  Evidence: `docs/USM_HALO_CENSUS_2026-07-30.md`; `tools/lw_usm_halo_probe.py`.
+- **usm-halo-calibration - RESOLVED 2026-08-02. `USM_DEFAULT` is now
+  `(1.2, 35, 3)`, down from percent 70. The halo threshold was NOT touched.**
+  The missing axis got measured: fidelity per variant over all 17 gated batch20
+  slugs at 70 / 50 / 35 / none, ms_ssim + lpips + dists + ssim, 17/17 ok.
+  The result was not the expected trade-off curve - **every fidelity metric
+  improves monotonically as the mask weakens, worst case included** (at 35 vs
+  70: ms_ssim min 0.9985 vs 0.9952, lpips max 0.0137 vs 0.0437, dists max
+  0.0211 vs 0.0373). The mask was COSTING fidelity, not buying it. With halo
+  flags 7/17 -> 0/17 and the worst gated `lap_ratio` still 1.1399 over its 1.0
+  floor, usm35 wins on every axis at once.
+  The threshold stays at 0.05 deliberately: at usm35 nothing flags, so the line
+  stops mattering, and moving a ruler to fit a reading was the one axis ruled
+  out - it is the only change that improves the report without improving the
+  image.
+  Do-not-redo: dropping the mask entirely (6 of 16 gated slugs fall through the
+  `lap_ratio` hard floor); re-opening ADR-004 (the upscaler contributes almost
+  none of the halo - max 0.0062 with no mask); reading the synthetic step-edge
+  fixture as evidence about mask strength (`halo_pct` SATURATES there and reads
+  equal to no-mask at 35, which is why that test now pins the historical 70).
+  Read the fidelity numbers for what they are: FR self-comparison against the
+  conditioned source, so a weaker mask is closer to the source by construction.
+  They say the gate's own metrics improve, not that the image looks sharper -
+  `lap_ratio` is the sharpness side and is what stops the argument at 35.
+  Still open, and NOT implied by this change: the 288 already-approved
+  firstdones were produced at usm70 and are now on a different recipe from
+  anything produced after today. Reprocessing any of them is an operator call;
+  the 7 carrying a halo flag are the obvious candidates if it is taken up.
+  Evidence: `docs/USM_FIDELITY_CENSUS_2026-08-02.md` (+ the 2026-07-30 halo
+  census it reproduces to 4dp); `scratchpad/usm_fidelity_census.json`.
+
+- **ci-watchdog - `tools/ci_watchdog.py` WRITTEN and `LW-CIWatchdog` ARMED
+  2026-08-02. Unproven on a real red main.**
+  One pass per invocation (the scheduled task is the loop, so a wedged pass dies
+  with its process). Rails: HALT is checked FIRST and an empty HALT file counts;
+  only a settled `failure` triggers a fix (queued / pending / unavailable /
+  not-evaluated all WAIT); 2 attempts per failing sha, and a transient Anthropic
+  condition refunds the attempt; the merge self-gates on the fix branch's OWN
+  green CI at its OWN head sha, and a stale success for a different sha is
+  refused. Reuses `truth_gate.check_ci` rather than re-deriving the status
+  distinction f1 item 12 already built.
+  Registration is by the tool's own `--install` (XML): `schtasks` REJECTS
+  `/RI` for `/SC ONSTART` outright, the same wall `lw_wallpaper_rotate` hit.
+  Next: it has never seen a real red main. Watch its first genuine fire, and
+  read `ops/runtime/ci_watchdog/watchdog.log` after any red push.
+  Kill switch: create `ops\runtime\ci_watchdog\HALT` or
+  `Disable-ScheduledTask LW-CIWatchdog`.
+  Evidence: `tests/test_ci_watchdog.py` (26 tests); `docs/OPERATIONS.md` roster.
 
 - **g1-source-adequacy - G1 is blind to an inadequate SOURCE; 105 of 276 approved
   images came from one - OPERATOR-GATED on policy.**
@@ -598,14 +624,11 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   stale id fails silently every week.
   `LW-GeminiAudit` is RETIRED by `gemini-removal` - never registered, so nothing
   was disabled; it is off the roster for good.
-  `LW-Supervisor` and `LW-CIWatchdog` were APPROVED by the operator and could
-  NOT be armed: `ops/lw_supervisor.py` and `tools/ci_watchdog.py` do not exist.
-  Arming either would spawn a task that fails on every trigger - CIWatchdog
-  every 2 minutes from startup - so the gate is the file, not the approval.
-  Next: write `tools/ci_watchdog.py` (the higher-value of the two; it is the
-  red-main auto-fixer and its design is already documented), then register it
-  with the command already in `docs/OPERATIONS.md`. `LW-Supervisor` stays
-  blocked until the product has a long-running process to supervise.
+  `LW-CIWatchdog` was blocked on a missing script, so the script was WRITTEN and
+  the task is now REGISTERED (verified `Ready`). See `ci-watchdog` below.
+  `LW-Supervisor` is the only unarmed row left: `ops/lw_supervisor.py` does not
+  exist, and it stays blocked until the product has a long-running process to
+  supervise. Arming it now would fail on every logon.
   Deep-audit program stays DORMANT - separate gate, untouched by this review.
   Evidence: `docs/OPERATIONS.md` roster + `docs/OPERATOR_ANSWERS_2026-08-02.md`
   section 4; `docs/DEEP_AUDIT_CHARTER.md`.
