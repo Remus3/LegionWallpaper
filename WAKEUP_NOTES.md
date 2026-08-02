@@ -17,7 +17,7 @@ Suite **1760 passed / 16 skipped**, ruff clean, drift_guard 0 breaches / 25 note
 (the notes are the 43 intentionally-dead shas in the new map doc - expected, not drift).
 LEDGER 88. Commits `4e3b617` + `f9cd7a1`.
 
-- **<https://github.com/Remus3/legion-wallpaper> is PUBLIC.** Audited first: all
+- **<https://github.com/Remus3/LegionWallpaper> is PUBLIC.** Audited first: all
   306 commits scanned as full diffs for keys / tokens / PEM headers / the
   operator email - zero hits, and no secret-named file was ever tracked.
 - **`style.jpg` + `style2.jpg` purged from all history** (`git filter-repo`),
