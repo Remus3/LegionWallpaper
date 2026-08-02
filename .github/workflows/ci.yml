@@ -195,3 +195,74 @@ jobs:
           # runs where it can actually block. A nightly gate does not block; it
           # reports, up to 24h after the drift is already on main.
           python tools/strip_em_dashes.py --check
+
+  # ---------------------------------------------------------------------------
+  # CV lane. Separate job on purpose: the `check` job above stays fast and pure
+  # stdlib, and only this one pays for the ~120MB numeric stack.
+  #
+  # WHY IT EXISTS: tests/test_lw_clean_dekel_align.py importorskips cv2 +
+  # skimage, so on the stdlib-only `check` job it SKIPS - and a skipped test is
+  # a green tick that proves nothing. align_rois shipped with zero coverage for
+  # exactly this reason. This lane makes it actually regress.
+  # ---------------------------------------------------------------------------
+  cv-lane:
+    # No schedule guard, unlike `check`: this lane runs on the nightly cron TOO.
+    # Otherwise the nightly "full suite" would cover strictly LESS than a push
+    # does, since nightly-full-suite installs only requirements.txt and the
+    # dekel tests skip there.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install the CV numeric stack
+        run: |
+          python -m pip install --upgrade pip
+          # All four resolve to wheels on cp314 manylinux (opencv ships
+          # cp37-abi3, which covers 3.14) - verified 2026-08-02. If pip ever
+          # starts BUILDING one of these from source the job will crawl or
+          # die, and that is the signal to pin.
+          pip install -r requirements-cv.txt
+
+      - name: prove the CV deps actually imported
+        run: |
+          # Guard against a half-installed stack silently turning the suite
+          # below back into skips.
+          python -c "import cv2, numpy, scipy, skimage; print('cv2', cv2.__version__, '| numpy', numpy.__version__, '| scipy', scipy.__version__, '| skimage', skimage.__version__)"
+
+      - name: dekel alignment suite
+        run: |
+          pytest tests/test_lw_clean_dekel_align.py -q --tb=short \
+            --junitxml=cv-lane.xml
+
+      - name: fail on a silently-skipped suite
+        if: always()
+        run: |
+          # THE POINT OF THIS LANE. Without this step an importorskip that
+          # stops resolving turns the whole job green while testing nothing -
+          # the precise false-green this lane was added to remove. Demand a
+          # positive count of executed tests and zero skips.
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("cv-lane.xml").getroot()
+          suite = root if root.tag == "testsuite" else root.find("testsuite")
+          total = int(suite.get("tests", 0))
+          skipped = int(suite.get("skipped", 0))
+          errors = int(suite.get("errors", 0))
+          failures = int(suite.get("failures", 0))
+          print(f"tests={total} skipped={skipped} failures={failures} errors={errors}")
+          if total - skipped < 10:
+              sys.exit(f"FALSE GREEN: only {total - skipped} test(s) actually ran "
+                       f"(expected >= 10). The CV deps are not resolving.")
+          if skipped:
+              sys.exit(f"FALSE GREEN: {skipped} test(s) skipped in the lane whose "
+                       f"entire purpose is that they do not skip.")
+          print("cv-lane executed its suite for real.")
+          PY

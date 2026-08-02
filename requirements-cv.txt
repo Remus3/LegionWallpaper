@@ -1,0 +1,19 @@
+# CV lane deps - the numeric stack tools/lw_clean_dekel.py imports at module
+# scope (cv2 + numpy + scipy + skimage). Kept OUT of requirements.txt on
+# purpose: requirements.txt is the everywhere-toolchain that the fast `check`
+# job installs, and these four are ~120MB of wheels that the fast lane must not
+# pay for.
+#
+# opencv-python-headless (NOT opencv-python): the GUI build pulls libGL and
+# friends that a headless runner does not have.
+#
+# Unpinned, matching requirements.txt. The align_rois tolerances were verified
+# green on BOTH ends of a wide version spread - numpy 1.26 / scipy / skimage
+# 0.24 / cv2 4.11 (the lw-clean venv) and numpy 2.5.1 / scipy 1.18 / skimage
+# 0.26 / cv2 5.0 (latest, 2026-08-02) - so drift within that band is covered.
+# Pin here if a future release ever breaks the lane.
+numpy
+scipy
+scikit-image
+opencv-python-headless
+pytest
