@@ -560,8 +560,17 @@ def align_rois(rois, upsample=20, use_ecc=False):
 
     Returns (aligned_rois, forward_affines, inverse_affines, shifts). Reference =
     median of the per-image mark signals (mark survives, art cancels). Default is
-    translation-only (robust + unit-tested); ECC affine refinement is opt-in and
-    guarded (falls back to translation on any failure).
+    translation-only; ECC affine refinement is opt-in and guarded (falls back to
+    translation on any failure).
+
+    `shifts` is always the phase-correlation translation estimate, captured
+    BEFORE any ECC refinement - with use_ecc=True the refinement lands in
+    `forward_affines` only, so the two disagree by design.
+
+    Coverage: tests/test_lw_clean_dekel_align.py. Those tests SKIP on the CI
+    interpreter (no cv2/skimage there) and run under the lw-clean venv - so a
+    green CI run says nothing about this function. Run them locally after
+    touching it.
     """
     marks = [mark_signal(r) for r in rois]
     ref = np.median(np.array(marks), axis=0)
