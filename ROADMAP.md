@@ -49,27 +49,46 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
-- **gemini-removal - drop Gemini; the loop becomes Claude-only and
-  self-adjudicating - OPERATOR-DIRECTED, own slice.**
-  Next: flip the reversible part, keep the backend reachable as the rollback
-  path, file the rest as a sweep - the same split RC took rather than a
-  big-bang removal. RC completed its side 2026-08-01 (`adjudicator: claude`,
-  `DEFAULT_BACKEND` flipped, `RC-GeminiAudit` task disabled not deleted).
-  LW's shape is DIFFERENT and there is no one-line flip: LW has no adjudicator
-  key at all - Gemini is structurally the DIRECTOR and AUDITOR via
+- **gemini-removal - REVERSIBLE HALF LANDED 2026-08-02. The loop is Claude-only
+  and self-adjudicating by default; the vendor is two config keys away.**
+  LW had no adjudicator key to flip, so the removal had to BUILD the seam RC
+  already had. Landed: `oracle_backend()` / `claude_oracle()` / `oracle()` in
+  `loop_controller.py`; `director()` and `auditor()` dispatch through it; and
+  `director_backend` + `auditor_backend` ship as `claude`. The Claude oracle is
+  READ-ONLY on purpose (`--permission-mode plan`, NOT the executor's
+  `bypassPermissions`) - an adjudicator that can write is not an adjudicator.
+  An unknown backend value resolves to `claude`: never a crash, and never
+  silently back to the vendor being removed.
+  **ROLLBACK IS TWO KEYS.** Nothing was deleted - `gemini()`, `_gemini_call()`,
+  `gemini_model`, `gemini_cmd`, `gemini_price_per_mtok`, `ceiling_usd`,
+  `tools/gemini_audit.ps1` and both prompt templates all stay, the same posture
+  the `channel` flip took (LEDGER 40). `ceiling_usd` remains a real rail and
+  simply reads $0 while the Claude backend is in play.
+  Next (the SWEEP, deliberately not bundled): physically delete the Gemini call
+  path, the vendor references in the prompt templates, `gemini_price_per_mtok`
+  and the `GEMINI_USD` accounting - but only after the Claude oracle has
+  authored directives on a live multi-cycle run. Until then the rollback must
+  stay reachable. `LW-GeminiAudit` is DROPPED from the scheduled-task roster
+  (`docs/OPERATIONS.md`); it was never registered, so nothing was disabled.
+  Why the shape was different here: LW has no adjudicator
+  key at all - Gemini was structurally the DIRECTOR and AUDITOR via
   `gemini_model`, `gemini_cmd`, `director_prompt.md`, `auditor_prompt.md`,
   `tools/gemini_audit.ps1`, the `ceiling_usd` accounting, and the mutex hold at
-  `loop_controller.py:366`. Removing it means replacing what AUTHORS each
-  cycle's directive, not switching a backend behind a flag.
+  the mutex hold. Removing it meant replacing what AUTHORS each cycle's
+  directive, not switching a backend behind a flag that already existed.
   Supporting evidence from LW's own runs: a read-only Claude verifier refuted a
   Claude slice on a false behavior-identical claim, and a second refuted another
   on a cache-eviction regression a 530-line test file missed - same vendor, both
   caught, because the grader was adversarial and independent rather than
   differently-branded. Vendor diversity was not what was catching errors.
   Do-not-redo: do NOT delete `GEMINI_MUTEX` from `winmutex.py` - it is
-  byte-identical-by-contract, deleting it needs a three-way re-pin, and LW still
-  has a LIVE consumer at `loop_controller.py:366` today.
-  Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*` section 7.
+  byte-identical-by-contract with RC, deleting it needs a three-way re-pin, and
+  the gemini rollback path still consumes it. Do NOT rename the `gemini.ready`
+  IPC sentinel - that is the AHK bridge's byte-level handshake filename and has
+  nothing to do with the vendor.
+  Evidence: `moon_sync_inbox/2026-08-01-0820-from-RC-*` section 7;
+  `tests/test_oracle_backend.py` (16 tests);
+  `docs/OPERATOR_ANSWERS_2026-08-02.md`.
 
 - **rundash-instrumentation - DONE 2026-08-01; the spec has no open items.**
   DONE 2026-08-01 (`0ee1c9e`): chips render VERIFIED / REFUTED / NOT OBSERVED

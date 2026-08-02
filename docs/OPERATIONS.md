@@ -77,8 +77,8 @@ NOT YET REGISTERED rows speculatively.
 | Task | Trigger | Context | Description | Status |
 |---|---|---|---|---|
 | `LW-Wallpaper` | At logon + time trigger, repeat PT3M | Administrator / LeastPrivilege | Runs `pythonw.exe tools/lw_wallpaper_rotate.py tick` - desktop wallpaper deck rotator, every image once before any repeat (LEDGER 34) | REGISTERED 2026-07-18 |
-| `LW-Supervisor` | At logon | Administrator / HIGHEST | Runs `pythonw.exe ops/lw_supervisor.py` - owns the main process lifecycle, PID lock, restart trigger (supervisor script TBD) | NOT YET REGISTERED |
-| `LW-GeminiAudit` | Daily | Administrator | Gemini read-only auditor pass over the repo (`tools/gemini_audit.ps1` - exists) | NOT YET REGISTERED |
+| `LW-Supervisor` | At logon | Administrator / HIGHEST | Runs `pythonw.exe ops/lw_supervisor.py` - owns the main process lifecycle, PID lock, restart trigger (supervisor script TBD) | BLOCKED ON SCRIPT - `ops/lw_supervisor.py` does not exist, so this is gated on the file, not on operator approval; registering it today arms a task that fails every logon |
+| `LW-GeminiAudit` | Daily | Administrator | Gemini read-only auditor pass over the repo (`tools/gemini_audit.ps1` - exists) | **DROPPED 2026-08-02 - do not register.** `gemini-removal` retired the vendor this task exists to run; the loop's auditor role now runs read-only Claude. The script stays on disk as the rollback path, so this row stays here as a record rather than being deleted. |
 | `LW-WeeklyHygiene` | Weekly Sunday | Administrator | Unattended `/weekly-hygiene` pass via headless Claude (`tools/weekly_hygiene_run.ps1` - exists) | NOT YET REGISTERED |
 | `LW-CIWatchdog` | At startup + periodic (PT2M) | Administrator | Unattended headless-claude red-main CI auto-fixer; self-gates the merge on the ci-fix PR's OWN green CI; isolated worktree. Kill switch: create `ops\runtime\ci_watchdog\HALT` or `Disable-ScheduledTask LW-CIWatchdog` | NOT YET REGISTERED |
 

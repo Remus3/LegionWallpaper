@@ -27,6 +27,57 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+86. DONE **2026-08-02 (gemini-removal reversible half + the five owed operator
+    answers; TDD, 16 new tests).** Two deliverables, one session.
+    **(A) The five answers** live in `docs/OPERATOR_ANSWERS_2026-08-02.md`, each
+    with its evidence and a recommendation so a one-word reply closes the item:
+    `anat-vision-review` -> FLAG only, but make the flag BLOCK auto-approval (a
+    third position, and it gets REJECT's safety property without giving an
+    irreproducible judge the power to spend a degrading pass - `clean-retry-
+    degrades` has just measured that a further pass is not neutral);
+    `usm-halo-calibration` -> soften `USM_DEFAULT` toward usm35, but MEASURE
+    ms_ssim/lpips/dists per variant FIRST (the census skipped exactly that), and
+    never take the threshold-only axis, which is the only one that improves the
+    report without improving the image; `g1-dists-cap-ratify` -> ratify
+    3840x2160 as ADR-007, and the question's premise is corrected in the answer:
+    the cap sets the SOURCE-vs-OUTPUT common COMPARISON scale (sources run to
+    6500x3660), not the 1440p deliverable, and it recovered 63 of 230 images
+    whose DISTS was silently absent; `arm-scheduled-tasks` -> register
+    `LW-WeeklyHygiene` + `LW-CIWatchdog`, DROP `LW-GeminiAudit`, and re-label
+    `LW-Supervisor` BLOCKED-ON-SCRIPT rather than NOT-YET-REGISTERED, because
+    its gate is a missing file and not a missing approval.
+    **(B) gemini-removal, reversible half.** Premise VERIFIED before coding:
+    unlike RC there was no adjudicator key to flip - Gemini structurally AUTHORED
+    each cycle's directive (`director()`) and SCORED each cycle's diff
+    (`auditor()`), both calling `gemini()` directly. So the slice BUILDS the seam
+    RC already had: `oracle_backend()` / `claude_oracle_argv()` /
+    `claude_oracle()` / `oracle()` in `ops/loop/loop_controller.py`, with
+    `director_backend` + `auditor_backend` shipped as `claude`. RED first - 14 of
+    16 failed on the missing seam, the 2 that passed were the deliberate
+    do-not-delete guards. Design calls worth keeping: the Claude oracle takes
+    `--permission-mode plan`, NOT the executor's `bypassPermissions`, because an
+    adjudicator that can write is not an adjudicator; an UNKNOWN backend value
+    resolves to `claude` rather than raising, so a typo in an unattended run
+    neither wedges the loop nor silently bills the vendor being removed; and the
+    None sentinel means the same thing on both paths, because reading "" as
+    NO_WORK is what falsely terminated an RC run with open queue rows.
+    **Nothing deleted, rollback is two config keys** - `gemini()`,
+    `_gemini_call()`, `gemini_model`, `gemini_cmd`, `gemini_price_per_mtok`,
+    `ceiling_usd`, `tools/gemini_audit.ps1` and both prompt templates all stay,
+    the same posture the `channel` flip took (LEDGER 40). `GEMINI_MUTEX` is
+    untouched: `winmutex.py` is byte-identical-by-contract with RC and the
+    rollback path still consumes it. `gemini.ready` is NOT renamed - it is the
+    AHK bridge's handshake filename, not a vendor reference.
+    Verified: full suite **1695 passed / 16 skipped** (baseline re-measured THIS
+    run at 1679 by ignoring the new file, so +16 and zero pre-existing breakage;
+    note the handoff's "1678" was off by one). ruff clean on both touched files,
+    `py_compile` clean, `config.json` re-parsed, `drift_guard` 0 breaches.
+    FUTURE / do-not-redo: the physical deletion sweep (call path, prompt-template
+    vendor references, `gemini_price_per_mtok`, `GEMINI_USD` accounting) waits
+    until the Claude oracle has authored directives on a LIVE multi-cycle run -
+    a backend that has never run is not a backend you delete the fallback for.
+    Do NOT delete `GEMINI_MUTEX`, and do NOT rename `gemini.ready`.
+
 85. DONE **2026-08-02 (operator queue drain, worktree/branch cleanup, and a
     stale do-not-retry corrected; no repo code change).**
     CLEANUP: both stale worktrees removed after verifying each was 0 commits

@@ -2,11 +2,17 @@
 """gemini-headless-upgrade loop controller (the BRAIN).
 
 Headless. Never touches the GUI. Drives the cycle:
-  gemini-director -> directive.md + gemini.ready -> (AHK types) -> claude.done
-  -> meter budget -> gemini-auditor -> clean:advance | regress:FIX-first -> repeat
+  director -> directive.md + gemini.ready -> (AHK types) -> claude.done
+  -> meter budget -> auditor -> clean:advance | regress:FIX-first -> repeat
+
+The director + auditor are the ORACLE roles and run behind `oracle()`, which
+dispatches per role to a read-only Claude call (default since 2026-08-02) or to
+the untouched Gemini path (the rollback). The `gemini.ready` filename above is
+the AHK channel's IPC sentinel and is unrelated to the vendor - renaming it
+would break the byte-level handshake with the bridge.
 
 IPC = files in control_dir, atomic (tmp + os.replace), plain-text where AHK reads.
-Both gemini and claude are stateless per cycle; continuity lives on disk
+Both the oracle and the executor are stateless per cycle; continuity lives on disk
 (git history + docs/LEDGER.md + the directive chain). Ported 1:1 from the RC
 ancestor loop - process mechanics unchanged, product references TBD.
 """
@@ -552,7 +558,111 @@ def _gemini_call(prompt_body, instruction):
         return None
     return out
 
-# ---- gemini roles ------------------------------------------------------
+# ---- claude oracle (read-only headless `claude -p`) ---------------------
+# gemini-removal (operator-directed 2026-08-02). Gemini was never a flag in LW:
+# it structurally AUTHORED each cycle's directive and SCORED each cycle's diff.
+# So the removal is a seam, not a switch - `oracle()` picks the backend per ROLE
+# and the Gemini path below stays intact as the rollback (two config keys, the
+# same shape `channel` already has for the executor).
+#
+# Why same-vendor adjudication is acceptable here, measured rather than assumed:
+# LW's own runs had a read-only Claude verifier REFUTE a Claude slice on a false
+# behaviour-identical claim, and a second refute another on a cache-eviction
+# regression a 530-line test file missed. What caught those was that the grader
+# was adversarial and INDEPENDENT (its own context, read-only, no stake in the
+# claim), not that it was differently branded.
+ORACLE_ROLES = ("director", "auditor")
+ORACLE_DEFAULT_BACKEND = "claude"
+ORACLE_BACKENDS = ("claude", "gemini")
+
+
+def oracle_backend(cfg, role):
+    """Resolve the backend for a role: per-role key > shared key > claude.
+
+    An UNKNOWN value resolves to claude rather than raising: this runs
+    unattended, and the failure mode of a typo must not be either a dead run or
+    a silent bill to the vendor being removed.
+    """
+    raw = (cfg.get(f"{role}_backend") or cfg.get("oracle_backend") or "")
+    name = str(raw).strip().lower()
+    return name if name in ORACLE_BACKENDS else ORACLE_DEFAULT_BACKEND
+
+
+def claude_oracle_argv(instruction, cfg):
+    """argv for a READ-ONLY headless claude call.
+
+    Deliberately NOT executor.SdkExecutor.build_argv: that one carries
+    --permission-mode bypassPermissions and a done-record --json-schema, because
+    the executor's job is to edit and commit. An adjudicator that can write is
+    not an adjudicator, so this path takes `plan` and returns plain text - the
+    same read-only posture `gemini --approval-mode plan` had.
+    """
+    cmd = cfg.get("claude_cmd")
+    if isinstance(cmd, list):
+        argv = list(cmd)
+    elif isinstance(cmd, str) and cmd:
+        argv = [cmd]
+    else:
+        import shutil
+        argv = [shutil.which("claude.cmd") or shutil.which("claude") or "claude"]
+    argv += [
+        "-p", instruction,
+        "--output-format", "text",
+        "--input-format", "text",
+        "--permission-mode", "plan",
+        "--add-dir", str(cfg.get("repo_root", ".")),
+    ]
+    model = cfg.get("oracle_model")
+    if model:
+        argv += ["--model", str(model)]
+    return argv
+
+
+def claude_oracle(prompt_body, instruction):
+    """One read-only claude call. Returns text, or the None sentinel on failure.
+
+    None means EXACTLY what it means on the gemini path: no usable answer. The
+    caller must not read "" as NO_WORK - that mis-read falsely terminated a run
+    with open queue rows in the RC ancestor, which is why both paths agree on
+    the sentinel.
+
+    No dollar accounting (LEDGER 40): on a Max plan the CLI's figure is notional
+    API-equivalent pricing, so recording it invites capping on a number unrelated
+    to spend. `ceiling_usd` stays a real rail for gemini alone.
+    """
+    prompt_body = cap_stdin(prompt_body)
+    argv = claude_oracle_argv(instruction, CFG)
+    timeout = float(CFG.get("oracle_timeout_sec", 900))
+    out = ""
+    for tryn in range(1, 4):
+        try:
+            r = subprocess.run(argv, input=prompt_body, capture_output=True,
+                               text=True, encoding="utf-8", errors="replace",
+                               timeout=timeout, creationflags=NO_WINDOW)
+            out = (r.stdout or "").strip()
+            if not out and (r.stderr or "").strip():
+                log(f"claude oracle try {tryn} empty stdout; stderr: "
+                    f"{_err_summary((r.stderr or '').strip())}")
+        except Exception as e:  # noqa: BLE001
+            out = ""
+            log(f"claude oracle try {tryn} error: {e}")
+        if out:
+            break
+        time.sleep(8 * tryn)
+    return out or None
+
+
+def oracle(prompt_body, instruction, *, role):
+    """Dispatch a director/auditor call to the configured backend."""
+    if role not in ORACLE_ROLES:
+        raise ValueError(f"unknown oracle role: {role!r}")
+    backend = oracle_backend(CFG, role)
+    if backend == "gemini":
+        return gemini(prompt_body, instruction)
+    return claude_oracle(prompt_body, instruction)
+
+
+# ---- director / auditor roles ------------------------------------------
 def build_director_context(last_done, last_audit, *, root=None, ctl=None):
     """Pure: assemble the context appended after the director prompt template.
 
@@ -614,7 +724,9 @@ def director(last_done, last_audit):
     tmpl = tmpl.replace("{{FINAL_STEP}}",
                         executor.final_step_instruction(CFG.get("channel")))
     ctx = build_director_context(last_done, last_audit)
-    return gemini(tmpl + ctx, "Output ONLY the directive markdown for the next cycle. No preamble.")
+    return oracle(tmpl + ctx,
+                  "Output ONLY the directive markdown for the next cycle. No preamble.",
+                  role="director")
 
 def auditor(prev_sha, new_sha, clean_sha=None):
     if not new_sha or prev_sha == new_sha:
@@ -625,12 +737,14 @@ def auditor(prev_sha, new_sha, clean_sha=None):
         diff = diff[:55000] + "\n...[truncated]"
     tmpl = (ROOT / "ops/loop/auditor_prompt.md").read_text(encoding="utf-8")
     body = f"{tmpl}\n\n=== RANGE {rng} ===\n{git('log','--oneline',rng)}\n\n=== DIFF ===\n{diff}"
-    verdict = gemini(body, "Audit. First line MUST be 'VERDICT: CLEAN' or 'VERDICT: REGRESS', then the reason.")
+    verdict = oracle(body,
+                     "Audit. First line MUST be 'VERDICT: CLEAN' or 'VERDICT: REGRESS', then the reason.",
+                     role="auditor")
     if verdict is None:
-        # N3: gemini errored (timeout / CLI) - an un-auditable cycle is NOT a regression.
-        # Return a safe CLEAN so the controller's string ops never hit the None sentinel
-        # and a flaky auditor never falsely blocks a clean cycle.
-        return "VERDICT: CLEAN\n(auditor gemini error - could not audit this cycle; treated as non-regress)"
+        # N3: the auditor errored (timeout / CLI) - an un-auditable cycle is NOT a
+        # regression. Return a safe CLEAN so the controller's string ops never hit
+        # the None sentinel and a flaky auditor never falsely blocks a clean cycle.
+        return "VERDICT: CLEAN\n(auditor backend error - could not audit this cycle; treated as non-regress)"
     return verdict
 
 # ---- budget meter: sum active-session JSONL usage since start_ts -------
@@ -798,7 +912,7 @@ def main():
         wait_gone=wait_gone, rjson=rjson, stall_action=stall_action,
         stall_recovery_directive=stall_recovery_directive)
 
-    FIXED = CFG.get("fixed_directive")  # fixed-message mode: skip gemini director+auditor entirely
+    FIXED = CFG.get("fixed_directive")  # fixed-message mode: skip the director+auditor entirely
     CYCLE_CMD = CFG.get("cycle_command")  # self-directing slash command typed verbatim; director SKIPPED, auditor KEPT
     for cycle in range(1, CFG["max_cycles"] + 1):
         # STOP is otherwise only polled inside wait_for/wait_gone, which never
@@ -820,10 +934,10 @@ def main():
         else:
             body = director(last_done, last_audit)
             if body is None:
-                # N3: gemini retries exhausted (timeout / CLI error) - NOT a real NO_WORK
+                # N3: director retries exhausted (timeout / CLI error) - NOT a real NO_WORK
                 # signal. Advance to the next cycle instead of terminating the whole run;
                 # the no-progress (same-sha) guard still stops a persistent outage cleanly.
-                log(f"cycle {cycle}: director gemini error (retries exhausted) - advancing, NOT terminating")
+                log(f"cycle {cycle}: director backend error (retries exhausted) - advancing, NOT terminating")
                 continue
             if body[:40].upper().find("NO_WORK") >= 0:
                 stop("director returned NO_WORK")
@@ -892,7 +1006,7 @@ def main():
             if same_sha_streak >= 2:
                 stop("no progress: same sha 2 cycles")
 
-        verdict = "VERDICT: CLEAN\n(fixed-directive mode: gemini auditor disabled)" if src == "fixed" else auditor(prev_sha, new_sha, last_clean_sha)
+        verdict = "VERDICT: CLEAN\n(fixed-directive mode: auditor disabled)" if src == "fixed" else auditor(prev_sha, new_sha, last_clean_sha)
         if done.get("regressions"):
             verdict = ("VERDICT: REGRESS\nClaude self-reported it could NOT reach green this "
                        "cycle (regressions flag). Fix this before any new work.\n\n" + verdict)
