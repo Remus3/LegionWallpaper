@@ -11,7 +11,38 @@
 
 ---
 
-## 2026-08-02 (latest) - all five recommendations EXECUTED; USM flipped on measurement; watchdog armed
+## 2026-08-01 (latest) - THE REPO IS PUBLIC; history purged, Apache-2.0, every sha rewritten
+
+Suite **1760 passed / 16 skipped**, ruff clean, drift_guard 0 breaches / 25 notes
+(the notes are the 43 intentionally-dead shas in the new map doc - expected, not drift).
+LEDGER 88. Commits `4e3b617` + `f9cd7a1`.
+
+- **<https://github.com/Remus3/legion-wallpaper> is PUBLIC.** Audited first: all
+  306 commits scanned as full diffs for keys / tokens / PEM headers / the
+  operator email - zero hits, and no secret-named file was ever tracked.
+- **`style.jpg` + `style2.jpg` purged from all history** (`git filter-repo`),
+  untracked, gitignored; both files restored to disk from a pre-purge bundle.
+  They were the only tracked image bytes and contradicted the README's own
+  process-not-pixels boundary.
+- **The trap worth remembering:** a force-push does NOT GC unreachable objects.
+  GitHub still served the dead sha and `style.jpg` at 122630 bytes afterwards,
+  so going public would have republished exactly what was purged. Fixed by
+  delete-and-recreate (repo had 0 issues / PRs / forks / stars / secrets, all
+  API-verified). Needed a `delete_repo` scope the token lacked; operator granted it.
+- **Apache-2.0 LICENSE** (canonical text, `Copyright 2026 Moonbeam`) + a README
+  License section stating the grant covers the PROCESS and cannot cover the
+  third-party image corpus.
+- **The permanent cost:** every sha from `152d84f` onward changed. 43 shas cited
+  across LEDGER / history_notes / WAKEUP no longer resolve. Doc text was NOT
+  edited (append-only ledger); the old -> new table is
+  `docs/_archive/2026-08-01-sha-rewrite-map.md`. `.git/filter-repo/commit-map`
+  is untracked local plumbing and will be clobbered by any future rewrite.
+- Gap noticed, not fixed: `drift_guard.check_cited_shas` only reads STAGED docs,
+  so it cannot catch a rewrite invalidating shas already committed.
+
+---
+
+## 2026-08-02 - all five recommendations EXECUTED; USM flipped on measurement; watchdog armed
 
 Suite **1760 passed / 16 skipped** (session start 1679), ruff clean, drift_guard 0.
 LEDGER 87. Operator answered "do the recommendation" x2 and "yes" x2.
@@ -84,115 +115,3 @@ Suite **1695 passed / 16 skipped**, ruff clean, drift_guard 0 breaches. LEDGER 8
 - NEXT on this item: the physical deletion sweep, but only AFTER the Claude
   oracle has authored directives on a live multi-cycle run. A backend that has
   never run is not one you delete the fallback for.
-
----
-
-## 2026-08-01 - P7: the claim table finally REFUSES something; P8 closed on fit
-
-Commits `b7814b3` (the gate), `a26e690` (docs sync, CI **green, confirmed with
-`gh`** on the full sha), plus the P8 decision commit. Suite **1640 passed /
-16 skipped** (baseline 1624 + 16 new), ruff clean, drift_guard 0 breaches.
-
-- **P7 shipped as `start_gate()` (LEDGER 80).** `set --status in_progress` is now
-  REFUSED unless the named `--agent` holds a claim on every file the slice
-  declares. P4 built the table; this is the half that makes a CALL fail, which is
-  the only property task-orchestrator had that LW wanted. Nothing installed.
-- **Consequence for every future run:** `add` every slice with its real
-  `--files`, then `claim --agent <id> --files <same>`, THEN
-  `set --status in_progress --agent <id>`. A slice with no declared files cannot
-  start at all - that was the trivial bypass. Both run commands document this now.
-- **Not gated:** `verified` / `committed` / `failed`. A crashed agent's claims may
-  be gone by then and gating those would strand a finished slice.
-- **No `--force` bypass and no `start` subcommand**, both on purpose: a second
-  door or an escape hatch would be the bypass.
-- Found while implementing: three existing tests moved a slice to `in_progress`
-  without asserting the exit code, so they would have passed vacuously under the
-  gate. Each now claims first and asserts the 0.
-
-**P8 followed, same session (LEDGER 81) - probe answered YES, adoption DECLINED
-on fit, nothing installed.** Read at source via `gh api`, not the marketplace
-page: all 7 gitwand MCP tools take a per-call `cwd`, every git access is
-`execFileSync("git", args, {cwd})` with no `.git`-as-directory assumption, so a
-worktree path works. The gate is cleared and the tool is still not worth taking -
-P7 shipped hours earlier makes LW's merge conflicts rare BY ENFORCEMENT, so an
-auto-resolver has ~nothing to resolve. REOPEN only if the orchestrator is widened
-past disjointness, and do NOT re-run the probe. Gotcha if it ever is adopted:
-every explain/trace string is hardcoded FRENCH with em-dashes - it must never
-reach a commit message or a tracked doc.
-
-**L2's retrospective half followed, same session (LEDGER 82,
-`docs/CLAIMED_GREEN_RETRO_2026-08-01.md`).** `claimed_green_gate.py` gained
-`--history` / `--audit` / `--json`. THE ANSWER: 387 transcripts, 269 green
-claims, 25 flagged, **6 genuinely unbacked** after hand-reading every one, and
-**ZERO** claims of green over a red suite. All 6 are the same shape - a count a
-SUBAGENT or a previous session observed, restated as this turn's fact. So
-Verification Discipline is right and its emphasis is wrong: the danger is
-inheriting a green, not lying about one. Quote the reviewed 6, NEVER the raw
-sweep - the number moved 206 -> 67 -> 31 -> 25 on three measurement bugs, the
-biggest being that subagent transcripts carry NO entry-level `toolUseResult`
-(output is on the tool_result PART as `content` + `is_error`). Two of the fixes
-improved the LIVE gate: it would have blocked this very session twice for
-reporting TDD RED honestly. Do NOT tune the two residual false-positive classes
-against those 25 samples - that is fitting the detector to its own sweep.
-
-**wiki-swap-manifest-hash-residue CLOSED too (LEDGER 83).** Decided on principle,
-not patched: a swapped source gets an APPENDED `REPLACE_SOURCE` transition; the
-INTAKE hash is never rewritten, because the manifest is the provenance record and
-every other ledger here is append-only. Fixing it exposed a latent bug that was
-not the swap's fault - `verify` picked a file's expected hash by dict-insertion
-order, so **9 of the original 32 mismatches were that alone** (measured three
-ways: 32 file-order / 23 latest-ts / 2 latest-ts+backfill). 21 slugs backfilled,
-all 21 cross-checked against the swap manifest's recorded wiki hash before
-writing (0 disagreements), idempotent on re-run. `scan --verify` 32 -> 2, plain
-`scan` anomalies 0. The backfill tool REFUSES to run unscoped and that earned
-itself immediately - the 2 leftovers are `vayne3`, never part of the 22 and
-unexplained; an unscoped sweep would have recorded the drift as intentional.
-**vayne3 then got explained, and it was hiding something (LEDGER 84).** The
-2026-07-15 aspect-correction pass swapped operator-corrected 16:9 crops over
-non-16:9 initials; vayne3 was the documented PILOT for that flow (original intact
-in `9.Image Backup` at ar 1.725, on disk 1.781). Not corruption - the same class
-as the wiki swaps, predating the convention. The real finding: its **8 siblings
-from that same pass reported nothing**, because their crops were saved `.png`
-over a `.jpg` intake and `_expected_hashes` keyed by FILENAME, so verify checked
-NOTHING for them. 9 of 726 milestone files were unverifiable that way - including
-`1341679`, which LEDGER 83 wrote off as "no comparable hash": it was UNCHECKED,
-not fine. Root-cause fix: `_milestone_key()` identifies a milestone by slug +
-stage + phase + version, never by extension. All 9 backfilled after checking each
-went non-16:9 -> 16:9 with its original preserved.
-FINAL: `scan --verify` **0**, `scan` anomalies **0**, **0** unchecked files.
-The lesson worth keeping: clearing the one noisy row early would have recorded a
-file and left the hole open - investigating it is what surfaced the 8 silent
-ones. NOTE: `images/**` is gitignored, so those 32 manifest edits are on disk
-only, not in any commit.
-
-**Then the operator queue drain (LEDGER 85, 2026-08-02).** Both stale worktrees
-removed (each 0 ahead of main, clean tree) and all 10 merged agent branches
-pruned - `git branch` is just `main`. First pass: 17 of 20 approved (Done
-267 -> 284); the other 3 are HELD at 3:2 (ar 1.500) because 16:9 costs ~15.6
-percent of height against an 8 percent tolerance - `lw_first_pass` returns
-`skipped/held` and the crop is an operator call, NOT forced. Cleaning: all 12
-needauths rejected on review, then 3 passed through - `nguyen` (`_01`), `vayne3`
-(initial unchanged; team logos are design), `p08e8` (`_01`, remnant accepted).
-Cleaning Done 0 -> 3, scratch 18, anomalies 0. A targeted LaMa pass on p08e8's
-remnant was built and REJECTED - it traded the fragment for a smudge plus patch
-seams; do not retry that region blind.
-**Two records corrected - both were blocking the right work.** New ROADMAP item
-`clean-retry-degrades`: workings after `_01` are measurably worse, so the retry
-loop is harmful past attempt 1, and the detector proposes edits on clean images.
-And the BACKLOG's "modelviewer.lol: NO, do not retry" rested on ONE 2026-07-16
-line measuring only asset-scraping; operator re-measured 2026-08-02 - Cloudflare
-is no longer the blocker and the route is CAPTURE (seed each champion + skin
-once, many perspectives/rotations). That also undoes the provenance objection
-raised against a render library for m1: it applies to MIXING renders with real
-art, not to an all-render design where both classes share a renderer - which
-matches provenance by construction and kills the n=5 ceiling. Filed as a THIRD
-m1 option; do NOT re-close m1 on provenance alone.
-
-NEXT: **five operator answers are owed** - `anat-vision-review` FLAG-vs-REJECT
-ramifications, `usm-halo-calibration` explain + recommend, `g1-dists-cap-ratify`
-why a 4K cap when output is 1440p, `arm-scheduled-tasks` register + roster review
-now that Gemini is going, and **`gemini-removal` to be executed** (operator said
-proceed). Those were asked this session and deferred to the next one. Also open:
-`wiki-swap-manifest-hash-residue` (scan --verify HASH_MISMATCH on 21 of 22,
-bookkeeping only; plain scan is clean). Loose end unchanged: two stale worktrees
-still registered - check for unmerged work before removing.
