@@ -157,6 +157,7 @@ Print a tight banner - exactly this format:
   - session file         : <N> MB <ok | /clear overdue>
   - live-state risk      : no | YES - wait until safe to /clear
   - next-session prompt  : printed below
+  - hand-off file        : <path written by tools/lw_next_session.py>
 ==================================================================
   Type /clear to start a fresh session with reset token budget.
 ==================================================================
@@ -185,6 +186,28 @@ Start with: /clear, then bootstrap from CLAUDE.md + MEMORY.md + WAKEUP_NOTES + g
 ```
 
 This is mandatory. Never end /done without it - even when the only next task is "pick the next ROADMAP item".
+
+### 10b. Persist that prompt to the Desktop hand-off file (ALWAYS)
+
+Printing it in chat is not enough - chat dies at `/clear`. Write the SAME block
+to the shared Desktop hand-off, which is what a fresh session re-feeds verbatim:
+
+```
+python tools/lw_next_session.py --write -
+```
+
+Pipe the prompt block in on stdin (or `--write <file>`). Do NOT hand-write the
+path. The Legion Desktop is shared by three concurrent sessions (LW / RC / RM)
+and the `LW-` prefix is the only thing keeping this write off a sibling's
+hand-off, so the target is resolved and guarded by that tool: an optional
+`ops/runtime/next_session_intent.json` may name a different file, but anything
+that is not a bare `LW-`-prefixed filename under the Desktop - absolute path,
+drive letter, `..`, any separator, empty, non-string, malformed document -
+falls back to `LW-NEXT-SESSION.txt` instead of being honoured. The content must
+be 7-bit ASCII; the tool refuses non-ASCII rather than writing mojibake.
+
+Confirm the write in the banner (`hand-off file`) with the path the tool
+printed - not an assumed one.
 
 ### Safety rails
 

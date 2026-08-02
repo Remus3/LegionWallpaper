@@ -567,10 +567,11 @@ def align_rois(rois, upsample=20, use_ecc=False):
     BEFORE any ECC refinement - with use_ecc=True the refinement lands in
     `forward_affines` only, so the two disagree by design.
 
-    Coverage: tests/test_lw_clean_dekel_align.py. Those tests SKIP on the CI
-    interpreter (no cv2/skimage there) and run under the lw-clean venv - so a
-    green CI run says nothing about this function. Run them locally after
-    touching it.
+    Coverage: tests/test_lw_clean_dekel_align.py, run in CI by the `cv-lane`
+    job (it installs requirements-cv.txt, so cv2 + skimage resolve there and
+    the tests do NOT skip - the lane fails loudly if they ever do). They still
+    skip on the stdlib-only `check` job and under system python; locally, run
+    them with the lw-clean venv.
     """
     marks = [mark_signal(r) for r in rois]
     ref = np.median(np.array(marks), axis=0)

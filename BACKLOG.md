@@ -346,16 +346,16 @@ _Product is defined by ADR-002/ADR-003 (staged self-auditing restoration pipelin
   untouched. Lift the detector design, do NOT install red-handed (two confirmed
   path-separator bugs, no Windows CI).
 
-- **next-session-handoff-enforcement - the file exists, the guard does not.**
-  `C:\Users\Administrator\Desktop\LW-NEXT-SESSION.txt` is now written each
-  `/done` (adopted from the sibling convention so three concurrent sessions
-  cannot overwrite each other's hand-off). What is NOT built is the half that
-  makes it safe: the consumer enforcing the `LW-` prefix, with the write target
-  read from an on-disk intent document and ANY non-conforming value falling back
-  to the default - absolute paths, drive letters, `..` segments, empty,
-  non-string, or a filename not prefixed `LW-`. Without it a doctored or stale
-  intent document could redirect an LW session's write over a sibling's
-  hand-off. Cross-repo writes must be a deliberate act, never a fallback.
+- ~~**next-session-handoff-enforcement - the file exists, the guard does not.**~~
+  SHIPPED 2026-08-02. Both halves, and the premise was half wrong: `/done` was
+  NOT writing the file each session - `.claude/commands/done.md` never mentioned
+  it, so the Desktop copy was whatever some earlier session wrote by hand.
+  `tools/lw_next_session.py` now resolves and guards the target (optional
+  `ops/runtime/next_session_intent.json`; absolute paths, drive letters, `..`,
+  separators, empty, non-string, malformed doc and any non-`LW-` filename all
+  fall back to the default) and `done.md` section 10b makes the write
+  mandatory. 40 tests in `tests/test_lw_next_session_guard.py`, including the
+  headline case: an intent document naming `RC-NEXT-SESSION.txt` is ignored.
 
 - _Also candidates: pre-commit hooks hardening, suite speed, local tooling._
 
