@@ -89,8 +89,34 @@ file and left the hole open - investigating it is what surfaced the 8 silent
 ones. NOTE: `images/**` is gitignored, so those 32 manifest edits are on disk
 only, not in any commit.
 
-NEXT: no queued phase. Product work is the standing option - Stage 2's remaining
-cleaning queue and the NEEDAUTH backlog. Also open:
+**Then the operator queue drain (LEDGER 85, 2026-08-02).** Both stale worktrees
+removed (each 0 ahead of main, clean tree) and all 10 merged agent branches
+pruned - `git branch` is just `main`. First pass: 17 of 20 approved (Done
+267 -> 284); the other 3 are HELD at 3:2 (ar 1.500) because 16:9 costs ~15.6
+percent of height against an 8 percent tolerance - `lw_first_pass` returns
+`skipped/held` and the crop is an operator call, NOT forced. Cleaning: all 12
+needauths rejected on review, then 3 passed through - `nguyen` (`_01`), `vayne3`
+(initial unchanged; team logos are design), `p08e8` (`_01`, remnant accepted).
+Cleaning Done 0 -> 3, scratch 18, anomalies 0. A targeted LaMa pass on p08e8's
+remnant was built and REJECTED - it traded the fragment for a smudge plus patch
+seams; do not retry that region blind.
+**Two records corrected - both were blocking the right work.** New ROADMAP item
+`clean-retry-degrades`: workings after `_01` are measurably worse, so the retry
+loop is harmful past attempt 1, and the detector proposes edits on clean images.
+And the BACKLOG's "modelviewer.lol: NO, do not retry" rested on ONE 2026-07-16
+line measuring only asset-scraping; operator re-measured 2026-08-02 - Cloudflare
+is no longer the blocker and the route is CAPTURE (seed each champion + skin
+once, many perspectives/rotations). That also undoes the provenance objection
+raised against a render library for m1: it applies to MIXING renders with real
+art, not to an all-render design where both classes share a renderer - which
+matches provenance by construction and kills the n=5 ceiling. Filed as a THIRD
+m1 option; do NOT re-close m1 on provenance alone.
+
+NEXT: **five operator answers are owed** - `anat-vision-review` FLAG-vs-REJECT
+ramifications, `usm-halo-calibration` explain + recommend, `g1-dists-cap-ratify`
+why a 4K cap when output is 1440p, `arm-scheduled-tasks` register + roster review
+now that Gemini is going, and **`gemini-removal` to be executed** (operator said
+proceed). Those were asked this session and deferred to the next one. Also open:
 `wiki-swap-manifest-hash-residue` (scan --verify HASH_MISMATCH on 21 of 22,
 bookkeeping only; plain scan is clean). Loose end unchanged: two stale worktrees
 still registered - check for unmerged work before removing.

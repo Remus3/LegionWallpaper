@@ -27,6 +27,62 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+85. DONE **2026-08-02 (operator queue drain, worktree/branch cleanup, and a
+    stale do-not-retry corrected; no repo code change).**
+    CLEANUP: both stale worktrees removed after verifying each was 0 commits
+    ahead of main with a clean tree, then all 10 merged agent branches pruned -
+    `git branch` is now just `main`.
+    FIRST PASS: operator ruled "1.First Pass Scratch all pass". 17 of 20
+    approved (`2.First Pass Done` 267 -> 284). The other 3 could not be: they
+    carried no `_firstneedauth` at all because `lw_first_pass` HELD them -
+    `puppet-master-syndra-by-aiaida-dmhijti-fullview` (1920x1279) and both
+    `spirit-blossom-vayne-by-secondhaven` slugs (1095x730) are 3:2 (ar 1.500),
+    and reaching 16:9 costs ~15.6 percent of height against an 8 percent
+    area-loss tolerance. Re-running first pass returned `status: skipped,
+    reason: held` for all three. The tool is correct; the crop is an operator
+    call, same class as the 2026-07-15 wide-crop set. NOT forced.
+    CLEANING: all 12 at `_cleanneedauth` rejected on operator review, with TWO
+    distinct reasons recorded so the queue stays readable - 10 as "corrections
+    are contextually incorrect for the image content" and 2 as "no watermark or
+    defect present". The operator then revised on review, and three slugs were
+    passed through: `nguyen-ky-phuc-reyjin-leblanc-j-f1` (`_01` approved),
+    `vayne3` (`_cleaninitial` passed through unchanged - the team logos are part
+    of the design, nothing to remove), and
+    `p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pre` (`_01` approved with a
+    small bottom-left lettering remnant explicitly accepted). Each carries its
+    reason in `params` on a real `save-working` transition rather than a silent
+    pick. `4.Cleaning Done` 0 -> 3, scratch 21 -> 18, anomalies 0.
+    A targeted LaMa pass on p08e8's remnant (80x90 region) was BUILT AND
+    REJECTED, not skipped: it removed the fragment but left an olive smudge and
+    two visible patch seams over 0.107 percent of the image. Shown to the
+    operator at 4x A/B; `_01` was kept. Do not retry that region blind.
+    NEW ROADMAP ITEM from the review: `clean-retry-degrades`. Two witnesses that
+    workings after `_01` are WORSE, so the retry loop is actively harmful past
+    attempt 1, plus the detector proposes edits on images that need none.
+    RECORD CORRECTED, and this one mattered: BACKLOG claimed "Programmatic
+    access to modelviewer.lol: NO, already measured. Do not retry." That rested
+    on ONE line in `docs/research/crossbow_render_poc.md` (2026-07-16) measuring
+    a single question - can the asset blobs be downloaded - and had hardened
+    into a blanket do-not-retry. Operator re-measurement 2026-08-02: Cloudflare
+    is no longer the blocker and the viable route is CAPTURE, not fetch - seed
+    each champion and skin ONCE, capturing many perspectives / rotations of the
+    output window. The old finding never measured that. ALSO CORRECTS an
+    objection this session raised in-session against a render library for
+    `m1-gate-fund-or-close`: provenance-boundary contamination applies to MIXING
+    renders with real Riot art, NOT to an all-render design where both classes
+    come from the same renderer - which matches provenance by construction and
+    removes the n=5 ceiling entirely. Residual risk moves to train-on-renders /
+    infer-on-paintings domain shift. Recorded as a THIRD option on m1 beside
+    FUND and CLOSE. Do not re-close m1 on the provenance argument alone.
+    Verified: suite **1678 passed / 16 skipped**, ruff clean, hygiene gate 10
+    passed, drift_guard 0 breaches, `scan` anomalies 0. Pipeline mutations are
+    on disk only (`images/**` and `PIPELINE_LOG.md` are gitignored).
+    OWED TO THE OPERATOR NEXT SESSION, asked and not yet answered:
+    `anat-vision-review` FLAG-vs-REJECT ramifications, `usm-halo-calibration`
+    explain + recommend, `g1-dists-cap-ratify` why a 4K cap for 1440p output,
+    `arm-scheduled-tasks` register + roster review post-Gemini, and
+    `gemini-removal` execution.
+
 84. DONE **2026-08-01 (vayne3 explained - and it was the visible edge of a
     verify blind spot that was hiding 9 files; TDD).** Asked what happened to
     vayne3, the one slug still reporting HASH_MISMATCH after item 83.

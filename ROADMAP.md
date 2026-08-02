@@ -6,6 +6,28 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
+- **clean-retry-degrades - the cleaning stage's later iterations make the image
+  WORSE than `_cleanworking_01` - NEW 2026-08-02, two witnesses.**
+  Operator review of the 12-slug cleaning queue: "the iterations after `_01` just
+  degrade it further which is why the `_01`s are the best result out of them so
+  far." Confirmed on both slugs that survived review -
+  `nguyen-ky-phuc-reyjin-leblanc-j-f1` and
+  `p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pre` - where `_01` was the
+  approved result and `_02`/`_03` were rejected. So the retry loop is not just
+  unhelpful past attempt 1, it is actively harmful, and every REJECT currently
+  spends a pass making things worse.
+  Next: decide whether the retry loop should stop at `_01` by default, or whether
+  each retry must be gated on a measured improvement over the previous working
+  rather than fired unconditionally. Cheap probe first: for every slug with 2+
+  workings, compare each working against `_cleaninitial` on the existing metrics
+  and count how often `_02+` beats `_01` - if it never does, the loop is pure
+  loss and the fix is a one-line default.
+  Also open from the same review: the cleaner FINDS work on images that need
+  none. Both `vayne3` (team logos are design) and `p08e8` had bottom-band edits
+  proposed on content the operator ruled clean, which is a DETECTOR problem, not
+  a fill problem - see `cleaning-detector-precision` framing in this same review.
+  Evidence: LEDGER 85; PIPELINE_LOG 2026-08-02 REJECT notes.
+
 - **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**
   `scan --verify` reports 0 mismatches and 0 milestone files go unchecked; all
   726 have a recorded hash that matches disk. A source replaced outside a
@@ -154,6 +176,14 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   ~13 non-canonical, all real Riot art, matched on pixel count AND provenance.
   CLOSE = accept `gate_mode="operator"` permanently, which is already the
   shipped default and works.
+  THIRD OPTION opened 2026-08-02 by operator re-measurement of modelviewer.lol:
+  seed each champion + skin ONCE and capture many perspectives / rotations,
+  giving a render library where BOTH classes come from the same renderer. That
+  matches provenance BY CONSTRUCTION and removes the n=5 ceiling, so the
+  provenance objection - correct against mixing renders with real art - does not
+  apply to an all-render design. Residual risk becomes train-on-renders /
+  infer-on-paintings domain shift. See BACKLOG "3DSkinViewer / modelviewer.lol"
+  point 1 and `glb-render-fetch`.
   Evidence: LEDGER 37; `scratchpad/probe_results.md` +
   `scratchpad/render_exemplar_results.md`.
   Do-not-redo: img2img weapon-swap (structure-locked, 0/12); any probe trained
@@ -225,8 +255,14 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   joints, and render the crop that `load_assets` consumes. That half needs a
   network dependency and a render backend, so it is a separate slice by design.
   Evidence: LEDGER 38 (1dbfc2d); LEDGER 37 for the live CDN verification.
-  Do-not-redo: scraping the modelviewer.lol WEBSITE (Cloudflare + in-app blobs,
-  POC-measured); any fixed bone-INDEX set (two rig conventions exist, so indices
+  Do-not-redo: ASSET-SCRAPING the modelviewer.lol website (Cloudflare + in-app
+  blobs, POC-measured 2026-07-16) - but note that ruling is scoped to fetching
+  asset blobs and NOTHING else. Operator re-measurement 2026-08-02: Cloudflare is
+  no longer the blocker and a CAPTURE route is viable - seed each champion + skin
+  ONCE and capture many perspectives / rotations of the output window, building a
+  render library in a single pass. That is a live option for this item and for
+  `m1-gate-fund-or-close`; see BACKLOG "3DSkinViewer / modelviewer.lol" point 1.
+  Also do-not-redo: any fixed bone-INDEX set (two rig conventions exist, so indices
   cannot port); reading `primitives[0]` alone (newer skins split mesh 0 into
   9-10 primitives sharing one POSITION accessor - drops most triangles); the
   `.skl` skeleton from CDragon (404) - the named-joint path replaces it.

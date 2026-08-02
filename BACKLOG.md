@@ -388,10 +388,28 @@ reference images, and gate positives - the exact gap every prior approach hit.
 
 **RESOLVED 2026-07-26 - operator rulings + prior work on disk.** Q1-Q4 as first
 drafted are answered; do NOT re-ask them.
-1. **Programmatic access to modelviewer.lol: NO, already measured.**
-   `docs/research/crossbow_render_poc.md` (2026-07-16) records modelviewer.lol
-   (Khada) as Cloudflare-protected + loading via in-app blobs, explicitly NOT
-   scrapeable. Do not retry the website-scrape route.
+1. **Programmatic access to modelviewer.lol: REOPENED 2026-08-02 by operator
+   re-measurement. The old NO was scoped to ONE approach and had gone stale.**
+   The prior basis was a single line in `docs/research/crossbow_render_poc.md`
+   (2026-07-16): modelviewer.lol (Khada) is Cloudflare-protected and loads via
+   in-app blobs, so ASSET-SCRAPING it is out. That still stands and is still a
+   do-not-retry.
+   What the operator reports (2026-08-02): Cloudflare is no longer the blocker,
+   and the approach that works is not scraping assets at all - **seed each
+   champion and skin variant ONCE, capturing many perspectives / rotations of
+   the output window**, producing a render library on disk in a single pass.
+   That is a capture route, not a fetch route, and the 2026-07-16 finding never
+   measured it. Treat the old "NO" as answering "can we download the asset
+   blobs" and nothing else.
+   Consequence for `m1-gate-fund-or-close`, and it CORRECTS the objection raised
+   2026-08-02 in-session: a render library was dismissed there because probes
+   trained across a provenance boundary learn the generator fingerprint (AUC 1.0
+   means nothing). That objection applies to MIXING renders with real Riot art.
+   It does NOT apply if BOTH classes - canonical and non-canonical - come from
+   the SAME renderer, which this route makes possible: provenance is then matched
+   by construction and n stops being 5. The residual risk moves to train-on-
+   renders / infer-on-paintings DOMAIN SHIFT, which is a different question and a
+   testable one. Do not re-close m1 on the provenance argument alone.
 2. **Asset-distribution concern: CLOSED by operator ruling.** Assets are already
    public and widely used across public sites. LW is private-use regardless
    (RESTORATION_PLAN sec 10), so nothing ships either way.
