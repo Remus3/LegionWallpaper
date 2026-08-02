@@ -8,6 +8,24 @@
 target-version = "py314"
 line-length = 120
 
+# Don't lint generated/runtime/cache/vendored dirs.
+# MUST stay top-level: an `exclude` key under [lint] is silently INERT
+# (measured on ruff 0.15.12 - the excluded file is still linted).
+exclude = [
+    "__pycache__",
+    ".venv",
+    "Claude",
+    "ops/runtime",
+    "ops/loop/control",
+    "data",
+    "logs",
+    # Vendored third-party, not authored here - do not lint or "fix" it.
+    # DWPose onnx-CPU localizer, vendored to avoid the mmcv dependency
+    # (LEDGER 19). Upstream style is not ours to enforce; edits here
+    # would be lost on the next re-vendor.
+    "tools/dwpose_onnx",
+]
+
 [lint]
 select = [
     "E",    # pycodestyle errors
@@ -34,24 +52,14 @@ ignore = [
     "UP045",  # Optional[X] -> X | None - legal on py314, defer to a dedicated sweep
     "B905",   # zip() without strict= - NOT cosmetic: strict=True raises on
               # length mismatch where the current code silently truncates.
-              # 4 sites, 2 of them vendored (tools/dwpose_onnx). Needs per-site
-              # review, not a blanket autofix.
+              # 2 authored sites left (tests/test_lw_anat_metrics.py,
+              # tools/lw_clean_dekel.py); the vendored pair is excluded below.
+              # Needs per-site review, not a blanket autofix.
     "E402",   # module import not at top - unavoidable in ops/ sys.path scripts
     "B904",   # raise without from inside except - inherited RC style
     "B007",   # unused loop variable - intentional in callbacks
     "B027",   # empty method without abstract - stub pattern
     "E731",   # lambda assignment - intentional one-liners
-]
-
-# Don't lint generated/runtime/cache dirs
-exclude = [
-    "__pycache__",
-    ".venv",
-    "Claude",
-    "ops/runtime",
-    "ops/loop/control",
-    "data",
-    "logs",
 ]
 
 [lint.per-file-ignores]
