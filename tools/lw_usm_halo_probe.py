@@ -179,6 +179,79 @@ def classify_slugs(scratch_root, wanted):
     return out
 
 
+# ---- fidelity per variant (usm-halo-calibration step 1) -------------------
+# The 2026-07-30 census measured halo ONLY. That is enough to say the mask
+# manufactures the flags; it is NOT enough to pick a mask strength, because a
+# milder mask's fidelity cost went unmeasured. Operator direction 2026-08-02:
+# measure fidelity per variant BEFORE proposing a number.
+FIDELITY_KEYS = ("ssim", "ms_ssim", "lpips", "dists", "common_scale", "capped",
+                 "native_scale")
+# Higher is better for these; for the rest lower is better. Which direction a
+# metric runs decides whether the WORST case is a min or a max, and getting that
+# backwards would report the best slug as the risk.
+FIDELITY_HIGHER_IS_BETTER = ("ssim", "ms_ssim")
+FIDELITY_SCALARS = ("ssim", "ms_ssim", "lpips", "dists")
+
+
+def attach_fidelity(variants, source_png, runner):
+    """Measure FR fidelity for every variant against the same conditioned source.
+
+    `runner(out_png, source_png) -> dict` is injected: production passes
+    `lw_first_pass.run_fr_metrics`, which shells to .venv-metrics. Pure with
+    respect to `variants` - returns a new dict.
+
+    A failed measurement is RECORDED (`fidelity: None` + `fidelity_error`), never
+    swallowed and never defaulted. A missing number that reads as a good one is
+    how 63 images lost DISTS silently (ADR-007), and one variant failing must not
+    kill a census that costs 16 slugs of GPU time.
+    """
+    out = {}
+    for label, info in variants.items():
+        row = dict(info)
+        try:
+            fr = runner(info["png"], source_png) or {}
+            row["fidelity"] = {k: fr[k] for k in FIDELITY_KEYS if k in fr}
+        except Exception as exc:  # noqa: BLE001 - one variant != a dead census
+            row["fidelity"] = None
+            row["fidelity_error"] = f"{type(exc).__name__}: {exc}"
+        out[label] = row
+    return out
+
+
+def fidelity_summary(rows):
+    """Per-variant fidelity distribution across a census.
+
+    Reports min AND max for every scalar, because the gate is PER IMAGE: a mean
+    hides the single slug a milder mask ruins, and that slug is the whole reason
+    to measure. Read the worst case off `ms_ssim.min` / `lpips.max` /
+    `dists.max`; the means are context, not the decision.
+    """
+    acc = {}
+    for row in rows:
+        for label, result in (row.get("variants") or {}).items():
+            fid = result.get("fidelity")
+            if not isinstance(fid, dict):
+                continue
+            bucket = acc.setdefault(label, {"measured": 0, "_v": {}})
+            bucket["measured"] += 1
+            for key in FIDELITY_SCALARS:
+                val = fid.get(key)
+                if isinstance(val, (int, float)):
+                    bucket["_v"].setdefault(key, []).append(float(val))
+    out = {}
+    for label, bucket in acc.items():
+        entry = {"measured": bucket["measured"]}
+        for key, vals in bucket["_v"].items():
+            entry[key] = {
+                "min": min(vals),
+                "max": max(vals),
+                "mean": round(sum(vals) / len(vals), 6),
+                "worse_is": "min" if key in FIDELITY_HIGHER_IS_BETTER else "max",
+            }
+        out[label] = entry
+    return out
+
+
 def crossings(rows, threshold=HALO_FLAG):
     """Summarize an A/B census: how many slugs each variant puts over the line.
 
@@ -298,14 +371,20 @@ def _spawn_worker(python_exe, src_path, out_dir, usm_specs, model_path=None):
     return fp._last_json_line(proc.stdout)
 
 
-def measure_slug(slug, work_root, usm_specs, python_exe, model_path=None):
+def measure_slug(slug, work_root, usm_specs, python_exe, model_path=None,
+                 fidelity=False, scratch_root=None):
     """Measure every USM variant for one slug. Returns a report row dict.
 
     The source is re-derived, never re-used from the pipeline run: select_source
     then condition_source, both the shipped functions, writing any 16:9 crop into
     work_root. The slug's own folder under images\\ is only ever READ.
     """
-    scratch = fp.scratch_dir_for(slug)
+    # scratch_root is injectable because the batch this census has to re-measure
+    # was APPROVED and moved to 2.First Pass Done. Its manifests - and so the
+    # shipped verdict this probe cross-checks against - live there now, not in
+    # 1.First Pass Scratch.
+    scratch = (os.path.join(scratch_root, slug) if scratch_root
+               else fp.scratch_dir_for(slug))
     src, kind = fp.select_source(slug, scratch)
     if src is None:
         return {"slug": slug, "status": "error", "reason": "no decodable source"}
@@ -337,7 +416,10 @@ def measure_slug(slug, work_root, usm_specs, python_exe, model_path=None):
             "lap_ratio": round(float(lap), 4),
             "band_delta": round(float(band), 6),
             "over_flag": halo > HALO_FLAG,
+            "png": info["png"],
         }
+    if fidelity:
+        variants = attach_fidelity(variants, conditioned, fp.run_fr_metrics)
 
     row = {
         "slug": slug,
@@ -363,13 +445,15 @@ def measure_slug(slug, work_root, usm_specs, python_exe, model_path=None):
     return row
 
 
-def run_census(slugs, work_root, usm_specs, python_exe, model_path=None):
+def run_census(slugs, work_root, usm_specs, python_exe, model_path=None,
+               fidelity=False, scratch_root=None):
     """Measure every slug in order; a per-slug failure never kills the census."""
     rows = []
     for slug in slugs:
         try:
             rows.append(
-                measure_slug(slug, work_root, usm_specs, python_exe, model_path)
+                measure_slug(slug, work_root, usm_specs, python_exe, model_path,
+                             fidelity=fidelity, scratch_root=scratch_root)
             )
         except Exception as exc:  # noqa: BLE001 - one bad slug != a dead census
             rows.append({"slug": slug, "status": "error",
@@ -393,6 +477,11 @@ def main(argv=None):
     ap.add_argument("--usm", action="append", default=[],
                     help="usm variant 'radius,percent,threshold' or 'none' "
                          "(repeatable; default: the shipped recipe plus 'none')")
+    ap.add_argument("--fidelity", action="store_true",
+                    help="also measure ms_ssim/lpips/dists per variant via "
+                         ".venv-metrics. Expensive (one fr_metrics spawn per "
+                         "variant per slug) and REQUIRED before proposing a USM "
+                         "number - halo evidence alone is one axis.")
     ap.add_argument("--out", help="JSON report path (atomic write)")
     ap.add_argument("--work-dir", help="scratch dir for conditioned + finished PNGs")
     ap.add_argument("--python", default=fp.UP_PY,
@@ -432,16 +521,20 @@ def main(argv=None):
 
     work_root = args.work_dir or tempfile.mkdtemp(prefix="lw_usm_halo_")
     Path(work_root).mkdir(parents=True, exist_ok=True)
-    rows = run_census(slugs, work_root, usm_specs, args.python, args.model)
+    rows = run_census(slugs, work_root, usm_specs, args.python, args.model,
+                      fidelity=args.fidelity, scratch_root=args.scratch_root)
     report = {
         "probe": "lw_usm_halo_probe",
         "halo_flag_threshold": HALO_FLAG,
         "usm_default": list(USM_DEFAULT),
         "usm_specs": usm_specs,
         "work_dir": str(work_root),
+        "scratch_root": str(args.scratch_root),
         "rows": rows,
         "crossings": crossings(rows),
     }
+    if args.fidelity:
+        report["fidelity"] = fidelity_summary(rows)
     if args.out:
         _atomic_write_json(args.out, report)
         print(f"report -> {args.out}")

@@ -383,14 +383,19 @@ def test_main_batch_resolves_and_writes_report(tmp_path, monkeypatch):
 def test_main_default_usm_specs_are_the_shipped_recipe_plus_none(tmp_path, monkeypatch):
     captured = {}
 
-    def _fake_census(slugs, work_root, usm_specs, python_exe, model_path=None):
+    def _fake_census(slugs, work_root, usm_specs, python_exe, model_path=None,
+                     **kw):
         captured["specs"] = usm_specs
+        captured["kw"] = kw
         return []
 
     monkeypatch.setattr(probe, "run_census", _fake_census)
     probe.main(["--slug", "x", "--work-dir", str(tmp_path)])
     assert captured["specs"] == ["1.2,70,3", "none"]
     assert probe.parse_usm_spec(captured["specs"][0]) == USM_DEFAULT
+    # fidelity is OFF by default: it costs one .venv-metrics spawn per variant
+    # per slug, so it is opt-in rather than a tax on every halo re-measure
+    assert captured["kw"]["fidelity"] is False
 
 
 # --------------------------------------------------------------------------
