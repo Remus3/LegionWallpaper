@@ -18,6 +18,46 @@ rewritten - relocations are verbatim, newest batch first.
 
 ---
 
+## Relocated 2026-08-09 (WAKEUP_NOTES prune - keep last 3 sessions: weekly-hygiene pass, repo rename/README/3.14/cv-lane/hand-off guard, THE REPO IS PUBLIC)
+
+## 2026-08-02 - all five recommendations EXECUTED; USM flipped on measurement; watchdog armed
+
+Suite **1760 passed / 16 skipped** (session start 1679), ruff clean, drift_guard 0.
+LEDGER 87. Operator answered "do the recommendation" x2 and "yes" x2.
+
+- **usm-halo-calibration RESOLVED - and the measurement changed the answer.**
+  Ran the missing axis: fidelity per variant over all 17 gated batch20 slugs at
+  70/50/35/none. Expected a trade-off curve. There is none - **every fidelity
+  metric improves monotonically as the mask weakens, worst case included.** The
+  mask was COSTING fidelity, not buying it. `USM_DEFAULT` is now `(1.2, 35, 3)`;
+  halo flags 7/17 -> 0/17, worst gated `lap_ratio` 1.1399 over its 1.0 floor.
+  The 0.05 threshold was deliberately NOT moved - at 35 nothing flags, and
+  moving a ruler to fit a reading was the one axis ruled out.
+  Honest limit, stated in the doc and the code: these are FR SELF-comparisons
+  against the conditioned source, so a weaker mask is closer by construction.
+  They say the gate's metrics improve, not that the image looks sharper.
+  `lap_ratio` is what stops the argument at 35 rather than at 0.
+  Gotcha found while flipping: the synthetic step-edge fixture SATURATES - at 35
+  its halo reads equal to no-mask - so that test now pins the historical 70.
+- **ADR-007** ratifies `MAX_COMMON_PIXELS` 3840x2160, pinned by a test.
+- **ADR-008** rules vision reviewers FLAG-only and blocks non-operator approval.
+  `clamp_vision_audit()` at the WRITE boundary + `assert_approval_allowed()`
+  before the needauth rename; `approve --actor` defaults to `operator`.
+- **`tools/ci_watchdog.py` written, `LW-CIWatchdog` ARMED.** My earlier answer
+  said "register it" - it could not be registered, the script did not exist.
+  Now it does. HALT first (empty file counts), only a SETTLED failure acts, 2
+  attempts per sha with a refund on transient vendor errors, merge self-gated on
+  the fix branch's OWN green CI at its OWN head sha. `schtasks` rejects `/RI`
+  for `/SC ONSTART`, so registration is the tool's own `--install` XML.
+  **It has never seen a real red main** - watch its first genuine fire, and read
+  `ops/runtime/ci_watchdog/watchdog.log` after any red push.
+- **`LW-WeeklyHygiene` armed** too; its `-Model` was a dead id
+  (`claude-sonnet-4-6`) and would have failed silently every Sunday.
+- Still open and NOT implied: the 288 approved firstdones were made at usm70 and
+  are now on a different recipe. Reprocessing is an operator call.
+
+---
+
 ## Relocated 2026-08-01 (WAKEUP_NOTES prune - keep last 3 sessions: P7 start gate, P3/P4/P5 + the wiki swap, the MCP-list read + P1)
 
 ## 2026-08-01 (night) - the dashboard spec is fully built out; all four remaining items landed

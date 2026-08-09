@@ -7,7 +7,46 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09) - keep the last 3.
+
+---
+
+## 2026-08-09 - weekly hygiene pass (unattended, LW-WeeklyHygiene scheduled run)
+
+Doc + memory hygiene only, no code changes, no restart. Ground truth gathered
+via a read-only investigation subagent, verified independently before any edit.
+
+- **WAKEUP_NOTES trimmed to keep the last 3.** Relocated the 2026-08-02
+  "all five recommendations EXECUTED" session (LEDGER 87) verbatim to
+  `docs/history_notes.md` (banner pointer updated). CLAUDE.md checked clean
+  (no stray per-item ledger content, 25015 bytes, well under the 60KB budget).
+- **Two memory files were stale, both corrected (not committed - memory is
+  outside the repo):** `project-lw-headless-stack.md` claimed the run
+  dashboard was still missing; `tools/lw_rundash.py` shipped 2026-08-01, ~26
+  min after that memory was written, and was never refreshed.
+  `reference-lw-port-block.md` claimed only port 8901 was taken; `lw_ports.py`
+  `ALLOCATIONS` now also has 8900 (`rundash`). Both files + the MEMORY.md
+  index lines updated after independently confirming both files/ports on
+  disk via Read/Grep (not just trusting the subagent report).
+- **Flagged for operator (no action taken):**
+  - **ACTIONABLE, code fix, out of scope this pass:** `tools/lw_facts.py`
+    prints "5 LW-*" in its header but lists only 3 (matches the live
+    `Get-ScheduledTask` count). Root cause: line ~116 counts raw CSV rows
+    before the `set()` dedup on the next line, and `schtasks /Query` returns
+    a duplicate row per extra trigger (e.g. `LW-Wallpaper` has logon + PT3M).
+    One-line fix: count `len(set(rows))` instead. Cosmetic, Tier-0, your call.
+  - **MEDIUM confidence, not edited:** `project-restoration-pipeline.md`'s
+    "302 processed / ~76 original jpgs" count is 36 days stale (point-in-time
+    by design, corpus count churns) - only worth updating if you want it kept
+    current. `reference-deviantart-recovery.md`'s quota-state claim is
+    inherently time-perishable (weekly reset) and cannot be confirmed without
+    a live probe, which was out of scope for a read-only pass.
+  - Scheduled tasks: only 3 `LW-*` registered (`LW-Wallpaper`, `LW-CIWatchdog`,
+    `LW-WeeklyHygiene` - this run), both non-hygiene tasks last ran with
+    `LastTaskResult=0`. No other anomalies.
+- **Deferred (per skill contract, not this pass):** `/sync-all-md` full doc
+  reconcile, any coverage%/VERSION/data-count prose recompute, `BACKLOG.md`
+  edits, any dated-artifact history rewrite.
 
 ---
 
@@ -79,41 +118,3 @@ LEDGER 88. Commits `4e3b617` + `f9cd7a1`.
   is untracked local plumbing and will be clobbered by any future rewrite.
 - Gap noticed, not fixed: `drift_guard.check_cited_shas` only reads STAGED docs,
   so it cannot catch a rewrite invalidating shas already committed.
-
----
-
-## 2026-08-02 - all five recommendations EXECUTED; USM flipped on measurement; watchdog armed
-
-Suite **1760 passed / 16 skipped** (session start 1679), ruff clean, drift_guard 0.
-LEDGER 87. Operator answered "do the recommendation" x2 and "yes" x2.
-
-- **usm-halo-calibration RESOLVED - and the measurement changed the answer.**
-  Ran the missing axis: fidelity per variant over all 17 gated batch20 slugs at
-  70/50/35/none. Expected a trade-off curve. There is none - **every fidelity
-  metric improves monotonically as the mask weakens, worst case included.** The
-  mask was COSTING fidelity, not buying it. `USM_DEFAULT` is now `(1.2, 35, 3)`;
-  halo flags 7/17 -> 0/17, worst gated `lap_ratio` 1.1399 over its 1.0 floor.
-  The 0.05 threshold was deliberately NOT moved - at 35 nothing flags, and
-  moving a ruler to fit a reading was the one axis ruled out.
-  Honest limit, stated in the doc and the code: these are FR SELF-comparisons
-  against the conditioned source, so a weaker mask is closer by construction.
-  They say the gate's metrics improve, not that the image looks sharper.
-  `lap_ratio` is what stops the argument at 35 rather than at 0.
-  Gotcha found while flipping: the synthetic step-edge fixture SATURATES - at 35
-  its halo reads equal to no-mask - so that test now pins the historical 70.
-- **ADR-007** ratifies `MAX_COMMON_PIXELS` 3840x2160, pinned by a test.
-- **ADR-008** rules vision reviewers FLAG-only and blocks non-operator approval.
-  `clamp_vision_audit()` at the WRITE boundary + `assert_approval_allowed()`
-  before the needauth rename; `approve --actor` defaults to `operator`.
-- **`tools/ci_watchdog.py` written, `LW-CIWatchdog` ARMED.** My earlier answer
-  said "register it" - it could not be registered, the script did not exist.
-  Now it does. HALT first (empty file counts), only a SETTLED failure acts, 2
-  attempts per sha with a refund on transient vendor errors, merge self-gated on
-  the fix branch's OWN green CI at its OWN head sha. `schtasks` rejects `/RI`
-  for `/SC ONSTART`, so registration is the tool's own `--install` XML.
-  **It has never seen a real red main** - watch its first genuine fire, and read
-  `ops/runtime/ci_watchdog/watchdog.log` after any red push.
-- **`LW-WeeklyHygiene` armed** too; its `-Model` was a dead id
-  (`claude-sonnet-4-6`) and would have failed silently every Sunday.
-- Still open and NOT implied: the 288 approved firstdones were made at usm70 and
-  are now on a different recipe. Reprocessing is an operator call.
