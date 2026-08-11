@@ -874,13 +874,20 @@ def _print_cmds(cmds):
 
 
 def process_slug(slug, image=None, out_dir=None, dry_run=False,
-                 max_attempts=2, beside=False, models=None,
+                 max_attempts=1, beside=False, models=None,
                  langs=("en", "ch_sim")):
     """Detect -> gate -> (inpaint -> verify) for one slug. Returns a result dict.
 
     Never mutates pipeline state: on a PASS it writes the candidate to the
     runtime out-dir and PRINTS the save-working + submit commands. dry_run does
     DETECT + GATE only and writes nothing (pure triage).
+
+    max_attempts defaults to 1 (was 2 until 2026-08-10, ROADMAP
+    `clean-retry-degrades`): _auto_inpaint builds the mask ONCE before its
+    attempt loop and inpaint_lama is a pure function of (base, mask, weights),
+    so a second attempt recomputes bit-identical pixels and re-derives an
+    identical verdict. Raising it only re-spends the inpaint; see
+    tests/test_lw_clean_retry_default.py.
     """
     if image is None:
         image = select_working_image(os.path.join(CLEAN_SCRATCH, slug), slug)
@@ -932,7 +939,15 @@ def process_slug(slug, image=None, out_dir=None, dry_run=False,
 
 def _auto_inpaint(slug, image_path, boxes, w, h, out_dir, max_attempts,
                   models, langs, rec):
-    """Mask -> LaMa -> verify loop (up to max_attempts). Prints commands on pass."""
+    """Mask -> LaMa -> verify loop (up to max_attempts). Prints commands on pass.
+
+    NOTE (2026-08-10, ROADMAP clean-retry-degrades): every input to the loop -
+    `base`, `mask`, `mask_bool`, `ring` - is built ONCE above it, and
+    inpaint_lama is pure over those, so attempts after the first are
+    bit-identical re-runs. max_attempts therefore defaults to 1. Do not raise
+    the default again without first making something VARY per attempt (growing
+    the dilation is the obvious candidate); otherwise it is only spent GPU time.
+    """
     dev = models["device"] if models else _cuda_device()
     os.makedirs(out_dir, exist_ok=True)
     with Image.open(image_path) as im:
@@ -1018,7 +1033,7 @@ def _iter_slugs(batch, all_scratch):
             if ln.strip() and not ln.strip().startswith("#")]
 
 
-def run_batch(slugs, out_dir=None, dry_run=False, limit=None, max_attempts=2,
+def run_batch(slugs, out_dir=None, dry_run=False, limit=None, max_attempts=1,
               beside=False, triage_out=None):
     """Sequentially process slugs (one GPU). Prints the triage/cleaning banner."""
     if limit is not None:
@@ -1096,7 +1111,10 @@ def main(argv=None):
                    help="process every slug dir in 3.Cleaning Scratch")
     p.add_argument("--triage-out", help="aggregate triage JSONL path")
     p.add_argument("--limit", type=int, help="cap the number of slugs")
-    p.add_argument("--max-attempts", type=int, default=2)
+    p.add_argument("--max-attempts", type=int, default=1,
+                   help="inpaint attempts per working (default 1; a repeat "
+                        "attempt recomputes identical pixels - see "
+                        "ROADMAP clean-retry-degrades)")
     p.add_argument("--selfcheck", action="store_true",
                    help="import+inspect ML deps, print readiness JSON, exit")
     args = p.parse_args(argv)

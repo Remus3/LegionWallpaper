@@ -16,12 +16,33 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   approved result and `_02`/`_03` were rejected. So the retry loop is not just
   unhelpful past attempt 1, it is actively harmful, and every REJECT currently
   spends a pass making things worse.
-  Next: decide whether the retry loop should stop at `_01` by default, or whether
-  each retry must be gated on a measured improvement over the previous working
-  rather than fired unconditionally. Cheap probe first: for every slug with 2+
-  workings, compare each working against `_cleaninitial` on the existing metrics
-  and count how often `_02+` beats `_01` - if it never does, the loop is pure
-  loss and the fix is a one-line default.
+  HALF 1 ANSWERED + FIXED 2026-08-10. The probe is `tools/lw_clean_retry_probe.py`
+  (read-only; verdict census on stdlib, metric census under the cv venv).
+  Measured over the whole cleaning stage - 21 slugs, 18 with 2+ workings, 50
+  rejected workings:
+    * Retries won **0** of the 3 slugs the operator has adjudicated. Two settled
+      on `_01`'s content, one on `_cleaninitial` (no clean at all). Resolved by
+      sha256, because each winning `_04`/`_03` is an `operator-select` COPY of
+      earlier content - the approving version number overstates which attempt
+      actually produced the accepted pixels.
+    * `_02` (always sdxl-animagine): n=15, seam_ssim better than `_01` in 1,
+      worse in 14, editing 1.66x more area, moving further from the initial in
+      14/15. Strict degradation, matching the operator's read.
+    * `_03` (always iopaint): n=9, seam better in 6 - but repainting 2.66x the
+      area of `_01`, and all 9 rejected. Its seam "win" is bought by painting
+      over more of the picture, which is the detector-precision problem below,
+      not a better clean.
+  Root cause of the INTRA-working loop: `_auto_inpaint` builds `mask`/`base`
+  once ABOVE its attempt loop and `inpaint_lama` is pure over them, so attempt 2
+  recomputed bit-identical pixels and re-derived an identical verdict - pure
+  spent GPU. Fix landed: `max_attempts` defaults to 1 in `process_slug`,
+  `run_batch` and `--max-attempts`, pinned by
+  `tests/test_lw_clean_retry_default.py`. Do NOT raise it again without making
+  something vary per attempt (growing the dilation is the obvious candidate).
+  Still open: the cross-engine ladder (lama -> sdxl -> iopaint) is fired on
+  REJECT by the operator/skill, not by a code default, so nothing in code yet
+  stops attempt 2 being spent. Decide whether the ladder should be gated on a
+  measured improvement or dropped to a single engine.
   Also open from the same review: the cleaner FINDS work on images that need
   none. Both `vayne3` (team logos are design) and `p08e8` had bottom-band edits
   proposed on content the operator ruled clean, which is a DETECTOR problem, not
