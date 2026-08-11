@@ -52,8 +52,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
-from PIL import Image
+# Pin ultralytics' autoinstall OFF before anything can import it (the YOLO
+# import inside load_models is lazy, so module scope is early enough).
+# ultralytics monkey-patches PIL.Image.open process-wide and, on ANY exception
+# from it, assumes the file is HEIF and runs `check_requirements("pi-heif")`,
+# which with the default AUTOINSTALL=True shells out to
+# `uv pip install --python <venv> pi-heif --index-strategy=unsafe-best-match
+# --break-system-packages`. That resolves a DIFFERENT Pillow and replaces the
+# one in the venv: measured 2026-08-11, it deleted 91 of Pillow's 103 files
+# mid-run and left C:\Tools\lw-clean\venv unimportable. A cleaning run meets
+# corrupt/odd images by design, so this is a production path, not just a test
+# one. tests/conftest.py pins the same var for the suite.
+os.environ.setdefault("YOLO_AUTOINSTALL", "false")
+
+import numpy as np  # noqa: E402
+from PIL import Image  # noqa: E402
 
 # lw_g1_gate is stdlib+numpy at import time (pyiqa/torch are lazy inside it), so
 # reusing its luma primitive here is CI-safe. Spec sanctions reusing _to_gray.

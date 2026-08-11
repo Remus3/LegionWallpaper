@@ -30,6 +30,30 @@ def test_ultralytics_autoinstall_is_disabled_when_importable():
     )
 
 
+def test_lw_clean_pass_sets_the_guard_itself(monkeypatch):
+    """The cleaning tool pins the gate at import, independent of pytest.
+
+    conftest.py only protects the SUITE. A production run
+    (`python tools/lw_clean_pass.py <slug>`) imports ultralytics lazily inside
+    load_models(), so without this the same corrupt-image path would shell out
+    to `uv pip install pi-heif` and replace Pillow in the venv. The env var must
+    therefore be set by the module itself, before that lazy import can run.
+
+    Deletes the var and reloads, otherwise conftest's setdefault would make this
+    pass no matter what the module does.
+    """
+    import importlib
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent / "tools"))
+    monkeypatch.delenv("YOLO_AUTOINSTALL", raising=False)
+    import lw_clean_pass
+
+    importlib.reload(lw_clean_pass)
+    assert os.environ.get("YOLO_AUTOINSTALL") == "false"
+
+
 def test_pil_image_open_failure_does_not_trigger_an_install(monkeypatch, tmp_path):
     """A corrupt image must raise, not send the suite shopping for a codec.
 
