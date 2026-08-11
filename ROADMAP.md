@@ -16,7 +16,7 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   approved result and `_02`/`_03` were rejected. So the retry loop is not just
   unhelpful past attempt 1, it is actively harmful, and every REJECT currently
   spends a pass making things worse.
-  HALF 1 ANSWERED + FIXED 2026-08-10. The probe is `tools/lw_clean_retry_probe.py`
+  HALF 1 ANSWERED + FIXED 2026-08-10 (`2958338`). The probe is `tools/lw_clean_retry_probe.py`
   (read-only; verdict census on stdlib, metric census under the cv venv).
   Measured over the whole cleaning stage - 21 slugs, 18 with 2+ workings, 50
   rejected workings:

@@ -27,6 +27,65 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+90. DONE **2026-08-10/11 (intake of 4; clean-retry-degrades half 1 measured +
+    fixed; the suite was destroying the lw-clean venv; `2958338`..`ee73136`).**
+    Three commits, CI green on each. Suite 1800 -> **1808 passed / 18 skipped**
+    (3.14); lw-clean venv **1822 passed / 10 skipped / 3 pre-existing**.
+    **INTAKE.** 4 loose DeviantArt previews intaken (Tier 0 pHash: no local
+    match on any, hamming 18-22 vs the accept floor of 8; Tier 1: all 4 tokens
+    decoded to live deviations and fetched on the quota-free `intermediary`
+    lane). Gains: sona 1192x670 -> 1920x1080, orianna 1165x686 -> 1920x1131;
+    kaisa + amazingeudora only marginal (+7% / +4%, still preview-grade).
+    Provenance written to each manifest + 4 rows appended to matches.json.
+    **CLEAN-RETRY-DEGRADES, HALF 1 - the ROADMAP's cheap probe, answered with
+    measured numbers.** `tools/lw_clean_retry_probe.py` (new, read-only) over
+    the whole stage - 21 slugs, 18 with 2+ workings, 50 rejected workings:
+    retries won **0** of the 3 adjudicated slugs (2 settled on `_01`'s content,
+    1 on `_cleaninitial` = no clean at all); `_02` (sdxl-animagine) n=15, seam
+    better in 1 / worse in 14, 1.66x the edit area; `_03` (iopaint) n=9, seam
+    better in 6 but repainting 2.66x the area, all 9 rejected.
+    **METHOD CORRECTION worth keeping:** resolution had to be by sha256, not by
+    filename - every winning `_04`/`_03` is an `operator-select` COPY of earlier
+    content and approved slugs have their workings GC'd off disk, so counting by
+    version number would have scored "attempt 4 won" when `_01`'s pixels won.
+    **ROOT CAUSE (separate from the engine ladder):** `_auto_inpaint` builds
+    `mask`/`base` ONCE above its attempt loop and `inpaint_lama` is pure over
+    them, so attempt 2 recomputed bit-identical pixels for an identical verdict.
+    `max_attempts` 2 -> 1 in `process_slug` / `run_batch` / `--max-attempts`,
+    pinned RED-first by `tests/test_lw_clean_retry_default.py`. Do NOT raise it
+    again without making something vary per attempt (dilation growth).
+    **THE SUITE WAS DESTROYING THE CLEANING VENV.** A full run under the
+    lw-clean venv deleted 91 of Pillow's 103 files, every time. Traced with a
+    subprocess logger, not a bisect: ultralytics monkey-patches `PIL.Image.open`
+    process-wide, treats ANY exception as "probably HEIF", and with the default
+    `AUTOINSTALL=True` shells out to `uv pip install pi-heif`, which resolves a
+    different Pillow and replaces the installed one. Only the `.pyd` files
+    survived because the running process held them locked - which is exactly why
+    the wreckage read as a half-deleted install and sent the first diagnosis
+    toward antivirus. Trigger was `test_verify_refuses_undecodable_bytes`
+    feeding deliberately-corrupt bytes; it failed ONLY when an
+    ultralytics-importing test ran earlier in the same process, so it passed
+    alone and in either half of the suite but not in a full run. Fixed in BOTH
+    scopes: `tests/conftest.py` (new) pins `YOLO_AUTOINSTALL=false` and restores
+    the pristine `PIL.Image.open` per test so the suite is order-independent;
+    `tools/lw_clean_pass.py` pins the same var at module scope because a
+    PRODUCTION cleaning run imports ultralytics lazily and measured
+    `AUTOINSTALL=True` without it. Pinned by `tests/test_no_venv_mutation.py`.
+    Failures 4 -> 3.
+    **VENV REBUILT CLEAN** from a freeze snapshot (operator-directed): 54/54
+    packages identical, torch 2.11.0+cu128 with CUDA live on the RTX 5070, 77
+    cleaning tests passing with zero skips. `requirements-cv.txt` is NOT a
+    rebuild recipe - it is the 5-package CI lane only; see the rebuild recipe in
+    memory `reference-lw-clean-venv`.
+    **DO NOT REDO / STILL OPEN:** the 3 remaining venv failures
+    (`test_loop_concurrency` x2, `test_three_way_concurrency`) were verified
+    against `78d0ad1` in a clean worktree and are PRE-EXISTING + 3.12-only (all
+    pass on 3.14, which is why CI never saw them) - unexplained, not
+    investigated. The cross-engine ladder (lama -> sdxl -> iopaint) is fired on
+    REJECT by the operator/skill, not by a code default, so no code change yet
+    stops attempt 2 being spent; and the `cleaning-detector-precision` half of
+    the ROADMAP item is untouched.
+
 89. DONE **2026-08-02 (repo rename, outward-facing README, 3.14 toolchain,
     cv-lane, Desktop hand-off guard; `15844aa`..`3a3f6f7`).** Nine commits, CI
     green on every one. Suite 1760 -> **1800 passed / 17 skipped**.

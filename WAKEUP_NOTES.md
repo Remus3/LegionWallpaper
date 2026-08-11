@@ -11,6 +11,33 @@
 
 ---
 
+## 2026-08-10/11 - intake x4, clean-retry-degrades half 1, venv-destroying test bug
+
+Three commits, all CI green: `2958338` (retry default), `1ea9144` (suite venv
+guard), `ee73136` (production venv guard). Suite 1808/18 on 3.14; lw-clean venv
+1822/10 with 3 pre-existing failures. LEDGER 90 has the full record.
+
+- **Intake:** 4 DeviantArt previews in, Tier 0 found no local match (hamming
+  18-22), Tier 1 decoded + fetched all 4 quota-free. Two real gains (sona,
+  orianna -> 1920px); kaisa + amazingeudora are still preview-grade.
+- **clean-retry-degrades half 1 is ANSWERED with measured numbers:** retries won
+  0 of 3 adjudicated slugs; `_02` lost on seam 14/15; `_03` "wins" only by
+  repainting 2.66x the area and was rejected 9/9. `max_attempts` 2 -> 1, because
+  `_auto_inpaint` recomputed a bit-identical inpaint on attempt 2.
+- **The test suite was deleting Pillow from the lw-clean venv on every full
+  run** (ultralytics autoinstall via a patched `PIL.Image.open`). Fixed in both
+  the suite and the production tool. Venv then rebuilt clean, 54/54 packages,
+  CUDA live.
+
+**Do NOT redo:** the retry default + both autoinstall guards are shipped; the
+venv is rebuilt and verified (old backup deleted, pip cache deliberately kept).
+**Still open + unexplained:** the 3 venv-only concurrency failures
+(`test_loop_concurrency` x2, `test_three_way_concurrency`) - verified
+pre-existing at `78d0ad1`, 3.12-only, invisible to CI (3.14). Next up is the
+`cleaning-detector-precision` half of the ROADMAP item.
+
+---
+
 ## 2026-08-09 - weekly hygiene pass (unattended, LW-WeeklyHygiene scheduled run)
 
 Doc + memory hygiene only, no code changes, no restart. Ground truth gathered
@@ -87,34 +114,3 @@ Nine commits `15844aa`..`3a3f6f7`, CI green on every one.
   falls back to LW's own file.
 - **Do NOT redo:** the rename, README, 3.14 bump, exclude fix, UP017/B905, the
   align_rois tests, cv-lane, or the hand-off guard - all shipped and CI-green.
-
----
-
-## 2026-08-01 - THE REPO IS PUBLIC; history purged, Apache-2.0, every sha rewritten
-
-Suite **1760 passed / 16 skipped**, ruff clean, drift_guard 0 breaches / 25 notes
-(the notes are the 43 intentionally-dead shas in the new map doc - expected, not drift).
-LEDGER 88. Commits `4e3b617` + `f9cd7a1`.
-
-- **<https://github.com/Remus3/LegionWallpaper> is PUBLIC.** Audited first: all
-  306 commits scanned as full diffs for keys / tokens / PEM headers / the
-  operator email - zero hits, and no secret-named file was ever tracked.
-- **`style.jpg` + `style2.jpg` purged from all history** (`git filter-repo`),
-  untracked, gitignored; both files restored to disk from a pre-purge bundle.
-  They were the only tracked image bytes and contradicted the README's own
-  process-not-pixels boundary.
-- **The trap worth remembering:** a force-push does NOT GC unreachable objects.
-  GitHub still served the dead sha and `style.jpg` at 122630 bytes afterwards,
-  so going public would have republished exactly what was purged. Fixed by
-  delete-and-recreate (repo had 0 issues / PRs / forks / stars / secrets, all
-  API-verified). Needed a `delete_repo` scope the token lacked; operator granted it.
-- **Apache-2.0 LICENSE** (canonical text, `Copyright 2026 Moonbeam`) + a README
-  License section stating the grant covers the PROCESS and cannot cover the
-  third-party image corpus.
-- **The permanent cost:** every sha from `152d84f` onward changed. 43 shas cited
-  across LEDGER / history_notes / WAKEUP no longer resolve. Doc text was NOT
-  edited (append-only ledger); the old -> new table is
-  `docs/_archive/2026-08-01-sha-rewrite-map.md`. `.git/filter-repo/commit-map`
-  is untracked local plumbing and will be clobbered by any future rewrite.
-- Gap noticed, not fixed: `drift_guard.check_cited_shas` only reads STAGED docs,
-  so it cannot catch a rewrite invalidating shas already committed.

@@ -214,6 +214,37 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-08-01 - THE REPO IS PUBLIC; history purged, Apache-2.0, every sha rewritten
+
+Suite **1760 passed / 16 skipped**, ruff clean, drift_guard 0 breaches / 25 notes
+(the notes are the 43 intentionally-dead shas in the new map doc - expected, not drift).
+LEDGER 88. Commits `4e3b617` + `f9cd7a1`.
+
+- **<https://github.com/Remus3/LegionWallpaper> is PUBLIC.** Audited first: all
+  306 commits scanned as full diffs for keys / tokens / PEM headers / the
+  operator email - zero hits, and no secret-named file was ever tracked.
+- **`style.jpg` + `style2.jpg` purged from all history** (`git filter-repo`),
+  untracked, gitignored; both files restored to disk from a pre-purge bundle.
+  They were the only tracked image bytes and contradicted the README's own
+  process-not-pixels boundary.
+- **The trap worth remembering:** a force-push does NOT GC unreachable objects.
+  GitHub still served the dead sha and `style.jpg` at 122630 bytes afterwards,
+  so going public would have republished exactly what was purged. Fixed by
+  delete-and-recreate (repo had 0 issues / PRs / forks / stars / secrets, all
+  API-verified). Needed a `delete_repo` scope the token lacked; operator granted it.
+- **Apache-2.0 LICENSE** (canonical text, `Copyright 2026 Moonbeam`) + a README
+  License section stating the grant covers the PROCESS and cannot cover the
+  third-party image corpus.
+- **The permanent cost:** every sha from `152d84f` onward changed. 43 shas cited
+  across LEDGER / history_notes / WAKEUP no longer resolve. Doc text was NOT
+  edited (append-only ledger); the old -> new table is
+  `docs/_archive/2026-08-01-sha-rewrite-map.md`. `.git/filter-repo/commit-map`
+  is untracked local plumbing and will be clobbered by any future rewrite.
+- Gap noticed, not fixed: `drift_guard.check_cited_shas` only reads STAGED docs,
+  so it cannot catch a rewrite invalidating shas already committed.
+
+---
+
 ## 2026-08-02 - the five owed answers delivered; gemini-removal's reversible half landed
 
 Suite **1695 passed / 16 skipped**, ruff clean, drift_guard 0 breaches. LEDGER 86.
