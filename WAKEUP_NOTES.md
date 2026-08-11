@@ -11,6 +11,29 @@
 
 ---
 
+## 2026-08-11 - clean-retry-degrades HALF 2: detector precision measured, 0 FP
+
+One commit. Suite **1837 passed / 18 skipped** (3.14, full run). LEDGER 91.
+
+- **Answer: the detector is precise. 14 unattended (`auto`) proposals over the
+  whole 21-slug gated corpus, ZERO false positives.** New read-only probe
+  `tools/lw_clean_detector_probe.py` re-runs detect + the same `gate_decision`
+  on each `_cleaninitial`; every `auto` region was then cropped and looked at.
+  All 14 are a credit URL, handle, signature or credit strip (ADR-005 REMOVE).
+  4 route to `qa` (not a proposal), 3 to `clean`.
+- **Both cited cases were stale.** `vayne3` detects nothing at all now (n=0);
+  `p08e8`'s fire is the real `@namakxin` signature the operator APPROVED
+  removing (65122 changed px in `_cleandone`), same for `nguyen-ky-phuc` (9719).
+- **Method lesson worth keeping:** a REJECT note is a WEAK label - it lands on
+  one working's pixels, not on the detector's box. The strong label is the
+  `APPROVE_CLEAN` sha256 vs `_cleaninitial`. Reading the notes alone would have
+  "found" 2 false positives that are not false positives.
+- **No rule narrowed** (acceptance branch 2). Shipped the regression net
+  instead: `tests/test_lw_clean_detector_precision.py`, 29 tests pinning all 21
+  measured rows + a KEEP-set test that no KEEP slug may become `auto`.
+- Still open on the parent item: the cross-engine ladder is fired by the
+  operator/skill, not by code. Recall (false negatives) was never measured.
+
 ## 2026-08-10/11 - intake x4, clean-retry-degrades half 1, venv-destroying test bug
 
 Three commits, all CI green: `2958338` (retry default), `1ea9144` (suite venv

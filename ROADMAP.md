@@ -43,11 +43,26 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   REJECT by the operator/skill, not by a code default, so nothing in code yet
   stops attempt 2 being spent. Decide whether the ladder should be gated on a
   measured improvement or dropped to a single engine.
-  Also open from the same review: the cleaner FINDS work on images that need
-  none. Both `vayne3` (team logos are design) and `p08e8` had bottom-band edits
-  proposed on content the operator ruled clean, which is a DETECTOR problem, not
-  a fill problem - see `cleaning-detector-precision` framing in this same review.
-  Evidence: LEDGER 85; PIPELINE_LOG 2026-08-02 REJECT notes.
+  HALF 2 (`cleaning-detector-precision`) ANSWERED 2026-08-11 - **the detector is
+  precise; no rule was narrowed.** Measured by `tools/lw_clean_detector_probe.py`
+  over the WHOLE gated corpus (all 21 cleaning-stage slugs, detect + gate re-run
+  on each `_cleaninitial`): 14 slugs gate to `auto`, and all 14 regions were then
+  looked at directly - every one is an artist credit URL, handle, signature or
+  credit strip, i.e. ADR-005 REMOVE content. **0 false positives.** 4 route to
+  `qa` (a human decides, not a proposal) and 3 to `clean`.
+  Both cited cases are stale: `vayne3` detects NOTHING now (n=0; the bare-`@`
+  narrowing already closed it, and the team logos never produced a box), and
+  `p08e8`'s fire is the real `@namakxin` signature whose removal the operator
+  APPROVED - its `_cleandone` differs from `_cleaninitial` by 65122 px. Same
+  correction for `nguyen-ky-phuc` (9719 px). A REJECT note is a WEAK label - it
+  lands on one working's pixels; the strong label is the APPROVE_CLEAN sha256.
+  Of the 3 adjudicated slugs exactly one (`vayne3`) settled on uncleaned pixels,
+  and the detector proposes nothing on it.
+  Shipped instead of a narrowing: `tests/test_lw_clean_detector_precision.py`
+  pins all 21 measured rows (real OCR strings + geometry) to their verdict, plus
+  a KEEP-set test asserting no measured KEEP slug may ever become `auto`.
+  NOT closed by this: recall (false negatives) was not measured.
+  Evidence: `docs/CLEAN_DETECTOR_PRECISION_2026-08-11.md`; LEDGER 85 + 90.
 
 - **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**
   `scan --verify` reports 0 mismatches and 0 milestone files go unchecked; all

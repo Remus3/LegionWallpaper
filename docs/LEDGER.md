@@ -27,6 +27,43 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+91. DONE **2026-08-11 (clean-retry-degrades HALF 2 - detector precision
+    measured: 0 false positives in 14 unattended proposals).** Premise
+    CORRECTED. The item claimed "the cleaner FINDS work on images that need
+    none", citing `vayne3` (team logos are design) and `p08e8` (bottom band).
+    Measured over the WHOLE gated corpus - all 21 slugs in `3.Cleaning Scratch`
+    + `4.Cleaning Done`, nothing sampled - with a new read-only probe
+    `tools/lw_clean_detector_probe.py` that re-runs `detect_image` and the SAME
+    `gate_decision` the pipeline uses on each slug's `_cleaninitial` (the image
+    the detector actually faced, before any inpaint moved pixels). Result: 14
+    `auto` (unattended edit), 4 `qa`, 3 `clean`; every one of the 14 `auto`
+    regions was then cropped and LOOKED AT, and all 14 are an artist credit URL,
+    social handle, painted signature or credit strip - ADR-005 REMOVE content.
+    **0 false positives.** A `qa` is not a false positive: it is the gate
+    declining to guess.
+    Both cited cases are stale. `vayne3` detects NOTHING now (n=0 boxes; its
+    only OCR is a lone `@` glyph already excluded by `_HANDLE_RE`, and the team
+    logos never produced a YOLO box). `p08e8`'s fire is the real `@namakxin`
+    signature whose removal the operator APPROVED - its `_cleandone` differs
+    from `_cleaninitial` by 65122 px; same for `nguyen-ky-phuc` (9719 px, a
+    painted "Reyjin"). METHOD LESSON, do not un-learn: a REJECT note is a WEAK
+    label because it lands on one working's pixels, not on the detector's box -
+    the strong label is the `APPROVE_CLEAN` sha256 compared against
+    `_cleaninitial`. Of the 3 adjudicated slugs exactly one (`vayne3`) settled
+    on uncleaned pixels, and the detector proposes nothing on it.
+    NO RULE NARROWED - the acceptance criterion's second branch. Narrowing at 0
+    FP could only cost recall, and CLAUDE.md says widen/narrow on test evidence
+    only. Shipped instead: `tests/test_lw_clean_detector_precision.py` (29
+    tests) pinning all 21 measured rows - real EasyOCR strings (non-ASCII glyphs
+    as backslash-u escapes, 7-bit source) and real geometry - to the verdict
+    each produced, plus a KEEP-set test asserting no measured KEEP slug may ever
+    become `auto`. Stdlib+numpy only, so it runs in CI with no GPU.
+    Verified: suite **1837 passed / 18 skipped** (3.14, full run this session,
+    up from 1808 by the 29 new tests); ruff clean on both new files.
+    Census + per-slug table: `docs/CLEAN_DETECTOR_PRECISION_2026-08-11.md`.
+    NOT closed: recall (false negatives) was never measured, and the
+    cross-engine ladder is still fired by the operator/skill, not by code.
+
 90. DONE **2026-08-10/11 (intake of 4; clean-retry-degrades half 1 measured +
     fixed; the suite was destroying the lw-clean venv; `2958338`..`ee73136`).**
     Three commits, CI green on each. Suite 1800 -> **1808 passed / 18 skipped**
