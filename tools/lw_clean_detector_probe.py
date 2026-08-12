@@ -312,6 +312,103 @@ def build_overlay_template(slugs, out_path=None, stages=None):
     return path
 
 
+def _resolve_slug(name, known):
+    row = known.get(name)
+    if row is None:
+        hits = [k for k in known if k.startswith(name)]
+        row = known[hits[0]] if hits else None
+    return row
+
+
+def build_overlay_matte(slugs, out_path=None):
+    """Estimate {alpha, W} for the centre overlay from CONFIRMED-marked slugs.
+
+    Same input list as the template build - these must be frames verified by eye
+    to carry the overlay. Writes under `ops/runtime/` (gitignored): the matte is
+    a derivative of a third party's watermark, exactly like the template.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import lw_clean_overlay as ov
+
+    known = {r["slug"]: r for r in label_census()}
+    known.update({r["slug"]: r for r in firstdone_rows()})
+    tpl = ov.load_template()
+    if tpl is None:
+        raise SystemExit("no template - run --build-overlay-template first")
+    imgs, used = [], []
+    for s in slugs:
+        row = _resolve_slug(s, known)
+        if row is None or not row.get("initial"):
+            print(f"  SKIP (no image on disk): {s}")
+            continue
+        imgs.append(ov.load_image(row["initial"]))
+        used.append(row["slug"])
+    if not imgs:
+        raise SystemExit("no images resolved - nothing to solve")
+    matte = ov.estimate_matte(imgs, tpl)
+    path = ov.save_matte(out_path or ov.MATTE_PATH, matte)
+    a = matte["alpha"]
+    print(f"matte from {len(used)} images -> {path}")
+    print(f"  gain={matte['gain']} mean post-removal score={matte['score']:.3f}")
+    print(f"  alpha>0 on {int((a > 0).sum())} px ({100.0 * (a > 0).mean():.3f}%"
+          f" of the band), max={a.max():.3f}")
+    return path
+
+
+def remove_overlay_for(slugs, out_dir=None):
+    """Write a de-watermarked CANDIDATE per slug, and report before/after.
+
+    Produces pixels into the runtime dir and PRINTS the lw_pipeline commands -
+    it never mutates pipeline state, matching `lw_clean_pass`'s single-writer
+    discipline. The candidate is a QA proposal: the overlay is reduced, not
+    provably erased (see docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md).
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import lw_clean_overlay as ov
+    import lw_clean_pass as cp
+
+    tpl = ov.load_template()
+    matte = ov.load_matte()
+    if tpl is None or matte is None:
+        raise SystemExit("need both a template and a matte - build them first")
+    known = {r["slug"]: r for r in label_census()}
+    known.update({r["slug"]: r for r in firstdone_rows()})
+    rows = []
+    for s in slugs:
+        row = _resolve_slug(s, known)
+        if row is None or not row.get("initial"):
+            print(f"  SKIP (no image on disk): {s}")
+            continue
+        slug = row["slug"]
+        img = ov.load_image(row["initial"])
+        before, dy, dx = ov.best_shift(img, tpl)
+        cleaned, changed = ov.remove_overlay(img, matte, shift=(dy, dx))
+        after = ov.overlay_score(cleaned.astype(float), tpl)
+        target = out_dir or os.path.join(cp.RUNTIME_CLEAN, slug)
+        os.makedirs(target, exist_ok=True)
+        png = os.path.join(target, f"{slug}_overlay_cand.png")
+        cp.atomic_write_png(png, cleaned)
+        cp.atomic_write_json(
+            os.path.join(target, f"{slug}_overlay.json"),
+            {"slug": slug, "score_before": round(before, 4),
+             "score_after": round(after, 4), "shift": [dy, dx],
+             "changed_px": int(changed.sum()), "gain": matte.get("gain"),
+             "flag_threshold": cp.OVERLAY_SCORE_MIN, "candidate": png})
+        still = "STILL FLAGGED" if after >= cp.OVERLAY_SCORE_MIN else "under flag"
+        print(f"  {slug}: {before:.3f} -> {after:.3f} ({still}) -> {png}")
+        # Built here rather than via build_save_working_cmd, which hard-codes
+        # --tool lama: the provenance of these pixels is the matting solve, and
+        # a manifest that says "lama" would be a lie in the permanent record.
+        save = [cp.SYS_PY, cp.PIPELINE, "save-working", slug, "--from", png,
+                "--tool", "overlay-dekel", "--params",
+                json.dumps({"gain": matte.get("gain"),
+                            "score_before": round(before, 4),
+                            "score_after": round(after, 4)})]
+        cp._print_cmds([save, cp.build_submit_cmd(slug)])
+        rows.append((slug, before, after))
+    return rows
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--labels-only", action="store_true",
@@ -328,10 +425,23 @@ def main(argv=None):
                     default=None,
                     help="median-stack these CONFIRMED-marked slugs into the "
                          "centre-overlay template and exit")
+    ap.add_argument("--build-overlay-matte", nargs="+", metavar="SLUG",
+                    default=None,
+                    help="solve {alpha, W} for the overlay from these "
+                         "CONFIRMED-marked slugs and exit")
+    ap.add_argument("--remove-overlay", nargs="+", metavar="SLUG", default=None,
+                    help="write a de-watermarked CANDIDATE per slug into the "
+                         "runtime dir and print the pipeline commands")
     args = ap.parse_args(argv)
 
     if args.build_overlay_template:
         build_overlay_template(args.build_overlay_template, out_path=args.out)
+        return 0
+    if args.build_overlay_matte:
+        build_overlay_matte(args.build_overlay_matte, out_path=args.out)
+        return 0
+    if args.remove_overlay:
+        remove_overlay_for(args.remove_overlay)
         return 0
 
     if args.corpus == "firstdone":

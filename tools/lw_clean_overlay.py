@@ -72,8 +72,31 @@ CLIP_LEVELS = 8.0
 SHIFT_FRAC_Y = 0.030
 SHIFT_FRAC_X = 0.016
 
+# Removal knobs. MEDIAN_SIZE must exceed the mark's stroke width (~5px at
+# 2560x1440) so the seed background loses the text but keeps the painting.
+MEDIAN_SIZE = 15
+MATTE_ITERS = 3              # regression <-> background re-estimate rounds
+ALPHA_MAX = 0.95             # 1/(1-a) is singular at a = 1
+ALPHA_FLOOR = 0.02           # below this, leave the pixel alone entirely
+SUPPORT_DILATE = 9           # grow the template support to cover the alpha ramp
+# Model-fit gates on the per-pixel regression. A pixel only gets an alpha if its
+# cross-frame variation is real (VAR_FLOOR), is actually explained by the
+# matting model (R2_FLOOR), and yields one alpha all three channels agree on.
+VAR_FLOOR = 4.0              # levels^2 of background variation across frames
+R2_FLOOR = 0.5
+CHANNEL_SPREAD_MAX = 0.25
+OPEN_SIZE = 3                # speck-removal opening on the recovered matte
+# The mark's colour. Held CONSTANT on purpose - see _w_map for the measurement
+# that killed the per-pixel version. The corpus overlay is near-white.
+W_REF = (250.0, 250.0, 250.0)
+# Gains searched by _fit_gain. The measured optimum on the corpus is 2.0, well
+# inside the grid, so the fit is choosing rather than saturating.
+GAIN_GRID = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0)
+
 TEMPLATE_PATH = os.path.join(
     r"C:\LegionWallpaper", "ops", "runtime", "clean", "overlay_template.npz")
+MATTE_PATH = os.path.join(
+    r"C:\LegionWallpaper", "ops", "runtime", "clean", "overlay_matte.npz")
 
 
 def highpass(image, win: int = HP_WIN):
@@ -129,6 +152,18 @@ def _cross_correlate(a, b):
     return np.fft.irfft2(np.fft.rfft2(a) * np.conj(np.fft.rfft2(b)), s=a.shape)
 
 
+def best_shift(image, tpl, max_shift=None):
+    """(score, dy, dx) - the correlation peak and where it sat.
+
+    Removal needs the WHERE as much as the whether: the matte is estimated in
+    template coordinates, so each frame's mark has to be registered before the
+    matting equation is inverted, or the reconstruction subtracts the mark from
+    the wrong pixels. Integer pixels only for now; the R&D plan's sub-pixel
+    alignment (section 3 item 2) is not implemented.
+    """
+    return _correlate(image, tpl, max_shift)
+
+
 def overlay_score(image, tpl, max_shift=None) -> float:
     """Best masked normalized correlation of an image against the template.
 
@@ -154,8 +189,13 @@ def overlay_score(image, tpl, max_shift=None) -> float:
     dominates the correlation (measured: clipping lifts the positive median
     from 0.112 to 0.220 leave-one-artist-out).
     """
+    return _correlate(image, tpl, max_shift)[0]
+
+
+def _correlate(image, tpl, max_shift=None):
+    """Shared core of overlay_score / best_shift -> (score, dy, dx)."""
     if not tpl:
-        return 0.0
+        return (0.0, 0, 0)
     b = band_of(highpass(image), tpl["band"])
     t = np.asarray(tpl["template"], dtype=np.float64)
     s = np.asarray(tpl["support"], dtype=bool)
@@ -165,11 +205,16 @@ def overlay_score(image, tpl, max_shift=None) -> float:
     m = s.astype(np.float64)
     n = float(m.sum())
     if n <= 0:
-        return 0.0
+        return (0.0, 0, 0)
+    # Clip the IMAGE only. Clipping the template too looks symmetric and is a
+    # bug: a strong template saturates to a constant on its own support, its
+    # variance goes to zero and the correlation collapses to exactly 0.0. Found
+    # by a synthetic fixture whose planted mark is far stronger than the real
+    # overlay - on the corpus the template's values are a few levels, so the
+    # clip never bit and the bug stayed invisible.
     x = np.clip(b, -CLIP_LEVELS, CLIP_LEVELS)
-    t = np.clip(t, -CLIP_LEVELS, CLIP_LEVELS)
     if float(np.abs(x).max()) <= 1e-9:
-        return 0.0
+        return (0.0, 0, 0)
 
     tm = t * m
     sum_t = float(tm.sum())
@@ -188,11 +233,271 @@ def overlay_score(image, tpl, max_shift=None) -> float:
         max_shift, max_shift)
     dy = np.fft.fftfreq(h, 1.0 / h).astype(int)
     dx = np.fft.fftfreq(w, 1.0 / w).astype(int)
-    win = ncc[np.ix_(np.abs(dy) <= max(1, int(fy * frame_h)),
-                     np.abs(dx) <= max(1, int(fx * w)))]
+    ky = np.abs(dy) <= max(1, int(fy * frame_h))
+    kx = np.abs(dx) <= max(1, int(fx * w))
+    win = ncc[np.ix_(ky, kx)]
     if win.size == 0:
-        return 0.0
-    return float(win.max())
+        return (0.0, 0, 0)
+    iy, ix = np.unravel_index(int(np.argmax(win)), win.shape)
+    return (float(win[iy, ix]), int(dy[ky][iy]), int(dx[kx][ix]))
+
+
+# ==========================================================================
+# REMOVAL: recover (W, alpha) from the collection, then invert I = (1-a)J + aW
+# ==========================================================================
+def _fill_masked_columns(band_rgb, mask):
+    """Background seed: erase the masked pixels and interpolate ACROSS COLUMNS.
+
+    A median filter was the obvious seed and is the recorded failure of R&D
+    method 4 - "alpha underestimated (median bg contaminated by dense text)".
+    Inside a dense text line every pixel in the window is mark, so the median IS
+    the mark and the regression sees no signal to fit. Interpolating from the
+    nearest UNMASKED pixels cannot be contaminated that way - the seed never
+    contains a mark pixel by construction.
+
+    Down the COLUMNS, not along the rows: this mark is a text line, ~30px tall
+    and ~1000px wide, so a row-wise fill has to bridge a thousand pixels of
+    unknown art while a column-wise fill bridges thirty. Measured on the
+    synthetic fixture, the row-wise seed biased alpha ~20 percent LOW.
+    """
+    out = np.array(band_rgb, dtype=np.float64, copy=True)
+    h, w = mask.shape
+    ys = np.arange(h)
+    for x in range(w):
+        m = mask[:, x]
+        if not m.any():
+            continue
+        good = ~m
+        if not good.any():
+            continue
+        for c in range(out.shape[-1]):
+            out[m, x, c] = np.interp(ys[m], ys[good], band_rgb[good, x, c])
+    return out
+
+
+def _median_filter(band_rgb, size: int = MEDIAN_SIZE):
+    """Median-filtered copy of a float RGB band - a first guess at the art.
+
+    The mark's strokes are a few pixels wide, so a median wider than a stroke
+    erases them while keeping the painting's structure. This is only the SEED:
+    the R&D table records that a median background alone underestimates alpha
+    where the text is dense (method 4), which is why estimate_matte iterates.
+    """
+    from PIL import ImageFilter
+    u8 = np.clip(np.rint(band_rgb), 0, 255).astype(np.uint8)
+    im = Image.fromarray(u8, mode="RGB").filter(ImageFilter.MedianFilter(size))
+    return np.asarray(im, dtype=np.float64)
+
+
+def _dilate_bool(mask, size: int = SUPPORT_DILATE):
+    """Grow a boolean mask by `size` pixels (PIL MaxFilter, no cv2 needed)."""
+    u8 = (np.asarray(mask, dtype=bool) * 255).astype(np.uint8)
+    im = Image.fromarray(u8, mode="L").filter(
+        __import__("PIL.ImageFilter", fromlist=["ImageFilter"]).MaxFilter(size))
+    return np.asarray(im) > 127
+
+
+def _open_bool(mask, size: int = OPEN_SIZE):
+    """Morphological opening (erode then dilate) of a boolean mask, PIL only."""
+    from PIL import ImageFilter
+    u8 = (np.asarray(mask, dtype=bool) * 255).astype(np.uint8)
+    im = Image.fromarray(u8, mode="L")
+    im = im.filter(ImageFilter.MinFilter(size)).filter(
+        ImageFilter.MaxFilter(size))
+    return np.asarray(im) > 127
+
+
+def _alpha_shape(stack_i, stack_j, w_ref):
+    """Median over the collection of (I - J) / (W - J) - the matte's SHAPE.
+
+    Per frame this ratio IS alpha wherever the model holds; the median over the
+    collection is what kills each frame's seed error, which is the noise that
+    defeated a per-pixel least-squares fit on the real corpus (its R^2 came out
+    at 0.10 - the model explained a tenth of the cross-frame variation, so any
+    R^2 gate either dropped 93 percent of the mark or let art through).
+
+    The result is a SHAPE, not a calibrated alpha: this estimator is known to
+    read low (R&D method 4, "alpha underestimated"), which `_fit_gain` corrects
+    with one measured global factor.
+    """
+    num = stack_i - stack_j
+    den = np.maximum(w_ref[None, None, None, :] - stack_j, 1.0)
+    per_channel = np.median(np.clip(num / den, -0.2, 0.98), axis=0)
+    return np.clip(per_channel.mean(axis=-1), 0.0, 1.0)
+
+
+def _fit_gain(shape, region, frames, tpl, w_ref, gains=GAIN_GRID):
+    """Pick the global alpha gain that best silences the DETECTOR.
+
+    The estimator recovers the mark's shape reliably and its amplitude only up
+    to a constant, so one scalar is fitted rather than assumed - and it is
+    fitted against the thing that defines success: how loudly the overlay
+    detector still fires after removal. Measured on the 15-frame corpus
+    collection, mean post-removal score by gain: 1.0 -> 0.258, 1.5 -> 0.133,
+    2.0 -> 0.120, 2.5 -> 0.141, 3.0 -> 0.166. A clear interior optimum, which is
+    itself evidence the shape is right and only its scale was off.
+    """
+    best = (float("inf"), 1.0)
+    for g in gains:
+        alpha = np.where(region, np.clip(shape * g, 0.0, ALPHA_MAX), 0.0)
+        matte = {"alpha": alpha, "W": _w_map(alpha, w_ref),
+                 "band": tuple(tpl["band"]), "n": len(frames)}
+        scores = []
+        for arr, dy, dx in frames:
+            cleaned, _ = remove_overlay(arr, matte, shift=(dy, dx))
+            scores.append(overlay_score(cleaned.astype(np.float64), tpl))
+        mean = float(np.mean(scores)) if scores else float("inf")
+        if mean < best[0]:
+            best = (mean, float(g))
+    return best[1], best[0]
+
+
+def _w_map(alpha, w_ref):
+    """The mark's colour as a full map - constant, and deliberately so.
+
+    Estimating W PER PIXEL is the textbook next step and was measured to
+    DIVERGE on this corpus: alpha and W trade off (only their product is
+    identifiable without a prior), so re-solving W per pixel and re-fitting drove
+    the mean post-removal score 0.149 -> 0.174 -> 0.254 over three rounds while W
+    drifted from ~154 to ~87. Dekel's answer is the matting-Laplacian plus IRLS
+    priors that pin alpha independently; until that exists, one reference colour
+    plus a fitted gain is the stable half of the model. Removing more than the
+    detector can still see is not something this data supports.
+    """
+    return np.broadcast_to(np.asarray(w_ref, dtype=np.float64),
+                           alpha.shape + (3,)).copy()
+
+
+def estimate_matte(images, tpl=None, w_ref=W_REF, alpha_floor=ALPHA_FLOOR):
+    """Recover {alpha, W} for the shared overlay from a collection of frames.
+
+    Four steps, each one measured rather than assumed:
+
+      1. REGISTER every frame to the template (`best_shift`). Pooling an
+         unregistered collection is the plateau the R&D plan calls its "biggest
+         missing piece".
+      2. SEED the background by interpolating across the mark's own region, so
+         no seed pixel can contain the mark (see `_fill_masked_columns`).
+      3. SHAPE the matte as the median of (I-J)/(W-J) over the collection - the
+         median is what survives per-frame seed error.
+      4. FIT one global gain against the detector's own score (`_fit_gain`),
+         because this estimator recovers the shape well and the amplitude only
+         up to a constant.
+
+    Outside the template's (dilated) support alpha is forced to zero, so removal
+    can only ever touch pixels the detector says carry the mark. The returned
+    dict carries `gain` and `score` so a later run can see what was fitted and
+    how loud the detector still was.
+    """
+    band = tuple(tpl["band"]) if tpl else BAND
+    frames, bands = [], []
+    for im in images:
+        arr = np.asarray(im, dtype=np.float64)
+        dy = dx = 0
+        if tpl is not None:
+            _sc, dy, dx = best_shift(arr, tpl)
+        frames.append((arr, dy, dx))
+        b = band_of(arr, band)
+        if dy or dx:
+            b = np.roll(b, (-dy, -dx), axis=(0, 1))
+        bands.append(b)
+    if not bands:
+        raise ValueError("estimate_matte needs at least one image")
+
+    stack_i = np.stack(bands)
+    if tpl is not None:
+        support = np.asarray(tpl["support"], dtype=bool)
+        if support.shape != stack_i.shape[1:3]:
+            support = _resize2d(support, stack_i.shape[1:3], nearest=True)
+        region = _dilate_bool(support)
+    else:
+        region = np.ones(stack_i.shape[1:3], dtype=bool)
+    # A matte is SPATIALLY COHERENT - it is the shape of a glyph - so an
+    # isolated pixel in the gap between two glyphs is noise, not a mark. The
+    # opening drops 1-2px specks; every real stroke (4-6px wide at 2560x1440)
+    # survives.
+    region = _open_bool(region)
+
+    seed = np.stack([_fill_masked_columns(b, region) for b in bands])
+    w_ref = np.asarray(w_ref, dtype=np.float64)
+    shape = np.where(region, _alpha_shape(stack_i, seed, w_ref), 0.0)
+
+    gain, score = (1.0, float("nan"))
+    if tpl is not None:
+        gain, score = _fit_gain(shape, region, frames, tpl, w_ref)
+    alpha = np.where(region, np.clip(shape * gain, 0.0, ALPHA_MAX), 0.0)
+    alpha = np.where(alpha >= alpha_floor, alpha, 0.0)
+    return {"alpha": alpha, "W": _w_map(alpha, w_ref), "band": band,
+            "n": len(bands), "gain": gain, "score": score}
+
+
+def remove_overlay(image, matte, shift=(0, 0), alpha_max=ALPHA_MAX):
+    """Invert the matting equation -> (uint8 RGB, changed-pixel mask).
+
+    `J = (I - a*W) / (1 - a)` reconstructs the partial-alpha ramp EXACTLY
+    instead of asking a filler to invent it, which is the whole reason this path
+    exists rather than another mask-and-inpaint (R&D section 0).
+
+    Pixels with alpha 0 - everything outside the matte - are copied through
+    byte-for-byte, so AG 1.3's outside-region identity holds by construction
+    rather than by measurement. A missing matte is a no-op.
+    """
+    arr = np.asarray(image, dtype=np.float64)
+    out = np.clip(np.rint(arr), 0, 255).astype(np.uint8)
+    changed = np.zeros(arr.shape[:2], dtype=bool)
+    if not matte:
+        return out, changed
+
+    band = tuple(matte["band"])
+    h = arr.shape[0]
+    y0, y1 = int(h * band[0]), int(h * band[1])
+    b = arr[y0:y1, :, :]
+    alpha = np.asarray(matte["alpha"], dtype=np.float64)
+    w = np.asarray(matte["W"], dtype=np.float64)
+    if alpha.shape != b.shape[:2]:
+        alpha = _resize2d(alpha, b.shape[:2])
+        w = np.stack([_resize2d(w[..., c], b.shape[:2])
+                      for c in range(w.shape[-1])], axis=-1)
+    dy, dx = (int(shift[0]), int(shift[1])) if shift else (0, 0)
+    if dy or dx:
+        alpha = np.roll(alpha, (dy, dx), axis=(0, 1))
+        w = np.roll(w, (dy, dx), axis=(0, 1))
+
+    a = np.clip(alpha, 0.0, alpha_max)[:, :, None]
+    clean = np.clip((b - a * w) / np.maximum(1.0 - a, 1e-3), 0.0, 255.0)
+    hit = alpha > 0.0
+    band_out = out[y0:y1, :, :]
+    band_out[hit] = np.clip(np.rint(clean), 0, 255).astype(np.uint8)[hit]
+    out[y0:y1, :, :] = band_out
+    changed[y0:y1, :][hit] = True
+    return out, changed
+
+
+def save_matte(path, matte):
+    """Atomic write of an estimated {alpha, W} matte."""
+    d = os.path.dirname(os.path.abspath(path))
+    if d:
+        os.makedirs(d, exist_ok=True)
+    tmp = str(path) + ".tmp.npz"
+    np.savez_compressed(tmp, alpha=matte["alpha"], W=matte["W"],
+                        band=np.asarray(matte["band"]),
+                        n=np.asarray([matte.get("n", 0)]),
+                        gain=np.asarray([matte.get("gain", 1.0)]),
+                        score=np.asarray([matte.get("score", float("nan"))]))
+    os.replace(tmp, path)
+    return path
+
+
+def load_matte(path=MATTE_PATH):
+    """Load a cached matte, or None when there is none (removal is a no-op)."""
+    if not path or not os.path.isfile(path):
+        return None
+    with np.load(path) as z:
+        return {"alpha": z["alpha"], "W": z["W"],
+                "band": tuple(float(v) for v in z["band"]),
+                "n": int(z["n"][0]) if "n" in z else 0,
+                "gain": float(z["gain"][0]) if "gain" in z else 1.0,
+                "score": float(z["score"][0]) if "score" in z else float("nan")}
 
 
 def save_template(path, tpl):

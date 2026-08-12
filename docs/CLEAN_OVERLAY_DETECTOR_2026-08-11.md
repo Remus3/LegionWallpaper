@@ -136,6 +136,84 @@ are the gate's actual verdicts, not a projection:
   overlay in an image eligible for approval, so `qa` is the correct answer and
   this is the intended cost of putting rule 2 above the geometry rules.
 
+## REMOVAL (added 2026-08-11)
+
+Detection was half the job. `docs/research/WATERMARK_REMOVAL_RND.md` section 0
+says the halo is an ALPHA-ESTIMATION problem: a binary mask either keeps the
+1-2px partial-alpha ramp (halo survives) or eats it (a filler must invent it),
+and the only artifact-free path is to recover a continuous alpha plus W and
+invert `J = (I - aW)/(1 - a)`. That needs a collection carrying the same mark -
+which the detector had already assembled.
+
+**Method** (`estimate_matte` / `remove_overlay`, pure numpy + PIL):
+
+1. **Register** every frame to the template (`best_shift`). Pooling an
+   unregistered collection is the plateau the R&D plan calls its biggest
+   missing piece.
+2. **Seed the background** by interpolating DOWN COLUMNS across the mark's own
+   region. A median filter was the obvious seed and is the recorded failure of
+   R&D method 4 ("alpha underestimated, median bg contaminated by dense text") -
+   inside a dense text line every pixel in the window is mark. Columns not rows:
+   the mark is ~30px tall and ~1000px wide, so a column fill bridges 30px of
+   unknown art instead of a thousand. Measured, the row-wise seed biased alpha
+   ~20 percent low.
+3. **Shape** the matte as the median over the collection of `(I-J)/(W-J)`.
+4. **Fit one global gain** against the detector's own post-removal score.
+
+**Why a per-pixel least-squares fit was abandoned.** It was implemented first -
+regress `I-J = aW - aJ` over the collection - and measured on the real corpus:
+median R^2 **0.10**. The model explains a tenth of a pixel's cross-frame
+variation because the seed error is bigger than the mark, so an R^2 gate either
+threw away 93 percent of the mark or let art through, and spatial pooling of the
+statistics made it worse (R^2 0.101 -> 0.079 -> 0.071 at windows 1/3/5). The
+median-of-ratios is the estimator that survives that noise.
+
+**Why W is constant.** R&D section 3 says estimate W, do not pin it. Estimating
+it PER PIXEL was implemented and **diverged**: alpha and W trade off (only their
+product is identifiable without a prior), so re-solving W and re-fitting drove
+the mean post-removal score **0.149 -> 0.174 -> 0.254** across three rounds while
+W drifted from ~154 to ~87. Pinning W and fitting one gain is the stable half of
+the model until the matting-Laplacian priors exist.
+
+**Gain calibration** (mean post-removal detector score over the collection):
+
+| gain | 1.0 | 1.5 | **2.0** | 2.5 | 3.0 |
+|---|---|---|---|---|---|
+| mean score after | 0.258 | 0.133 | **0.120** | 0.141 | 0.166 |
+
+A clear interior optimum - itself evidence that the shape is right and only its
+scale was off. The fitted gain is stored in the matte and lands in the slug's
+manifest params.
+
+**Measured result over the 19 confirmed frames:**
+
+* detector score **median 0.565 -> 0.112**; **17 of 19** fall under the 0.15
+  flag. The two that do not: `107-cleanup` (0.150, borderline) and
+  `110-cleanup` (0.109 -> 0.173, the frame whose mark sits 32px off and which
+  the detector already scored worst).
+* the matte covers 1.4 percent of the band, max alpha 0.363, and pixels outside
+  it are copied through byte-for-byte, so AG 1.3 outside-identity holds by
+  construction rather than by measurement.
+* mean change where edited: 12-19 levels.
+
+**HONEST LIMITATION - the mark is reduced, not erased.** Viewed at 1:1 a faint
+ghost of the text remains on every frame tried. The score drop is real and the
+reconstruction is faithful (no hallucination, no invented content), but this is
+NOT operator-grade output: the operator rejected LaMa and block-SDXL for less
+visible damage. So the removal ships as a **QA-lane candidate generator**:
+
+```
+python tools\lw_clean_detector_probe.py --build-overlay-matte <confirmed slugs...>
+python tools\lw_clean_detector_probe.py --remove-overlay <slug>
+```
+
+which writes `<slug>_overlay_cand.png` plus a JSON of before/after scores into
+`ops/runtime/clean/<slug>/` and PRINTS the `save-working --tool overlay-dekel` +
+`submit` commands. It never mutates pipeline state, and nothing about it routes
+to `auto`. Closing the last of the ghost needs the rest of the R&D section 3
+programme - Levin matting-Laplacian alpha and IRLS - which is exactly what that
+document already predicted would be required.
+
 ## Known limitations
 
 * **`110-cleanup` still scores under threshold** (0.121). Its overlay is fainter

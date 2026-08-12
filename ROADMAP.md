@@ -107,8 +107,29 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   `ops/runtime/clean/` (gitignored), is rebuilt from the 19 verified slugs
   listed in the doc, and a MISSING template means the flag is simply off (v2
   behaviour exactly), which is how CI runs.
-  STILL OPEN: (a) removal - nothing here cleans an overlay, and the fill is the
-  alpha-estimation problem in `docs/research/WATERMARK_REMOVAL_RND.md`; (b) the
+  REMOVAL HALF LANDED 2026-08-11, PARTIAL AND HONEST ABOUT IT: `estimate_matte`
+  + `remove_overlay` recover a continuous alpha from the collection and INVERT
+  the matting equation (`J = (I - aW)/(1-a)`), so the reconstruction is faithful
+  - no fill, no hallucination, outside-region identity by construction. Measured
+  over the 19 confirmed frames: detector score **median 0.565 -> 0.112, 17 of 19
+  under the flag**. Method: register -> interpolate a background seed DOWN
+  COLUMNS (rows biased alpha 20 percent low; a median seed is R&D method 4's
+  recorded failure) -> alpha shape = median of `(I-J)/(W-J)` -> ONE global gain
+  fitted against the detector's own post-removal score (grid optimum 2.0,
+  interior: 1.0 -> 0.258, 2.0 -> 0.120, 3.0 -> 0.166).
+  TWO DEAD ENDS, MEASURED, do not redo: a per-pixel least-squares fit of the
+  matting equation reaches only **R^2 0.10** on this corpus (the background-seed
+  error exceeds the mark, so an R^2 gate either drops 93 percent of the mark or
+  lets art through, and spatial pooling made it worse); and re-estimating W PER
+  PIXEL **diverges** (mean post-removal score 0.149 -> 0.174 -> 0.254, W drifting
+  154 -> 87) because alpha and W trade off without a prior.
+  **The mark is REDUCED, NOT ERASED** - at 1:1 a faint ghost survives on every
+  frame. So it ships as a QA-lane candidate generator
+  (`--build-overlay-matte` / `--remove-overlay`, writing a candidate plus a
+  before/after JSON and PRINTING the save-working/submit commands), never auto,
+  never auto-approved. Closing the ghost needs R&D section 3 items 3-4 (Levin
+  matting-Laplacian alpha + IRLS), which that document already predicted.
+  STILL OPEN: (a) the last of the ghost - see above; (b) the
   other 3 of the 14 misses - thin painted signatures (YOLO gives one NO box at
   any conf) and a wordmark off the bottom band - need their own detector;
   (c) `110-cleanup` still scores 0.121, under threshold; (d) whether the 46 `qa`

@@ -68,8 +68,27 @@ One commit. Suite **1837 passed / 18 skipped** (3.14, full run). LEDGER 91.
   (`239f` has a banner AND an overlay).
 - Template is a derivative of DA's watermark -> `ops/runtime/` (gitignored),
   rebuilt via `--build-overlay-template`; missing template = flag off = v2.
-- Suite 1853/18. Still open: REMOVAL (the alpha problem), thin signatures, and
-  `110-cleanup` at 0.121.
+- Suite 1853/18. Still open then: REMOVAL, thin signatures, `110-cleanup`.
+
+### Then BUILT the REMOVAL (LEDGER 94) - reduced, NOT erased
+
+- **Detector score median 0.565 -> 0.112 over the 19 confirmed frames; 17 of 19
+  drop under the flag.** `estimate_matte` + `remove_overlay` invert the matting
+  equation `J = (I - aW)/(1-a)` - faithful, no fill, outside-identity by
+  construction.
+- Method: register -> background seed by interpolating DOWN COLUMNS (row-wise
+  biased alpha 20% low; a median seed is R&D method 4's recorded failure) ->
+  alpha shape = median of `(I-J)/(W-J)` -> ONE gain fitted against the
+  detector's own post-removal score (optimum 2.0, interior).
+- **Two dead ends, measured, do not redo:** per-pixel least squares reaches only
+  R^2 0.10 here (seed error > mark; pooling made it worse), and per-pixel W
+  DIVERGES (0.149 -> 0.174 -> 0.254) because alpha and W trade off.
+- **At 1:1 a faint ghost survives.** Not operator-grade. Ships as a QA-lane
+  candidate generator (`--build-overlay-matte` / `--remove-overlay`), never
+  auto. The rest needs R&D section 3 items 3-4 (matting-Laplacian + IRLS).
+- A synthetic fixture caught a latent DETECTOR bug: clipping the TEMPLATE (not
+  just the image) can saturate it to a constant and collapse the score to 0.0.
+- Suite 1864/18.
 
 ## 2026-08-10/11 - intake x4, clean-retry-degrades half 1, venv-destroying test bug
 

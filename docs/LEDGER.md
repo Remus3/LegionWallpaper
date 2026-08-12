@@ -27,6 +27,74 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+94. DONE **2026-08-11 (centre-overlay REMOVAL: matting-equation inversion,
+    detector score median 0.565 -> 0.112, 17 of 19 under the flag - the mark is
+    REDUCED, NOT ERASED, and ships QA-only).** The other half of LEDGER 93.
+    `estimate_matte` + `remove_overlay` in `tools/lw_clean_overlay.py` recover a
+    continuous alpha from the 19-frame collection and invert
+    `J = (I - aW)/(1-a)`, which reconstructs the partial-alpha ramp instead of
+    asking a filler to invent it - R&D section 0's whole point. Faithful by
+    construction: no generative fill, and pixels outside the matte are copied
+    byte-for-byte so AG 1.3 outside-identity is structural, not measured.
+    METHOD, each step measured: register every frame to the template
+    (`best_shift`); seed the background by interpolating DOWN COLUMNS across the
+    mark (a MEDIAN seed is R&D method 4's recorded failure - inside dense text
+    every pixel in the window is mark; and ROW-wise interpolation biased alpha
+    ~20 percent low because the mark is ~30px tall and ~1000px wide); alpha
+    shape = median over the collection of `(I-J)/(W-J)`; then ONE global gain
+    fitted against the detector's own post-removal score (grid optimum 2.0, and
+    interior - 1.0 -> 0.258, 1.5 -> 0.133, 2.0 -> 0.120, 2.5 -> 0.141,
+    3.0 -> 0.166 - which is itself evidence the shape is right and only its
+    scale was off).
+    TWO DEAD ENDS, MEASURED, DO NOT REDO: (1) a per-pixel least-squares fit of
+    the matting equation - implemented first - reaches only **R^2 0.10** on the
+    real corpus because the background-seed error exceeds the mark, so an R^2
+    gate either drops 93 percent of the mark or lets art through, and spatial
+    pooling of the statistics made it WORSE (0.101 -> 0.079 -> 0.071 at windows
+    1/3/5); (2) estimating W PER PIXEL **diverges** - alpha and W trade off,
+    only their product is identifiable without a prior, so three rounds drove
+    the mean post-removal score 0.149 -> 0.174 -> 0.254 while W drifted 154 ->
+    87. W is therefore held at a reference colour with the gain fitted, and a
+    test pins that contract so nobody re-derives the divergence.
+    RESULT over the 19 confirmed frames: score **median 0.565 -> 0.112**, 17
+    under the 0.15 flag; the two that miss are `107-cleanup` (0.150) and
+    `110-cleanup` (0.109 -> 0.173, the frame whose mark sits 32px off). Matte
+    covers 1.4 percent of the band, max alpha 0.363, mean change 12-19 levels.
+    **HONEST LIMITATION, stated everywhere it matters:** at 1:1 a faint ghost of
+    the text survives on every frame. This is NOT operator-grade - the operator
+    rejected LaMa and block-SDXL for less. So it ships as a QA-lane CANDIDATE
+    generator: `--build-overlay-matte` / `--remove-overlay` write
+    `<slug>_overlay_cand.png` plus a before/after JSON into
+    `ops/runtime/clean/<slug>/` and PRINT the save-working/submit commands
+    (single-writer discipline preserved; `--tool overlay-dekel`, never "lama" -
+    a manifest that misnames the provenance is a lie in the permanent record).
+    Nothing routes to `auto`. Closing the ghost needs R&D section 3 items 3-4
+    (Levin matting-Laplacian + IRLS), which that document already predicted.
+    TDD: 11 more tests RED-first (`tests/test_lw_clean_overlay_removal.py`) on a
+    synthetic composite with a KNOWN (W, alpha) - recovery error, ramp
+    reconstruction, outside-identity, score collapse, singular-alpha clamp,
+    round-trip. Two assertions were rewritten mid-flight to match measured
+    reality WITH the reason recorded rather than to hide it: the matte leaks a
+    little onto unmarked pixels (56 of 26416, max 0.076 - bounded by count AND
+    magnitude now), and the W test now asserts the constant-W contract plus the
+    divergence evidence. A synthetic fixture also caught a latent DETECTOR bug:
+    clipping the TEMPLATE (not just the image) saturates a strong template to a
+    constant on its own support, its variance goes to zero and the score
+    collapses to exactly 0.0 - invisible on the corpus, where template values
+    are a few levels. Fixed, and the 302-image census was RE-RUN afterwards to
+    check the flag set: verdict counts IDENTICAL (214 clean / 62 qa / 26 auto)
+    and no image changed verdict. Six already-`qa` images swapped reason
+    `centre_overlay` -> `not_border` (32 flagged, was 38) - marginal scores
+    moving under 0.15, no recall lost, since a `clean` image flipping is the
+    only change that would matter.
+    Verified: suite **1864 passed / 18 skipped** (3.14, up from 1853); ruff
+    clean; matte + candidates rebuilt through the CLI end to end. Matte, like
+    the template, is a derivative of a third party's watermark -> `ops/runtime/`
+    (gitignored), never tracked. Detail:
+    `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md`; R&D doc status updated and its
+    stale "the-ruined-king-viego = LoL logo, keep" line CORRECTED (it is a false
+    negative, not a false positive).
+
 93. DONE **2026-08-11 (centre-overlay detector built + calibrated; gate v3;
     `clean` 229 -> 214 over the live 302-image corpus).** The fix LEDGER 92
     pointed at. New `tools/lw_clean_overlay.py` (pure numpy + PIL, FFT

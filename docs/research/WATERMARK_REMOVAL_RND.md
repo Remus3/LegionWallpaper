@@ -1,7 +1,20 @@
 # LW Stage-2 R&D: Semi-transparent Watermark Removal (halo-ghost problem)
 
-Date: 2026-07-16
+Date: 2026-07-16 (status updated 2026-08-11)
 Status: **glyph15+SDXL = current-best interim; proper Dekel = the zero-halo fix, DEFERRED to a fresh session (operator-chosen).**
+
+> **2026-08-11 UPDATE - a partial Dekel now EXISTS for the DeviantArt centre
+> overlay** (`tools/lw_clean_overlay.py`, `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md`).
+> Steps 1 (collection + registration) and 5 (reconstruct by inverting the
+> matting equation) of section 3 are implemented; the mark's detector score
+> falls 0.565 -> 0.112 median over 19 frames, 17 of them under the flag. Steps 3
+> and 4 - Levin matting-Laplacian alpha and IRLS - are NOT, and the residue
+> proves it: a faint ghost survives on every frame. Two measurements from that
+> attempt are worth keeping: a per-pixel least-squares fit of the matting
+> equation reaches only R^2 0.10 on this corpus (seed error exceeds the mark),
+> and re-estimating W per pixel DIVERGES (mean post-removal score 0.149 -> 0.174
+> -> 0.254) because alpha and W trade off without a prior. That is precisely the
+> gap items 3-4 exist to close.
 Scope: removing baked-in semi-transparent artist-credit banners (e.g.
 `@namakxin PATREON.COM/NAMAKXIN`, `PEBANO1.DEVIANTART.COM`, `VEXXSOUL.DEVIANTART`)
 from LoL splash art at the cleaning stage (ADR-005: signatures are REMOVED).
@@ -127,5 +140,10 @@ or no weights). Segmentation helper if wanted: Diffusion-Dynamics/watermark-segm
   block-SDXL as a working milestone (needauth rejected during wrap). Reprocess
   each with the Dekel result: save-working --from <dekel> --tool dekel + submit.
 - **Not watermarks (do NOT process):** caitlyn-love-confession (@ false positive),
-  vayne3 (carved-stone art false positive), the-ruined-king-viego (LoL logo, keep).
-  These need the gate's is_lol_logo / false-positive handling tightened separately.
+  vayne3 (carved-stone art false positive). Both re-verified 2026-08-11: the gate
+  now returns `clean` on each, and the census found no mark in either frame.
+  **CORRECTED 2026-08-11:** `the-ruined-king-viego` was listed here as "LoL logo,
+  keep". The wordmark KEEP is right, but the frame ALSO carries a
+  `(C) VEXXSOUL.DEVIANTART.COM` centre overlay that the gate missed entirely
+  (best YOLO box 0.144, under the 0.35 floor) - it is a false NEGATIVE, not a
+  false positive. See `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`.
