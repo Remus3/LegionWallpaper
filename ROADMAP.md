@@ -273,12 +273,29 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   and still `qa/faint_mark` (detection score 0.109, under the 0.15 flag, and
   detection did not gain the search) - `FAINT_OVERLAY_DEFER` is what routes it,
   so the chain completes without moving a gate threshold.
+  (d) CLOSED 2026-08-12 - **the QA lane is 94 percent real work, and no threshold
+  moves.** All 67 `qa` rows of the live gate-v4 corpus were labelled BY EYE from
+  crops of what each row actually flagged (`tools/lw_clean_qa_crops.py`, contact
+  sheets in `ops/runtime/clean/qa_precision/`, ambiguous cells re-cut at 1:1/2x).
+  Region precision (is the BOXED thing a mark) **62/67 = 92.5 percent**; frame
+  precision (does the frame carry a mark anywhere, i.e. was the routing right)
+  **63/67 = 94.0 percent**. Per reason, region: `centre_overlay` **32/32**,
+  `not_border` 25/28, `faint_mark` 4/5, `low_conf` 1/1, `area_too_large` 0/1.
+  The one row where the two disagree is the finding: `258-cleanup` boxes its
+  letterbox bars (junk) but DOES carry a `TYSIUUUL.DEVIANTART.COM` credit line at
+  `overlay_score` 0.1254, just under the 0.15 flag - right for the wrong reason.
+  The 4 genuinely mark-free frames are `177-cleanup` (jersey logo + "FAKER"
+  nameplate), `186-cleanup` (the poster's own "unto DARKNESS/LIGHT" typography),
+  `193-cleanup` (a painted snowflake) and `dbwtlkx-eeb94ce2` (brick texture at
+  conf 0.0765). DO NOT tighten on them: their `conf_max` 0.72-0.79, `n_boxes`,
+  `area_pct` and `ocr_hit` all sit inside the true-positive range, so every cut
+  that drops them drops real marks too. Detail `docs/CLEAN_QA_PRECISION_2026-08-12.md`.
   STILL OPEN: (a) on pale flat art (`mecha-ahri`) LaMa's own softening along the
-  masked strokes remains - a blur, not a legible mark; (d) whether the 46 `qa`
-  images carry real marks was never labelled; (f) `p2402-kda-evelynn` is queued
-  for the MANUAL IOPaint lane and nothing automates it - a stylised wordmark on
-  busy art that no threshold separates.
-  Evidence: `docs/CLEAN_OVERLAY_SCALE_2026-08-12.md` +
+  masked strokes remains - a blur, not a legible mark; (f) `p2402-kda-evelynn` is
+  queued for the MANUAL IOPaint lane and nothing automates it - a stylised
+  wordmark on busy art that no threshold separates.
+  Evidence: `docs/CLEAN_QA_PRECISION_2026-08-12.md` +
+  `docs/CLEAN_OVERLAY_SCALE_2026-08-12.md` +
   `docs/CLEAN_FAINT_LANE_2026-08-12.md` +
   `docs/CLEAN_FAINT_MARK_2026-08-11.md` +
   `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md` +

@@ -27,6 +27,44 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+100. DONE **2026-08-12 (QA-lane precision census; docs + one new probe tool).**
+    Closes ROADMAP `cleaning-detector-recall` open item (d) - the last unmeasured
+    part of the item. The recall census counted a `qa` verdict as "caught"
+    without ever asking whether the flagged frame carries a real mark, so the
+    HUMAN QUEUE's precision was unknown.
+    **MEASURED BY EYE, all 67 `qa` rows of the live gate-v4 302-image corpus.**
+    `tools/lw_clean_qa_crops.py` (new) crops what each row actually flagged - the
+    overlay template's own support bbox for `centre_overlay`, the YOLO / faint
+    box union elsewhere - and tiles labelled contact sheets, with an amplified
+    high-pass tile for `centre_overlay` because that mark is low-amplitude by
+    design. Every cell was LOOKED AT; ambiguous ones (`32-cleanup`,
+    `khanzaaiart`, `dbwtlkx`, `258-cleanup`) were re-cut at 1:1 or 2x before
+    being called. No proxy metric was used anywhere - same standard as the
+    precision and recall censuses.
+    **RESULT: region precision 62/67 = 92.5 percent, frame precision 63/67 =
+    94.0 percent.** Per reason (region): `centre_overlay` **32/32**,
+    `not_border` 25/28, `faint_mark` 4/5, `low_conf` 1/1, `area_too_large` 0/1.
+    Two precisions are reported because they DISAGREE on one row: `258-cleanup`
+    boxes its own letterbox bars (junk) yet genuinely carries a
+    `TYSIUUUL.DEVIANTART.COM` credit line at `overlay_score` 0.1254, just under
+    the 0.15 flag - right for the wrong reason.
+    **NO THRESHOLD MOVED, and that is a finding.** The 4 mark-free frames -
+    `177-cleanup` (SK telecom jersey + "FAKER" nameplate), `186-cleanup` (the
+    poster's own "unto DARKNESS/LIGHT" typography), `193-cleanup` (a painted
+    snowflake), `dbwtlkx-eeb94ce2` (brick texture at conf 0.0765) - do not
+    separate on any recorded field: `conf_max` 0.72-0.79, `n_boxes`, `area_pct`
+    and `ocr_hit` all sit inside the true-positive range, so every cut that drops
+    them drops real marks too. `not_border`'s 3 misses are exactly the case that
+    reason exists for (art YOLO reads as text-like, handed to a human instead of
+    auto-edited) and `faint_mark` at 4/5 buys 4 recall misses for 1 wasted look.
+    Verified: ruff clean on the new tool, doc/roadmap/ledger suite subset 43
+    passed / 2 skipped. Full suite not re-run - Tier-0/1 (docs + a standalone
+    probe on no production path), per the R5 tiered-verification rule.
+    Evidence `docs/CLEAN_QA_PRECISION_2026-08-12.md` (per-reason table + every
+    named miss); sheets in `ops/runtime/clean/qa_precision/` (gitignored - crops
+    of third-party art). DO NOT REDO: the labelling is settled; re-open only if
+    the gate's reasons or thresholds change, which would invalidate the strata.
+
 99. DONE **2026-08-12 (overlay registration searches SCALE, not just shift; suite
     1956/18).** `110-cleanup` - the one frame neither cleaning lane could clear -
     now CLEARS, and it was never a one-image fix.

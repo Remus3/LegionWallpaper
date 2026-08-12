@@ -11,6 +11,41 @@
 
 ---
 
+## 2026-08-12 (latest) - QA-lane precision census, 67 rows labelled by eye
+
+One commit. Doc + one new probe tool. LEDGER 100. ROADMAP
+`cleaning-detector-recall` item **(d) CLOSED** - the item's last open
+measurement.
+
+- **The human queue is 94 percent real work.** All 67 `qa` rows of the live
+  gate-v4 302-image corpus labelled from crops that were actually viewed.
+  Region precision (is the BOXED thing a mark) **62/67 = 92.5 percent**; frame
+  precision (does the frame carry a mark anywhere) **63/67 = 94.0 percent**.
+  Per reason, region: `centre_overlay` **32/32**, `not_border` 25/28,
+  `faint_mark` 4/5, `low_conf` 1/1, `area_too_large` 0/1.
+- **The two precisions disagree on exactly one row, and that is the finding.**
+  `258-cleanup` boxes its letterbox bars (junk) but DOES carry a
+  `TYSIUUUL.DEVIANTART.COM` credit line at `overlay_score` 0.1254 - just under
+  the 0.15 flag. Right for the wrong reason; a second signal saved it.
+- **No threshold moved, deliberately.** The 4 mark-free frames (`177-cleanup`
+  jersey logo + "FAKER", `186-cleanup` "unto DARKNESS/LIGHT" art typography,
+  `193-cleanup` a painted snowflake, `dbwtlkx-eeb94ce2` brick texture) sit
+  INSIDE the true-positive range on `conf_max`, `n_boxes`, `area_pct` and
+  `ocr_hit`. Any cut that drops them drops real marks.
+- **New tool `tools/lw_clean_qa_crops.py`** - crops what a row actually flagged
+  (template support bbox for `centre_overlay`, box union elsewhere), tiles
+  labelled sheets, adds an amplified high-pass tile for the low-amplitude DA
+  overlay. `--reason` / `--slug` / `--per-sheet`. Sheets land in
+  `ops/runtime/clean/qa_precision/` (gitignored).
+- Verified: ruff clean, doc/roadmap/ledger subset **43 passed / 2 skipped**.
+  Full suite NOT re-run - Tier-0/1 change, no production path touched.
+- Evidence: `docs/CLEAN_QA_PRECISION_2026-08-12.md`.
+
+STILL OPEN on the item: (a) LaMa softening on pale flat art (`mecha-ahri`), and
+(f) `p2402-kda-evelynn` in the MANUAL IOPaint lane.
+
+---
+
 ## 2026-08-12 (later) - overlay registration searches SCALE
 
 One commit. Suite **1956 passed / 18 skipped** (3.14). LEDGER 99.
