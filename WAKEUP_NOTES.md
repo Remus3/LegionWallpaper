@@ -43,10 +43,31 @@ One commit `109124d`. Suite **1881 passed / 18 skipped** (3.14). LEDGER 95.
 - Latent bug fixed in passing: `_binary_dilate`/`_binary_erode` padded both axes
   with the SE's row radius, so any non-square element raised a broadcast error.
 
-**NEXT:** calibrate the filled-veil alpha against the logo's own boundary step
-(`a = step / (W - J)`) and gate its support as strictly as the stroke seed, then
-re-run the family. `cv2.medianBlur` cannot do the wide window (`k < 16`); the
-downscale-median-upscale path is the CI-safe one.
+### Then the VEIL, same session (LEDGER 96)
+
+- **`estimate_veil` closes the by-eye gap.** Whitening against a background window
+  WIDER than the veil, combined by the collection's **25th percentile** (not the
+  median - art residue is high in a few frames, the veil in all), support opened +
+  closed and stopping ~10px inside the true edge, amplitude **calibrated against
+  the veil's own boundary step**: recovered **alpha 0.133**, matching the ~0.14
+  measured directly off the step.
+- **Two traps, both measured:** a fixture built from one sinusoid at shifted
+  phases makes the boundary bias correlated across frames and NO boundary method
+  can work on it (the frames must be unrelated artworks); and rings flush against
+  the support straddle the veil edge (inner ring only 56 percent veil), which
+  halves the step and halves the alpha. Both rings now stand off by 2-3 widths.
+- **The veil is inverted, never inpainted** - it rides beside the stroke alpha in
+  the matte, `remove_overlay` maxes them, and only a 9px ring at its boundary
+  joins the LaMa mask.
+- Re-run over the 32: median **0.310 -> 0.068**, 32/32 under the flag. The score
+  barely moves (the detector is a high-pass correlator - it never saw the veil);
+  the PICTURE is what changed. `245f` + `miss-fortune` clean, `mecha-ahri` down to
+  a soft blur. Suite 1889/18.
+
+**NEXT:** the remaining defect on pale flat art is LaMa's own softening along the
+masked strokes - a blur, not a legible mark. Everything else open on the item is
+the OTHER 3 recall misses (thin painted signatures, an off-band wordmark), which
+need their own detector.
 
 ## 2026-08-11 - clean-retry-degrades HALF 2: detector precision measured, 0 FP
 

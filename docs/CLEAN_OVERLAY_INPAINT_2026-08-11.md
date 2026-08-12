@@ -45,7 +45,7 @@ Three measurements decided the knobs:
 | horizontal reach | +-40px, bright-only | the seed stopped ~40px short of the leading "(C)", which survived the first run while every glyph the seed reached cleared. A round gate that far also reaches the lips directly below. |
 | density filter | 25 px in a 31x31 box | the opening leaves ~8 round specks; erosion cannot drop them without dropping real 4-6px strokes, but density can (a stroke fills ~124 of that box, a speck 9). |
 
-## Measured result
+## Measured result: strokes only (part 1)
 
 Over all **32** `centre_overlay`-flagged slugs in
 `ops/runtime/clean_recall_census_gatev3b.json`, one pass each:
@@ -69,46 +69,73 @@ BY EYE, at 1:1, the two halves of the mark behave differently:
   `miss-fortune-dmcdsno` (a lighter polygon over the neck) and `mecha-ahri`
   (over the cheek). On busy art it is invisible.
 
-So the score bar is met everywhere and the eye bar is met only where the art
-hides the veil. These stay QA proposals - the lane never auto-approves.
+So part 1 met the score bar everywhere and the eye bar only where the art hid the
+veil. Part 2 below closes that gap; these numbers are kept because they are what
+isolates the veil's contribution.
+
+## Part 2: the flat veil, calibrated against its own boundary step
+
+The logo's interior is invisible to a high-pass template - matte alpha there is
+exactly 0.0 - so it gets its own estimator, `lw_clean_overlay.estimate_veil`:
+
+1. **Whiten** each registered frame, `a ~ (gray - bg) / (255 - bg)`, with `bg`
+   over a window WIDER than the veil (~408px, built by downscale -> median ->
+   upscale; `cv2.medianBlur` asserts `k < 16` at that width).
+2. **Consensus, not median**, across the collection: art structure the median
+   cannot cancel is high in a FEW frames, the veil is high in ALL of them, so the
+   25th percentile separates them. Measured on the fixture: the median leaves 19
+   percent of the art above threshold, the low quartile leaves 0.4 percent.
+3. **Support** = smooth -> threshold 0.015 -> open (thin art residue) -> close
+   (a solid region still thresholds ragged). It deliberately stops ~10px INSIDE
+   the veil's true edge: over-reaching would darken real art by the full veil
+   alpha.
+4. **Calibrate** the amplitude against the veil's own boundary step - pick the
+   gain whose removal leaves no level difference between a ring inside and a ring
+   outside. Both rings stand off the support by the same 2-3 ring widths; a ring
+   flush against it was measured to be only 56 percent veil, which halved the
+   step and so halved the alpha.
+
+Recovered on the corpus: **alpha 0.133** (raw 0.027 x gain 5.0, an interior
+optimum - a grid to 10.5 still picks 5.0), support 38375 px whose bbox is
+285x282, i.e. the logo silhouette. That matches the ~0.14 read directly off the
+boundary step on `mecha-ahri`, which is the number this was built to hit.
+
+The veil is stored beside the stroke alpha in the matte, never merged into it:
+the inversion applies to both (`remove_overlay` maxes them), while the LaMa mask
+takes the strokes plus a 9px ring around the veil's boundary ONLY. That ring is
+there because the support is a median and each frame's own edge sits a few pixels
+off it, which leaves a hard step the filler blends away. The 310x240px interior
+is never inpainted.
+
+Re-run over the same 32 slugs with the veil in the matte:
+
+| | before | strokes only | + veil |
+| --- | --- | --- | --- |
+| median detector score | 0.310 | 0.069 | **0.068** |
+| worst frame | 0.696 | 0.115 | **0.125** |
+| under the 0.15 flag | 0 of 32 | 32 of 32 | **32 of 32** |
+| median mask coverage | - | 14.1% | 18.9% |
+
+The score barely moves, and that is the expected result, not a disappointment:
+the detector is a HIGH-PASS correlator, so a flat veil was never part of what it
+measured. The change is entirely in what the frame looks like. `245f` now comes
+back with both the veil polygon and the credit line gone and the art intact;
+`miss-fortune-dmcdsno`, whose lighter polygon over the neck was the clearest
+part-1 failure, is clean; `mecha-ahri` - pale flat skin, the worst case in the
+corpus - is down to a soft blur where LaMa worked, with no legible mark.
 
 ## What is still NOT solved, and exactly why
 
-The credit line clears. The LOGO's flat interior does not, and the cause is now
-pinned rather than guessed: **the template's support is the top 2 percent of the
-median HIGH-PASS, so a flat region contributes nothing to it.** Measured on
-`mecha-ahri`, matte alpha inside the logo is exactly `0.0` while its edges carry
-alpha up to 0.25 - the veil interior is invisible to the detector AND to the
-matte, so the inversion leaves the step and LaMa is only ever handed the outline.
+The credit line clears and the veil is now removed algebraically. What remains on
+the hardest frames (pale, flat art like `mecha-ahri`) is LaMa's own softening
+along the masked strokes - a blur, not a legible mark - plus a faint seam where
+the veil ring was blended. Do NOT chase it by masking the veil interior: handing
+a filler 310x240px of face is worse than anything it would replace.
 
-That is a different estimator, not a tuning pass. Do NOT approach it by lowering
-the alpha threshold or widening the mask - masking the interior hands LaMa
-310x240px of face to hallucinate, which is worse than the veil.
+The other open items are unchanged from the detector census: thin painted
+signatures and an off-band wordmark need their own detector, and whether the 46
+`qa` images carry real marks was never labelled.
 
-**A probe of the next estimator was run, and it half-works - start from here.**
-Same whitening `lw_clean_dekel.estimate_filled_alpha` uses, `a ~ (gray - bg) /
-(255 - bg)`, but with a background window WIDER THAN THE VEIL, median-combined
-over the registered collection (14 frames):
-
-| background window | logo interior alpha | art far from the mark |
-| --- | --- | --- |
-| 201px median | 0.028 | 0.003 |
-| ~408px (median 51 on a 1/8 downscale) | **0.060** | 0.005 |
-
-The silhouette comes out FILLED and legible - the logo reads as a solid shape,
-which the high-pass template never sees. Two things still block it:
-
-* it UNDERREADS. The step measured across the logo's own boundary on `mecha-ahri`
-  is ~20 levels over `J ~ 110`, i.e. `a ~ 0.14`, against the estimator's 0.060 -
-  the background window still partly follows the veil, so the interior is damped.
-  Calibrating against the boundary step (`a = step / (W - J)`) is the obvious fix.
-* its support SPRAWLS. At 0.05, art residue that 14 frames did not cancel spans
-  x 643-2290 of the band, so the veil needs a support gate at least as strict as
-  the density filter used for the strokes before it can drive a removal.
-
-`cv2.medianBlur` cannot be used at that width (it asserts `k < 16` above 8-bit
-ksize 5); the downscale-median-upscale path is also the one that keeps this
-CI-safe.
 
 ## Reproduce
 

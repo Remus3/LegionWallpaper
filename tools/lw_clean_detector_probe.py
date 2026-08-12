@@ -349,6 +349,17 @@ def build_overlay_matte(slugs, out_path=None, wide=False):
     if not imgs:
         raise SystemExit("no images resolved - nothing to solve")
     matte = ov.estimate_matte(imgs, tpl)
+    # The FLAT VEIL is a second, independent measurement over the same frames -
+    # the high-pass template cannot see a region with no high-pass, so the logo's
+    # interior needs the whitening estimator plus its boundary-step calibration.
+    veil = ov.estimate_veil(imgs, tpl)
+    matte["veil"] = veil
+    if float(veil.get("alpha", 0.0)):
+        print(f"  veil alpha={veil['alpha']:.3f} (raw {veil['raw']:.3f} x gain "
+              f"{veil['gain']}), support {int(veil['support'].sum())} px, "
+              f"residual step {veil['step']:.2f} levels")
+    else:
+        print("  veil: none found (no solid flat region above threshold)")
     path = ov.save_matte(
         out_path or (ov.WIDE_MATTE_PATH if wide else ov.MATTE_PATH), matte)
     a = matte["alpha"]

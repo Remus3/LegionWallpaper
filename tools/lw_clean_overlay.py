@@ -446,6 +446,181 @@ def estimate_matte(images, tpl=None, w_ref=W_REF, alpha_floor=ALPHA_FLOOR):
             "n": len(bands), "gain": gain, "score": score}
 
 
+# ==========================================================================
+# THE FLAT VEIL: the half of the mark a high-pass template cannot see
+# ==========================================================================
+# Background window for the whitening. It must be WIDER THAN THE VEIL (the logo
+# is ~310px across at 2560x1440) or the median follows the veil and the interior
+# reads as background: measured, a 201px window recovers interior alpha 0.028
+# where a ~408px one recovers 0.060. cv2.medianBlur cannot go there at all (it
+# asserts k < 16 above 8-bit ksize 5), so the window is built by downscaling,
+# taking a small median, and scaling back - which is also what keeps this on
+# numpy + PIL for CI.
+VEIL_SCALE = 8
+VEIL_MEDIAN_K = 51           # ~408px at VEIL_SCALE 8
+VEIL_THR = 0.015             # consensus whitening -> candidate veil
+# CONSENSUS, not median: art structure the median cannot cancel is high in a FEW
+# frames, the veil is high in ALL of them, so the low quartile across the
+# collection separates them where the median does not. Measured on the fixture:
+# median leaves 19 percent of the art above threshold, the 25th percentile
+# leaves 0.4 percent while keeping the veil.
+VEIL_Q = 25.0
+VEIL_SMOOTH_WIN = 15         # the veil is low-frequency; smooth before thresholding
+VEIL_CLOSE = 51              # fill the holes a threshold leaves in a solid region
+# The veil is a SOLID shape; the art residue 19 frames do not fully cancel is
+# scratchy and thin. A big opening separates them where a threshold cannot: at
+# 0.05 the raw support sprawls across x 643-2290 of the band.
+VEIL_OPEN_R = 5
+VEIL_RING = 8                # ring width used to read the boundary step
+VEIL_GAIN_GRID = tuple(round(0.5 + 0.25 * i, 2) for i in range(19))  # 0.5 .. 5.0
+VEIL_MIN_PX = 400            # below this the support is noise, not a veil
+
+
+def _coarse_median(gray, scale: int = VEIL_SCALE, k: int = VEIL_MEDIAN_K):
+    """Median over a window ~`scale * k` wide, via downscale -> median -> upscale.
+
+    An exact median at that width is neither affordable in numpy nor available in
+    cv2 (`k < 16`), and it is not needed: the quantity wanted is the level of the
+    art AROUND the veil, which survives the downscale.
+    """
+    from PIL import ImageFilter
+    h, w = gray.shape
+    sc = max(int(scale), 1)
+    small = Image.fromarray(np.clip(gray, 0, 255).astype(np.uint8), mode="L")
+    small = small.resize((max(w // sc, 1), max(h // sc, 1)), Image.BILINEAR)
+    small = small.filter(ImageFilter.MedianFilter(max(int(k) | 1, 3)))
+    return np.asarray(small.resize((w, h), Image.BILINEAR), dtype=np.float64)
+
+
+def _whiten(band_rgb, scale: int = VEIL_SCALE, k: int = VEIL_MEDIAN_K):
+    """`(gray - bg) / (255 - bg)` - alpha for a near-white mark over `bg`."""
+    g = np.asarray(band_rgb, dtype=np.float64).mean(axis=2)
+    bg = _coarse_median(g, scale, k)
+    return np.clip((g - bg) / np.clip(255.0 - bg, 1.0, None), 0.0, 1.0)
+
+
+def _close_bool(mask, size: int):
+    """Morphological closing (dilate then erode) - fills holes in a solid region."""
+    from PIL import ImageFilter
+    u8 = (np.asarray(mask, dtype=bool) * 255).astype(np.uint8)
+    im = Image.fromarray(u8, mode="L")
+    im = im.filter(ImageFilter.MaxFilter(max(int(size) | 1, 3)))
+    im = im.filter(ImageFilter.MinFilter(max(int(size) | 1, 3)))
+    return np.asarray(im) > 127
+
+
+def _veil_support(raw, thr: float = VEIL_THR, open_r: int = VEIL_OPEN_R,
+                  close_k: int = VEIL_CLOSE):
+    """Threshold a SMOOTHED map, drop thin residue, then fill the solid region.
+
+    Three steps because the failure modes are three: art residue is thin (the
+    opening), a solid veil still thresholds ragged (the closing), and both are
+    noisy at pixel scale (the smoothing, done by the caller).
+
+    The support ends ~10px INSIDE the veil's true edge, and that is deliberate:
+    over-reaching would darken real art by the full veil alpha, while the missing
+    rim is exactly the strip the stroke mask hands to LaMa anyway.
+    """
+    sup = raw >= float(thr)
+    if open_r and open_r >= 1:
+        sup = _open_bool(sup, 2 * int(open_r) + 1)
+    if close_k and close_k >= 3:
+        sup = _close_bool(sup, close_k)
+    return sup
+
+
+def _fit_veil_gain(bands, support, raw_alpha, w_ref, ring: int = VEIL_RING,
+                   gains=VEIL_GAIN_GRID):
+    """Pick the gain whose removal leaves NO level step across the boundary.
+
+    The whitening recovers the veil's shape and underreads its amplitude, so one
+    scalar is fitted - against the most direct observable there is. Inside the
+    veil `J = (I - aW)/(1-a)`; just outside, the art is untouched. The art itself
+    is continuous across that line, so the right alpha is the one that makes the
+    two ring means agree, averaged over the collection.
+    """
+    # Both rings stand OFF the support boundary by the same 2-3 ring widths, and
+    # that symmetry is load-bearing. A ring flush against the support straddles
+    # the veil's real edge - measured, a flush inner ring was only 56 percent
+    # veil, which halved the step and so halved the recovered alpha.
+    inner = (_erode_bool(support, 4 * int(ring) + 1)
+             & ~_erode_bool(support, 6 * int(ring) + 1))
+    outer = (_dilate_bool(support, 6 * int(ring) + 1)
+             & ~_dilate_bool(support, 4 * int(ring) + 1))
+    if not inner.any() or not outer.any():
+        return 1.0, float("nan")
+    best = (float("inf"), 1.0)
+    for g in gains:
+        a = float(np.clip(raw_alpha * g, 0.0, ALPHA_MAX))
+        errs = []
+        for b in bands:
+            fixed = (b[inner] - a * w_ref[None, :]) / max(1.0 - a, 1e-3)
+            errs.append(abs(float(fixed.mean()) - float(b[outer].mean())))
+        mean = float(np.mean(errs))
+        if mean < best[0]:
+            best = (mean, float(g))
+    return best[1], best[0]
+
+
+def _erode_bool(mask, size: int):
+    """Morphological erosion of a boolean mask (PIL MinFilter, no cv2)."""
+    from PIL import ImageFilter
+    u8 = (np.asarray(mask, dtype=bool) * 255).astype(np.uint8)
+    im = Image.fromarray(u8, mode="L").filter(
+        ImageFilter.MinFilter(max(int(size) | 1, 3)))
+    return np.asarray(im) > 127
+
+
+def estimate_veil(images, tpl=None, band=BAND, w_ref=W_REF, thr=VEIL_THR,
+                  open_r: int = VEIL_OPEN_R, ring: int = VEIL_RING,
+                  veil_scale: int = VEIL_SCALE, veil_k: int = VEIL_MEDIAN_K):
+    """Recover the mark's FLAT region from a collection -> {alpha, support, raw}.
+
+    `alpha` is a single number, not a map, and deliberately so: the veil IS one
+    constant alpha over a solid shape, and a per-pixel map would only carry the
+    art residue the median could not cancel INTO the correction. Registration
+    uses the template when one is given, exactly as `estimate_matte` does.
+
+    Returns support all-False (and alpha 0.0) when the collection carries no
+    solid flat region - a clean corpus must not manufacture a veil.
+    """
+    band = tuple(tpl["band"]) if tpl is not None else tuple(band)
+    bands = []
+    for im in images:
+        arr = np.asarray(im, dtype=np.float64)
+        b = band_of(arr, band)
+        if tpl is not None:
+            _sc, dy, dx = best_shift(arr, tpl)
+            if dy or dx:
+                b = np.roll(b, (-dy, -dx), axis=(0, 1))
+        bands.append(b)
+    if not bands:
+        raise ValueError("estimate_veil needs at least one image")
+
+    stack = np.stack([_whiten(b, veil_scale, veil_k) for b in bands])
+    raw_map = _box_mean(np.percentile(stack, VEIL_Q, axis=0), VEIL_SMOOTH_WIN)
+    support = _veil_support(raw_map, thr, open_r)
+    empty = {"alpha": 0.0, "raw": 0.0, "gain": 1.0, "step": float("nan"),
+             "support": np.zeros(raw_map.shape, dtype=bool), "band": band}
+    if int(support.sum()) < VEIL_MIN_PX:
+        return empty
+    raw = float(np.median(raw_map[support]))
+    w_ref = np.asarray(w_ref, dtype=np.float64)
+    gain, step = _fit_veil_gain(bands, support, raw, w_ref, ring)
+    return {"alpha": float(np.clip(raw * gain, 0.0, ALPHA_MAX)), "raw": raw,
+            "gain": gain, "step": step, "support": support, "band": band}
+
+
+def veil_alpha_map(veil, shape=None):
+    """The veil as an alpha map on its support (zeros when there is no veil)."""
+    if not veil or not float(veil.get("alpha", 0.0)):
+        return None
+    sup = np.asarray(veil["support"], dtype=bool)
+    if shape is not None and sup.shape != tuple(shape):
+        sup = _resize2d(sup, shape, nearest=True)
+    return np.where(sup, float(veil["alpha"]), 0.0)
+
+
 def remove_overlay(image, matte, shift=(0, 0), alpha_max=ALPHA_MAX):
     """Invert the matting equation -> (uint8 RGB, changed-pixel mask).
 
@@ -473,6 +648,13 @@ def remove_overlay(image, matte, shift=(0, 0), alpha_max=ALPHA_MAX):
         alpha = _resize2d(alpha, b.shape[:2])
         w = np.stack([_resize2d(w[..., c], b.shape[:2])
                       for c in range(w.shape[-1])], axis=-1)
+    # The FLAT VEIL rides along here and NOWHERE else: the inversion must fix it
+    # (a filler cannot invent 310x240px of face), while the LaMa mask must never
+    # see it. Combining by max keeps a stroke that crosses the veil at its own,
+    # higher alpha rather than averaging the two.
+    veil_map = veil_alpha_map(matte.get("veil"), b.shape[:2])
+    if veil_map is not None:
+        alpha = np.maximum(alpha, veil_map)
     dy, dx = (int(shift[0]), int(shift[1])) if shift else (0, 0)
     if dy or dx:
         alpha = np.roll(alpha, (dy, dx), axis=(0, 1))
@@ -494,11 +676,20 @@ def save_matte(path, matte):
     if d:
         os.makedirs(d, exist_ok=True)
     tmp = str(path) + ".tmp.npz"
+    veil = matte.get("veil") or {}
+    extra = {}
+    if veil.get("support") is not None and float(veil.get("alpha", 0.0)):
+        extra = {"veil_support": np.asarray(veil["support"], dtype=bool),
+                 "veil_alpha": np.asarray([float(veil["alpha"])]),
+                 "veil_raw": np.asarray([float(veil.get("raw", 0.0))]),
+                 "veil_gain": np.asarray([float(veil.get("gain", 1.0))]),
+                 "veil_step": np.asarray([float(veil.get("step", float("nan")))])}
     np.savez_compressed(tmp, alpha=matte["alpha"], W=matte["W"],
                         band=np.asarray(matte["band"]),
                         n=np.asarray([matte.get("n", 0)]),
                         gain=np.asarray([matte.get("gain", 1.0)]),
-                        score=np.asarray([matte.get("score", float("nan"))]))
+                        score=np.asarray([matte.get("score", float("nan"))]),
+                        **extra)
     os.replace(tmp, path)
     return path
 
@@ -508,11 +699,20 @@ def load_matte(path=MATTE_PATH):
     if not path or not os.path.isfile(path):
         return None
     with np.load(path) as z:
+        veil = None
+        if "veil_support" in z:
+            veil = {"support": z["veil_support"].astype(bool),
+                    "alpha": float(z["veil_alpha"][0]),
+                    "raw": float(z["veil_raw"][0]),
+                    "gain": float(z["veil_gain"][0]),
+                    "step": float(z["veil_step"][0]),
+                    "band": tuple(float(v) for v in z["band"])}
         return {"alpha": z["alpha"], "W": z["W"],
                 "band": tuple(float(v) for v in z["band"]),
                 "n": int(z["n"][0]) if "n" in z else 0,
                 "gain": float(z["gain"][0]) if "gain" in z else 1.0,
-                "score": float(z["score"][0]) if "score" in z else float("nan")}
+                "score": float(z["score"][0]) if "score" in z else float("nan"),
+                "veil": veil}
 
 
 def save_template(path, tpl):

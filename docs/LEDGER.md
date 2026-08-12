@@ -27,6 +27,49 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+96. DONE **2026-08-11 (the flat VEIL: calibrated against its own boundary step).**
+    Follow-on to LEDGER 95, which pinned the last visible defect: a high-pass
+    template cannot see a flat region, so the logo's interior had matte alpha
+    exactly 0.0 and the inversion left it untouched.
+    SHIPPED `lw_clean_overlay.estimate_veil`: whiten each registered frame
+    (`a ~ (gray - bg)/(255 - bg)`) against a background window WIDER than the veil
+    (~408px via downscale -> median -> upscale, because `cv2.medianBlur` asserts
+    `k < 16` there); combine the collection by its **25th percentile, not the
+    median** (art residue is high in a FEW frames, the veil in ALL - measured on
+    the fixture, the median leaves 19 percent of the art above threshold, the low
+    quartile 0.4); support = smooth -> threshold -> open -> close, deliberately
+    stopping ~10px INSIDE the true edge; then CALIBRATE the amplitude by picking
+    the gain whose removal leaves no level step between a ring inside and a ring
+    outside.
+    MEASURED: **alpha 0.133** (raw 0.027 x gain 5.0, an interior optimum - a grid
+    extended to 10.5 still picks 5.0), support 38375 px with a 285x282 bbox, i.e.
+    the logo silhouette. That matches the ~0.14 read straight off the boundary
+    step on `mecha-ahri`, which is the number it was built to hit.
+    TEST-DRIVEN CORRECTIONS, both measured, both now comments in the code: (1) the
+    fixture's frames had to become UNRELATED artworks - one sinusoid at shifted
+    phases keeps the boundary bias correlated across frames and NO boundary method
+    can work on it; (2) rings flush against the support straddle the veil's real
+    edge (a flush inner ring was only 56 percent veil), which halved the step and
+    halved the recovered alpha - both rings now stand off by 2-3 ring widths.
+    INTEGRATION: the veil rides in the matte BESIDE the stroke alpha (npz-persisted,
+    back-compatible with veil-less mattes); `remove_overlay` maxes the two, and
+    `overlay_mask` hands LaMa the strokes plus a 9px ring at the veil's BOUNDARY
+    only - the support is a median so each frame's own edge sits a few px off it
+    and leaves a hard step, while the 310x240px interior is never inpainted.
+    RE-RUN over the same 32 flagged slugs: median **0.310 -> 0.068**, 32/32 under
+    the 0.15 flag, median coverage 14.1 -> 18.9 percent. The SCORE barely moves and
+    that is expected - the detector is a high-pass correlator that never saw the
+    veil - the change is in the picture: `245f` and `miss-fortune-dmcdsno` come
+    back with polygon and credit line gone and art intact; `mecha-ahri` (pale flat
+    skin, worst case) is down to a soft blur with no legible mark.
+    VERIFIED: full suite **1889 passed / 18 skipped** (3.14); ruff clean over
+    `tools/` + the new test file. Docs:
+    `docs/CLEAN_OVERLAY_INPAINT_2026-08-11.md` part 2, ROADMAP updated.
+    DO NOT REDO: a 2-parameter regression of the step on `(W - J)` across frames
+    (the x spread is only 8-17 levels on this corpus, so the fit is noise); the
+    201px background window (interior reads 0.028 against 0.060 at ~408px);
+    masking the veil interior for LaMa.
+
 95. DONE **2026-08-11 (centre-overlay INPAINT: the matte seeds the LaMa mask;
     `109124d`).** Premise VERIFIED before building: the previous session's
     correction was right - `lw_clean_dekel.py` (LEDGER 29) already has

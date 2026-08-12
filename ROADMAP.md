@@ -143,11 +143,20 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   CREDIT LINE clears completely on busy art; the logo's flat veil survives on
   smooth art. Evidence `docs/CLEAN_OVERLAY_INPAINT_2026-08-11.md`, candidates in
   `ops/runtime/clean/overlay_lane/`.
-  STILL OPEN: (a) the LOGO's flat interior on pale art - the template support is
-  the top 2 percent of the median HIGH-PASS, so a flat veil contributes nothing
-  and matte alpha there is exactly 0.0; recovering it needs the outline's
-  interior filled and its level solved from the boundary step, NOT a lower alpha
-  threshold (masking 310x240px of face is worse than the veil); (b) the
+  VEIL HALF LANDED 2026-08-11 (LEDGER 96): `estimate_veil` recovers the logo's
+  FLAT interior, which the high-pass template cannot see (matte alpha there was
+  exactly 0.0). Whitening against a background window wider than the veil, a
+  CONSENSUS low quartile across the collection instead of the median, a support
+  that is opened + closed and deliberately stops ~10px inside the true edge, and
+  the amplitude CALIBRATED against the veil's own boundary step: recovered
+  **alpha 0.133** (an interior optimum), matching the ~0.14 read directly off the
+  step. The veil rides in the matte beside the stroke alpha, is applied by the
+  INVERSION, and only a 9px ring at its boundary is handed to LaMa - never the
+  310x240px interior. Re-run over the 32: median 0.310 -> 0.068, 32/32 under the
+  flag, and by eye `245f` / `miss-fortune` come back clean where part 1 left a
+  polygon.
+  STILL OPEN: (a) on pale flat art (`mecha-ahri`) LaMa's own softening along the
+  masked strokes remains - a blur, not a legible mark; (b) the
   other 3 of the 14 misses - thin painted signatures (YOLO gives one NO box at
   any conf) and a wordmark off the bottom band - need their own detector;
   (c) `110-cleanup` still scores 0.121, under threshold; (d) whether the 46 `qa`
