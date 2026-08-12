@@ -610,7 +610,7 @@ def _density_keep(mark, win: int = OVERLAY_DENSITY_WIN,
 
 def overlay_mask(full_shape, matte, shift=(0, 0), alpha_thr=OVERLAY_ALPHA_THR,
                  open_k: int = OVERLAY_OPEN_K, dilate_k: int = DILATE_K,
-                 pad: int = OVERLAY_PAD):
+                 pad: int = OVERLAY_PAD, scale: float = 1.0):
     """Centre-overlay matte -> (full-frame 0/255 mask, ROI box) for masked LaMa.
 
     The matte is already a cross-image estimate of WHICH pixels carry the mark,
@@ -635,6 +635,10 @@ def overlay_mask(full_shape, matte, shift=(0, 0), alpha_thr=OVERLAY_ALPHA_THR,
     alpha = np.asarray(matte["alpha"], dtype=np.float64)
     if alpha.shape != (y1 - y0, w):
         alpha = OV._resize2d(alpha, (y1 - y0, w))
+    # Scale THEN shift, in the same order remove_overlay applies them, or the
+    # mask and the pre-pass disagree about where the mark landed on this frame.
+    if float(scale) != 1.0:
+        alpha = OV.scale2d_centered(alpha, scale)
     dy, dx = (int(shift[0]), int(shift[1])) if shift else (0, 0)
     if dy or dx:
         alpha = np.roll(alpha, (dy, dx), axis=(0, 1))
@@ -653,6 +657,8 @@ def overlay_mask(full_shape, matte, shift=(0, 0), alpha_thr=OVERLAY_ALPHA_THR,
         sup = np.asarray(veil["support"], dtype=bool)
         if sup.shape != alpha.shape:
             sup = OV._resize2d(sup, alpha.shape, nearest=True)
+        if float(scale) != 1.0:
+            sup = OV.scale2d_centered(sup, scale)
         if dy or dx:
             sup = np.roll(sup, (dy, dx), axis=(0, 1))
         k = 2 * int(VEIL_EDGE_R) + 1
@@ -733,13 +739,20 @@ def overlay_prepass(full_bgr, matte, tpl, score_tpl=None,
     score_tpl = score_tpl if score_tpl is not None else tpl
     dy = dx = 0
     if tpl:
-        _s, dy, dx = OV.best_shift(rgb, tpl)
+        # Registration searches SCALE as well as shift (2026-08-12). Two frames
+        # carry the overlay at 1.12x and no shift can align those; the search is
+        # confined to removal, where the frame is already judged to carry the
+        # mark, because in the GATE it manufactures false positives.
+        _s, dy, dx, sc = OV.best_registration(rgb, tpl)
+    else:
+        sc = 1.0
     before = OV.overlay_score(rgb, score_tpl) if score_tpl else float("nan")
-    pre_rgb, changed = OV.remove_overlay(rgb, matte, shift=(dy, dx))
+    pre_rgb, changed = OV.remove_overlay(rgb, matte, shift=(dy, dx), scale=sc)
     pre_bgr = np.ascontiguousarray(np.asarray(pre_rgb)[:, :, ::-1])
     mask_full, roi_box = overlay_mask(pre_bgr.shape, matte, shift=(dy, dx),
-                                      alpha_thr=alpha_thr, pad=pad)
-    info = {"shift": [int(dy), int(dx)], "score_before": round(float(before), 4),
+                                      alpha_thr=alpha_thr, pad=pad, scale=sc)
+    info = {"shift": [int(dy), int(dx)], "scale": float(sc),
+            "score_before": round(float(before), 4),
             "prepass_changed_px": int(np.asarray(changed).sum()),
             "gain": matte.get("gain") if matte else None}
     return pre_bgr, mask_full, roi_box, info

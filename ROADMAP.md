@@ -238,12 +238,46 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   there is REGISTRATION (this frame correlates at 0.109 against the flagged
   family's 0.310 median), which belongs to the overlay item.
   Pinned by `tests/test_lw_clean_faint_lane.py` (25 tests).
+  REGISTRATION FIXED 2026-08-12 (LEDGER 99) - **`110-cleanup` now CLEARS, and it
+  was never a one-image fix.** `best_shift` registers TRANSLATION only; the
+  overlay is composited at a fixed size on the DA-served image and a firstdone is
+  that image resampled to 2560x1440, so a frame from a different source
+  resolution carries the mark at a different PIXEL size that no shift can align.
+  Swept a template scale over every flagged slug under 0.25 plus the case: EXACTLY
+  TWO are mismatched and both at the SAME 1.12 - `110-cleanup` 0.1090 -> 0.5052
+  and `122` 0.1696 -> 0.6542 - both landing in the range the well-registered
+  frames occupy (mecha-ahri 0.696, 123f 0.635). Everything else peaks at 1.00.
+  TWO BOUNDARIES, both measured. (1) **The scale search is for REMOVAL, never for
+  the gate:** a max-over-scales lifts the clean frame
+  `wallpapersden-...-sejuani` 0.1213 -> 0.1537, OVER the 0.15 flag - a false
+  positive manufactured by the search, the same lesson the shift window learned.
+  `overlay_score` is untouched and a test asserts it never grows a scale
+  parameter. (2) **A non-native scale must be DECISIVE:** correctly-registered
+  frames wobble up to 1.22x under a scale search (270f), the two real ones come
+  in at 3.86x and 4.63x, so `SCALE_ACCEPT_RATIO = 2.0` sits far from both and a
+  refusal keeps scale 1.0 - a wrong scale is a wrong edit, a refused one is only
+  today's behaviour.
+  BLAST RADIUS: over all 32 `centre_overlay` slugs plus 110-cleanup, **2
+  re-register and 31 register EXACTLY as before** (same shift, scale 1.0), and
+  `scale2d_centered` returns its input untouched at 1.0 so those 31 take a
+  bit-identical pixel path - the LEDGER 95/96 candidates stand. Spot-checked live:
+  mecha-ahri 0.6958 -> 0.0737, 245f 0.5858 -> 0.0903.
+  RESULT: 110-cleanup 0.1090 -> **0.0868** and 122 0.1696 -> **0.0941**, both
+  registered at shift (24,-1) scale 1.12, and by eye the credit line is GONE on
+  both. Every changed pixel on all four verified frames falls inside one of the
+  lane's two editors (the inversion's band or LaMa's ROI) - unexplained 0.
+  Note 122 already had a candidate from the LEDGER 95/96 pass produced at the
+  WRONG scale; it is worth regenerating. 110-cleanup's gate verdict is unchanged
+  and still `qa/faint_mark` (detection score 0.109, under the 0.15 flag, and
+  detection did not gain the search) - `FAINT_OVERLAY_DEFER` is what routes it,
+  so the chain completes without moving a gate threshold.
   STILL OPEN: (a) on pale flat art (`mecha-ahri`) LaMa's own softening along the
   masked strokes remains - a blur, not a legible mark; (d) whether the 46 `qa`
-  images carry real marks was never labelled; (f) `p2402` + `110-cleanup` are
-  queued for the MANUAL IOPaint lane and nothing automates them - 110's real fix
-  is the overlay lane's registration on weakly-correlating frames.
-  Evidence: `docs/CLEAN_FAINT_LANE_2026-08-12.md` +
+  images carry real marks was never labelled; (f) `p2402-kda-evelynn` is queued
+  for the MANUAL IOPaint lane and nothing automates it - a stylised wordmark on
+  busy art that no threshold separates.
+  Evidence: `docs/CLEAN_OVERLAY_SCALE_2026-08-12.md` +
+  `docs/CLEAN_FAINT_LANE_2026-08-12.md` +
   `docs/CLEAN_FAINT_MARK_2026-08-11.md` +
   `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md` +
   `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`; census tool

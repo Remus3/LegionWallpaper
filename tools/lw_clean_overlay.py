@@ -71,6 +71,17 @@ CLIP_LEVELS = 8.0
 # 6px and drop a real positive whose mark sits 33px off.
 SHIFT_FRAC_Y = 0.030
 SHIFT_FRAC_X = 0.016
+# REMOVAL-ONLY scale registration (2026-08-12). The overlay is composited at a
+# fixed size on the DA-served image, and a firstdone is that image resampled to
+# 2560x1440 - so a frame whose source was a different resolution carries the
+# mark at a different PIXEL size, which no shift can align. Measured over every
+# flagged slug under 0.25 plus 110-cleanup: exactly two are mismatched, both at
+# the SAME 1.12 (110-cleanup 0.1090 -> 0.5052, 122 0.1696 -> 0.6542), and both
+# land in the range the well-registered frames occupy. Everything else peaks at
+# 1.00. The grid is modest and centred on native; 1.12 must stay in it.
+SCALE_GRID = (0.88, 0.92, 0.96, 1.00, 1.04, 1.08, 1.12, 1.16, 1.20)
+# A non-native scale is accepted only when it is DECISIVE - see accept_scale.
+SCALE_ACCEPT_RATIO = 2.0
 
 # Removal knobs. MEDIAN_SIZE must exceed the mark's stroke width (~5px at
 # 2560x1440) so the seed background loses the text but keeps the painting.
@@ -135,6 +146,93 @@ def _resize2d(arr2d, shape, nearest=False):
     out = im.resize((int(shape[1]), int(shape[0])), mode)
     res = np.asarray(out, dtype=np.float64)
     return res > 0.5 if nearest else res
+
+
+def scale2d_centered(arr2d, s: float):
+    """PURE: rescale a 2D array by `s` about its centre, keeping its shape.
+
+    Scaling UP crops the overflow, scaling DOWN pads with zero. Bool arrays stay
+    bool (nearest), so a support or a mask survives the trip. s == 1.0 returns
+    the input untouched, which is what keeps the scale-1.0 arm of
+    `best_registration` bit-identical to the old translation-only path.
+    """
+    src = np.asarray(arr2d)
+    if float(s) == 1.0:
+        return src
+    is_bool = src.dtype == bool
+    h, w = src.shape
+    nh, nw = max(int(round(h * s)), 1), max(int(round(w * s)), 1)
+    res = _resize2d(src, (nh, nw), nearest=is_bool)
+    out = np.zeros((h, w), dtype=bool if is_bool else np.float64)
+    if nh >= h and nw >= w:
+        oy, ox = (nh - h) // 2, (nw - w) // 2
+        out[:, :] = res[oy:oy + h, ox:ox + w]
+        return out
+    ch, cw = min(nh, h), min(nw, w)
+    sy, sx = max((nh - h) // 2, 0), max((nw - w) // 2, 0)
+    dy, dx = max((h - nh) // 2, 0), max((w - nw) // 2, 0)
+    out[dy:dy + ch, dx:dx + cw] = res[sy:sy + ch, sx:sx + cw]
+    return out
+
+
+def _scale_tpl(tpl, s):
+    """A template rescaled about the band centre (template + support together)."""
+    if float(s) == 1.0:
+        return tpl
+    return {"template": scale2d_centered(np.asarray(tpl["template"],
+                                                    dtype=np.float64), s),
+            "support": scale2d_centered(np.asarray(tpl["support"], dtype=bool), s),
+            "band": tpl["band"], "n": tpl.get("n", 0)}
+
+
+def accept_scale(scaled_score, native_score,
+                 ratio: float = None) -> bool:
+    """Is a non-native scale DECISIVE enough to register at?
+
+    Frames that are correctly registered at 1.00 still wobble under a scale
+    search - measured, at most 1.22x the native score (270f, 0.1548 -> 0.1889 at
+    0.94) - while the two genuinely mismatched frames come in at 3.86x and 4.63x.
+    So the gate sits at 2.0, far from both, and a refusal keeps scale 1.0: a
+    wrong scale is a wrong edit, a refused one is only today's behaviour.
+
+    A non-positive native score makes the ratio meaningless, so it never accepts.
+    """
+    ratio = SCALE_ACCEPT_RATIO if ratio is None else ratio
+    if float(native_score) <= 0.0:
+        return False
+    return float(scaled_score) >= float(native_score) * float(ratio)
+
+
+def best_registration(image, tpl, scales=None, max_shift=None, ratio=None):
+    """(score, dy, dx, scale) - registration for REMOVAL, not for the gate.
+
+    `best_shift` aligns translation only. Two frames in the flagged family carry
+    the overlay at a different PIXEL SIZE and no shift can align them:
+    `110-cleanup` 0.1090 -> 0.5052 and `122` 0.1696 -> 0.6542, both at 1.12,
+    both landing in the range the well-registered frames already occupy. Every
+    other flagged frame under 0.25 peaks at 1.00.
+
+    THIS IS DELIBERATELY NOT WIRED INTO `overlay_score`. Measured on the top of
+    the clean population, a max-over-scales lifts `wallpapersden-...-sejuani`
+    from 0.1213 to 0.1537, over the 0.15 flag - a false positive manufactured by
+    the search, the same lesson the shift window learned. Detection keeps the
+    tight window; only removal, which runs on frames already judged to carry the
+    mark, gets to look for the scale.
+    """
+    if not tpl:
+        return (0.0, 0, 0, 1.0)
+    scales = SCALE_GRID if scales is None else scales
+    native = _correlate(image, tpl, max_shift)
+    best, best_s = native, 1.0
+    for s in scales:
+        if float(s) == 1.0:
+            continue
+        cand = _correlate(image, _scale_tpl(tpl, s), max_shift)
+        if cand[0] > best[0]:
+            best, best_s = cand, float(s)
+    if best_s != 1.0 and not accept_scale(best[0], native[0], ratio):
+        return (native[0], native[1], native[2], 1.0)
+    return (best[0], best[1], best[2], best_s)
 
 
 def estimate_template(images, band=BAND, support_pct: float = SUPPORT_PCT):
@@ -621,7 +719,7 @@ def veil_alpha_map(veil, shape=None):
     return np.where(sup, float(veil["alpha"]), 0.0)
 
 
-def remove_overlay(image, matte, shift=(0, 0), alpha_max=ALPHA_MAX):
+def remove_overlay(image, matte, shift=(0, 0), alpha_max=ALPHA_MAX, scale=1.0):
     """Invert the matting equation -> (uint8 RGB, changed-pixel mask).
 
     `J = (I - a*W) / (1 - a)` reconstructs the partial-alpha ramp EXACTLY
@@ -655,6 +753,14 @@ def remove_overlay(image, matte, shift=(0, 0), alpha_max=ALPHA_MAX):
     veil_map = veil_alpha_map(matte.get("veil"), b.shape[:2])
     if veil_map is not None:
         alpha = np.maximum(alpha, veil_map)
+    # The registered SCALE is applied after the veil joins the alpha and before
+    # the shift, because both were measured in template coordinates: rescale
+    # first, then translate the rescaled mark into place. W rides along
+    # per-channel so the inversion still subtracts the right colour.
+    if float(scale) != 1.0:
+        alpha = scale2d_centered(alpha, scale)
+        w = np.stack([scale2d_centered(w[..., c], scale)
+                      for c in range(w.shape[-1])], axis=-1)
     dy, dx = (int(shift[0]), int(shift[1])) if shift else (0, 0)
     if dy or dx:
         alpha = np.roll(alpha, (dy, dx), axis=(0, 1))

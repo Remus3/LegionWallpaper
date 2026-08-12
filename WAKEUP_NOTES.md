@@ -11,6 +11,43 @@
 
 ---
 
+## 2026-08-12 (later) - overlay registration searches SCALE
+
+One commit. Suite **1956 passed / 18 skipped** (3.14). LEDGER 99.
+
+- **`110-cleanup` clears, and it was never a one-image fix.** `best_shift`
+  registers translation only; the overlay is composited at a fixed size on the
+  DA-served image, so a frame from a different source resolution carries the
+  mark at a different PIXEL size. Swept every flagged slug under 0.25: EXACTLY
+  TWO are mismatched, both at the SAME 1.12 - `110-cleanup` 0.1090 -> 0.5052 and
+  `122` 0.1696 -> 0.6542, both landing in the well-registered range.
+- **Two boundaries, both measured, both pinned.** (1) The search is for REMOVAL,
+  never the GATE - a max-over-scales lifts clean `wallpapersden-sejuani` 0.1213
+  -> 0.1537, over the 0.15 flag; `overlay_score` is untouched and a test asserts
+  it never grows a scale parameter. (2) `SCALE_ACCEPT_RATIO = 2.0` - registered
+  frames wobble up to 1.22x, the two real ones are 3.86x and 4.63x; a refusal
+  keeps scale 1.0, which is the safe direction.
+- **Blast radius measured BEFORE trusting it:** 2 re-register, **31 register
+  exactly as before**, and `scale2d_centered` short-circuits at 1.0 so those 31
+  take a bit-identical pixel path - LEDGER 95/96 candidates stand. Live
+  spot-check: mecha-ahri 0.6958 -> 0.0737, 245f 0.5858 -> 0.0903.
+- **Result: 110 -> 0.0868, 122 -> 0.0941, credit line GONE on both by eye.**
+  Every changed pixel on all four verified frames sits inside one of the lane's
+  two editors (inversion band / LaMa ROI) - unexplained 0.
+- **Do not chase the outside-ROI count.** It reads 6-11k pixels and is not a
+  defect: the inversion legitimately edits sub-threshold alpha across the band,
+  which is why the tripwire compares post-LaMa against the PRE-PASS frame.
+- Fixture trap repeated and caught: the first synthetic test built its template
+  from the same noise realization as the test image, so the art correlated with
+  itself at scale 1.0 and drowned the mark - the same "frames must be unrelated"
+  lesson as the veil work (LEDGER 96).
+
+**NEXT:** regenerate `122`'s candidate (its LEDGER 95/96 one was produced at the
+wrong scale). `p2402-kda-evelynn` is the only faint-family slug still owed to the
+manual IOPaint lane.
+
+---
+
 ## 2026-08-12 - faint-mark REMOVAL lane
 
 One commit. Suite **1939 passed / 18 skipped** (3.14). LEDGER 98.

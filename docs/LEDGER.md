@@ -27,6 +27,72 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+99. DONE **2026-08-12 (overlay registration searches SCALE, not just shift; suite
+    1956/18).** `110-cleanup` - the one frame neither cleaning lane could clear -
+    now CLEARS, and it was never a one-image fix.
+    **ROOT CAUSE.** `best_shift` registers TRANSLATION only. The overlay is
+    composited at a fixed size on the DA-served image and a `_firstdone` is that
+    image resampled to 2560x1440, so a frame whose source arrived at a different
+    resolution carries the mark at a different PIXEL size and no shift can align
+    it. Swept a template scale over every flagged slug scoring under 0.25 plus
+    the case: EXACTLY TWO are mismatched and both at the SAME 1.12 -
+    `110-cleanup` 0.1090 -> 0.5052 and `122` 0.1696 -> 0.6542 - both landing in
+    the range the well-registered frames already occupy (mecha-ahri 0.696, 123f
+    0.635), which is what a correct registration looks like rather than a lucky
+    correlation. Every other frame peaks at 1.00. A source-resolution family, not
+    a per-image quirk.
+    SHIPPED in `lw_clean_overlay.py`: `scale2d_centered` (pure, centre-aligned,
+    crops up / pads down, bool stays bool, and returns its input UNTOUCHED at
+    s == 1.0), `accept_scale`, `best_registration` -> (score, dy, dx, scale), and
+    `remove_overlay(..., scale=)`. `overlay_mask` scales the matte alpha and the
+    veil support in the SAME order the inversion does (scale then shift) so the
+    mask and the pre-pass can never disagree about where the mark landed.
+    **TWO BOUNDARIES, BOTH MEASURED, BOTH PINNED BY TESTS.** (1) The scale search
+    is for REMOVAL, never for the GATE: a max-over-scales lifts the clean frame
+    `wallpapersden-...-sejuani` from 0.1213 to 0.1537, OVER the 0.15 flag - a
+    false positive manufactured by the search itself, the same lesson the shift
+    window learned when a +-90/+-200px window lifted clean frames to 0.095.
+    `overlay_score` is unchanged and a test asserts by signature inspection that
+    it never grows a scale parameter. (2) A non-native scale must be DECISIVE:
+    correctly-registered frames still wobble under a scale search, up to 1.22x
+    the native score (270f, 0.1548 -> 0.1889 at 0.94), while the two real ones
+    come in at 3.86x and 4.63x. `SCALE_ACCEPT_RATIO = 2.0` sits far from both,
+    and a refusal keeps scale 1.0 - a wrong scale is a wrong edit, a refused one
+    is only today's behaviour. A non-positive native score never accepts.
+    **BLAST RADIUS MEASURED BEFORE TRUSTING IT.** `best_registration` over all 32
+    `centre_overlay` slugs plus 110-cleanup (pure numpy, no GPU): **2 re-register,
+    31 register EXACTLY as before** - same shift, scale 1.0 - and since
+    `scale2d_centered` short-circuits at 1.0 those 31 take a bit-identical pixel
+    path, so the LEDGER 95/96 candidates stand. Spot-checked live on two of them:
+    mecha-ahri 0.6958 -> 0.0737, 245f 0.5858 -> 0.0903, both well under the flag.
+    RESULT: 110-cleanup 0.1090 -> **0.0868**, 122 0.1696 -> **0.0941**, both at
+    shift (24,-1) scale 1.12 against (16,-16) at 1.00 before, and BY EYE the
+    credit line is GONE on both (it was fully legible on every prior attempt).
+    Verification: every changed pixel on all four frames falls inside one of the
+    lane's two editors - the algebraic inversion's removal band or masked LaMa's
+    ROI box - **unexplained 0**. The per-ROI count alone reads alarming (6-11k
+    pixels change outside the ROI) and is NOT a defect: the inversion legitimately
+    edits sub-threshold alpha across the whole band, which is exactly why the
+    in-process tripwire compares post-LaMa against the PRE-PASS frame, not the
+    original. Chasing that number without reading the tripwire's own comment
+    would have manufactured a bug.
+    TDD: `tests/test_lw_clean_overlay_scale.py` RED first (16 failed / 1 passed),
+    17 green. Full suite **1956 passed / 18 skipped** on 3.14, ruff clean.
+    A FIXTURE TRAP repeated and caught: the first synthetic test built its
+    template from the same noise realization as the test image, so the art
+    correlated perfectly with itself at scale 1.0 and drowned the planted mark -
+    the same "frames must be unrelated" lesson the veil work recorded (LEDGER 96).
+    Fixed by seeding each frame separately and building the template from the
+    mark alone.
+    NOTES: `122` was already flagged at 0.1696 and so already had a candidate
+    from the LEDGER 95/96 pass, produced at the WRONG scale - worth regenerating.
+    `110-cleanup`'s gate verdict is unchanged and still `qa/faint_mark` (detection
+    score 0.109, under the 0.15 overlay flag, and detection did not gain the
+    search); `FAINT_OVERLAY_DEFER` from LEDGER 98 is what routes it to
+    `--overlay`, so the chain completes without moving a gate threshold.
+    Evidence: `docs/CLEAN_OVERLAY_SCALE_2026-08-12.md`; candidates in
+    `ops/runtime/clean/overlay_scale/`.
+
 98. DONE **2026-08-12 (faint-mark REMOVAL lane; suite 1939/18).** Closes ROADMAP
     `cleaning-detector-recall` item (e) - the removal half of gate v4's
     `qa/faint_mark` rows. `lw_clean_iopaint.py --faint`.
