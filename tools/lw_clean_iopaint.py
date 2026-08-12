@@ -59,6 +59,9 @@ from PIL import Image
 # builder / paths here is CI-safe. Do NOT add cv2/torch imports at module top.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lw_clean_pass as C  # noqa: E402
+# Same import discipline: lw_clean_overlay is stdlib + numpy + PIL + lw_clean_pass,
+# so the centre-overlay matte + its algebraic pre-pass are CI-safe here.
+import lw_clean_overlay as OV  # noqa: E402
 
 # --------------------------------------------------------------------------
 # Paths + cluster presets (Legion machine).
@@ -149,6 +152,25 @@ DILATE_K = 7               # dilate kernel (odd) - ~3px, swallows the edge ramp
 DILATE_ITER = 1
 MATTE_ALPHA_THR = 0.12      # cross-image filled-matte threshold -> mask
 
+# Centre-overlay lane (the DeviantArt semi-transparent mark). The matte is the
+# cross-image alpha `lw_clean_overlay.estimate_matte` recovered over 19 confirmed
+# frames; thresholding it is a far better mask seed than a single-image diff,
+# because the art has already cancelled out of it.
+OVERLAY_ALPHA_THR = 0.08    # measured on the cached matte: 4744 px after the
+                            # opening, bbox 464x215 - tight on the logo + credit
+                            # line. 0.12 keeps the same bbox with 2960 px; 0.02
+                            # keeps 15499 px of estimator speckle across the band.
+OVERLAY_OPEN_K = 3          # drop 1px specks before the bbox is taken
+OVERLAY_PAD = 24            # ROI context for LaMa around the mark's bbox
+OVERLAY_DENSITY_WIN = 31    # speck filter window
+OVERLAY_DENSITY_MIN = 25    # a 4px stroke fills ~124 of a 31x31 box; a 3x3
+                            # estimator blob fills 9.
+OVERLAY_GATE_W = 81         # reach ALONG the credit line (+-40px): the seed
+                            # stopped ~40px short of the leading "(C)".
+OVERLAY_GATE_K = 15         # how far the frame's own residual may extend the
+                            # seed (~7px): enough to bridge two glyph cores,
+                            # short of the nearest unrelated art edge.
+
 
 # ==========================================================================
 # PURE numpy morphology + median (cv2-free; cv2 is an optional median accel)
@@ -169,9 +191,13 @@ def _disk_se(radius: int) -> np.ndarray:
 def _binary_dilate(mask_bool: np.ndarray, se: np.ndarray) -> np.ndarray:
     """Binary dilation by structuring element `se` (OR of shifted copies)."""
     mask_bool = np.asarray(mask_bool, dtype=bool)
-    r = se.shape[0] // 2
+    # Per-AXIS radii: a 1 x N structuring element (the credit line's horizontal
+    # reach) pads by zero rows and N//2 columns, and one shared radius would slice
+    # the shifted copies out of bounds.
+    rh, rw = se.shape[0] // 2, se.shape[1] // 2
     h, w = mask_bool.shape
-    padded = np.pad(mask_bool, r, mode="constant", constant_values=False)
+    padded = np.pad(mask_bool, ((rh, rh), (rw, rw)), mode="constant",
+                    constant_values=False)
     out = np.zeros_like(mask_bool)
     for di in range(se.shape[0]):
         for dj in range(se.shape[1]):
@@ -183,9 +209,10 @@ def _binary_dilate(mask_bool: np.ndarray, se: np.ndarray) -> np.ndarray:
 def _binary_erode(mask_bool: np.ndarray, se: np.ndarray) -> np.ndarray:
     """Binary erosion by `se` (AND of shifted copies; frame edge does not erode)."""
     mask_bool = np.asarray(mask_bool, dtype=bool)
-    r = se.shape[0] // 2
+    rh, rw = se.shape[0] // 2, se.shape[1] // 2
     h, w = mask_bool.shape
-    padded = np.pad(mask_bool, r, mode="constant", constant_values=True)
+    padded = np.pad(mask_bool, ((rh, rh), (rw, rw)), mode="constant",
+                    constant_values=True)
     out = np.ones_like(mask_bool)
     for di in range(se.shape[0]):
         for dj in range(se.shape[1]):
@@ -452,6 +479,162 @@ def cluster_matte_mask(target_full, siblings_full, region, pad,
     return (mark.astype(np.uint8) * 255)
 
 
+def _density_keep(mark, win: int = OVERLAY_DENSITY_WIN,
+                  min_count: int = OVERLAY_DENSITY_MIN):
+    """Drop pixels with too few mask neighbours in a `win` x `win` box.
+
+    Integral-image count, so the cost does not grow with the window. This is the
+    speck filter an erosion cannot be: the real strokes are 4-6px wide at
+    2560x1440, the same order as the blobs, so the two separate on DENSITY, not
+    on width.
+    """
+    m = np.asarray(mark, dtype=bool)
+    h, w = m.shape
+    k = max(int(win) | 1, 3)
+    r = k // 2
+    padded = np.pad(m.astype(np.int64), r, mode="constant")
+    ii = np.zeros((padded.shape[0] + 1, padded.shape[1] + 1), dtype=np.int64)
+    ii[1:, 1:] = padded.cumsum(0).cumsum(1)
+    counts = (ii[k:k + h, k:k + w] - ii[:h, k:k + w]
+              - ii[k:k + h, :w] + ii[:h, :w])
+    return m & (counts >= int(min_count))
+
+
+def overlay_mask(full_shape, matte, shift=(0, 0), alpha_thr=OVERLAY_ALPHA_THR,
+                 open_k: int = OVERLAY_OPEN_K, dilate_k: int = DILATE_K,
+                 pad: int = OVERLAY_PAD):
+    """Centre-overlay matte -> (full-frame 0/255 mask, ROI box) for masked LaMa.
+
+    The matte is already a cross-image estimate of WHICH pixels carry the mark,
+    with the art cancelled by the median over 19 frames, so this is a threshold
+    plus the same close/dilate discipline the single-image recipe uses - the
+    dilation is what swallows the 1-2px partial-alpha ramp and the dark glyph
+    OUTLINE that the algebraic pre-pass cannot invert (LEDGER 94's ghost).
+
+    `shift` is `lw_clean_overlay.best_shift`'s (dy, dx) and is applied exactly as
+    `remove_overlay` applies it, so the mask and the pre-pass can never disagree
+    about where the mark landed on this frame.
+
+    Returns (mask, None) when nothing clears the threshold - the caller then has
+    no work to do rather than a frame-sized ROI.
+    """
+    h, w = int(full_shape[0]), int(full_shape[1])
+    mask = np.zeros((h, w), dtype=np.uint8)
+    if not matte:
+        return mask, None
+    band = tuple(matte["band"])
+    y0, y1 = int(h * band[0]), int(h * band[1])
+    alpha = np.asarray(matte["alpha"], dtype=np.float64)
+    if alpha.shape != (y1 - y0, w):
+        alpha = OV._resize2d(alpha, (y1 - y0, w))
+    dy, dx = (int(shift[0]), int(shift[1])) if shift else (0, 0)
+    if dy or dx:
+        alpha = np.roll(alpha, (dy, dx), axis=(0, 1))
+
+    mark = alpha >= float(alpha_thr)
+    if open_k and open_k >= 3:
+        se = _disk_se(open_k // 2)
+        mark = _binary_dilate(_binary_erode(mark, se), se)
+    mark = _density_keep(mark)
+    if not mark.any():
+        return mask, None
+    if dilate_k and dilate_k >= 3:
+        mark = _binary_dilate(mark, _disk_se(dilate_k // 2))
+
+    band_view = mask[y0:y1]
+    band_view[mark] = 255
+    ys, xs = np.nonzero(mark)
+    rx0, rx1 = max(int(xs.min()) - pad, 0), min(int(xs.max()) + 1 + pad, w)
+    ry0 = max(y0 + int(ys.min()) - pad, 0)
+    ry1 = min(y0 + int(ys.max()) + 1 + pad, h)
+    return mask, (rx0, ry0, rx1, ry1)
+
+
+def overlay_roi_mask(mask_full, roi_box):
+    """The ROI-shaped slice of a full-frame mask - what LaMa is actually given."""
+    rx0, ry0, rx1, ry1 = roi_box
+    return np.ascontiguousarray(np.asarray(mask_full)[ry0:ry1, rx0:rx1])
+
+
+def complete_overlay_mask(roi_bgr, seed_mask_u8, gate_k: int = OVERLAY_GATE_K,
+                          gate_w: int = OVERLAY_GATE_W,
+                          bright_thr: float = BRIGHT_THR,
+                          dark_thr: float = DARK_THR, chroma_thr=None,
+                          close_k: int = CLOSE_K, dilate_k: int = DILATE_K):
+    """Grow a matte SEED into the COMPLETE mask, using this frame's own residual.
+
+    The matte says where the mark lives across the collection; the frame in hand
+    says what actually survived the algebraic pre-pass here. Inside a GATE around
+    the seed - and nowhere else - the validated diff-from-median-background rule
+    (LEDGER 30: bright FILL or dark OUTLINE) is OR-ed in, which is what closes the
+    gaps between glyph cores that a fixed alpha threshold leaves patchy.
+
+    The gate is the whole safety argument: outside it an art edge is just art, and
+    masking art is how an inpaint destroys a face.
+    """
+    seed = np.asarray(seed_mask_u8) > 127
+    if not seed.any():
+        return (seed.astype(np.uint8) * 255)
+    gate = _binary_dilate(seed, _disk_se(max(gate_k, 3) // 2))
+    diff = build_watermark_mask(roi_bgr, bright_thr=bright_thr, dark_thr=dark_thr,
+                                chroma_thr=chroma_thr, close_k=close_k,
+                                dilate_k=dilate_k) > 127
+    out = seed | (diff & gate)
+    if gate_w and gate_w >= 3:
+        # The credit line runs SIDEWAYS off the end of the seed, so the reach
+        # along it is longer than the reach across it - and only for the mark's
+        # BRIGHT fill, because the nearest art the wide gate can touch is the
+        # dark lip line one row band below (measured on mecha-ahri).
+        wide = _binary_dilate(seed, np.ones((1, int(gate_w) | 1), dtype=bool))
+        roi = np.asarray(roi_bgr, dtype=np.float64)
+        gray = roi.mean(axis=2)
+        bg = _median_blur(np.clip(gray, 0, 255).astype(np.uint8), MEDIAN_K)
+        bright = _binary_dilate(gray - bg > bright_thr, _disk_se(dilate_k // 2))
+        out = out | (bright & wide)
+    return (out.astype(np.uint8) * 255)
+
+
+def overlay_prepass(full_bgr, matte, tpl, score_tpl=None,
+                    alpha_thr=OVERLAY_ALPHA_THR, pad: int = OVERLAY_PAD):
+    """ALGEBRAIC removal first, then the mask for what it could not invert.
+
+    Order is the design (see `tests/test_lw_clean_iopaint_overlay.py`): the
+    matting inversion reconstructs the big flat logo - 310x240px over a face on
+    mecha-ahri - exactly, and no filler should be asked to invent that. What it
+    provably cannot invert is the mark's DARK OUTLINE, since a single achromatic
+    W cannot both add white fill and darken an edge (LEDGER 29 + 94). That thin
+    residual is what the mask hands to LaMa.
+
+    Returns (pre_bgr, mask_full, roi_box, info). `info` carries the registration
+    shift and the DETECTOR's score before the pre-pass, both for the manifest.
+    """
+    rgb = np.asarray(full_bgr)[:, :, ::-1].astype(np.float64)
+    score_tpl = score_tpl if score_tpl is not None else tpl
+    dy = dx = 0
+    if tpl:
+        _s, dy, dx = OV.best_shift(rgb, tpl)
+    before = OV.overlay_score(rgb, score_tpl) if score_tpl else float("nan")
+    pre_rgb, changed = OV.remove_overlay(rgb, matte, shift=(dy, dx))
+    pre_bgr = np.ascontiguousarray(np.asarray(pre_rgb)[:, :, ::-1])
+    mask_full, roi_box = overlay_mask(pre_bgr.shape, matte, shift=(dy, dx),
+                                      alpha_thr=alpha_thr, pad=pad)
+    info = {"shift": [int(dy), int(dx)], "score_before": round(float(before), 4),
+            "prepass_changed_px": int(np.asarray(changed).sum()),
+            "gain": matte.get("gain") if matte else None}
+    return pre_bgr, mask_full, roi_box, info
+
+
+def load_overlay_pair():
+    """(template, matte) for the removal lane - the WIDE pair, else the detector's.
+
+    The wide pair is the one built on `REMOVAL_BAND`; a box that has only ever run
+    the detector build still works, it just cannot reach the logo's clipped top.
+    """
+    tpl = OV.load_template(OV.WIDE_TEMPLATE_PATH) or OV.load_template()
+    matte = OV.load_matte(OV.WIDE_MATTE_PATH) or OV.load_matte()
+    return tpl, matte
+
+
 # ==========================================================================
 # ORCHESTRATION
 # ==========================================================================
@@ -483,16 +666,19 @@ def _sibling_fulls(cluster, target_slug):
 
 def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
                pad=DEFAULT_PAD, progressive=False, use_matte=None, out_dir=None,
-               dry_run=False, max_iter=25, log=print):
+               dry_run=False, max_iter=25, overlay=False,
+               alpha_thr=OVERLAY_ALPHA_THR, log=print):
     """IOPaint-emulation clean for one slug. Returns a result dict.
 
     Never mutates pipeline state: writes the candidate full PNG + before/after
     ROI + mask to out_dir and PRINTS the save-working (--tool iopaint) + submit
     commands. dry_run builds + writes the mask/before ROI only (no GPU, no clean).
     """
-    region, chroma_thr, preset_src = resolve_preset(slug, region, cluster, chroma_thr)
-    log(f"LW IOPAINT {slug}: region={region} chroma_thr={chroma_thr} "
-        f"(source={preset_src})")
+    if not overlay:
+        region, chroma_thr, preset_src = resolve_preset(
+            slug, region, cluster, chroma_thr)
+        log(f"LW IOPAINT {slug}: region={region} chroma_thr={chroma_thr} "
+            f"(source={preset_src})")
 
     if image is None:
         image = C.select_working_image(os.path.join(CLEAN_SCRATCH, slug), slug)
@@ -500,14 +686,47 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
         return {"slug": slug, "status": "error", "reason": "no clean input image"}
 
     full = _load_full_bgr(image)
-    roi_box = resolve_roi(full.shape, region, pad)
-    rx0, ry0, rx1, ry1 = roi_box
-    roi = full[ry0:ry1, rx0:rx1, :].copy()
-
-    siblings = _sibling_fulls(cluster, slug) if cluster else []
-    matte = use_matte if use_matte is not None else (len(siblings) >= 2)
     mask_kind = "diff"
     mask = None
+    ov_info = None
+    if overlay:
+        # The centre-overlay lane: no preset region at all. The mark's place on
+        # THIS frame comes from the matte's own registration, so the ROI is
+        # derived rather than declared (every preset region in this file was
+        # hand-measured for a corner mark; the DA overlay sits mid-frame).
+        tpl, ov_matte = load_overlay_pair()
+        if ov_matte is None:
+            return {"slug": slug, "status": "error",
+                    "reason": "no centre-overlay matte cached - run "
+                              "lw_clean_detector_probe.py --wide "
+                              "--build-overlay-matte <confirmed slugs>"}
+        orig_full = full
+        full, mask_full, roi_box, ov_info = overlay_prepass(
+            full, ov_matte, tpl, score_tpl=OV.load_template(),
+            alpha_thr=alpha_thr, pad=pad if pad != DEFAULT_PAD else OVERLAY_PAD)
+        if roi_box is None:
+            return {"slug": slug, "status": "error",
+                    "reason": f"the overlay matte is empty above alpha "
+                              f"{alpha_thr} - nothing to mask"}
+        mask = overlay_roi_mask(mask_full, roi_box)
+        mask_kind = "overlay-matte"
+        region = list(roi_box)
+        log(f"LW IOPAINT {slug}: overlay lane, shift={ov_info['shift']} "
+            f"score_before={ov_info['score_before']} "
+            f"prepass_changed={ov_info['prepass_changed_px']} roi={roi_box}")
+    else:
+        roi_box = resolve_roi(full.shape, region, pad)
+    rx0, ry0, rx1, ry1 = roi_box
+    roi = full[ry0:ry1, rx0:rx1, :].copy()
+    if ov_info is not None:
+        # The seed is a cross-image SHAPE; this frame's own residual completes it.
+        seeded = int((mask > 127).sum())
+        mask = complete_overlay_mask(roi, mask, chroma_thr=chroma_thr)
+        ov_info["seed_px"] = seeded
+        ov_info["mask_px"] = int((mask > 127).sum())
+
+    siblings = [] if overlay else (_sibling_fulls(cluster, slug) if cluster else [])
+    matte = use_matte if use_matte is not None else (len(siblings) >= 2)
     if matte and siblings:
         try:
             mask = cluster_matte_mask(full, siblings, region, pad, log=log)
@@ -526,6 +745,13 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
     mask_path = os.path.join(target, f"{slug}_iopaint_mask.png")
     C.atomic_write_png(before_path, roi[:, :, ::-1])       # BGR->RGB for PIL
     C.atomic_write_png(mask_path, mask)
+    if ov_info is not None:
+        # `before` is the ROI AFTER the algebraic pre-pass (what LaMa sees), so
+        # the untouched original is written alongside it - reviewing the lane
+        # needs both halves: what the matting fixed and what it left behind.
+        raw_path = os.path.join(target, f"{slug}_overlay_raw.png")
+        C.atomic_write_png(raw_path, orig_full[ry0:ry1, rx0:rx1, ::-1])
+        ov_info["raw"] = raw_path
     log(f"LW IOPAINT {slug}: region={region} pad={pad} mask={mask_kind} "
         f"chroma_thr={chroma_thr} coverage={cov:.1f}% mode="
         f"{'progressive' if progressive else 'one-pass'}")
@@ -534,6 +760,8 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
            "chroma_thr": chroma_thr, "mask_coverage_pct": round(cov, 3),
            "mode": "progressive" if progressive else "one-pass",
            "before": before_path, "mask_png": mask_path}
+    if ov_info:
+        rec["overlay"] = dict(ov_info)
 
     if dry_run:
         rec["status"] = "dry-run"
@@ -573,7 +801,19 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
                 "detail": str(exc)}
 
     full_after = paste_region_back(full, roi_after, roi_box)
+    # For the overlay lane `full` is the PRE-PASS frame, which is the right
+    # baseline: the matting inversion legitimately edits sub-threshold alpha
+    # outside the ROI, and the tripwire is about the paste-back, not about it.
     assert_region_identity(full, full_after, roi_box)      # tripwire
+    if ov_info is not None:
+        det = OV.load_template()
+        after = (OV.overlay_score(full_after[:, :, ::-1].astype(np.float64), det)
+                 if det else float("nan"))
+        ov_info["score_after"] = round(float(after), 4)
+        ov_info["flag_threshold"] = C.OVERLAY_SCORE_MIN
+        rec["overlay"] = dict(ov_info)
+        log(f"LW IOPAINT {slug}: overlay score {ov_info['score_before']} -> "
+            f"{ov_info['score_after']} (flag at {C.OVERLAY_SCORE_MIN})")
 
     after_path = os.path.join(target, f"{slug}_iopaint_after.png")
     cand_path = os.path.join(target, f"{slug}_clean_cand.png")
@@ -584,6 +824,11 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
               "mask": mask_kind, "chroma_thr": chroma_thr,
               "mask_coverage_pct": round(cov, 3),
               "mode": rec["mode"], "device": dev}
+    if ov_info is not None:
+        # The pixels are matting-inversion PLUS LaMa, and the manifest has to say
+        # so - "simple-lama-iopaint" alone would hide half of what edited them.
+        params["engine"] = "overlay-matte+simple-lama"
+        params["overlay"] = dict(ov_info)
     save = build_save_working_cmd(slug, cand_path, params)
     sub = build_submit_cmd(slug)
     C.atomic_write_json(os.path.join(target, f"{slug}_iopaint.json"),
@@ -635,6 +880,11 @@ def main(argv=None):
     p.add_argument("--out-dir", help="candidate/side-file dir (default runtime)")
     p.add_argument("--max-iter", type=int, default=25,
                    help="progressive-mode iteration cap")
+    p.add_argument("--overlay", action="store_true",
+                   help="centre-overlay lane: algebraic pre-pass with the cached "
+                        "matte, then LaMa over the residual it cannot invert")
+    p.add_argument("--alpha-thr", type=float, default=OVERLAY_ALPHA_THR,
+                   help="overlay-lane matte threshold that becomes the mask")
     p.add_argument("--dry-run", action="store_true",
                    help="build + write the mask/before ROI only (no GPU)")
     args = p.parse_args(argv)
@@ -646,7 +896,8 @@ def main(argv=None):
                      cluster=args.cluster, chroma_thr=args.chroma_thr, pad=args.pad,
                      progressive=args.progressive, use_matte=args.matte,
                      out_dir=args.out_dir, dry_run=args.dry_run,
-                     max_iter=args.max_iter)
+                     max_iter=args.max_iter, overlay=args.overlay,
+                     alpha_thr=args.alpha_thr)
     print(json.dumps({k: v for k, v in res.items() if k != "commands"},
                      indent=2, default=str))
     # gpu_busy is a non-zero exit like error: nothing was produced, and a batch

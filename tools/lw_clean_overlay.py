@@ -98,6 +98,21 @@ TEMPLATE_PATH = os.path.join(
 MATTE_PATH = os.path.join(
     r"C:\LegionWallpaper", "ops", "runtime", "clean", "overlay_matte.npz")
 
+# REMOVAL needs a WIDER band than DETECTION does, and the difference is measured:
+# BAND starts at 0.55h, but the DA logo's top edge sits at y/h ~ 0.506 on
+# mecha-ahri (2560x1440: row 728 vs the band's row 792). Detection does not care -
+# the credit line alone separates positives from art - but removal does: the
+# clipped 64 rows are a flat semi-transparent veil the matting inversion never
+# touches, and it stays legible after the pre-pass. The detector's BAND is
+# CALIBRATED and pinned by tests (threshold 0.15 was measured on it), so removal
+# gets its own band + its own cached pair rather than moving that constant.
+REMOVAL_BAND = (0.45, 0.85)
+WIDE_TEMPLATE_PATH = os.path.join(
+    r"C:\LegionWallpaper", "ops", "runtime", "clean",
+    "overlay_template_wide.npz")
+WIDE_MATTE_PATH = os.path.join(
+    r"C:\LegionWallpaper", "ops", "runtime", "clean", "overlay_matte_wide.npz")
+
 
 def highpass(image, win: int = HP_WIN):
     """Luma minus its local mean - the same primitive the gate already uses."""

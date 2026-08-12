@@ -129,7 +129,25 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   before/after JSON and PRINTING the save-working/submit commands), never auto,
   never auto-approved.
   **CORRECTION (same session, before wrap): matting-Laplacian + IRLS ALREADY EXIST and were measured to CAP.** `tools/lw_clean_dekel.py` (LEDGER 29, commit `bad25c8`) is a full Dekel - Levin closed-form matte, IRLS alternating minimisation, sub-pixel phase-correlation alignment, filled alpha init - and it leaves a legible dark-stroke ghost for a structural reason: the mark is stylised white-fill PLUS dark-outline text, which a single achromatic W cannot invert, and the residual is mark stroke entangled with real art. The shipped answer to that ghost is LEDGER 30, `tools/lw_clean_iopaint.py`: masked LaMa with a COMPLETE mask that covers the dark OUTLINE, not just the bright fill, seeded by a cross-image filled matte. So the next step for the centre overlay is to feed THIS matte into that mask builder - not to rebuild the algebra.
-  STILL OPEN: (a) the last of the ghost - see above; (b) the
+  INPAINT HALF LANDED 2026-08-11 (LEDGER 95): the matte now SEEDS the LaMa mask.
+  `lw_clean_iopaint.py --overlay` registers the frame, runs the algebraic
+  pre-pass, thresholds the matte into a mask (open -> density speck filter ->
+  dilate -> bbox ROI), completes it with THIS frame's own residual inside a gate
+  (7px across the strokes, 40px ALONG the credit line, bright-only sideways
+  because the nearest art is a dark lip line), and runs ONE LaMa pass. Removal
+  needs a WIDER band than detection - the logo's top edge sits at y/h 0.506 vs
+  the detector band's 0.55 - so `REMOVAL_BAND = (0.45, 0.85)` and a separate
+  `*_wide.npz` pair exist; the detector's calibrated `BAND` was NOT moved.
+  Measured over all 32 flagged slugs: detector score median **0.310 -> 0.069**,
+  worst 0.696 -> 0.115, **32 of 32 under the 0.15 flag** (was 0 of 32). By eye the
+  CREDIT LINE clears completely on busy art; the logo's flat veil survives on
+  smooth art. Evidence `docs/CLEAN_OVERLAY_INPAINT_2026-08-11.md`, candidates in
+  `ops/runtime/clean/overlay_lane/`.
+  STILL OPEN: (a) the LOGO's flat interior on pale art - the template support is
+  the top 2 percent of the median HIGH-PASS, so a flat veil contributes nothing
+  and matte alpha there is exactly 0.0; recovering it needs the outline's
+  interior filled and its level solved from the boundary step, NOT a lower alpha
+  threshold (masking 310x240px of face is worse than the veil); (b) the
   other 3 of the 14 misses - thin painted signatures (YOLO gives one NO box at
   any conf) and a wordmark off the bottom band - need their own detector;
   (c) `110-cleanup` still scores 0.121, under threshold; (d) whether the 46 `qa`

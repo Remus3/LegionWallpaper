@@ -274,7 +274,7 @@ def summarize(det_rows):
     }
 
 
-def build_overlay_template(slugs, out_path=None, stages=None):
+def build_overlay_template(slugs, out_path=None, stages=None, wide=False):
     """Median-stack the named slugs' images into a centre-overlay template.
 
     The slugs must be images CONFIRMED by eye to carry the DeviantArt centre
@@ -304,8 +304,11 @@ def build_overlay_template(slugs, out_path=None, stages=None):
         used.append(row["slug"])
     if not imgs:
         raise SystemExit("no images resolved - nothing to stack")
-    tpl = ov.estimate_template(imgs)
-    path = ov.save_template(out_path or ov.TEMPLATE_PATH, tpl)
+    band = ov.REMOVAL_BAND if wide else ov.BAND
+    tpl = ov.estimate_template(imgs, band=band)
+    path = ov.save_template(
+        out_path or (ov.WIDE_TEMPLATE_PATH if wide else ov.TEMPLATE_PATH), tpl)
+    print(f"band={band}")
     print(f"template from {len(used)} images -> {path}")
     for s in used:
         print(f"  {s}")
@@ -320,7 +323,7 @@ def _resolve_slug(name, known):
     return row
 
 
-def build_overlay_matte(slugs, out_path=None):
+def build_overlay_matte(slugs, out_path=None, wide=False):
     """Estimate {alpha, W} for the centre overlay from CONFIRMED-marked slugs.
 
     Same input list as the template build - these must be frames verified by eye
@@ -332,7 +335,7 @@ def build_overlay_matte(slugs, out_path=None):
 
     known = {r["slug"]: r for r in label_census()}
     known.update({r["slug"]: r for r in firstdone_rows()})
-    tpl = ov.load_template()
+    tpl = ov.load_template(ov.WIDE_TEMPLATE_PATH if wide else ov.TEMPLATE_PATH)
     if tpl is None:
         raise SystemExit("no template - run --build-overlay-template first")
     imgs, used = [], []
@@ -346,7 +349,8 @@ def build_overlay_matte(slugs, out_path=None):
     if not imgs:
         raise SystemExit("no images resolved - nothing to solve")
     matte = ov.estimate_matte(imgs, tpl)
-    path = ov.save_matte(out_path or ov.MATTE_PATH, matte)
+    path = ov.save_matte(
+        out_path or (ov.WIDE_MATTE_PATH if wide else ov.MATTE_PATH), matte)
     a = matte["alpha"]
     print(f"matte from {len(used)} images -> {path}")
     print(f"  gain={matte['gain']} mean post-removal score={matte['score']:.3f}")
@@ -429,16 +433,22 @@ def main(argv=None):
                     default=None,
                     help="solve {alpha, W} for the overlay from these "
                          "CONFIRMED-marked slugs and exit")
+    ap.add_argument("--wide", action="store_true",
+                    help="build the REMOVAL pair on lw_clean_overlay.REMOVAL_BAND "
+                         "(the wider band that keeps the logo's clipped top) and "
+                         "cache it under the *_wide paths")
     ap.add_argument("--remove-overlay", nargs="+", metavar="SLUG", default=None,
                     help="write a de-watermarked CANDIDATE per slug into the "
                          "runtime dir and print the pipeline commands")
     args = ap.parse_args(argv)
 
     if args.build_overlay_template:
-        build_overlay_template(args.build_overlay_template, out_path=args.out)
+        build_overlay_template(args.build_overlay_template, out_path=args.out,
+                               wide=args.wide)
         return 0
     if args.build_overlay_matte:
-        build_overlay_matte(args.build_overlay_matte, out_path=args.out)
+        build_overlay_matte(args.build_overlay_matte, out_path=args.out,
+                            wide=args.wide)
         return 0
     if args.remove_overlay:
         remove_overlay_for(args.remove_overlay)
