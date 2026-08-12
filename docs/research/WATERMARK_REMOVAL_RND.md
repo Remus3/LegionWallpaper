@@ -8,13 +8,18 @@ Status: **glyph15+SDXL = current-best interim; proper Dekel = the zero-halo fix,
 > Steps 1 (collection + registration) and 5 (reconstruct by inverting the
 > matting equation) of section 3 are implemented; the mark's detector score
 > falls 0.565 -> 0.112 median over 19 frames, 17 of them under the flag. Steps 3
-> and 4 - Levin matting-Laplacian alpha and IRLS - are NOT, and the residue
-> proves it: a faint ghost survives on every frame. Two measurements from that
-> attempt are worth keeping: a per-pixel least-squares fit of the matting
-> equation reaches only R^2 0.10 on this corpus (seed error exceeds the mark),
-> and re-estimating W per pixel DIVERGES (mean post-removal score 0.149 -> 0.174
-> -> 0.254) because alpha and W trade off without a prior. That is precisely the
-> gap items 3-4 exist to close.
+> and 4 - Levin matting-Laplacian alpha and IRLS - are not part of THAT module,
+> but they are NOT missing from the repo: `tools/lw_clean_dekel.py` (LEDGER 29,
+> `bad25c8`) already implements them in full and was measured to CAP, leaving the
+> same dark-stroke ghost. Section 3 below therefore reads as a plan that has
+> already been executed and answered - do not re-run it. The remaining ghost is
+> an INPAINTING problem (LEDGER 30, `lw_clean_iopaint.py`: masked LaMa with a
+> COMPLETE mask covering the dark outline), and the new overlay matte's job is to
+> SEED that mask for the centre-overlay family. Two measurements from the
+> 2026-08-11 attempt are still worth keeping: a per-pixel least-squares fit of
+> the matting equation reaches only R^2 0.10 on this corpus (seed error exceeds
+> the mark), and re-estimating W per pixel DIVERGES (0.149 -> 0.174 -> 0.254)
+> because alpha and W trade off without a prior.
 Scope: removing baked-in semi-transparent artist-credit banners (e.g.
 `@namakxin PATREON.COM/NAMAKXIN`, `PEBANO1.DEVIANTART.COM`, `VEXXSOUL.DEVIANTART`)
 from LoL splash art at the cleaning stage (ADR-005: signatures are REMOVED).

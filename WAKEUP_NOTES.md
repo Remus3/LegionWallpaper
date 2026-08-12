@@ -90,6 +90,20 @@ One commit. Suite **1837 passed / 18 skipped** (3.14, full run). LEDGER 91.
   just the image) can saturate it to a constant and collapse the score to 0.0.
 - Suite 1864/18.
 
+**NEXT - and NOT what it first looked like.** "Matting-Laplacian + IRLS" is
+ALREADY BUILT: `tools/lw_clean_dekel.py` (LEDGER 29, `bad25c8`) has Levin's
+closed-form matte, IRLS and sub-pixel alignment, and it was measured to CAP with
+the same dark-stroke ghost - the mark is white-fill PLUS dark-outline text, which
+no single achromatic W can invert. The shipped answer is LEDGER 30,
+`tools/lw_clean_iopaint.py`: masked LaMa with a COMPLETE mask covering the dark
+OUTLINE, seeded by a cross-image filled matte. **So the real next task is to feed
+THIS session's overlay matte into that mask builder for the centre-overlay
+family** - `build_watermark_mask` + `MATTE_ALPHA_THR` in `lw_clean_iopaint.py`
+already take a filled matte. **Do NOT redo:** pure algebraic Dekel (measured cap,
+LEDGER 29), the per-pixel least-squares fit (R^2 0.10) or per-pixel W (diverges).
+
+---
+
 ## 2026-08-10/11 - intake x4, clean-retry-degrades half 1, venv-destroying test bug
 
 Three commits, all CI green: `2958338` (retry default), `1ea9144` (suite venv
@@ -153,43 +167,3 @@ via a read-only investigation subagent, verified independently before any edit.
 - **Deferred (per skill contract, not this pass):** `/sync-all-md` full doc
   reconcile, any coverage%/VERSION/data-count prose recompute, `BACKLOG.md`
   edits, any dated-artifact history rewrite.
-
----
-
-## 2026-08-02 (latest) - repo RENAMED, README made outward-facing, toolchain to 3.14, cv-lane, hand-off guarded
-
-Suite **1800 passed / 17 skipped**, ruff clean, drift_guard 0 breaches / 4 notes.
-Nine commits `15844aa`..`3a3f6f7`, CI green on every one.
-
-- **Repo is now `Remus3/LegionWallpaper`** (was `legion-wallpaper`). `origin`
-  updated; WAKEUP + LEDGER 88 URLs follow. Old URL redirects, but the old name
-  is claimable by anyone - do not rely on the redirect.
-- **README rewritten for a stranger** (`7809618`): CI + license badges, mermaid
-  stage diagram, a "what is reusable here" table (verifier subagent, gates,
-  drift guard, loop, state machine), scope/status section. It had NEVER been
-  revised for a public audience - going public only added a License section.
-- **Toolchain moved to 3.14** (`b096533`): CI was pinned 3.12 while Legion runs
-  3.14, and ruff's `target-version` still claimed `py39`. Runner confirmed on
-  CPython 3.14.6. `target-version` = the MINIMUM supported version; do NOT
-  raise it above the CI pin.
-- **`ruff.toml` `exclude` was INERT** (`f293428`) - it sat under `[lint]`, which
-  measurably excludes nothing on ruff 0.15.12. Moved top-level. Only
-  `tools/dwpose_onnx` was actually reaching the linter (everything else was
-  covered by `.gitignore` by accident). Vendored dwpose now genuinely excluded.
-- **UP017 + B905 cleared and un-ignored** (`7453936`, `a15394b`). B905 needed
-  OPPOSITE answers per site: `strict=True` in `lw_clean_dekel.align_rois`
-  (lengths guaranteed by construction), `strict=False` in the pairwise test
-  idiom. A blanket autofix would have broken the test.
-- **`align_rois` had ZERO tests** despite a docstring claiming "unit-tested".
-  10 tests added (`4184ad2`), mutation-checked (crippling `estimate_shift`
-  kills 2 of 3 correctness assertions), and **`cv-lane`** (`e31a91a`,
-  `0472a72`) now runs them in CI off `requirements-cv.txt` - with a junit-XML
-  guard that FAILS the job if the suite silently skips. Runner: `tests=10
-  skipped=0`.
-- **Desktop hand-off guarded** (`3a3f6f7`). BACKLOG claimed the file was
-  "written each /done" - FALSE, `done.md` never mentioned it. Now
-  `tools/lw_next_session.py` resolves + guards the target and `done.md` 10b
-  makes the write mandatory. A doctored intent doc naming `RC-NEXT-SESSION.txt`
-  falls back to LW's own file.
-- **Do NOT redo:** the rename, README, 3.14 bump, exclude fix, UP017/B905, the
-  align_rois tests, cv-lane, or the hand-off guard - all shipped and CI-green.

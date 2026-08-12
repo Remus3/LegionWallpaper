@@ -210,9 +210,9 @@ python tools\lw_clean_detector_probe.py --remove-overlay <slug>
 which writes `<slug>_overlay_cand.png` plus a JSON of before/after scores into
 `ops/runtime/clean/<slug>/` and PRINTS the `save-working --tool overlay-dekel` +
 `submit` commands. It never mutates pipeline state, and nothing about it routes
-to `auto`. Closing the last of the ghost needs the rest of the R&D section 3
-programme - Levin matting-Laplacian alpha and IRLS - which is exactly what that
-document already predicted would be required.
+to `auto`.
+
+**CORRECTION (same session, before wrap): matting-Laplacian + IRLS ALREADY EXIST and were measured to CAP.** `tools/lw_clean_dekel.py` (LEDGER 29, commit `bad25c8`) is a full Dekel - Levin closed-form matte, IRLS alternating minimisation, sub-pixel phase-correlation alignment, filled alpha init - and it leaves a legible dark-stroke ghost for a structural reason: the mark is stylised white-fill PLUS dark-outline text, which a single achromatic W cannot invert, and the residual is mark stroke entangled with real art. The shipped answer to that ghost is LEDGER 30, `tools/lw_clean_iopaint.py`: masked LaMa with a COMPLETE mask that covers the dark OUTLINE, not just the bright fill, seeded by a cross-image filled matte. So the next step for the centre overlay is to feed THIS matte into that mask builder - not to rebuild the algebra.
 
 ## Known limitations
 

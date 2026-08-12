@@ -68,8 +68,8 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
     `ops/runtime/clean/<slug>/` and PRINT the save-working/submit commands
     (single-writer discipline preserved; `--tool overlay-dekel`, never "lama" -
     a manifest that misnames the provenance is a lie in the permanent record).
-    Nothing routes to `auto`. Closing the ghost needs R&D section 3 items 3-4
-    (Levin matting-Laplacian + IRLS), which that document already predicted.
+    Nothing routes to `auto`.
+    **CORRECTION (same session, before wrap): matting-Laplacian + IRLS ALREADY EXIST and were measured to CAP.** `tools/lw_clean_dekel.py` (LEDGER 29, commit `bad25c8`) is a full Dekel - Levin closed-form matte, IRLS alternating minimisation, sub-pixel phase-correlation alignment, filled alpha init - and it leaves a legible dark-stroke ghost for a structural reason: the mark is stylised white-fill PLUS dark-outline text, which a single achromatic W cannot invert, and the residual is mark stroke entangled with real art. The shipped answer to that ghost is LEDGER 30, `tools/lw_clean_iopaint.py`: masked LaMa with a COMPLETE mask that covers the dark OUTLINE, not just the bright fill, seeded by a cross-image filled matte. So the next step for the centre overlay is to feed THIS matte into that mask builder - not to rebuild the algebra.
     TDD: 11 more tests RED-first (`tests/test_lw_clean_overlay_removal.py`) on a
     synthetic composite with a KNOWN (W, alpha) - recovery error, ramp
     reconstruction, outside-identity, score collapse, singular-alpha clamp,
