@@ -42,9 +42,11 @@ One commit. Suite **1956 passed / 18 skipped** (3.14). LEDGER 99.
   itself at scale 1.0 and drowned the mark - the same "frames must be unrelated"
   lesson as the veil work (LEDGER 96).
 
-**NEXT:** regenerate `122`'s candidate (its LEDGER 95/96 one was produced at the
-wrong scale). `p2402-kda-evelynn` is the only faint-family slug still owed to the
-manual IOPaint lane.
+**NEXT:** `p2402-kda-evelynn` is the only faint-family slug still owed to the
+manual IOPaint lane. Note `122`'s candidate WAS regenerated at the correct scale
+into `ops/runtime/clean/overlay_scale/122/` during verification - the stale
+wrong-scale one from the LEDGER 95/96 pass is still sitting in
+`ops/runtime/clean/overlay_lane/`, so take the candidate from the new dir.
 
 ---
 

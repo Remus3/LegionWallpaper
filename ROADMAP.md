@@ -267,7 +267,9 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   both. Every changed pixel on all four verified frames falls inside one of the
   lane's two editors (the inversion's band or LaMa's ROI) - unexplained 0.
   Note 122 already had a candidate from the LEDGER 95/96 pass produced at the
-  WRONG scale; it is worth regenerating. 110-cleanup's gate verdict is unchanged
+  WRONG scale; a correct-scale one was written to
+  `ops/runtime/clean/overlay_scale/122/` during this verification, so take that
+  one - the stale candidate is still in `overlay_lane/`. 110-cleanup's gate verdict is unchanged
   and still `qa/faint_mark` (detection score 0.109, under the 0.15 flag, and
   detection did not gain the search) - `FAINT_OVERLAY_DEFER` is what routes it,
   so the chain completes without moving a gate threshold.
