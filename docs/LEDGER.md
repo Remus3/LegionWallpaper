@@ -27,6 +27,84 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+98. DONE **2026-08-12 (faint-mark REMOVAL lane; suite 1939/18).** Closes ROADMAP
+    `cleaning-detector-recall` item (e) - the removal half of gate v4's
+    `qa/faint_mark` rows. `lw_clean_iopaint.py --faint`.
+    **PREMISE ESTABLISHED BEFORE BUILDING, and it shaped the whole lane: the
+    family is NOT one object.** The centre-overlay work could ship one recipe
+    because all 32 frames carried the same mark; measuring these five first
+    showed 4 distinct dispositions - 2 brush signatures the lane CLEANS, 1
+    stylised wordmark on busy art it REFUSES to the manual queue, 1 low-alpha DA
+    overlay it DEFERS to `--overlay`, and the known false flag, which costs a 0.8
+    percent mask (a near no-op, and the useful negative control).
+    SHIPPED, reusing the existing masked-LaMa path whole (same
+    `build_watermark_mask`, paste-back, outside-ROI tripwire, save-working /
+    submit printout, never auto-applies). Three additions:
+    (1) **The ROI is DERIVED, not declared.** Every other region in that file is
+    a hand-measured preset; here the detector's own sub-floor boxes ARE the
+    localisation - discarding them was the bug gate v4 fixed - so the region is
+    their union, extended by any OCR box that OVERLAPS one. That extension is
+    load bearing: `p2402`'s YOLO box stops at x=2348 while OCR reads the wordmark
+    out to x=2482. Overlap is required rather than proximity, because both
+    alexflores frames carry the KEPT LEAGUE OF LEGENDS wordmark in the opposite
+    corner and a looser join would hand it to LaMa.
+    (2) **`FAINT_BRIGHT_THR` 42 against the banner default 10.** The default was
+    calibrated for an opaque bottom-centre credit strip; a brush signature sits
+    ON painted art, which reads well above +10 from its own local median, so at
+    the default the mask swallows the picture. Coverage by threshold - karthas
+    32.6 / 18.5 / 15.7 / 14.3 percent and dragon-slayer 28.1 / 22.3 / 22.1 / 22.0
+    at 10 / 22 / 34 / 42 - and read as PICTURES, one cloud streak still survives
+    at 34 on karthas and none at 42, with the signature fully covered on both.
+    (3) **Two refusals and an outcome check.** `FAINT_COVERAGE_MAX = 25.0` fires
+    BEFORE the GPU, leaves the mask on disk as evidence and prints the manual
+    IOPaint launch line (p2402 masks 33.4 percent); calibrated on n=3, so a
+    tripwire and not a classifier, but it errs toward refusing and a refusal
+    routes to a human. `FAINT_OVERLAY_DEFER = 0.10` is a MEASUREMENT rather than
+    a fit - over the 209 `clean` firstdones the centre-overlay score runs p50
+    0.0596 / p90 0.0770 / p99 0.1042 / max 0.1213, the four non-overlay flags
+    score 0.048-0.064 and `110-cleanup` scores 0.109, so the line means "out of
+    the clean distribution"; it can only ROUTE between lanes, never edit a pixel
+    or move a gate verdict. And after the pass the lane RE-DETECTS on the
+    candidate, reporting a surviving box inside the ROI as `status: residual` -
+    coverage is a proxy, the detector is the measurement, and it is the same one
+    that flagged the slug.
+    VERIFIED LIVE over all five: karthas CLEANED 14.1 percent / 4570 px changed,
+    dragon-slayer CLEANED 22.1 / 6774, dbwtlkx CLEANED 0.8 / 936, p2402 MANUAL,
+    110-cleanup DEFER. **0 changed pixels outside the ROI on all three cleaned
+    frames, RE-MEASURED from the files on disk rather than taken from the
+    in-process tripwire.** Both signatures were cropped and looked at before and
+    after: gone on both, background continuous across where they were, the only
+    visible cost a soft patch on dragon-slayer where a bright art fleck fell
+    inside the mask.
+    TDD: `tests/test_lw_clean_faint_lane.py` RED first (14 failed / 1 passed),
+    25 green after. Full suite **1939 passed / 18 skipped** on 3.14, ruff clean.
+    A test-environment trap fixed in passing: the lane tests are autouse-pinned
+    to overlay score 0.0 because CI has no template (scores 0.0) while Legion has
+    one, and a synthetic noise fixture correlating over the defer line made a
+    test pass or fail BY MACHINE. Also fixed: `--faint`'s help string contained a
+    literal `%`, and argparse %-formats help text, so `--help` raised TypeError
+    and took two existing CLI tests red - doubled to `%%`.
+    **DEAD ENDS, MEASURED, DO NOT REDO.** (1) The dark-outline adjacency gate for
+    p2402 - the wordmark is white fill with a dark outline and the art beside it
+    is bright cyan, so it looks like the separator; it is not, because the art's
+    own crevices satisfy it at every reach (r4 / r7 / r11 -> 30.9 / 32.8 / 34.4
+    percent, blob intact in all three). (2) The faint lane on a LOW-alpha DA
+    overlay is structurally wrong, not merely untuned: 110's glyphs differ from
+    the local median by far less than 42, the credit line stays legible at 19.0
+    percent coverage, the chroma term adds almost nothing (19.9), and the frame's
+    overlay score goes UP, 0.1090 -> 0.1203. (3) A bigger pad on the OVERLAY lane
+    for 110 - the derived ROI genuinely under-covers its credit line (x 852-1518
+    against a mark spanning 627-1538) and `--pad 260` does fix the clipping, but
+    the line is still legible and the score barely moves (0.109 -> 0.1031). The
+    binding constraint there is REGISTRATION - this frame correlates at 0.109
+    against the flagged family's 0.310 median - which belongs to the overlay
+    item, not to this lane.
+    STILL OPEN: p2402 + 110-cleanup are queued for the manual IOPaint lane and
+    nothing automates them; 110's real fix is the overlay lane's registration on
+    weakly-correlating frames.
+    Evidence: `docs/CLEAN_FAINT_LANE_2026-08-12.md`; candidates in
+    `ops/runtime/clean/faint_lane/`.
+
 97. DONE **2026-08-11 (faint-mark FLAG, gate v4: the last 4 recall misses; suite
     1914/18).** Closes ROADMAP `cleaning-detector-recall` items (b) and (c) - the
     thin painted signatures, the off-band wordmark, and `110-cleanup`'s

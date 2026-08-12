@@ -310,6 +310,113 @@ def build_watermark_mask(roi_bgr, bright_thr: float = BRIGHT_THR,
     return (mark.astype(np.uint8) * 255)
 
 
+# ==========================================================================
+# PURE: the faint-mark lane (gate v4's `qa/faint_mark` rows)
+# ==========================================================================
+# The banner default BRIGHT_THR = 10 was calibrated for an opaque bottom-centre
+# credit strip laid over whatever art happened to be under it. A brush signature
+# sits ON painted art, and painted art reads well above +10 from its own local
+# median - so at the default the mask swallows the picture. Measured over the
+# two signature frames this lane serves, mask coverage of the ROI by threshold:
+#   karthasbasefinal  10 -> 32.6%   22 -> 18.5%   34 -> 15.7%   42 -> 14.3%
+#   dragon-slayer     10 -> 28.1%   22 -> 22.3%   34 -> 22.1%   42 -> 22.0%
+# Read as pictures rather than as numbers: at 34 one cloud streak still survives
+# on karthasbasefinal and at 42 none does, while the signature stays fully
+# covered on both. 42 is the smallest swept step that leaves NO art component.
+FAINT_BRIGHT_THR = 42.0
+# The lane's self-refusal. A mark is a small part of its own ROI; a mask over
+# this much of it is not a mark, it is the picture. Measured at FAINT_BRIGHT_THR:
+# karthasbasefinal 14.3%, dragon-slayer 22.0%, and p2402-kda-evelynn 30.5% -
+# that last one is a stylised wordmark sitting ON busy crystal art, where NO
+# threshold separates the two (the dark-outline adjacency gate was tried and
+# fails too: the art's own crevices satisfy it at every reach, 30.9-34.4%).
+# Calibrated on n=3, so it is a tripwire and not a classifier - but it errs
+# toward REFUSING, and a refusal routes to a human, which is the safe direction.
+FAINT_COVERAGE_MAX = 25.0
+
+
+# A faint box says "something is here"; it does not say WHICH object. When the
+# frame also correlates with the centre-overlay template, the object is the DA
+# overlay and it has its own lane - one built for a LOW-alpha mark, where this
+# lane's raised bright threshold is structurally wrong. Measured on 110-cleanup:
+# the faint lane leaves the credit line legible (mask coverage 19.0%, 19.9% with
+# the chroma term OR-ed in) and its overlay score goes UP, 0.1090 -> 0.1203.
+# The line is a MEASUREMENT, not a fit: over the 209 `clean` firstdones the
+# overlay score runs p50 0.0596 / p90 0.0770 / p99 0.1042 / max 0.1213, so 0.10
+# means "out of the clean distribution". It only ever ROUTES between two lanes -
+# it cannot edit a pixel or change a gate verdict.
+FAINT_OVERLAY_DEFER = 0.10
+
+
+def faint_defers_to_overlay(overlay_score) -> bool:
+    """True when the faint lane should hand this frame to the overlay lane."""
+    return float(overlay_score) >= FAINT_OVERLAY_DEFER
+
+
+def _boxes_overlap(a, b) -> bool:
+    """True when two xyxy boxes share AREA. A shared edge is not an overlap."""
+    return (a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3])
+
+
+def faint_region(faint_boxes, ocr_boxes, w, h):
+    """PURE: the removal ROI for a `qa/faint_mark` slug, or None.
+
+    The detector's own sub-floor boxes ARE the localisation - this lane exists
+    because they were being thrown away - so the region is their union rather
+    than a hand-measured preset. Any OCR box that OVERLAPS one is unioned in as
+    well: a low-confidence YOLO box routinely stops short of the mark it found
+    (p2402's box ends at x=2348 while OCR reads the wordmark out to x=2482), and
+    inpainting a partial mark leaves the remainder legible.
+
+    Overlap is required, not proximity. Both alexflores frames carry the LEAGUE
+    OF LEGENDS wordmark in the opposite corner, and that logo is a KEEP - a
+    looser join would hand it to LaMa.
+    """
+    boxes = [d["box"] for d in (faint_boxes or ())]
+    if not boxes:
+        return None
+    x0 = min(b[0] for b in boxes)
+    y0 = min(b[1] for b in boxes)
+    x1 = max(b[2] for b in boxes)
+    y1 = max(b[3] for b in boxes)
+    for d in ocr_boxes or ():
+        ob = d["box"]
+        if any(_boxes_overlap(ob, b) for b in boxes):
+            x0, y0 = min(x0, ob[0]), min(y0, ob[1])
+            x1, y1 = max(x1, ob[2]), max(y1, ob[3])
+    return (max(int(x0), 0), max(int(y0), 0),
+            min(int(x1), int(w)), min(int(y1), int(h)))
+
+
+def faint_residual(faint_boxes, roi_box):
+    """PURE: the qualifying faint boxes still sitting INSIDE the cleaned ROI.
+
+    Mask coverage is a proxy for "did this work"; the detector is the
+    measurement, and it is the same one that flagged the slug. A box that
+    survives inside the ROI means the mark is still there - the low-alpha DA
+    credit line on `110-cleanup` is exactly that case, and a lane reporting
+    `cleaned` on it would be lying. A box OUTSIDE the ROI is a different mark
+    this run never touched.
+    """
+    return [d for d in (faint_boxes or ()) if _boxes_overlap(d["box"], roi_box)]
+
+
+def faint_mask_ok(coverage_pct) -> bool:
+    """True when the faint mask is small enough to be a mark, not the picture."""
+    return float(coverage_pct) <= FAINT_COVERAGE_MAX
+
+
+def _faint_detect(image_path):
+    """(faint_mark_boxes, ocr_boxes) for one image. The GPU seam - monkeypatched
+    in tests so the lane's plumbing is exercised without weights."""
+    from PIL import Image
+    with Image.open(image_path) as im:
+        w, h = im.size
+    det = C.detect_image(image_path)
+    return (C.faint_mark_boxes(det.get("faint") or [], w, h),
+            det.get("ocr") or [])
+
+
 def mask_coverage_pct(mask_u8) -> float:
     """Percent of the ROI the mask marks for inpainting."""
     m = np.asarray(mask_u8)
@@ -681,14 +788,19 @@ def _sibling_fulls(cluster, target_slug):
 def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
                pad=DEFAULT_PAD, progressive=False, use_matte=None, out_dir=None,
                dry_run=False, max_iter=25, overlay=False,
-               alpha_thr=OVERLAY_ALPHA_THR, log=print):
+               alpha_thr=OVERLAY_ALPHA_THR, faint=False, log=print):
     """IOPaint-emulation clean for one slug. Returns a result dict.
 
     Never mutates pipeline state: writes the candidate full PNG + before/after
     ROI + mask to out_dir and PRINTS the save-working (--tool iopaint) + submit
     commands. dry_run builds + writes the mask/before ROI only (no GPU, no clean).
+
+    `faint` runs the gate-v4 lane: the ROI comes from the detector's own
+    sub-floor boxes instead of a preset, the bright threshold is raised to
+    FAINT_BRIGHT_THR, and the run REFUSES with status `manual` when the mask
+    covers more of the ROI than a mark can (FAINT_COVERAGE_MAX).
     """
-    if not overlay:
+    if not overlay and not faint:
         region, chroma_thr, preset_src = resolve_preset(
             slug, region, cluster, chroma_thr)
         log(f"LW IOPAINT {slug}: region={region} chroma_thr={chroma_thr} "
@@ -728,6 +840,32 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
         log(f"LW IOPAINT {slug}: overlay lane, shift={ov_info['shift']} "
             f"score_before={ov_info['score_before']} "
             f"prepass_changed={ov_info['prepass_changed_px']} roi={roi_box}")
+    elif faint:
+        # A faint box says something is here, not WHICH object. If the frame
+        # correlates with the centre-overlay template it is the DA overlay, and
+        # that object has a lane built for its low alpha - route, do not repaint.
+        ov_score = C.centre_overlay_score(image)
+        if faint_defers_to_overlay(ov_score):
+            return {"slug": slug, "status": "defer_overlay",
+                    "overlay_score": round(float(ov_score), 4),
+                    "reason": f"centre-overlay score {ov_score:.4f} is outside "
+                              f"the clean distribution (defer at "
+                              f"{FAINT_OVERLAY_DEFER}) - this is the DA overlay "
+                              f"object, so run --overlay, not the faint lane"}
+        # gate v4: the boxes the gate flagged on ARE the localisation. No preset
+        # region exists for a one-off signature and hand-measuring one per slug
+        # is exactly what having the boxes removes.
+        fh, fw = full.shape[:2]
+        fboxes, oboxes = _faint_detect(image)
+        region = faint_region(fboxes, oboxes, fw, fh)
+        if region is None:
+            return {"slug": slug, "status": "error",
+                    "reason": "no faint-mark box on this frame - the faint lane "
+                              "has nothing to localise (re-check the gate "
+                              "verdict; only qa/faint_mark rows belong here)"}
+        log(f"LW IOPAINT {slug}: faint lane, {len(fboxes)} box(es) "
+            f"conf<{C.DETECT_CONF} -> region={region}")
+        roi_box = resolve_roi(full.shape, region, pad)
     else:
         roi_box = resolve_roi(full.shape, region, pad)
     rx0, ry0, rx1, ry1 = roi_box
@@ -749,8 +887,13 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
             log(f"LW IOPAINT {slug}: matte failed ({exc}); using single-image diff")
             mask = None
     if mask is None:
-        mask = build_watermark_mask(roi, chroma_thr=chroma_thr)
-        mask_kind = "diff"
+        if faint:
+            mask = build_watermark_mask(roi, bright_thr=FAINT_BRIGHT_THR,
+                                        chroma_thr=chroma_thr)
+            mask_kind = "faint-diff"
+        else:
+            mask = build_watermark_mask(roi, chroma_thr=chroma_thr)
+            mask_kind = "diff"
     cov = mask_coverage_pct(mask)
 
     target = out_dir or os.path.join(RUNTIME_CLEAN, slug)
@@ -781,6 +924,23 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
         rec["status"] = "dry-run"
         log(f"  before {_file_link(before_path)}")
         log(f"  mask   {_file_link(mask_path)}")
+        return rec
+
+    if faint and not faint_mask_ok(cov):
+        # The mark is on art the mask cannot separate it from. Refuse BEFORE the
+        # GPU and leave the mask on disk as the evidence - repainting this much
+        # of the frame to remove a signature is the worse outcome, and a refusal
+        # routes to the human lane rather than dropping the slug silently.
+        rec["status"] = "manual"
+        rec["reason"] = (
+            f"mask covers {cov:.1f}% of the ROI (ceiling "
+            f"{FAINT_COVERAGE_MAX:.0f}%) - the mark cannot be separated from the "
+            f"art here, so this slug goes to the manual IOPaint lane, not LaMa")
+        log(f"LW IOPAINT {slug}: MANUAL - {rec['reason']}")
+        log(f"  before {_file_link(before_path)}")
+        log(f"  mask   {_file_link(mask_path)}")
+        log(r"  lane: C:\Tools\iopaint\venv\Scripts\iopaint start --model=lama "
+            r"--device=cuda --port=8080  ->  http://127.0.0.1:8080")
         return rec
 
     # The hold spans the LaMa load AND the inpaint: loading puts weights on the
@@ -843,17 +1003,42 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
         # so - "simple-lama-iopaint" alone would hide half of what edited them.
         params["engine"] = "overlay-matte+simple-lama"
         params["overlay"] = dict(ov_info)
+    if faint:
+        # The region was DERIVED from the detector, not declared by an operator,
+        # and the manifest has to record which - a hand-measured preset and a
+        # sub-floor box union are not the same provenance.
+        params["engine"] = "faint-mark+simple-lama"
+        params["region_source"] = "faint_boxes"
+        params["bright_thr"] = FAINT_BRIGHT_THR
     save = build_save_working_cmd(slug, cand_path, params)
     sub = build_submit_cmd(slug)
-    C.atomic_write_json(os.path.join(target, f"{slug}_iopaint.json"),
-                        {**rec, "after": after_path, "cand": cand_path,
-                         "params": params})
     rec["status"] = "cleaned"
     rec["after"] = after_path
     rec["cand"] = cand_path
+    if faint:
+        # Re-detect on the CANDIDATE. This is the same detector that flagged the
+        # slug, so a box surviving inside the ROI is the mark surviving - the
+        # honest outcome measure, where mask coverage is only a proxy.
+        resid = faint_residual(_faint_detect(cand_path)[0], roi_box)
+        rec["faint_residual"] = [{"box": [round(v, 1) for v in d["box"]],
+                                  "conf": round(d["conf"], 4)} for d in resid]
+        if resid:
+            rec["status"] = "residual"
+            log(f"LW IOPAINT {slug}: RESIDUAL - the detector still boxes a mark "
+                f"inside the cleaned ROI ({len(resid)} box(es), best conf "
+                f"{max(d['conf'] for d in resid):.4f}). The candidate is an "
+                f"improvement, not a clear; finish it in the manual IOPaint "
+                f"lane before approving.")
+            log(r"  lane: C:\Tools\iopaint\venv\Scripts\iopaint start "
+                r"--model=lama --device=cuda --port=8080  ->  "
+                r"http://127.0.0.1:8080")
+    # The sidecar is written LAST so it carries the outcome, not the intent -
+    # a `residual` verdict is the forensics this file exists for.
+    C.atomic_write_json(os.path.join(target, f"{slug}_iopaint.json"),
+                        {**rec, "params": params})
     rec["commands"] = [save, sub]
-    log(f"LW IOPAINT {slug}: CLEAN candidate written (mask={mask_kind}, "
-        f"coverage={cov:.1f}%)")
+    log(f"LW IOPAINT {slug}: {rec['status'].upper()} candidate written "
+        f"(mask={mask_kind}, coverage={cov:.1f}%)")
     log(f"  before {_file_link(before_path)}")
     log(f"  after  {_file_link(after_path)}")
     log(f"  cand   {_file_link(cand_path)}")
@@ -899,6 +1084,14 @@ def main(argv=None):
                         "matte, then LaMa over the residual it cannot invert")
     p.add_argument("--alpha-thr", type=float, default=OVERLAY_ALPHA_THR,
                    help="overlay-lane matte threshold that becomes the mask")
+    p.add_argument("--faint", action="store_true",
+                   help="gate-v4 faint-mark lane: derive the ROI from the "
+                        "detector's own sub-floor boxes, mask at "
+                        f"bright_thr={FAINT_BRIGHT_THR:.0f}, and REFUSE to "
+                        f"LaMa when the mask covers over "
+                        # argparse %-formats help strings, so a literal percent
+                        # sign must be doubled or it raises at --help time.
+                        f"{FAINT_COVERAGE_MAX:.0f}%% of the ROI")
     p.add_argument("--dry-run", action="store_true",
                    help="build + write the mask/before ROI only (no GPU)")
     args = p.parse_args(argv)
@@ -911,7 +1104,7 @@ def main(argv=None):
                      progressive=args.progressive, use_matte=args.matte,
                      out_dir=args.out_dir, dry_run=args.dry_run,
                      max_iter=args.max_iter, overlay=args.overlay,
-                     alpha_thr=args.alpha_thr)
+                     alpha_thr=args.alpha_thr, faint=args.faint)
     print(json.dumps({k: v for k, v in res.items() if k != "commands"},
                      indent=2, default=str))
     # gpu_busy is a non-zero exit like error: nothing was produced, and a batch

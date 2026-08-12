@@ -199,13 +199,52 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   1-frame template is a lookup table for a set of size 2, not a detector.
   Pinned by `tests/test_lw_clean_faint_mark.py` (25 tests), including the one
   false flag, pinned as a row so it stays visible rather than folded into a rate.
+  FAINT REMOVAL LANDED 2026-08-12 (LEDGER 98) - closes (e). `lw_clean_iopaint.py
+  --faint`. **The first thing measured is that the family is NOT one object**,
+  unlike the 32-slug overlay: 2 brush signatures the lane CLEANS, 1 wordmark on
+  busy art it REFUSES to the manual lane, 1 DA overlay it DEFERS to `--overlay`,
+  and the known false flag, which costs a 0.8 percent mask - a near no-op.
+  Three new things over the existing masked-LaMa path (everything else reused
+  whole - same mask builder, paste-back, outside-ROI tripwire, never auto):
+  (1) the ROI is DERIVED from the detector's own sub-floor boxes, extended by
+  any OCR box that OVERLAPS one (p2402's YOLO box stops at x=2348 while OCR
+  reads the wordmark to x=2482); overlap is required, not proximity, because
+  both alexflores frames carry the KEPT LoL wordmark in the opposite corner.
+  (2) `FAINT_BRIGHT_THR` 42 vs the banner default 10 - painted art reads above
+  +10 from its own local median, so at the default the signature mask swallows
+  the picture (karthas 32.6 percent coverage at 10 -> 14.3 at 42; by eye one
+  cloud streak still survives at 34 and none at 42). (3) two refusals plus an
+  outcome check: `FAINT_COVERAGE_MAX` 25 (p2402 masks 33.4 percent - refused
+  BEFORE the GPU, mask left on disk, manual launch line printed),
+  `FAINT_OVERLAY_DEFER` 0.10 - a MEASUREMENT, not a fit: over the 209 clean
+  firstdones the overlay score runs p50 0.0596 / p90 0.0770 / p99 0.1042 / max
+  0.1213, the four non-overlay flags score 0.048-0.064 and `110-cleanup` scores
+  0.109 - and a post-pass RE-DETECT on the candidate that reports a surviving
+  box as `status: residual` (coverage is a proxy; the detector is the
+  measurement).
+  VERIFIED: karthas CLEANED 14.1 percent / 4570 px changed, dragon-slayer
+  CLEANED 22.1 / 6774, dbwtlkx CLEANED 0.8 / 936, p2402 MANUAL, 110-cleanup
+  DEFER - and **0 changed pixels outside the ROI on all three**, re-measured
+  from the files on disk rather than taken from the in-process tripwire. Both
+  signatures cropped and looked at: gone, background continuous, the only cost a
+  soft patch where a bright art fleck fell inside dragon-slayer's mask.
+  DEAD ENDS, MEASURED: the dark-outline adjacency gate does NOT separate p2402
+  (the art's own crevices satisfy it at every reach - r4/r7/r11 -> 30.9/32.8/
+  34.4 percent, blob intact); the faint lane on a LOW-alpha DA overlay is
+  structurally wrong, not untuned (110's credit line stays legible at 19.0
+  percent, chroma adds nothing at 19.9, and its overlay score goes UP 0.1090 ->
+  0.1203); and a `--pad 260` overlay run on 110 fixes the ROI clipping but still
+  leaves the line legible at 0.109 -> 0.1031, because the binding constraint
+  there is REGISTRATION (this frame correlates at 0.109 against the flagged
+  family's 0.310 median), which belongs to the overlay item.
+  Pinned by `tests/test_lw_clean_faint_lane.py` (25 tests).
   STILL OPEN: (a) on pale flat art (`mecha-ahri`) LaMa's own softening along the
   masked strokes remains - a blur, not a legible mark; (d) whether the 46 `qa`
-  images carry real marks was never labelled; (e) REMOVAL for the faint-mark
-  family - the flag routes them to the human queue and nothing automates the
-  edit (the two brush signatures in particular are thin strokes over busy art,
-  which is the manual IOPaint lane's shape, not LaMa's).
-  Evidence: `docs/CLEAN_FAINT_MARK_2026-08-11.md` +
+  images carry real marks was never labelled; (f) `p2402` + `110-cleanup` are
+  queued for the MANUAL IOPaint lane and nothing automates them - 110's real fix
+  is the overlay lane's registration on weakly-correlating frames.
+  Evidence: `docs/CLEAN_FAINT_LANE_2026-08-12.md` +
+  `docs/CLEAN_FAINT_MARK_2026-08-11.md` +
   `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md` +
   `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`; census tool
   `tools/lw_clean_detector_probe.py --corpus firstdone`.
