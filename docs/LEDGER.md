@@ -27,6 +27,52 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+92. DONE **2026-08-11 (cleaning detector RECALL measured: 14 confirmed false
+    negatives, ~12 percent of `clean` verdicts; one object is 11 of them).**
+    The mirror of LEDGER 91. Population deliberately NOT the gated corpus: the
+    21-slug cleaning queue is this detector's own 2026-07-16 `auto` output
+    (LEDGER 27), so recall measured there is circular - a miss can only exist
+    where the gate said `clean` and nothing was routed. So the census ran over
+    all 302 `_firstdone` images in `2.First Pass Done`, with a second YOLO sweep
+    at conf 0.10 (production floor is 0.35) recorded separately to separate "the
+    model cannot see it" from "the gate threw it away".
+    Verdicts: 27 `auto` / 46 `qa` / 229 `clean`. The 229 were stratified: S1
+    `lol_logo` (5), S2 low-conf box in band (3), S3 low-conf box out of band (9),
+    S4 no signal at all (212). S1-S3 were censused in FULL and each frame looked
+    at; S4 was sampled at n=14 (seeded, half DeviantArt-sourced). Confirmed by
+    eye: **14 false negatives** - 4/5 in S1, 1/3 in S2, 8/9 in S3, 1/14 in S4 -
+    i.e. 13 of the 17 fully-censused images. Extrapolating S4 gives ~28 of 229
+    (~12 percent) with a wide interval (the S4 term alone spans ~3 to ~66).
+    ROOT CAUSE: **11 of the 14 are the SAME object** - the semi-transparent
+    DeviantArt centre overlay - failing on three axes at once: YOLO scores it
+    0.11-0.25 under a 0.35 floor (two carry no box even at 0.10), EasyOCR reads
+    it as garble so `is_watermark_text` never sees "deviantart", and its centroid
+    is mid-frame so even a boxed one lands on `qa/not_border` rather than `auto`.
+    The other 3: a thin painted signature (2, one with NO box at any conf) and an
+    artist wordmark away from the bottom band (1).
+    TWO TRAPS, both measured, do not un-learn: (1) `is_lol_logo` LOOKS guilty -
+    it fired on all 4 S1 misses - but in each the missed mark also had no box
+    above the floor, so weakening the wordmark KEEP catches nothing and re-opens
+    the false positives that LEDGER 91 measured at zero; (2) dropping the conf
+    floor is not the fix either - a low-conf box is a good FLAG (13 of 17
+    low-conf clean images are real misses, ~76 percent) but a bad AUTO signal.
+    NO rule changed - this item was a measurement, and the fix it points at (a
+    template + alpha centre-overlay path, 11 of 14 misses) is its own piece of
+    work, opened in ROADMAP as `cleaning-detector-recall`.
+    Also CORRECTED: the LEDGER 91 census annotated
+    `the-ruined-king-viego-by-vexxsoul` as a fully correct KEEP. The wordmark
+    KEEP is correct, but the full frame carries a missed centre overlay (best box
+    0.144). Precision is unaffected (it counts `auto` proposals) but the
+    correction is written into the precision doc rather than left to read as
+    "nothing to find" - judging a detected BOX tells you whether a proposal is
+    right, not what else is in the picture.
+    Verified: census reproducible via
+    `tools/lw_clean_detector_probe.py --corpus firstdone --low-conf 0.10`; suite
+    1837 passed / 18 skipped (3.14, unchanged - no production rule touched);
+    ruff clean. Detail + per-miss table:
+    `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`.
+    NOT measured: whether the 46 `qa` images carry real marks.
+
 91. DONE **2026-08-11 (clean-retry-degrades HALF 2 - detector precision
     measured: 0 false positives in 14 unattended proposals).** Premise
     CORRECTED. The item claimed "the cleaner FINDS work on images that need

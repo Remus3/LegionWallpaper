@@ -32,7 +32,23 @@ One commit. Suite **1837 passed / 18 skipped** (3.14, full run). LEDGER 91.
   instead: `tests/test_lw_clean_detector_precision.py`, 29 tests pinning all 21
   measured rows + a KEEP-set test that no KEEP slug may become `auto`.
 - Still open on the parent item: the cross-engine ladder is fired by the
-  operator/skill, not by code. Recall (false negatives) was never measured.
+  operator/skill, not by code.
+
+### Then RECALL, same session (LEDGER 92)
+
+- **14 confirmed false negatives, ~12 percent of the 229 `clean` verdicts.**
+  Measured over all 302 unrouted `_firstdone` images (the gated corpus CANNOT
+  answer recall - it is the detector's own `auto` output). 27 auto / 46 qa /
+  229 clean; strata S1-S3 (17 images) censused in full, S4 (212) sampled n=14.
+- **11 of the 14 are ONE object: the semi-transparent DeviantArt centre
+  overlay.** Under the 0.35 YOLO floor (scores 0.11-0.25), illegible to OCR, and
+  mid-frame so the geometry rules would only ever say `qa`.
+- Two traps: `is_lol_logo` looks guilty (fired on all 4 S1 misses) but is NOT
+  the binding cause - those marks had no box above the floor either; and the
+  conf floor is a good FLAG signal, not an AUTO one (13/17 low-conf clean images
+  are real misses).
+- No rule changed. Fix opened as ROADMAP `cleaning-detector-recall`: a template
+  + alpha centre-overlay detection path, routed to `qa`.
 
 ## 2026-08-10/11 - intake x4, clean-retry-degrades half 1, venv-destroying test bug
 

@@ -45,6 +45,7 @@ STAGES = (
     os.path.join(ROOT, "images", "4.Cleaning Done"),
 )
 PIPELINE_LOG = os.path.join(ROOT, "PIPELINE_LOG.md")
+FIRSTDONE_STAGE = os.path.join(ROOT, "images", "2.First Pass Done")
 
 # Operator REJECT note -> label. Substring match on the lowercased note.
 _NEEDS_NONE_NOTES = (
@@ -140,11 +141,57 @@ def label_census(stages=STAGES):
     return rows
 
 
+def firstdone_rows(stage=FIRSTDONE_STAGE):
+    """Rows for the UNROUTED population: every `_firstdone` in 2.First Pass Done.
+
+    This is the population a RECALL census must sample. The 21-slug cleaning
+    queue cannot answer recall: it IS the `auto` output of this detector's own
+    2026-07-16 triage of 228 firstdones (LEDGER 27), so scoring the detector on
+    it is circular. A false negative can only live where the gate said `clean`
+    and nothing was routed - i.e. here.
+    """
+    rows = []
+    if not os.path.isdir(stage):
+        return rows
+    for slug in sorted(os.listdir(stage)):
+        d = os.path.join(stage, slug)
+        p = os.path.join(d, f"{slug}_firstdone.png")
+        if os.path.isfile(p):
+            rows.append({"slug": slug, "dir": d, "initial": p,
+                         "label": "unrouted", "approved_is_initial": False,
+                         "reject_notes": []})
+    return rows
+
+
 # --------------------------------------------------------------------------
 # DETECT census (cleaning venv only)
 # --------------------------------------------------------------------------
-def detect_census(rows, limit=None, models=None):
-    """Re-run detect + gate on each slug's `_cleaninitial`. Returns row dicts."""
+def load_models_once(langs=("en", "ch_sim")):
+    """Load YOLO + EasyOCR ONCE. A 302-image census reloads them otherwise."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import lw_clean_pass as cp
+    return cp.load_models(langs)
+
+
+def _yolo_low(path, models, conf):
+    """YOLO boxes at a LOWERED conf floor - what the CONF_AUTO gate never saw.
+
+    detect_yolo runs at conf=0.35 by default, so a faint mark scoring 0.2 never
+    reaches the gate at all. Recording the low-conf sweep separates "the
+    detector cannot see it" from "the gate threw it away".
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import lw_clean_pass as cp
+    import numpy as np
+    from PIL import Image
+    with Image.open(path) as im:
+        arr = np.asarray(im.convert("RGB"))
+    with cp.gpu_lock(models["device"]):
+        return cp.detect_yolo(arr, models["yolo"], conf=conf)
+
+
+def detect_census(rows, limit=None, models=None, low_conf=None):
+    """Re-run detect + gate on each row's image. Returns row dicts."""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import lw_clean_pass as cp
     from PIL import Image
@@ -190,6 +237,11 @@ def detect_census(rows, limit=None, models=None):
                      "text": d["text"], "conf": round(d["conf"], 4)}
                     for d in det.get("ocr", [])],
         })
+        if low_conf is not None and models is not None:
+            out[-1]["yolo_low"] = [
+                {"box": [round(v, 1) for v in d["box"]],
+                 "conf": round(d["conf"], 4)}
+                for d in _yolo_low(path, models, low_conf)]
         print(f"  {r['slug']}: {verdict}/{reason} "
               f"n={len(boxes)} area={area_pct:.2f}% label={r['label']}",
               flush=True)
@@ -218,26 +270,39 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--labels-only", action="store_true",
                     help="stdlib label census only (no ML, no GPU)")
+    ap.add_argument("--corpus", choices=("cleaning", "firstdone"),
+                    default="cleaning",
+                    help="cleaning = the 21 gated slugs (PRECISION); firstdone "
+                         "= every _firstdone in 2.First Pass Done (RECALL)")
+    ap.add_argument("--low-conf", type=float, default=None,
+                    help="also sweep YOLO at this conf floor (firstdone census)")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--out", default=None, help="write the full report JSON here")
     args = ap.parse_args(argv)
 
-    rows = label_census()
-    counts = {}
-    for r in rows:
-        counts[r["label"]] = counts.get(r["label"], 0) + 1
-    print(f"LABEL census: {len(rows)} cleaning-stage slugs")
-    for k in sorted(counts):
-        print(f"  {k}: {counts[k]}")
-    for r in rows:
-        if r["label"] == "needs_none":
-            print(f"  needs_none -> {r['slug']} "
-                  f"(approved_is_initial={r['approved_is_initial']})")
+    if args.corpus == "firstdone":
+        rows = firstdone_rows()
+        print(f"FIRSTDONE census: {len(rows)} unrouted slugs")
+    else:
+        rows = label_census()
+        counts = {}
+        for r in rows:
+            counts[r["label"]] = counts.get(r["label"], 0) + 1
+        print(f"LABEL census: {len(rows)} cleaning-stage slugs")
+        for k in sorted(counts):
+            print(f"  {k}: {counts[k]}")
+        for r in rows:
+            if r["label"] == "needs_none":
+                print(f"  needs_none -> {r['slug']} "
+                      f"(approved_is_initial={r['approved_is_initial']})")
 
     report = {"labels": rows}
     if not args.labels_only:
         print("DETECT census (this loads YOLO + EasyOCR):")
-        det = detect_census(rows, limit=args.limit)
+        models = load_models_once() if (
+            args.low_conf is not None or len(rows) > 40) else None
+        det = detect_census(rows, limit=args.limit, models=models,
+                            low_conf=args.low_conf)
         report["detect"] = det
         report["summary"] = summarize(det)
         print(json.dumps(report["summary"], indent=2))

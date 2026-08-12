@@ -61,8 +61,37 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   Shipped instead of a narrowing: `tests/test_lw_clean_detector_precision.py`
   pins all 21 measured rows (real OCR strings + geometry) to their verdict, plus
   a KEEP-set test asserting no measured KEEP slug may ever become `auto`.
-  NOT closed by this: recall (false negatives) was not measured.
   Evidence: `docs/CLEAN_DETECTOR_PRECISION_2026-08-11.md`; LEDGER 85 + 90.
+
+- **cleaning-detector-recall - the detector MISSES marks: 14 confirmed false
+  negatives, ~12 percent of the `clean` verdicts - NEW 2026-08-11, measured.**
+  The mirror of the precision census, and the reason precision alone was not an
+  answer. Population: all 302 `_firstdone` images in `2.First Pass Done` (the
+  21-slug cleaning queue CANNOT answer recall - it is this detector's own 2026-
+  07-16 `auto` output, so scoring it there is circular). Gate verdicts: 27
+  `auto` / 46 `qa` / 229 `clean`. The 229 `clean` were split into 4 strata; S1-S3
+  (17 images) were censused in full and S4 (212, no box at any conf) sampled at
+  n=14. Confirmed by eye: **14 false negatives** (13 of them in S1-S3),
+  extrapolating to ~28 of 229 (~12 percent), wide interval.
+  ROOT CAUSE, measured: **11 of the 14 are ONE object** - the semi-transparent
+  DeviantArt centre overlay. It fails on three axes at once: YOLO scores it
+  0.11-0.25 against a 0.35 detect floor (2 carry no box even at 0.10), OCR reads
+  it as garble so `is_watermark_text` never sees "deviantart", and its centroid
+  is mid-frame so even a boxed one lands on `qa/not_border`. The other 3 are a
+  thin painted signature (2; YOLO gives one of them NO box at any conf) and an
+  artist wordmark placed away from the bottom band (1).
+  DO NOT "fix" this by weakening `is_lol_logo`: the wordmark KEEP rule fired on
+  all 4 S1 misses and looks guilty, but in every one the missed mark ALSO had no
+  box above the floor, so removing the rule catches nothing and re-opens the
+  false positives that are currently zero. DO NOT simply drop the conf floor
+  either - the low-conf box is a good FLAG signal (13 of 17 low-conf clean
+  images are real misses, ~76 percent) but a bad AUTO signal.
+  NEXT: a targeted centre-overlay path (template + alpha, not YOLO confidence) -
+  it is 11 of 14 misses and the alpha half is already framed in
+  `docs/research/WATERMARK_REMOVAL_RND.md`; detection first, routing to `qa`.
+  NOT measured: whether the 46 `qa` images carry real marks.
+  Evidence: `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`; census tool
+  `tools/lw_clean_detector_probe.py --corpus firstdone --low-conf 0.10`.
 
 - **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**
   `scan --verify` reports 0 mismatches and 0 milestone files go unchecked; all

@@ -82,11 +82,27 @@ nothing.
 | `prestige-coven-xayah-by-pebano1-dmc27t0-pre` | qa | not_border | 1 | 0.85 | 1.42 | 0.48, 0.69 | routed to a human (qa) - not a proposal |
 | `spirit-blossom-ahri-mono-01-by-hriful-dk79ceq-` | auto | bottom_banner | 1 | 0.63 | 0.81 | 0.08, 0.98 | deviantart.com/hriful strip - REMOVE |
 | `syndra-coven-league-of-legends-by-kintanki1-dm` | auto | watermark_ocr | 1 | 0.68 | 1.34 | 0.50, 0.69 | (C) KINTANKI.DEVIANTART.COM banner - REMOVE |
-| `the-ruined-king-viego-by-vexxsoul-dm6j4mu-pre` | clean | lol_logo | 1 | 0.76 | 0.45 | 0.13, 0.93 | LEAGUE OF LEGENDS wordmark - KEEP (held by is_lol_logo) |
+| `the-ruined-king-viego-by-vexxsoul-dm6j4mu-pre` | clean | lol_logo | 1 | 0.76 | 0.45 | 0.13, 0.93 | LEAGUE OF LEGENDS wordmark - KEEP correct, but see the CORRECTION below |
 | `viego-the-king-by-slimshadywallpaper-dhawigh-p` | qa | low_conf | 1 | 0.39 | 0.92 | 0.52, 0.69 | routed to a human (qa) - not a proposal |
 | `nguyen-ky-phuc-reyjin-leblanc-j-f1` | auto | bottom_banner | 1 | 0.92 | 0.39 | 0.97, 0.96 | 'Reyjin' painted signature, bottom-right - REMOVE |
 | `p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pr` | auto | watermark_ocr | 1 | 0.91 | 2.27 | 0.10, 0.94 | '@namakxin' signature - REMOVE (operator approved its removal) |
 | `vayne3` | clean | no_detections | 0 | 0.00 | 0.00 | - | no detection at all (n=0) - KEEP |
+
+## CORRECTION (added 2026-08-11 by the recall census)
+
+`the-ruined-king-viego-by-vexxsoul-dm6j4mu-pre` was annotated above as a fully
+correct KEEP. The wordmark KEEP is correct, but the recall census then viewed
+the FULL frame and found a semi-transparent `(C) VEXXSOUL.DEVIANTART.COM` centre
+overlay this gate does NOT catch (best YOLO box 0.144, under the 0.35 detect
+floor). So that row is a correct KEEP **and** a false NEGATIVE at the same time.
+The precision result is unaffected - it counts unattended `auto` proposals, and
+this slug proposes nothing - but the annotation is corrected here rather than
+left to read as "nothing to find". See
+`docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`.
+
+The general lesson: this census looked at the DETECTED BOX for each `auto`, and
+at the full frame only where a verdict was `clean`. Judging a box tells you
+whether a proposal is right; it does not tell you what else is in the picture.
 
 ## Ruling
 
