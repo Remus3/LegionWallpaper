@@ -86,11 +86,35 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   false positives that are currently zero. DO NOT simply drop the conf floor
   either - the low-conf box is a good FLAG signal (13 of 17 low-conf clean
   images are real misses, ~76 percent) but a bad AUTO signal.
-  NEXT: a targeted centre-overlay path (template + alpha, not YOLO confidence) -
-  it is 11 of 14 misses and the alpha half is already framed in
-  `docs/research/WATERMARK_REMOVAL_RND.md`; detection first, routing to `qa`.
-  NOT measured: whether the 46 `qa` images carry real marks.
-  Evidence: `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`; census tool
+  DETECTION HALF SHIPPED 2026-08-11 - **gate v3, `clean` 229 -> 214 over the
+  live 302-image corpus.** `tools/lw_clean_overlay.py` median-stacks the
+  high-pass of frames that carry the overlay into a template (the mark is the
+  same pixels in the same place, so the art cancels and the logo + URL come out
+  legible) and scores a frame by masked normalized correlation with a tight
+  shift search. Three measured decisions, not guesses: clip the high-pass at
+  +-8 levels (positive median 0.112 -> 0.220 leave-one-ARTIST-out), search
+  +-3.0% h / +-1.6% w (weakest positive -0.02 -> 0.100), and keep that window
+  TIGHT (a +-90/+-200px search lifts CLEAN frames to 0.095 faster than it lifts
+  positives). `OVERLAY_SCORE_MIN = 0.15` is calibrated: 15 clean images flip to
+  `qa`, all 15 verified real marks, ZERO false; at 0.12 three carry no mark.
+  Live re-gate: 38 rows changed - 15 `clean` -> `qa/centre_overlay` (including
+  the two `lol_logo` cases), 22 `qa` -> a better reason, and 1 `auto` -> `qa`
+  (`239f` carries a banner AND an overlay, so auto would have left the overlay).
+  Invariants: the flag can only produce `qa`, never `auto` (an unattended edit
+  driven by a correlation score would spend the 0-false-positive precision), and
+  it sits above the `n == 0` and `lol_logo` rules but below `watermark_ocr`.
+  The template is a derivative of a third party's watermark: it lives in
+  `ops/runtime/clean/` (gitignored), is rebuilt from the 19 verified slugs
+  listed in the doc, and a MISSING template means the flag is simply off (v2
+  behaviour exactly), which is how CI runs.
+  STILL OPEN: (a) removal - nothing here cleans an overlay, and the fill is the
+  alpha-estimation problem in `docs/research/WATERMARK_REMOVAL_RND.md`; (b) the
+  other 3 of the 14 misses - thin painted signatures (YOLO gives one NO box at
+  any conf) and a wordmark off the bottom band - need their own detector;
+  (c) `110-cleanup` still scores 0.121, under threshold; (d) whether the 46 `qa`
+  images carry real marks was never labelled.
+  Evidence: `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md` +
+  `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`; census tool
   `tools/lw_clean_detector_probe.py --corpus firstdone --low-conf 0.10`.
 
 - **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**

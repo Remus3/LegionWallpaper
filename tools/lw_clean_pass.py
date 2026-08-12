@@ -106,6 +106,14 @@ AREA_MAX_PCT = 2.0           # auto max mask-area percent (corner marks)
 # accepts bottom-edge marks up to a larger area ceiling than corner marks.
 BOTTOM_BAND_FRAC = 0.80      # bottom banner := centroid_y > 0.80*h
 AREA_MAX_WM = 8.0            # auto area ceiling (pct) for banners + OCR watermarks
+# gate v3 (2026-08-11): centre-overlay FLAG floor. CALIBRATED, not guessed:
+# scored all 302 firstdones against a 19-image template and read the effect on
+# the 229 `clean` verdicts (docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md).
+#   0.15 -> 15 clean images flip to qa, ALL 15 verified real marks (0 false)
+#   0.12 -> 19 flip, 3 of them carry no mark
+# So 0.15 is the largest-recall setting that still costs nothing. It can only
+# ever produce `qa`. Lowering it floods the human queue with clean art.
+OVERLAY_SCORE_MIN = 0.15
 
 OUTSIDE_SSIM_MIN = 0.995     # G2 outside-mask identity floor (AG 1.3/3.4)
 MAD_MAX = 1.0                # outside mean-abs-diff ceiling, in 0..255 levels
@@ -367,7 +375,7 @@ def highpass_border_score(image, band_frac: float = BORDER_FRAC,
 # PURE: auto-inpaint gate
 # ==========================================================================
 def gate_decision(n_detections, conf_max, ocr_hit, mask_area_pct,
-                  centroid=None, w=0, h=0, ocr_texts=()):
+                  centroid=None, w=0, h=0, ocr_texts=(), overlay_score=0.0):
     """Return (verdict, reason). verdict in {auto, qa, clean}.
 
     gate v2 (operator-tuned over a 228-image triage): the corpus's PRIMARY
@@ -377,23 +385,43 @@ def gate_decision(n_detections, conf_max, ocr_hit, mask_area_pct,
     positive and is KEPT (folded into "clean"). Rules apply in order; the first
     match wins (ambiguous art-vs-watermark still routes to qa, never a guess):
 
-      1. n == 0                                   -> clean / no_detections
-      2. lol_logo and not watermark_text          -> clean / lol_logo (KEEP)
-      3. (ocr_hit or watermark_text), area<=8%    -> auto  / watermark_ocr
-      4. bottom-band, conf>=0.5, area<=8%         -> auto  / bottom_banner
-      5. corner, conf>=0.5, area<=2%              -> auto  / corner_mark
-      6. area > 8%                                 -> qa    / area_too_large
-      7. conf < 0.5                                -> qa    / low_conf
-      8. else                                      -> qa    / not_border
+      1. n > 0, (ocr_hit or watermark_text), area<=8% -> auto / watermark_ocr
+      2. overlay_score >= OVERLAY_SCORE_MIN        -> qa    / centre_overlay
+      3. n == 0                                   -> clean / no_detections
+      4. lol_logo and not watermark_text          -> clean / lol_logo (KEEP)
+      5. bottom-band, conf>=0.5, area<=8%         -> auto  / bottom_banner
+      6. corner, conf>=0.5, area<=2%              -> auto  / corner_mark
+      7. area > 8%                                 -> qa    / area_too_large
+      8. conf < 0.5                                -> qa    / low_conf
+      9. else                                      -> qa    / not_border
+
+    gate v3 (2026-08-11, ROADMAP `cleaning-detector-recall`) adds rule 2, the
+    centre-overlay FLAG. `overlay_score` comes from `lw_clean_overlay` and
+    defaults to 0.0, so a caller that does not pass one gets v2 behaviour
+    exactly. Three deliberate placements:
+      * it can only produce `qa`, never `auto` - an unattended edit driven by a
+        correlation score would spend the measured 0-false-positive precision;
+      * it sits ABOVE the n == 0 and lol_logo rules, because the misses it
+        exists for include frames with no YOLO box at all AND frames where the
+        wordmark KEEP fired while a DA overlay sat mid-frame (seraphine,
+        the-ruined-king-viego);
+      * it sits BELOW watermark_ocr, because an OCR-read watermark is a
+        stronger, already-localised signal than a whole-frame correlation.
+    Reordering watermark_ocr above the lol_logo rule is a no-op: `ocr_hit`
+    implies `watermark_text` (is_watermark_text is a superset of
+    classify_ocr_string), and rule 4 requires `not wm`, so the two can never
+    both match.
     """
-    if n_detections <= 0:
-        return ("clean", "no_detections")
     lol = is_lol_logo(ocr_texts)
     wm = is_watermark_text(ocr_texts)
+    if n_detections > 0 and (ocr_hit or wm) and mask_area_pct <= AREA_MAX_WM:
+        return ("auto", "watermark_ocr")
+    if overlay_score >= OVERLAY_SCORE_MIN:
+        return ("qa", "centre_overlay")
+    if n_detections <= 0:
+        return ("clean", "no_detections")
     if lol and not wm:
         return ("clean", "lol_logo")
-    if (ocr_hit or wm) and mask_area_pct <= AREA_MAX_WM:
-        return ("auto", "watermark_ocr")
     cx, cy = centroid if centroid else (0.0, 0.0)
     if (cy > BOTTOM_BAND_FRAC * h and conf_max >= CONF_AUTO
             and mask_area_pct <= AREA_MAX_WM):
@@ -886,6 +914,38 @@ def _print_cmds(cmds):
         print("  " + " ".join(_quote(t) for t in argv))
 
 
+_OVERLAY_TEMPLATE = ("unloaded", None)
+
+
+def centre_overlay_score(image_path):
+    """Score one image for the DA centre overlay, or 0.0 with no template.
+
+    Imported LAZILY so `lw_clean_pass` keeps no import-time dependency on
+    `lw_clean_overlay` (which imports back from here for its high-pass
+    primitives). The template is cached process-wide: it is one small array and
+    a batch run would otherwise re-read it per slug. A missing template file is
+    NOT an error - it means the flag is simply off, and the gate then behaves
+    exactly as v2. Build one with:
+      tools/lw_clean_detector_probe.py --build-overlay-template <slug> ...
+    """
+    global _OVERLAY_TEMPLATE
+    state, tpl = _OVERLAY_TEMPLATE
+    if state == "unloaded":
+        try:
+            import lw_clean_overlay as _ov
+            tpl = _ov.load_template()
+        except (OSError, ValueError, ImportError):   # never fail over a flag
+            tpl = None
+        _OVERLAY_TEMPLATE = ("loaded", tpl)
+    if tpl is None:
+        return 0.0
+    try:
+        import lw_clean_overlay as _ov
+        return _ov.overlay_score(_ov.load_image(image_path), tpl)
+    except (OSError, ValueError, ImportError):
+        return 0.0
+
+
 def process_slug(slug, image=None, out_dir=None, dry_run=False,
                  max_attempts=1, beside=False, models=None,
                  langs=("en", "ch_sim")):
@@ -919,11 +979,14 @@ def process_slug(slug, image=None, out_dir=None, dry_run=False,
     area_pct = dilated_union_area_pct(boxes, w, h, DILATE_PX)
     n = len(boxes)
     centroid = centroid_of(boxes)
+    ov_score = centre_overlay_score(image)
     verdict, reason = gate_decision(n, conf_max, ocr_hit, area_pct, centroid,
-                                    w, h, det.get("ocr_texts", []))
+                                    w, h, det.get("ocr_texts", []),
+                                    overlay_score=ov_score)
 
     rec = triage_record(slug, image, boxes, conf_max, area_pct, verdict)
     rec["reason"] = reason
+    rec["overlay_score"] = round(ov_score, 4)
     if dry_run:
         rec["status"] = "dry-run"
         return rec

@@ -27,6 +27,68 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+93. DONE **2026-08-11 (centre-overlay detector built + calibrated; gate v3;
+    `clean` 229 -> 214 over the live 302-image corpus).** The fix LEDGER 92
+    pointed at. New `tools/lw_clean_overlay.py` (pure numpy + PIL, FFT
+    correlation, no GPU, CI-safe): median-stack the high-pass of frames that
+    carry the DeviantArt centre overlay into a TEMPLATE - the mark is the same
+    pixels in the same place, so the art cancels and the logo + URL come out
+    legible (the 11-positive stack renders them; the 8-negative stack renders
+    nothing) - then score a frame by masked normalized correlation against it
+    with a tight shift search.
+    THREE MEASURED DECISIONS, all leave-one-ARTIST-out (not leave-one-image, the
+    template is partly artist-specific): clip the high-pass at +-8 levels
+    (positive median 0.112 -> 0.220; without it one hard art edge dominates),
+    search shifts +-3.0 percent h / +-1.6 percent w (weakest positive -0.02 ->
+    0.100; a firstdone is a crop+downscale of a varying source so the mark lands
+    tens of px off), and keep that window TIGHT - a +-90/+-200px search lifts
+    CLEAN frames to 0.095 faster than it lifts positives. The vertical and
+    horizontal fractions are SEPARATE constants because the band is 30 percent
+    of frame height: one shared fraction made the vertical window 6px and
+    dropped a real positive sitting 33px off.
+    THRESHOLD CALIBRATED, not guessed: template from 19 slugs confirmed by eye
+    (the 11 from the recall census plus 8 the first calibration ranked and that
+    were then verified - the detector FOUND 8 misses the census had not),
+    scored all 302 firstdones, read the effect on the 229 `clean` verdicts.
+    0.15 -> 15 flip to `qa`, ALL 15 real, ZERO false; 0.12 -> 19 flip, 3 carry
+    no mark. So `OVERLAY_SCORE_MIN = 0.15` is the largest-recall setting that
+    costs nothing.
+    GATE v3 = one new rule + one defaulted keyword (`overlay_score=0.0`, so
+    every existing caller gets v2 behaviour exactly). Placement is the design:
+    FLAG-only (`qa`, never `auto` - an unattended edit driven by a correlation
+    score would spend the LEDGER 91 zero-false-positive result, and the FILL for
+    this object is still the unsolved alpha problem); ABOVE the `n == 0` and
+    `lol_logo` rules (two misses carry no box at all; two more are frames where
+    the wordmark KEEP fired over an overlay); BELOW `watermark_ocr` (a read
+    watermark beats a whole-frame correlation). Moving `watermark_ocr` above the
+    KEEP rule is provably a no-op: `ocr_hit` implies `watermark_text` and the
+    KEEP rule requires `not watermark_text`.
+    LIVE RE-GATE of all 302 (not a projection): auto 27 -> 26, qa 46 -> 62,
+    clean 229 -> **214**; 38 rows changed - 15 `clean` -> `qa/centre_overlay`
+    (incl. seraphine + the-ruined-king-viego), 22 `qa` -> a better REASON, and 1
+    `auto` -> `qa` (`239f` carries a banner AND an overlay, so auto would have
+    cleaned the banner and left the overlay - the intended cost of rule 2 above
+    the geometry rules; verified by eye).
+    TDD: 16 tests written RED first (`tests/test_lw_clean_overlay.py`) - a
+    synthetic alpha-composited fixture for template recovery and scoring, plus
+    the gate-wiring invariants. Two RED-phase assertions were corrected against
+    measured behaviour and the reason written into the test: the template is a
+    HIGH-PASS so its correlation with a filled mask caps ~0.43, and the score is
+    NOT alpha-invariant (0.43 at alpha 0.10, 0.19 at 0.03) because it is
+    normalised by the band's own mostly-art energy - which is exactly why the
+    threshold has to be calibrated on the corpus.
+    The template is a derivative of a third party's watermark, so it is written
+    to `ops/runtime/clean/overlay_template.npz` (GITIGNORED - never tracked in
+    this public repo) and rebuilt with
+    `lw_clean_detector_probe.py --build-overlay-template <slugs>`; a MISSING
+    template means the flag is off and the gate is v2, which is how CI runs.
+    Verified: suite **1853 passed / 18 skipped** (3.14, up from 1837 by the 16
+    new tests); ruff clean; live 302-image re-gate as above.
+    STILL OPEN: removal (nothing here cleans an overlay); the other 3 of 14
+    misses (thin signatures - YOLO gives one NO box at any conf - and a wordmark
+    off the bottom band); `110-cleanup` still scores 0.121, under threshold.
+    Detail: `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md`.
+
 92. DONE **2026-08-11 (cleaning detector RECALL measured: 14 confirmed false
     negatives, ~12 percent of `clean` verdicts; one object is 11 of them).**
     The mirror of LEDGER 91. Population deliberately NOT the gated corpus: the

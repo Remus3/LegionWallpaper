@@ -196,6 +196,9 @@ def detect_census(rows, limit=None, models=None, low_conf=None):
     import lw_clean_pass as cp
     from PIL import Image
 
+    import lw_clean_overlay as ov
+    tpl = ov.load_template()
+
     out = []
     todo = [r for r in rows if r["initial"]]
     if limit:
@@ -213,11 +216,16 @@ def detect_census(rows, limit=None, models=None, low_conf=None):
             cp.classify_ocr_string(t) for t in ocr_texts)
         area_pct = cp.dilated_union_area_pct(boxes, w, h, cp.DILATE_PX)
         centroid = cp.centroid_of(boxes)
+        # gate v3: the centre-overlay FLAG. 0.0 when no template is built, which
+        # reproduces the v2 verdicts exactly.
+        ov_score = ov.overlay_score(ov.load_image(path), tpl) if tpl else 0.0
         verdict, reason = cp.gate_decision(
-            len(boxes), conf_max, ocr_hit, area_pct, centroid, w, h, ocr_texts)
+            len(boxes), conf_max, ocr_hit, area_pct, centroid, w, h, ocr_texts,
+            overlay_score=ov_score)
         out.append({
             "slug": r["slug"],
             "label": r["label"],
+            "overlay_score": round(ov_score, 4),
             "w": w, "h": h,
             "n_boxes": len(boxes),
             "conf_max": round(conf_max, 4),
@@ -266,6 +274,44 @@ def summarize(det_rows):
     }
 
 
+def build_overlay_template(slugs, out_path=None, stages=None):
+    """Median-stack the named slugs' images into a centre-overlay template.
+
+    The slugs must be images CONFIRMED by eye to carry the DeviantArt centre
+    overlay - the estimator has no way to tell a marked frame from a clean one,
+    and a clean frame in the stack only blurs the template. The verified list
+    lives in `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md`; re-run this whenever
+    it grows.
+
+    The template is a derivative of a third party's watermark, so it is written
+    under `ops/runtime/` (gitignored) and never tracked in this public repo.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import lw_clean_overlay as ov
+
+    known = {r["slug"]: r for r in label_census()}
+    known.update({r["slug"]: r for r in firstdone_rows()})
+    imgs, used = [], []
+    for s in slugs:
+        row = known.get(s)
+        if row is None:
+            hits = [k for k in known if k.startswith(s)]
+            row = known[hits[0]] if hits else None
+        if row is None or not row.get("initial"):
+            print(f"  SKIP (no image on disk): {s}")
+            continue
+        imgs.append(ov.load_image(row["initial"]))
+        used.append(row["slug"])
+    if not imgs:
+        raise SystemExit("no images resolved - nothing to stack")
+    tpl = ov.estimate_template(imgs)
+    path = ov.save_template(out_path or ov.TEMPLATE_PATH, tpl)
+    print(f"template from {len(used)} images -> {path}")
+    for s in used:
+        print(f"  {s}")
+    return path
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--labels-only", action="store_true",
@@ -278,7 +324,15 @@ def main(argv=None):
                     help="also sweep YOLO at this conf floor (firstdone census)")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--out", default=None, help="write the full report JSON here")
+    ap.add_argument("--build-overlay-template", nargs="+", metavar="SLUG",
+                    default=None,
+                    help="median-stack these CONFIRMED-marked slugs into the "
+                         "centre-overlay template and exit")
     args = ap.parse_args(argv)
+
+    if args.build_overlay_template:
+        build_overlay_template(args.build_overlay_template, out_path=args.out)
+        return 0
 
     if args.corpus == "firstdone":
         rows = firstdone_rows()

@@ -47,8 +47,29 @@ One commit. Suite **1837 passed / 18 skipped** (3.14, full run). LEDGER 91.
   the binding cause - those marks had no box above the floor either; and the
   conf floor is a good FLAG signal, not an AUTO one (13/17 low-conf clean images
   are real misses).
-- No rule changed. Fix opened as ROADMAP `cleaning-detector-recall`: a template
-  + alpha centre-overlay detection path, routed to `qa`.
+- No rule changed there. The fix followed in the same session.
+
+### Then BUILT the centre-overlay detector (LEDGER 93)
+
+- **Gate v3: `clean` 229 -> 214 over the live 302-image corpus.**
+  `tools/lw_clean_overlay.py` median-stacks the high-pass of marked frames into
+  a template (the mark is the same pixels in the same place, so the art cancels)
+  and scores by masked normalized correlation with a tight shift search. Pure
+  numpy, no GPU, CI-safe.
+- **Everything is measured, leave-one-ARTIST-out** (not leave-one-image - the
+  template is partly artist-specific): clip at +-8 levels (0.112 -> 0.220),
+  shift search +-3.0%h/+-1.6%w (-0.02 -> 0.100), window kept TIGHT (a wide
+  search lifts CLEAN frames faster than positives). Threshold 0.15 = 15 clean
+  images flip to qa, all 15 real, zero false; 0.12 costs 3 false.
+- **The detector found 8 misses the census had not** - it is now 19 verified
+  positives, and those 8 went into the template.
+- Invariants pinned by tests: FLAG only (`qa`, NEVER `auto`), above the `n==0`
+  and `lol_logo` rules, below `watermark_ocr`. One auto was lost on purpose
+  (`239f` has a banner AND an overlay).
+- Template is a derivative of DA's watermark -> `ops/runtime/` (gitignored),
+  rebuilt via `--build-overlay-template`; missing template = flag off = v2.
+- Suite 1853/18. Still open: REMOVAL (the alpha problem), thin signatures, and
+  `110-cleanup` at 0.121.
 
 ## 2026-08-10/11 - intake x4, clean-retry-degrades half 1, venv-destroying test bug
 
