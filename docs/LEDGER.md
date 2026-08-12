@@ -27,6 +27,50 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+95. DONE **2026-08-11 (centre-overlay INPAINT: the matte seeds the LaMa mask;
+    `109124d`).** Premise VERIFIED before building: the previous session's
+    correction was right - `lw_clean_dekel.py` (LEDGER 29) already has
+    matting-Laplacian + IRLS and caps, so this session did NOT rebuild algebra. It
+    fed the LEDGER 94 matte into the LEDGER 30 mask builder.
+    SHIPPED: `lw_clean_iopaint.py --overlay` - register -> algebraic pre-pass ->
+    matte-seeded mask (threshold 0.08, opening, DENSITY speck filter, dilate, bbox
+    ROI, then completed with the frame's OWN residual inside a gate: 7px across
+    the strokes, 40px along the credit line, bright-only sideways) -> one LaMa
+    pass -> the existing outside-ROI identity tripwire. Also
+    `lw_clean_overlay.REMOVAL_BAND = (0.45, 0.85)` + a separate `*_wide.npz`
+    template/matte pair and `lw_clean_detector_probe.py --wide` to build them:
+    removal needs a wider band than detection because the logo's top edge sits at
+    y/h 0.506 against the detector band's 0.55. The detector's CALIBRATED `BAND`
+    and its 0.15 threshold were deliberately NOT moved.
+    MEASURED over all 32 `centre_overlay`-flagged slugs: detector score median
+    **0.310 -> 0.069**, worst **0.696 -> 0.115**, **32 of 32 under the 0.15 flag**
+    (was 0 of 32); median mask coverage 14.1 percent of the ROI. By eye at 1:1 the
+    CREDIT LINE clears (`bayonetta-dm7iirw`, `239f`, `khanzaaiart-dmbzcmq` show no
+    trace and no smear); the logo's FLAT VEIL survives on smooth art
+    (`miss-fortune-dmcdsno`, `mecha-ahri`). Candidates stay QA proposals - the lane
+    never auto-approves.
+    ROOT CAUSE of the remaining veil, pinned not guessed: the template's support is
+    the top 2 percent of the median HIGH-PASS, so a flat region contributes nothing
+    and matte alpha inside the logo is exactly **0.0**. A probe of the next
+    estimator (whitening against a background window WIDER than the veil, median
+    over the collection) renders the silhouette FILLED but underreads - interior
+    0.060 against ~0.14 from the boundary step - and its support sprawls; both are
+    recorded in the doc. `cv2.medianBlur` cannot run at that width (`k < 16`).
+    TDD: `tests/test_lw_clean_iopaint_overlay.py` written RED first (19 tests, the
+    first run failed on a missing `overlay_mask`). Two test-driven corrections en
+    route: a 100px gap is NOT what the gate bridges (the test was wrong, the code
+    was right), and the horizontal reach is a measured +-40px, not arbitrary.
+    FIXED IN PASSING: `_binary_dilate` / `_binary_erode` padded BOTH axes with the
+    structuring element's ROW radius, so any non-square element raised a broadcast
+    error - latent until the 1xN horizontal gate needed it.
+    VERIFIED: full suite **1881 passed / 18 skipped** (3.14) after the change;
+    ruff clean on all four touched files. Docs:
+    `docs/CLEAN_OVERLAY_INPAINT_2026-08-11.md`, ROADMAP item updated.
+    DO NOT REDO: pure algebraic Dekel (LEDGER 29 cap), per-pixel least squares
+    (R^2 0.10) and per-pixel W (diverges) from LEDGER 94, and now: lowering the
+    matte threshold to reach the veil (0.03 stretches the ROI from 550x290 to
+    1229x624 on speckle) or masking the veil interior for LaMa (310x240px of face).
+
 94. DONE **2026-08-11 (centre-overlay REMOVAL: matting-equation inversion,
     detector score median 0.565 -> 0.112, 17 of 19 under the flag - the mark is
     REDUCED, NOT ERASED, and ships QA-only).** The other half of LEDGER 93.

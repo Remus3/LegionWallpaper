@@ -81,11 +81,34 @@ median HIGH-PASS, so a flat region contributes nothing to it.** Measured on
 alpha up to 0.25 - the veil interior is invisible to the detector AND to the
 matte, so the inversion leaves the step and LaMa is only ever handed the outline.
 
-That is a different estimator, not a tuning pass: recovering a LOW-FREQUENCY alpha
-needs the outline's interior filled and its level solved from the boundary step
-(`a = step / (W - J)`), which is the next piece of work. Do NOT approach it by
-lowering the alpha threshold or widening the mask - masking the interior hands
-LaMa 310x240px of face to hallucinate, which is worse than the veil.
+That is a different estimator, not a tuning pass. Do NOT approach it by lowering
+the alpha threshold or widening the mask - masking the interior hands LaMa
+310x240px of face to hallucinate, which is worse than the veil.
+
+**A probe of the next estimator was run, and it half-works - start from here.**
+Same whitening `lw_clean_dekel.estimate_filled_alpha` uses, `a ~ (gray - bg) /
+(255 - bg)`, but with a background window WIDER THAN THE VEIL, median-combined
+over the registered collection (14 frames):
+
+| background window | logo interior alpha | art far from the mark |
+| --- | --- | --- |
+| 201px median | 0.028 | 0.003 |
+| ~408px (median 51 on a 1/8 downscale) | **0.060** | 0.005 |
+
+The silhouette comes out FILLED and legible - the logo reads as a solid shape,
+which the high-pass template never sees. Two things still block it:
+
+* it UNDERREADS. The step measured across the logo's own boundary on `mecha-ahri`
+  is ~20 levels over `J ~ 110`, i.e. `a ~ 0.14`, against the estimator's 0.060 -
+  the background window still partly follows the veil, so the interior is damped.
+  Calibrating against the boundary step (`a = step / (W - J)`) is the obvious fix.
+* its support SPRAWLS. At 0.05, art residue that 14 frames did not cancel spans
+  x 643-2290 of the band, so the veil needs a support gate at least as strict as
+  the density filter used for the strokes before it can drive a removal.
+
+`cv2.medianBlur` cannot be used at that width (it asserts `k < 16` above 8-bit
+ksize 5); the downscale-median-upscale path is also the one that keeps this
+CI-safe.
 
 ## Reproduce
 

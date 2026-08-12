@@ -11,6 +11,43 @@
 
 ---
 
+## 2026-08-11 (evening) - centre-overlay INPAINT: 32/32 under the flag
+
+One commit `109124d`. Suite **1881 passed / 18 skipped** (3.14). LEDGER 95.
+
+- **The matte now SEEDS the LaMa mask, and the whole flagged family clears the
+  score bar.** `lw_clean_iopaint.py --overlay`: register -> algebraic pre-pass ->
+  matte-seeded mask -> one LaMa pass -> the existing outside-ROI tripwire.
+  Detector score over all 32 `centre_overlay` slugs: median **0.310 -> 0.069**,
+  worst **0.696 -> 0.115**, **32/32 under 0.15** (was 0/32).
+- **Removal needs a WIDER band than detection** - the logo's top edge is at y/h
+  0.506 vs the detector band's 0.55, so `REMOVAL_BAND = (0.45, 0.85)` plus a
+  separate `*_wide.npz` pair (`--wide` on the probe's two build commands). The
+  calibrated detector `BAND` + 0.15 threshold were NOT touched.
+- **Mask recipe, all three parts measured:** threshold 0.08 (0.03 stretches the
+  ROI from 550x290 to 1229x624 on speckle), a DENSITY speck filter (25 px in a
+  31x31 box - erosion cannot separate a 3x3 blob from a 4px stroke), and
+  completion from the frame's OWN residual inside a gate that is 7px across the
+  strokes but 40px ALONG the credit line, bright-only sideways because the
+  nearest art is a dark lip line.
+- **By eye: the credit line clears, the logo's flat veil does not** on smooth art
+  (`miss-fortune`, `mecha-ahri`); on busy art (`bayonetta-dm7iirw`, `239f`)
+  nothing is visible at all. Candidates stay QA proposals, never auto.
+- **Root cause of the veil, pinned:** the template support is the top 2 percent of
+  the median HIGH-PASS, so a flat region contributes NOTHING - matte alpha inside
+  the logo is exactly 0.0. Probed the successor estimator (whitening against a
+  background window wider than the veil, median over the collection): it renders
+  the silhouette FILLED, but underreads (interior 0.060 vs ~0.14 from the boundary
+  step) and its support sprawls. Numbers in
+  `docs/CLEAN_OVERLAY_INPAINT_2026-08-11.md`.
+- Latent bug fixed in passing: `_binary_dilate`/`_binary_erode` padded both axes
+  with the SE's row radius, so any non-square element raised a broadcast error.
+
+**NEXT:** calibrate the filled-veil alpha against the logo's own boundary step
+(`a = step / (W - J)`) and gate its support as strictly as the stroke seed, then
+re-run the family. `cv2.medianBlur` cannot do the wide window (`k < 16`); the
+downscale-median-upscale path is the CI-safe one.
+
 ## 2026-08-11 - clean-retry-degrades HALF 2: detector precision measured, 0 FP
 
 One commit. Suite **1837 passed / 18 skipped** (3.14, full run). LEDGER 91.
