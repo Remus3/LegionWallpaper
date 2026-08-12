@@ -114,6 +114,36 @@ AREA_MAX_WM = 8.0            # auto area ceiling (pct) for banners + OCR waterma
 # So 0.15 is the largest-recall setting that still costs nothing. It can only
 # ever produce `qa`. Lowering it floods the human queue with clean art.
 OVERLAY_SCORE_MIN = 0.15
+# gate v4 (2026-08-11): the faint-mark FLAG - the last 3 recall misses that the
+# centre-overlay detector does not cover. DETECT_CONF is the production floor
+# detect_yolo has always used; FAINT_CONF_MIN is how far below it the sweep now
+# reaches. Boxes in [FAINT_CONF_MIN, DETECT_CONF) are used for ONE thing:
+# promoting a `clean` verdict to `qa`. The recall census settled that a
+# sub-floor box is a good FLAG (76 percent of them were real marks) and a bad
+# AUTO, so it can never route to auto and never rewrites an existing qa reason.
+DETECT_CONF = 0.35
+# FAINT_CONF_MIN is CALIBRATED against the live 302-image corpus, swept at 0.05
+# (docs/CLEAN_FAINT_MARK_2026-08-11.md). Marginal effect on the `clean` set:
+#   0.10 -> 3 flips, 3 of 3 verified real marks, 0 false
+#   0.05 -> 5 flips, 4 of 5 real, 1 false (dbwtlkx-eeb94ce2, blurred stonework)
+# 0.05 ships because it closes the LAST measured recall miss - the alexflores
+# brush signature on dragon-slayer-pantheon boxes at exactly 0.0522 and is
+# unreachable by any other signal tried (see the doc's dead-end list). The cost
+# is one extra image in a ~65-image human queue, and the flag can never edit
+# anything unattended. Set this to 0.10 for the zero-false setting instead.
+FAINT_CONF_MIN = 0.05
+# One geometry prior narrows the noisy faint tier: a credit line, URL or
+# signature is a WIDE thing. Measured over every `clean` firstdone carrying a
+# sub-floor box, box width / frame width separates with nothing in the gap:
+#   real marks  0.076 0.100 0.157 0.176  (dragon-slayer sig, karthas sig,
+#                                         110-cleanup, p2402)
+#   art texture 0.009 0.021 0.033        (astronaut-gnar, kalista, viego-dada)
+# 0.05 sits INSIDE that gap rather than on its edge. The prior is not universal
+# and is not claimed to be. It fails in BOTH directions, measured: 4 of 28 live
+# `auto` boxes and 2 of 65 `qa` boxes are small square-ish marks it would reject,
+# and the one false flag it lets through (dbwtlkx at 0.154 of frame width) is
+# wide enough to pass. It is a cheap narrowing of a noisy tier, not a classifier.
+FAINT_MIN_W_FRAC = 0.05
 
 OUTSIDE_SSIM_MIN = 0.995     # G2 outside-mask identity floor (AG 1.3/3.4)
 MAD_MAX = 1.0                # outside mean-abs-diff ceiling, in 0..255 levels
@@ -374,9 +404,61 @@ def highpass_border_score(image, band_frac: float = BORDER_FRAC,
 # ==========================================================================
 # PURE: auto-inpaint gate
 # ==========================================================================
+def faint_mark_boxes(boxes, w, h):
+    """The sub-floor YOLO boxes that are shaped like an artist credit.
+
+    `boxes` are detect_yolo dicts. A box qualifies when its confidence sits in
+    [FAINT_CONF_MIN, DETECT_CONF) - faint enough that the confident rules never
+    saw it, strong enough not to be pure noise - AND it is at least
+    FAINT_MIN_W_FRAC of the frame wide, which is the one prior separating a
+    credit line from art texture (see the constant's calibration note).
+
+    Pure. `w <= 0` means the frame size is unknown, which cannot support a
+    fractional test, so nothing qualifies rather than everything.
+    """
+    if w <= 0:
+        return []
+    out = []
+    for d in boxes or ():
+        conf = float(d.get("conf", 0.0))
+        if not (FAINT_CONF_MIN <= conf < DETECT_CONF):
+            continue
+        x0, _, x1, _ = d["box"]
+        if (float(x1) - float(x0)) / float(w) >= FAINT_MIN_W_FRAC:
+            out.append(d)
+    return out
+
+
 def gate_decision(n_detections, conf_max, ocr_hit, mask_area_pct,
-                  centroid=None, w=0, h=0, ocr_texts=(), overlay_score=0.0):
+                  centroid=None, w=0, h=0, ocr_texts=(), overlay_score=0.0,
+                  faint_boxes=()):
     """Return (verdict, reason). verdict in {auto, qa, clean}.
+
+    gate v4 (2026-08-11) wraps the v3 ladder with the faint-mark FLAG, applied
+    as a POST-PASS rather than as another ordered rule. The distinction is the
+    whole safety argument. Two of the three misses it exists for carry no
+    confident box at all, so an ordered placement would have to sit above the
+    `n == 0` rule - and that is above the `bottom_banner` / `corner_mark` rules
+    too, so 7 currently-`auto` images that happen to carry a qualifying faint
+    box would silently demote to `qa`. As a post-pass it is provably incapable
+    of that: it reads the v3 verdict and only ever rewrites `clean` -> `qa`.
+    An existing `qa` reason is left alone as well, because whatever the ladder
+    already named is more specific than `faint_mark`.
+
+    `faint_boxes` defaults to empty, so a v3 caller gets v3 behaviour exactly.
+    """
+    verdict, reason = _gate_v3_decision(
+        n_detections, conf_max, ocr_hit, mask_area_pct, centroid, w, h,
+        ocr_texts, overlay_score)
+    if verdict == "clean" and faint_mark_boxes(faint_boxes, w, h):
+        return ("qa", "faint_mark")
+    return (verdict, reason)
+
+
+def _gate_v3_decision(n_detections, conf_max, ocr_hit, mask_area_pct,
+                      centroid=None, w=0, h=0, ocr_texts=(),
+                      overlay_score=0.0):
+    """The v3 ordered ladder. See gate_decision for the v4 post-pass.
 
     gate v2 (operator-tuned over a 228-image triage): the corpus's PRIMARY
     watermark is a bottom-CENTER semi-transparent artist-credit banner, so the
@@ -686,7 +768,7 @@ def load_models(langs=("en", "ch_sim"), device=None):
     return _MODELS
 
 
-def detect_yolo(image, model, imgsz: int = 1024, conf: float = 0.35,
+def detect_yolo(image, model, imgsz: int = 1024, conf: float = DETECT_CONF,
                 iou: float = 0.5):
     """Run YOLO11x; return [{"box":[x0,y0,x1,y1], "conf":f, "cls":i}, ...]."""
     results = model(image, imgsz=imgsz, conf=conf, iou=iou, verbose=False)
@@ -722,9 +804,19 @@ def detect_image(image_path, out_dir=None, models=None,
                  langs=("en", "ch_sim")):
     """Union YOLO + OCR detections for one image (module-level: monkeypatchable).
 
-    Returns {boxes, confs, ocr_texts, ocr_hit, yolo, ocr}. OCR boxes whose text
-    classifies as a watermark are added to the box set; YOLO confidences drive
-    conf_max. This is the seam the dry-run triage test replaces (no ML in CI).
+    Returns {boxes, confs, ocr_texts, ocr_hit, yolo, faint, ocr}. OCR boxes
+    whose text classifies as a watermark are added to the box set; YOLO
+    confidences drive conf_max. This is the seam the dry-run triage test
+    replaces (no ML in CI).
+
+    gate v4: YOLO runs ONCE at FAINT_CONF_MIN and the result is split at
+    DETECT_CONF into `yolo` (what the confident rules have always seen) and
+    `faint` (the sub-floor tier the gate may only FLAG on). The split is free
+    rather than a second inference: NMS never suppresses a box with a weaker
+    one, so the sweep filtered back to DETECT_CONF reproduces the old run -
+    measured identical on 39 of 39 firstdones, 2026-08-11. `boxes` and `confs`
+    deliberately exclude the faint tier, so mask geometry, conf_max and
+    area_pct are all unchanged from v3.
     """
     dev = models["device"] if models else _cuda_device()
     # The hold covers the model LOAD as well as the two inferences: load_models
@@ -736,8 +828,10 @@ def detect_image(image_path, out_dir=None, models=None,
         models = models or load_models(langs, device=dev)
         with Image.open(image_path) as im:
             arr = np.asarray(im.convert("RGB"))
-        ydet = detect_yolo(arr, models["yolo"])
+        sweep = detect_yolo(arr, models["yolo"], conf=FAINT_CONF_MIN)
         odet = detect_ocr(arr, models["reader"])
+    ydet = [d for d in sweep if d["conf"] >= DETECT_CONF]
+    faint = [d for d in sweep if d["conf"] < DETECT_CONF]
     boxes = [d["box"] for d in ydet]
     ocr_texts = [d["text"] for d in odet]
     for d in odet:
@@ -749,6 +843,7 @@ def detect_image(image_path, out_dir=None, models=None,
         "ocr_texts": ocr_texts,
         "ocr_hit": any(classify_ocr_string(t) for t in ocr_texts),
         "yolo": ydet,
+        "faint": faint,
         "ocr": odet,
     }
 
@@ -980,13 +1075,18 @@ def process_slug(slug, image=None, out_dir=None, dry_run=False,
     n = len(boxes)
     centroid = centroid_of(boxes)
     ov_score = centre_overlay_score(image)
+    faint = det.get("faint") or []
     verdict, reason = gate_decision(n, conf_max, ocr_hit, area_pct, centroid,
                                     w, h, det.get("ocr_texts", []),
-                                    overlay_score=ov_score)
+                                    overlay_score=ov_score,
+                                    faint_boxes=faint)
 
     rec = triage_record(slug, image, boxes, conf_max, area_pct, verdict)
     rec["reason"] = reason
     rec["overlay_score"] = round(ov_score, 4)
+    rec["faint_marks"] = [{"box": [round(v, 1) for v in d["box"]],
+                           "conf": round(d["conf"], 4)}
+                          for d in faint_mark_boxes(faint, w, h)]
     if dry_run:
         rec["status"] = "dry-run"
         return rec

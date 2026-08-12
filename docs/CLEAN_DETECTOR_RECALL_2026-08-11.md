@@ -76,6 +76,15 @@ The confirmed misses, with what YOLO scored on the missed region:
 | `syndra-league-of-legends-by-smalltavernx-dlsfckr-pre` | SMALLTAVERNX.DEVIANTART.COM centre overlay | 0.212 | clean/no_detections |
 | `syndra-league-of-legends-by-smalltavernx-dlsfcue-pre` | SMALLTAVERNX.DEVIANTART.COM centre overlay | **no box at all** | clean/no_detections |
 
+**CORRECTION 2026-08-11 (same day, `docs/CLEAN_FAINT_MARK_2026-08-11.md`):**
+the two "no box at all" rows above are wrong as stated. That was measured at the
+`--low-conf 0.10` sweep floor this census used, not at any confidence. Swept to
+0.02, `dragon-slayer-pantheon` carries a box on the signature at **0.0522** and
+`syndra-...-dlsfcue-pre` is covered by the centre-overlay detector regardless.
+So no row in the table below is beyond the reach of a lowered floor - which is
+what gate v4 does. The "partly a model limitation" claim under Root cause is
+withdrawn; it was a floor limitation.
+
 ## Root cause
 
 **11 of the 14 are the same object: the semi-transparent DeviantArt centre

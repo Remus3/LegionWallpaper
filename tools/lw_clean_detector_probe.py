@@ -219,13 +219,20 @@ def detect_census(rows, limit=None, models=None, low_conf=None):
         # gate v3: the centre-overlay FLAG. 0.0 when no template is built, which
         # reproduces the v2 verdicts exactly.
         ov_score = ov.overlay_score(ov.load_image(path), tpl) if tpl else 0.0
+        # gate v4: the faint-mark FLAG. detect_image now sweeps YOLO down to
+        # FAINT_CONF_MIN and returns the sub-floor tier separately; the gate may
+        # only use it to promote `clean` to `qa`.
+        faint = det.get("faint") or []
         verdict, reason = cp.gate_decision(
             len(boxes), conf_max, ocr_hit, area_pct, centroid, w, h, ocr_texts,
-            overlay_score=ov_score)
+            overlay_score=ov_score, faint_boxes=faint)
         out.append({
             "slug": r["slug"],
             "label": r["label"],
             "overlay_score": round(ov_score, 4),
+            "faint_marks": [{"box": [round(v, 1) for v in d["box"]],
+                             "conf": round(d["conf"], 4)}
+                            for d in cp.faint_mark_boxes(faint, w, h)],
             "w": w, "h": h,
             "n_boxes": len(boxes),
             "conf_max": round(conf_max, 4),

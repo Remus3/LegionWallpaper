@@ -155,15 +155,60 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   310x240px interior. Re-run over the 32: median 0.310 -> 0.068, 32/32 under the
   flag, and by eye `245f` / `miss-fortune` come back clean where part 1 left a
   polygon.
+  FAINT-MARK HALF LANDED 2026-08-11 (LEDGER 97) - **gate v4 closes (b) and (c)
+  together, and it needed no new model.** The census's "no box at any conf"
+  claim was measured at ITS OWN 0.10 sweep floor, not at any confidence: swept
+  to 0.02 all four remaining misses carry a YOLO box ON THE MARK -
+  `110-cleanup` 0.1366, `p2402-kda-evelynn` 0.1228, `karthasbasefinal` 0.1135,
+  `dragon-slayer-pantheon` **0.0522**. The production floor is 0.35, so every
+  one was discarded before `gate_decision` ran. `detect_image` now runs YOLO
+  ONCE at `FAINT_CONF_MIN` and splits at `DETECT_CONF` into `yolo` + `faint`
+  (free, not a second inference - NMS never suppresses a box with a weaker one,
+  measured identical on 39 of 39 firstdones), and `gate_decision` applies the
+  flag as a POST-PASS over the v3 ladder.
+  **The post-pass placement is the safety argument, not a style choice.** Two of
+  the misses have no confident box, so an ORDERED rule would sit above `n == 0`
+  - which is above `bottom_banner` / `corner_mark` too - and 7 currently-`auto`
+  live images carry a qualifying faint box. Those 7 would have silently
+  demoted. The post-pass is provably incapable of it: it only rewrites `clean`
+  -> `qa`, and leaves an existing `qa` reason alone (21 live rows) because the
+  ladder's reason is more specific than `faint_mark`.
+  Two calibrated constants. `FAINT_CONF_MIN = 0.05`, swept over the live 302:
+  floor 0.10 -> 3 flips 3 real 0 false; 0.07 -> 4 flips 3 real 1 false; 0.05 ->
+  5 flips 4 real 1 false. 0.05 ships because it is the ONLY setting reaching the
+  0.0522 signature; 0.10 is the zero-false alternative, one constant away.
+  `FAINT_MIN_W_FRAC = 0.05` narrows the noisy tier on one prior - a credit line
+  is WIDE - and the widths separate with nothing in the gap (real 0.076 / 0.100
+  / 0.157 / 0.176 vs art 0.009 / 0.021 / 0.033). The prior is NOT universal and
+  is not claimed to be: it would reject 4 of 28 live `auto` boxes and 2 of 65
+  `qa` boxes (small square-ish marks), and the one false flag it admits is 0.154
+  wide.
+  LIVE RESULT: 26 auto / 62 qa / 214 clean -> **26 auto / 67 qa / 209 clean**.
+  Exactly 5 rows change, all `clean` -> `qa/faint_mark`, NO auto lost, and each
+  was cropped and looked at - 4 real (`SMALLTAVERNX.DEVIANTART.COM`, `NAMAKXI N
+  P&M 2402`, and the "Alex Flores" signature on both alexflores frames), 1 false
+  (`dbwtlkx-eeb94ce2`, blurred stonework). On the KEEP side `--corpus cleaning`
+  produces ZERO `faint_mark` rows and all 14 `auto` proposals stand.
+  DEAD ENDS, MEASURED, do not redo: **tiled / SAHI inference is WORSE, not
+  better** (karthas's signature scored 0.1135 full-frame and VANISHED in the
+  tiles; p2402 lost its wordmark box and gained a 0.4613 box on unrelated art) -
+  the weights were trained on whole frames and the context is load-bearing;
+  **EasyOCR on a brush signature** returns nothing or garble at confidence 0.00
+  at 1x, 2x AND 4x; and a **per-artist signature template** was deliberately NOT
+  built - the corpus holds exactly 2 alexflores images and both are known, so a
+  1-frame template is a lookup table for a set of size 2, not a detector.
+  Pinned by `tests/test_lw_clean_faint_mark.py` (25 tests), including the one
+  false flag, pinned as a row so it stays visible rather than folded into a rate.
   STILL OPEN: (a) on pale flat art (`mecha-ahri`) LaMa's own softening along the
-  masked strokes remains - a blur, not a legible mark; (b) the
-  other 3 of the 14 misses - thin painted signatures (YOLO gives one NO box at
-  any conf) and a wordmark off the bottom band - need their own detector;
-  (c) `110-cleanup` still scores 0.121, under threshold; (d) whether the 46 `qa`
-  images carry real marks was never labelled.
-  Evidence: `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md` +
+  masked strokes remains - a blur, not a legible mark; (d) whether the 46 `qa`
+  images carry real marks was never labelled; (e) REMOVAL for the faint-mark
+  family - the flag routes them to the human queue and nothing automates the
+  edit (the two brush signatures in particular are thin strokes over busy art,
+  which is the manual IOPaint lane's shape, not LaMa's).
+  Evidence: `docs/CLEAN_FAINT_MARK_2026-08-11.md` +
+  `docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md` +
   `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`; census tool
-  `tools/lw_clean_detector_probe.py --corpus firstdone --low-conf 0.10`.
+  `tools/lw_clean_detector_probe.py --corpus firstdone`.
 
 - **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**
   `scan --verify` reports 0 mismatches and 0 milestone files go unchecked; all

@@ -27,6 +27,79 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+97. DONE **2026-08-11 (faint-mark FLAG, gate v4: the last 4 recall misses; suite
+    1914/18).** Closes ROADMAP `cleaning-detector-recall` items (b) and (c) - the
+    thin painted signatures, the off-band wordmark, and `110-cleanup`'s
+    under-threshold overlay.
+    **PREMISE CORRECTED, and it is what made the item cheap.** The recall census
+    recorded two misses as carrying "no box at all". That was true of its own
+    `--low-conf 0.10` sweep floor, not of any confidence. Swept to 0.02 all four
+    remaining misses carry a YOLO box ON THE MARK: `110-cleanup` 0.1366,
+    `p2402-kda-evelynn` 0.1228, `karthasbasefinal` 0.1135,
+    `dragon-slayer-pantheon` **0.0522**. The production floor is `conf=0.35`, so
+    every one was discarded before `gate_decision` ever ran. No new model was
+    needed - a floor was. The census's "partly a model limitation" line is
+    withdrawn in place.
+    SHIPPED: `detect_image` runs YOLO ONCE at `FAINT_CONF_MIN` and splits the
+    result at `DETECT_CONF` into `yolo` + `faint`. The split is FREE, not a
+    second inference - NMS never suppresses a box with a weaker one, measured
+    identical to the old `conf=0.35` run on 39 of 39 firstdones - and `boxes` /
+    `confs` exclude the faint tier so mask geometry, `conf_max` and `area_pct`
+    are unchanged. `gate_decision` gains `faint_boxes` (default empty = v3
+    exactly) and applies the flag as a POST-PASS over the v3 ladder, which is
+    now `_gate_v3_decision`.
+    **THE POST-PASS PLACEMENT IS THE SAFETY ARGUMENT.** Two misses have no
+    confident box, so an ORDERED rule would have to sit above `n == 0` - which
+    is above `bottom_banner` / `corner_mark` too - and 7 currently-`auto` live
+    images carry a qualifying faint box. Those 7 would have silently demoted to
+    `qa`. The post-pass cannot: it reads the v3 verdict and only ever rewrites
+    `clean` -> `qa`. It also leaves an existing `qa` reason alone (21 live rows),
+    because the ladder's reason is more specific than `faint_mark`.
+    TWO CALIBRATED CONSTANTS, both swept over the live 302-image corpus, not
+    guessed. `FAINT_CONF_MIN = 0.05`: floor 0.10 -> 3 clean rows flip, 3 real, 0
+    false; 0.07 -> 4 flips, 3 real, 1 false; 0.05 -> 5 flips, 4 real, 1 false.
+    0.05 ships because it is the ONLY setting that reaches the 0.0522 signature
+    and the price is one image in a ~67-image human queue that can never be
+    edited unattended; 0.10 is the zero-false alternative, one constant away and
+    documented as such. `FAINT_MIN_W_FRAC = 0.05` narrows the noisy tier on one
+    prior - a credit line is WIDE - with the widths separating cleanly (real
+    0.076 / 0.100 / 0.157 / 0.176 of frame width vs art 0.009 / 0.021 / 0.033).
+    The prior is explicitly NOT claimed universal: it would reject 4 of 28 live
+    `auto` boxes and 2 of 65 `qa` boxes (small square-ish marks), and the one
+    false flag it admits is 0.154 wide - too wide for it to catch.
+    VERIFIED LIVE: `--corpus firstdone` 26 auto / 62 qa / 214 clean ->
+    **26 auto / 67 qa / 209 clean**. Exactly 5 rows change, all
+    `clean` -> `qa/faint_mark`, no `auto` lost, and each was CROPPED AND LOOKED
+    AT - 4 real (`SMALLTAVERNX.DEVIANTART.COM`; `NAMAKXI N` over `P & M 2402`;
+    the "Alex Flores" brush signature on both alexflores frames) and 1 false
+    (`dbwtlkx-eeb94ce2`, blurred stonework, no mark). `--corpus cleaning` (the
+    KEEP set) produces ZERO `faint_mark` rows and all 14 `auto` proposals stand,
+    so the measured 0-false-positive precision is untouched.
+    TDD: `tests/test_lw_clean_faint_mark.py` written RED first (21 failed / 1
+    passed before any production edit), 25 tests green after. Full suite
+    **1914 passed / 18 skipped** on 3.14; ruff clean. The one false flag is
+    pinned as a parametrized row so it stays visible rather than folded into a
+    pass rate.
+    **DEAD ENDS, MEASURED, DO NOT REDO.** (1) Tiled / SAHI-style native-resolution
+    inference - the textbook fix for a small object under a downsampling
+    detector - is WORSE here, not better: `karthasbasefinal`'s signature scored
+    0.1135 full-frame and VANISHED entirely in 1024px tiles at 25 percent
+    overlap, and `p2402` LOST its 0.1228 wordmark box while gaining a 0.4613 box
+    on unrelated art. The weights were trained on whole frames and the context
+    is load-bearing. (2) EasyOCR on a brush signature returns nothing or garble
+    at confidence 0.00 at 1x, 2x AND 4x Lanczos. (3) A per-artist signature
+    template (the `lw_clean_overlay` playbook) was deliberately NOT built: the
+    corpus holds exactly 2 alexflores images and both are already known, so a
+    template stacked from one and scored on the other is a lookup table for a
+    set of size 2. The overlay case earned that method with 32 frames across
+    many artists.
+    STILL OPEN on the parent item: REMOVAL for this family (the flag routes to
+    the human queue; two of the four are thin strokes over busy art, which is
+    the manual IOPaint lane's shape, not LaMa's); LaMa's softening on pale flat
+    art; and the 46 `qa` images were never labelled.
+    Evidence: `docs/CLEAN_FAINT_MARK_2026-08-11.md`;
+    `ops/runtime/clean_recall_census_gatev4.json`.
+
 96. DONE **2026-08-11 (the flat VEIL: calibrated against its own boundary step).**
     Follow-on to LEDGER 95, which pinned the last visible defect: a high-pass
     template cannot see a flat region, so the logo's interior had matte alpha
