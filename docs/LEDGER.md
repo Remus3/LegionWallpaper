@@ -27,6 +27,55 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+101. DONE **2026-08-12 (overlay lane: feather the veil, drop the LaMa ring).**
+    Rules on ROADMAP `cleaning-detector-recall` open item (a) - whether the
+    softening on pale flat art (`mecha-ahri`) is acceptable at 1:1.
+    **PREMISE CORRECTED.** The item was recorded as "LaMa's own softening along
+    the masked strokes - a blur, not a legible mark". Viewed at 1:1 (the lane's
+    ROI is 666x442 at deliverable scale, so the side-files ARE 1:1) it is
+    structural damage: the nostril edge is gone, the upper lip is a wash, and the
+    mask's stair-stepped boundary shows as blocks. Not acceptable.
+    **ROOT CAUSE, measured, and it was not the strokes.** The mask decomposed on
+    `mecha-ahri` as strokes 17778 px (6.04% of ROI) + **veil boundary ring 21205
+    px (7.20%)** + this-frame completion 24838 px, total 63821 (21.68%). The ring
+    (`VEIL_EDGE_R` 9 -> ~25px with `DILATE_K`) exists to blend a "hard step" at
+    the veil support edge. Signed-distance profiles over six frames: the ORIGINAL
+    carries NO step there (|step| <= 0.9 levels, 6 of 6 - the support is eroded
+    to stop inside the veil, so both sides are veiled alike), while the inversion
+    leaves **12.7-27.4 levels**. The lane was manufacturing an artifact and then
+    paying a filler to paint over it, mid-frame, on real art - on this slug,
+    across the nose.
+    **FIX AT THE CAUSE (TDD, RED first at 24.7 levels on the fixture).**
+    `lw_clean_overlay.veil_alpha_map` ramps the veil alpha to zero over
+    `VEIL_FEATHER = 16` px outside the support (successive 3x3 dilations; numpy +
+    PIL only, CI-safe); `lw_clean_iopaint.overlay_mask` no longer masks the veil
+    boundary at all and `VEIL_EDGE_R` is retired. 16px is the swept knee:
+    introduced discontinuity mean 23.30 (0px) -> 3.37 (8) -> **2.12 (16)** ->
+    1.72 (24) -> 1.28 (56), and the smallest extension that clears it is the
+    safest because a longer ramp darkens real art.
+    **VERIFIED.** Full suite **1957 passed / 18 skipped** (3.14), ruff clean.
+    Live on three frames: mask 63821 -> 42326 / 52833 -> 33188 / 50243 -> 29990,
+    coverage 21.68 -> 14.38% / 17.95 -> 11.27% / 17.07 -> 10.19%, detector score
+    0.0737 -> 0.0915 / 0.0903 -> 0.0721 / 0.0578 -> 0.0692, all far under the
+    0.15 flag. Outside-ROI changed pixels re-measured OFF DISK against the source
+    `_firstdone`: 6383 / 6679 / 6696, unchanged from the established baseline.
+    Re-run over the WHOLE flagged family (33 slugs - the 32 of LEDGER 95/96 plus
+    `110-cleanup`): median mask **63821 -> 41349 px (35% less)**, median score
+    0.0680 -> 0.0664, worst 0.0941 -> 0.0955, **33 of 33 still under the flag**.
+    Read mask PIXELS not coverage percent - the ROI shrinks with the mask.
+    **`mecha-ahri` STILL GOES TO THE MANUAL IOPaint LANE** - the logo strokes and
+    the credit line genuinely lie across the nose and upper lip, so even the
+    narrowed mask asks a filler to invent facial structure and it shows at 1:1.
+    DO-NOT-REDO: do not re-add the ring (pinned by a test); do not read `hf_keep`
+    as the damage signal (0.27-0.76 across 34 candidates, `mecha-ahri` mid-pack
+    at 0.452 rank 9); do not chase the outside-ROI count. FUTURE, measured but
+    NOT shipped: the algebraic pre-pass ALONE already clears the flag on 5 of 6
+    frames (0.084-0.156), so "skip LaMa when the pre-pass clears" is worth
+    measuring over all 32. The ring-era candidates in
+    `ops/runtime/clean/overlay_lane/` are STALE; the feathered set is in
+    `ops/runtime/clean/overlay_feather/`. Evidence:
+    `docs/CLEAN_VEIL_FEATHER_2026-08-12.md`.
+
 100. DONE **2026-08-12 (QA-lane precision census; docs + one new probe tool).**
     Closes ROADMAP `cleaning-detector-recall` open item (d) - the last unmeasured
     part of the item. The recall census counted a `qa` verdict as "caught"

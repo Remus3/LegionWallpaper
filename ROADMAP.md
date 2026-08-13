@@ -290,10 +290,29 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   conf 0.0765). DO NOT tighten on them: their `conf_max` 0.72-0.79, `n_boxes`,
   `area_pct` and `ocr_hit` all sit inside the true-positive range, so every cut
   that drops them drops real marks too. Detail `docs/CLEAN_QA_PRECISION_2026-08-12.md`.
-  STILL OPEN: (a) on pale flat art (`mecha-ahri`) LaMa's own softening along the
-  masked strokes remains - a blur, not a legible mark; (f) `p2402-kda-evelynn` is
-  queued for the MANUAL IOPaint lane and nothing automates it - a stylised
-  wordmark on busy art that no threshold separates.
+  (a) CLOSED 2026-08-12 - **the mask WAS too wide, and the excess was a ring the
+  lane added to hide a cliff it had created itself.** The item recorded "a blur,
+  not a legible mark"; at 1:1 (the ROI is 666x442 at deliverable scale, so the
+  side-files ARE 1:1) it is structural damage - nostril edge gone, upper lip a
+  wash, mask blocks visible. Decomposed, the mask was strokes 17778 px + **veil
+  ring 21205 px** + completion 24838 px. Over six frames the ORIGINAL carries no
+  level step at the veil support boundary (|step| <= 0.9, 6 of 6 - the support is
+  eroded to stop inside the veil) while the inversion leaves 12.7-27.4, so the
+  hard-edged correction MANUFACTURED the step the ring was blending.
+  `veil_alpha_map` now ramps the correction to zero over `VEIL_FEATHER = 16` px
+  outside the support (swept knee: introduced discontinuity 23.30 -> 2.12 -> 1.28
+  asymptote) and the ring is retired. Re-run over the whole flagged family (33
+  slugs): median mask 63821 -> 41349 px (35% less), median score 0.0680 ->
+  0.0664, 33 of 33 still under the flag. Suite 1957 passed / 18 skipped. DO NOT re-add the ring (test-pinned)
+  and DO NOT read `hf_keep` as the damage signal (mecha-ahri is mid-pack at
+  0.452). Detail `docs/CLEAN_VEIL_FEATHER_2026-08-12.md`.
+  STILL OPEN: (f) `p2402-kda-evelynn` is queued for the MANUAL IOPaint lane and
+  nothing automates it - a stylised wordmark on busy art that no threshold
+  separates; **`mecha-ahri` now joins it** (the logo strokes and credit line lie
+  across the nose and upper lip, so any automatic fill invents facial structure).
+  MEASURED LEAD, not shipped: the algebraic pre-pass alone already clears the
+  0.15 flag on 5 of 6 frames (0.084-0.156), so "skip LaMa when the pre-pass
+  clears" is worth measuring over all 32.
   Evidence: `docs/CLEAN_QA_PRECISION_2026-08-12.md` +
   `docs/CLEAN_OVERLAY_SCALE_2026-08-12.md` +
   `docs/CLEAN_FAINT_LANE_2026-08-12.md` +

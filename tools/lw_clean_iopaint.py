@@ -165,7 +165,8 @@ OVERLAY_PAD = 24            # ROI context for LaMa around the mark's bbox
 OVERLAY_DENSITY_WIN = 31    # speck filter window
 OVERLAY_DENSITY_MIN = 25    # a 4px stroke fills ~124 of a 31x31 box; a 3x3
                             # estimator blob fills 9.
-VEIL_EDGE_R = 9             # half-width of the veil-boundary ring handed to LaMa
+# VEIL_EDGE_R retired 2026-08-12: the veil boundary is no longer masked at all.
+# See `lw_clean_overlay.VEIL_FEATHER` for the measurement that replaced it.
 OVERLAY_GATE_W = 81         # reach ALONG the credit line (+-40px): the seed
                             # stopped ~40px short of the leading "(C)".
 OVERLAY_GATE_K = 15         # how far the frame's own residual may extend the
@@ -648,21 +649,12 @@ def overlay_mask(full_shape, matte, shift=(0, 0), alpha_thr=OVERLAY_ALPHA_THR,
         se = _disk_se(open_k // 2)
         mark = _binary_dilate(_binary_erode(mark, se), se)
     mark = _density_keep(mark)
-    # The flat veil is removed ALGEBRAICALLY, never inpainted - but its support is
-    # a median over the collection, so each frame's own edge sits a few pixels off
-    # it and the correction leaves a hard step there. That thin rim IS the
-    # filler's job; the interior is not.
-    veil = matte.get("veil") if isinstance(matte, dict) else None
-    if veil is not None and float(veil.get("alpha", 0.0)):
-        sup = np.asarray(veil["support"], dtype=bool)
-        if sup.shape != alpha.shape:
-            sup = OV._resize2d(sup, alpha.shape, nearest=True)
-        if float(scale) != 1.0:
-            sup = OV.scale2d_centered(sup, scale)
-        if dy or dx:
-            sup = np.roll(sup, (dy, dx), axis=(0, 1))
-        k = 2 * int(VEIL_EDGE_R) + 1
-        mark = mark | (OV._dilate_bool(sup, k) & ~OV._erode_bool(sup, k))
+    # The flat veil is removed ALGEBRAICALLY and is NEVER inpainted - not its
+    # interior and, since 2026-08-12, not its boundary either. The ring used to be
+    # masked because a hard-edged correction left a step at the support edge; the
+    # correction is feathered now (`lw_clean_overlay.VEIL_FEATHER`), so there is no
+    # step to blend and the ring was pure cost - ~25px of real art, mid-frame,
+    # handed to a filler that deformed a nose and an upper lip on mecha-ahri.
     if not mark.any():
         return mask, None
     if dilate_k and dilate_k >= 3:

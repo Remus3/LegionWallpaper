@@ -123,27 +123,60 @@ def test_removal_with_the_veil_erases_the_step():
     assert err_after < err_before / 3.0, (err_before, err_after)
 
 
-def test_the_veil_interior_is_never_handed_to_the_inpainter():
-    """The veil's INTERIOR is the inversion's job; only its BOUNDARY is LaMa's.
+def test_the_veil_correction_does_not_cliff_at_its_own_support_edge():
+    """The support edge is NOT an edge of the original, so removal must not make one.
 
-    The support is a median over the collection, and each frame's logo sits a few
-    pixels off it, so the rim is left as a hard step - measured on mecha-ahri and
-    miss-fortune, a stepped edge is what survived once the interior was fixed.
-    A thin ring is therefore masked so the filler blends that transition, while
-    the 310x240px interior stays out of its reach.
+    Measured on the corpus 2026-08-12: across six frames the ORIGINAL carries no
+    level step at the recorded support boundary (|step| <= 0.9 levels, 6 of 6) -
+    the support stops inside the veil, so both sides of that line are veiled
+    alike. A hard-edged correction therefore MANUFACTURES a 12.7-27.4 level cliff
+    that was never in the art, which is what the old ring handed to LaMa. The
+    ramp is the fix at the cause: correct the interior in full, then fade out.
+    """
+    veil = ov.estimate_veil(_frames(), band=BAND, **SMALL)
+    art, marked = _marked(3)
+    matte = {"alpha": np.zeros((H, W_PX)), "W": ov._w_map(np.zeros((H, W_PX)),
+                                                         np.asarray(ov.W_REF)),
+             "band": BAND, "veil": veil}
+    sup = veil["support"]
+    rim = ov._dilate_bool(sup, 5) & ~ov._erode_bool(sup, 5)
+    deep = ov._erode_bool(sup, 11)
+
+    def rim_jump(feather):
+        amap = ov.veil_alpha_map(veil, (H, W_PX), feather=feather)
+        a = np.clip(amap, 0.0, ov.ALPHA_MAX)[:, :, None]
+        w = ov._w_map(np.zeros((H, W_PX)), np.asarray(ov.W_REF))
+        fixed = np.clip((marked - a * w) / np.maximum(1.0 - a, 1e-3), 0, 255)
+        gy, gx = np.gradient(fixed.mean(axis=2) - np.asarray(marked).mean(axis=2))
+        g = np.hypot(gy, gx)
+        return float(np.percentile(g[rim], 99)), float(np.percentile(g[deep], 99))
+
+    hard, _ = rim_jump(0)
+    soft, art_only = rim_jump(ov.VEIL_FEATHER)
+    # `deep` is the control: inside the support the correction is uniform, so its
+    # gradient is the ART's, not the correction's. The rim must approach that.
+    assert hard > 6 * art_only, f"fixture is not exercising the cliff ({hard:.1f})"
+    assert soft < hard / 3.0, f"the ramp barely helped: {hard:.1f} -> {soft:.1f}"
+    assert soft < 8.0, f"the correction still cliffs {soft:.1f} levels"
+
+
+def test_the_veil_is_never_handed_to_the_inpainter_at_all():
+    """Interior AND boundary are the inversion's job - the filler gets neither.
+
+    The ring existed only to blend the cliff the hard-edged correction made. With
+    the correction feathered there is nothing to blend, and the ring was never
+    free: at corpus scale it is ~25px wide, it sits mid-frame wherever the logo
+    sits, and on pale flat art (mecha-ahri) it crossed the nose and upper lip -
+    LaMa deformed both.
     """
     veil = ov.estimate_veil(_frames(), band=BAND, **SMALL)
     matte = {"alpha": np.zeros((H, W_PX)), "W": ov._w_map(np.zeros((H, W_PX)),
                                                          np.asarray(ov.W_REF)),
              "band": BAND, "veil": veil}
     mask, region = IO.overlay_mask((H, W_PX), matte)
-    assert region is not None
-    masked = mask > 127
-    sup = veil["support"]
-    deep = ov._erode_bool(sup, 2 * IO.VEIL_EDGE_R + 15)
-    assert not masked[deep].any(), "the veil interior must not be inpainted"
-    rim = sup & ~ov._erode_bool(sup, 2 * IO.VEIL_EDGE_R + 1)
-    assert float(masked[rim].mean()) > 0.8, "its boundary must be"
+    # No strokes and no ring means there is nothing left to inpaint at all.
+    assert region is None, "a veil-only matte must produce no inpaint region"
+    assert not (mask > 127).any(), "the veil must never reach the filler"
 
 
 def test_a_matte_without_a_veil_still_removes_exactly_as_before():

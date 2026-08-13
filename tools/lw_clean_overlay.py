@@ -572,6 +572,15 @@ VEIL_OPEN_R = 5
 VEIL_RING = 8                # ring width used to read the boundary step
 VEIL_GAIN_GRID = tuple(round(0.5 + 0.25 * i, 2) for i in range(19))  # 0.5 .. 5.0
 VEIL_MIN_PX = 400            # below this the support is noise, not a veil
+# The support ends INSIDE the veil's true edge (see `_veil_support`), so its
+# boundary is not an edge of the ORIGINAL: measured over six corpus frames on
+# 2026-08-12, the raw level step across it is |0.0-0.9| levels, while a
+# hard-edged correction leaves 12.7-27.4. The correction is therefore ramped out
+# instead of cut off. 16px is the knee of the sweep (introduced discontinuity
+# mean 23.3 -> 3.4 at 8px -> 2.1 at 16px -> 1.7 at 24px -> 1.3 asymptote; the
+# per-pixel p99 jump goes 11.8-16.1 -> 2.2-3.4), and the SMALLEST extension that
+# clears it is the safest, because a ramp reaching past the veil darkens real art.
+VEIL_FEATHER = 16
 
 
 def _coarse_median(gray, scale: int = VEIL_SCALE, k: int = VEIL_MEDIAN_K):
@@ -709,14 +718,39 @@ def estimate_veil(images, tpl=None, band=BAND, w_ref=W_REF, thr=VEIL_THR,
             "gain": gain, "step": step, "support": support, "band": band}
 
 
-def veil_alpha_map(veil, shape=None):
-    """The veil as an alpha map on its support (zeros when there is no veil)."""
+def _feather_out(sup, reach: int = VEIL_FEATHER):
+    """Linear ramp 1.0 -> 0.0 over `reach` px OUTSIDE a boolean support.
+
+    Successive 3x3 dilations, so this stays on PIL like the rest of the module
+    (no scipy) and the ramp is in FRAME pixels - the caller resizes first.
+    """
+    out = sup.astype(np.float64)
+    if not reach or reach < 1:
+        return out
+    cur = sup
+    for i in range(1, int(reach) + 1):
+        nxt = _dilate_bool(cur, 3)
+        out[nxt & ~cur] = 1.0 - i / float(int(reach) + 1)
+        cur = nxt
+    return out
+
+
+def veil_alpha_map(veil, shape=None, feather: int = VEIL_FEATHER):
+    """The veil as an alpha map, full on its support and FEATHERED outward.
+
+    The ramp is not cosmetic. The support deliberately stops inside the veil's
+    true edge, so cutting the correction off at that line manufactures a level
+    cliff the original never had - and the old answer to that cliff was to hand a
+    ~25px ring of real art to LaMa, which is what deformed a face on the corpus's
+    palest frame. Fading the correction out costs at most `alpha` on a strip that
+    was already partly veiled, and it costs the filler nothing.
+    """
     if not veil or not float(veil.get("alpha", 0.0)):
         return None
     sup = np.asarray(veil["support"], dtype=bool)
     if shape is not None and sup.shape != tuple(shape):
         sup = _resize2d(sup, shape, nearest=True)
-    return np.where(sup, float(veil["alpha"]), 0.0)
+    return float(veil["alpha"]) * _feather_out(sup, feather)
 
 
 def remove_overlay(image, matte, shift=(0, 0), alpha_max=ALPHA_MAX, scale=1.0):

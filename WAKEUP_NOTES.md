@@ -11,7 +11,44 @@
 
 ---
 
-## 2026-08-12 (latest) - QA-lane precision census, 67 rows labelled by eye
+## 2026-08-12 (latest) - the veil ring was hiding a cliff the lane made
+
+One commit. Suite **1957 passed / 18 skipped** (3.14). LEDGER 101. ROADMAP
+`cleaning-detector-recall` item **(a) CLOSED**.
+
+- **The premise was wrong, and looking at 1:1 is what caught it.** The item said
+  "a blur, not a legible mark". The lane's ROI is 666x442 at deliverable scale,
+  so the side-files ARE 1:1 - viewed, `mecha-ahri` has lost the nostril edge, the
+  upper lip is a wash, and the mask's stair-stepped boundary shows as blocks.
+- **A third of the mask was a ring, and the ring was blending a step the
+  pipeline itself created.** Decomposed: strokes 17778 px + **veil ring 21205
+  px** + completion 24838 px = 63821 (21.68% of ROI). Signed-distance profiles
+  over six frames: the ORIGINAL has NO level step at the veil support boundary
+  (|step| <= 0.9, 6 of 6 - the support is eroded to stop INSIDE the veil, so both
+  sides are veiled alike), the inversion leaves **12.7-27.4**.
+- **Fix at the cause, TDD RED first (24.7 levels on the fixture).**
+  `veil_alpha_map` ramps the correction out over `VEIL_FEATHER = 16` px (swept:
+  23.30 -> 3.37 -> **2.12** -> 1.72 -> 1.28 asymptote; smallest that clears it is
+  safest, a longer ramp darkens art). `VEIL_EDGE_R` retired, ring gone.
+- **Measured over the WHOLE flagged family, 33 slugs:** median mask 63821 ->
+  41349 px (**35% less**), median score 0.0680 -> 0.0664, worst 0.0941 -> 0.0955,
+  **33 of 33 still under the 0.15 flag**. Outside-ROI changed pixels re-measured
+  OFF DISK unchanged at 6383/6679/6696. Read mask PIXELS, not coverage percent -
+  the ROI shrinks with the mask, so a few slugs look flat in percent.
+- **`mecha-ahri` still goes to MANUAL IOPaint** - the strokes and credit line lie
+  across the nose and lip, so any auto fill invents facial structure.
+- Evidence: `docs/CLEAN_VEIL_FEATHER_2026-08-12.md`. Feathered candidates in
+  `ops/runtime/clean/overlay_feather/`; the `overlay_lane/` set is STALE.
+
+**NEXT:** the algebraic pre-pass ALONE clears the 0.15 flag on 5 of 6 frames
+(0.084-0.156) with zero invented pixels - measure "skip LaMa when the pre-pass
+clears" over all 32 before the next candidate batch. Separately, the veil
+AMPLITUDE is still unverified: `_fit_veil_gain` matches a ring 16-24px inside the
+support against one 16-24px outside, and that outer ring is itself still veiled.
+
+---
+
+## 2026-08-12 - QA-lane precision census, 67 rows labelled by eye
 
 One commit. Doc + one new probe tool. LEDGER 100. ROADMAP
 `cleaning-detector-recall` item **(d) CLOSED** - the item's last open
