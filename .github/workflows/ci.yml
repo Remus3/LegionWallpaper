@@ -246,10 +246,14 @@ jobs:
           # below back into skips.
           python -c "import cv2, numpy, scipy, skimage; print('cv2', cv2.__version__, '| numpy', numpy.__version__, '| scipy', scipy.__version__, '| skimage', skimage.__version__)"
 
-      - name: dekel alignment suite
+      - name: dekel suites - alignment + the tools/ unit tests
         run: |
-          pytest tests/test_lw_clean_dekel_align.py -q --tb=short \
-            --junitxml=cv-lane.xml
+          # tools/test_lw_clean_dekel.py is named explicitly because nothing
+          # else can reach it: pytest.ini pins testpaths=tests, and the file
+          # lives in tools/ beside the module it imports. Until 2026-08-12 no
+          # lane ran it at all - 8 tests of solver coverage executing nowhere.
+          pytest tests/test_lw_clean_dekel_align.py tools/test_lw_clean_dekel.py \
+            -q --tb=short --junitxml=cv-lane.xml
 
       - name: fail on a silently-skipped suite
         if: always()
@@ -269,9 +273,15 @@ jobs:
           errors = int(suite.get("errors", 0))
           failures = int(suite.get("failures", 0))
           print(f"tests={total} skipped={skipped} failures={failures} errors={errors}")
-          if total - skipped < 10:
+          # 18 = 10 alignment + 8 tools/ solver tests. The floor tracks the
+          # real count on purpose: a suite that stops being collected (a
+          # renamed path, a dropped argument) must turn this lane red rather
+          # than let the other suite carry it to green. Raise it when you add
+          # a suite here - tests/test_cv_lane_coverage.py holds you to it.
+          if total - skipped < 18:
               sys.exit(f"FALSE GREEN: only {total - skipped} test(s) actually ran "
-                       f"(expected >= 10). The CV deps are not resolving.")
+                       f"(expected >= 18). The CV deps are not resolving, or a "
+                       f"suite stopped being collected.")
           if skipped:
               sys.exit(f"FALSE GREEN: {skipped} test(s) skipped in the lane whose "
                        f"entire purpose is that they do not skip.")
