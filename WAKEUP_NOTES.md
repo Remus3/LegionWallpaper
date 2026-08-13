@@ -7,11 +7,38 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12) - keep the last 3.
 
 ---
 
-## 2026-08-12 (latest) - the veil ring was hiding a cliff the lane made
+## 2026-08-12 (latest) - bare pytest swept the wrong tree; 8 tests ran nowhere
+
+Two commits (`eee55d6`, `26c5ae3`) plus this doc sync. Suite **1961 passed / 18
+skipped** (3.14, up 3 from the new guard file), CI run 31658420160 green
+(`check` + `cv-lane`). LEDGER 104. No ROADMAP item moved - this is test-infra,
+not product work.
+
+- **Triggered by the Stop hook, correctly.** The session-open banner said "CI
+  green"; that was hook-reported state, not a run. `claimed_green_gate.py`
+  refused the turn. Ran it, and the bare `python -m pytest -q` died at
+  collection with 2 errors while `pytest tests/ -q` was green at 1958/18.
+- **Cause: no pytest config at all**, so a bare invocation walked the repo root
+  and swept in `tools/test_lw_clean_dekel.py` (skimage, CV venv only) and a
+  vendored MCP extension's tests. `pytest.ini` pins `testpaths = tests`.
+  testpaths applies only when NO path arg is given, so `pytest tests/ -q` and
+  the cv-lane's explicit file arg are unaffected.
+- **The real find:** with testpaths pinned, `tools/test_lw_clean_dekel.py` was
+  reachable by nothing - and no CI lane named it either. 8 Dekel-solver tests
+  had been executing nowhere. Added to the cv-lane, floor raised 10 -> 18.
+- **Raise the cv-lane floor whenever you add a suite there.** A floor below the
+  real count is how an uncollected suite hides behind a green lane;
+  `tests/test_cv_lane_coverage.py` fails you if you forget.
+- Do NOT hunt a regression behind that original 2-error collection - the suite
+  was always green, only the invocation was wrong.
+
+---
+
+## 2026-08-12 - the veil ring was hiding a cliff the lane made
 
 Four commits (`71bf503`, `d74888b`, `8766adf`, `5527059`). Suite **1958 passed /
 18 skipped** (3.14), CI green. LEDGER 101-103. ROADMAP
@@ -116,42 +143,3 @@ measurement.
 
 STILL OPEN on the item: (a) LaMa softening on pale flat art (`mecha-ahri`), and
 (f) `p2402-kda-evelynn` in the MANUAL IOPaint lane.
-
----
-
-## 2026-08-12 (later) - overlay registration searches SCALE
-
-One commit. Suite **1956 passed / 18 skipped** (3.14). LEDGER 99.
-
-- **`110-cleanup` clears, and it was never a one-image fix.** `best_shift`
-  registers translation only; the overlay is composited at a fixed size on the
-  DA-served image, so a frame from a different source resolution carries the
-  mark at a different PIXEL size. Swept every flagged slug under 0.25: EXACTLY
-  TWO are mismatched, both at the SAME 1.12 - `110-cleanup` 0.1090 -> 0.5052 and
-  `122` 0.1696 -> 0.6542, both landing in the well-registered range.
-- **Two boundaries, both measured, both pinned.** (1) The search is for REMOVAL,
-  never the GATE - a max-over-scales lifts clean `wallpapersden-sejuani` 0.1213
-  -> 0.1537, over the 0.15 flag; `overlay_score` is untouched and a test asserts
-  it never grows a scale parameter. (2) `SCALE_ACCEPT_RATIO = 2.0` - registered
-  frames wobble up to 1.22x, the two real ones are 3.86x and 4.63x; a refusal
-  keeps scale 1.0, which is the safe direction.
-- **Blast radius measured BEFORE trusting it:** 2 re-register, **31 register
-  exactly as before**, and `scale2d_centered` short-circuits at 1.0 so those 31
-  take a bit-identical pixel path - LEDGER 95/96 candidates stand. Live
-  spot-check: mecha-ahri 0.6958 -> 0.0737, 245f 0.5858 -> 0.0903.
-- **Result: 110 -> 0.0868, 122 -> 0.0941, credit line GONE on both by eye.**
-  Every changed pixel on all four verified frames sits inside one of the lane's
-  two editors (inversion band / LaMa ROI) - unexplained 0.
-- **Do not chase the outside-ROI count.** It reads 6-11k pixels and is not a
-  defect: the inversion legitimately edits sub-threshold alpha across the band,
-  which is why the tripwire compares post-LaMa against the PRE-PASS frame.
-- Fixture trap repeated and caught: the first synthetic test built its template
-  from the same noise realization as the test image, so the art correlated with
-  itself at scale 1.0 and drowned the mark - the same "frames must be unrelated"
-  lesson as the veil work (LEDGER 96).
-
-**NEXT:** `p2402-kda-evelynn` is the only faint-family slug still owed to the
-manual IOPaint lane. Note `122`'s candidate WAS regenerated at the correct scale
-into `ops/runtime/clean/overlay_scale/122/` during verification - the stale
-wrong-scale one from the LEDGER 95/96 pass is still sitting in
-`ops/runtime/clean/overlay_lane/`, so take the candidate from the new dir.

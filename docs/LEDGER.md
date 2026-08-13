@@ -27,6 +27,43 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+104. DONE **2026-08-12 (bare `pytest` collected the wrong tree; 8 solver tests ran
+    nowhere; `eee55d6`, `26c5ae3`).** Started from a Stop-hook refusal: the
+    session-open banner's "CI green" was hook-reported, not a run this session,
+    and the gate is right to reject a carried-forward count.
+    **THE BARE INVOCATION WAS BROKEN, NOT THE SUITE.** `python -m pytest -q`
+    with no path died at collection with 2 errors - it walked the repo root and
+    swept in `tools/test_lw_clean_dekel.py` (imports skimage, present only in
+    the CV venv) plus a vendored MCP extension's tests. `pytest tests/ -q` was
+    green the whole time at **1958 passed / 18 skipped**. This is the exact
+    failure `tests/test_truth_gate_wiring.py::test_the_gate_runs_the_same_suite_ci_runs`
+    documents for the truth gate; the gate was pinned to ` tests/`, the bare
+    command was never fixed. `pytest.ini` now pins `testpaths = tests`, which
+    applies ONLY when no path argument is given, so both explicit CI
+    invocations are untouched.
+    **THE FOLLOW-ON WAS REAL DEAD COVERAGE.** With testpaths pinned,
+    `tools/test_lw_clean_dekel.py` is reachable by no default collection - and
+    grep of `.github/workflows/ci.yml` showed no lane named it either. Its 8
+    pure-math tests over the Dekel solver (Poisson reconstruct, sub-pixel
+    registration) had been executing nowhere; the accidental root walk was the
+    only thing that ever touched the file, and it only touched it to fail.
+    Added to the cv-lane invocation (the only lane with cv2 + skimage), and the
+    lane's false-green floor raised **10 -> 18** (10 alignment + 8 solver) so a
+    suite that silently stops being collected turns the lane red instead of
+    riding the other one to green.
+    **TDD RED first:** `tests/test_cv_lane_coverage.py` written before the
+    workflow edit, observed 3 failed, then green - it pins that the tools suite
+    is named in ci.yml, that it sits on a real `pytest` line and not in a
+    comment, and that the floor is >= 18. Verified this turn: `pytest tests/ -q`
+    **1961 passed / 18 skipped**; the cv-lane command replayed under
+    `C:\Tools\lw-clean\venv` gives **18 passed, 0 skipped** with junit
+    `tests=18 skipped=0 failures=0 errors=0`; ruff clean; CI run 31658420160
+    green on `check` + `cv-lane`.
+    **DO NOT REDO:** the SUITE was never broken - do not go looking for a
+    regression behind the original 2-error collection. `SUITE = "pytest tests/"`
+    in `tests/test_ci_gate_arming.py` still matches the widened cv-lane line, so
+    the arming parity guard is intact.
+
 103. DONE **2026-08-12 (matte REBUILT on the wider grid; alpha 0.1332 -> 0.1398).**
     Operator call, against the LEDGER 102 recommendation not to rebuild. Done,
     measured, and the recommendation's premise turned out to be half wrong.
