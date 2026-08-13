@@ -214,6 +214,45 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-08-12 - faint-mark REMOVAL lane
+
+One commit. Suite **1939 passed / 18 skipped** (3.14). LEDGER 98.
+
+- **The family is NOT one object, and measuring that first shaped the lane.**
+  Five flagged slugs, four dispositions: 2 brush signatures CLEANED, 1 wordmark
+  on busy art REFUSED to manual, 1 low-alpha DA overlay DEFERRED to `--overlay`,
+  and the known false flag costs a 0.8% mask (a near no-op - the useful
+  negative control).
+- **`lw_clean_iopaint.py --faint`** reuses the masked-LaMa path whole. New:
+  the ROI is DERIVED from the detector's sub-floor boxes (+ any OCR box that
+  OVERLAPS one - p2402's YOLO box stops 134px short of what OCR reads; overlap
+  not proximity, or the KEPT LoL wordmark in the far corner joins in), and
+  `FAINT_BRIGHT_THR` 42 vs the banner default 10 (painted art reads above +10
+  from its own median, so at 10 the mask swallows the picture).
+- **Two refusals + an outcome check.** `FAINT_COVERAGE_MAX` 25 fires before the
+  GPU. `FAINT_OVERLAY_DEFER` 0.10 is a MEASUREMENT - clean-population overlay
+  score p50 0.0596 / p99 0.1042, the non-overlay flags 0.048-0.064, 110-cleanup
+  0.109. Post-pass RE-DETECT on the candidate reports a survivor as `residual`.
+- **Verified: 0 changed pixels outside the ROI on all three cleaned frames,
+  re-measured off disk, not from the in-process tripwire.** Signatures cropped
+  before/after: gone, background continuous.
+- **Three dead ends, measured:** the dark-outline adjacency gate does NOT
+  separate p2402 (art crevices satisfy it at every reach); the faint lane on a
+  low-alpha overlay is structurally wrong (110's line stays legible, its overlay
+  score goes UP 0.1090 -> 0.1203); and `--pad 260` on the overlay lane fixes
+  110's ROI clipping but not the mark - the constraint there is REGISTRATION
+  (0.109 vs the family's 0.310 median).
+- Two traps fixed in passing: the lane tests are autouse-pinned to overlay score
+  0.0 because CI has no template and Legion does (a synthetic fixture was
+  passing/failing BY MACHINE); and argparse %-formats help text, so `--faint`'s
+  literal `%` took two existing CLI tests red until doubled.
+
+**NEXT:** p2402 + 110-cleanup are queued for the MANUAL IOPaint lane - nothing
+automates them. 110's real fix is the overlay lane's registration on
+weakly-correlating frames.
+
+---
+
 ## 2026-08-11 (late) - faint-mark FLAG (gate v4): the last 4 recall misses
 
 One commit. Suite **1914 passed / 18 skipped** (3.14). LEDGER 97.

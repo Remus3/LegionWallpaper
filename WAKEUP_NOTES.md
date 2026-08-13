@@ -7,13 +7,14 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12) - keep the last 3.
 
 ---
 
 ## 2026-08-12 (latest) - the veil ring was hiding a cliff the lane made
 
-One commit. Suite **1957 passed / 18 skipped** (3.14). LEDGER 101. ROADMAP
+Four commits (`71bf503`, `d74888b`, `8766adf`, `5527059`). Suite **1958 passed /
+18 skipped** (3.14), CI green. LEDGER 101-103. ROADMAP
 `cleaning-detector-recall` item **(a) CLOSED**.
 
 - **The premise was wrong, and looking at 1:1 is what caught it.** The item said
@@ -154,42 +155,3 @@ manual IOPaint lane. Note `122`'s candidate WAS regenerated at the correct scale
 into `ops/runtime/clean/overlay_scale/122/` during verification - the stale
 wrong-scale one from the LEDGER 95/96 pass is still sitting in
 `ops/runtime/clean/overlay_lane/`, so take the candidate from the new dir.
-
----
-
-## 2026-08-12 - faint-mark REMOVAL lane
-
-One commit. Suite **1939 passed / 18 skipped** (3.14). LEDGER 98.
-
-- **The family is NOT one object, and measuring that first shaped the lane.**
-  Five flagged slugs, four dispositions: 2 brush signatures CLEANED, 1 wordmark
-  on busy art REFUSED to manual, 1 low-alpha DA overlay DEFERRED to `--overlay`,
-  and the known false flag costs a 0.8% mask (a near no-op - the useful
-  negative control).
-- **`lw_clean_iopaint.py --faint`** reuses the masked-LaMa path whole. New:
-  the ROI is DERIVED from the detector's sub-floor boxes (+ any OCR box that
-  OVERLAPS one - p2402's YOLO box stops 134px short of what OCR reads; overlap
-  not proximity, or the KEPT LoL wordmark in the far corner joins in), and
-  `FAINT_BRIGHT_THR` 42 vs the banner default 10 (painted art reads above +10
-  from its own median, so at 10 the mask swallows the picture).
-- **Two refusals + an outcome check.** `FAINT_COVERAGE_MAX` 25 fires before the
-  GPU. `FAINT_OVERLAY_DEFER` 0.10 is a MEASUREMENT - clean-population overlay
-  score p50 0.0596 / p99 0.1042, the non-overlay flags 0.048-0.064, 110-cleanup
-  0.109. Post-pass RE-DETECT on the candidate reports a survivor as `residual`.
-- **Verified: 0 changed pixels outside the ROI on all three cleaned frames,
-  re-measured off disk, not from the in-process tripwire.** Signatures cropped
-  before/after: gone, background continuous.
-- **Three dead ends, measured:** the dark-outline adjacency gate does NOT
-  separate p2402 (art crevices satisfy it at every reach); the faint lane on a
-  low-alpha overlay is structurally wrong (110's line stays legible, its overlay
-  score goes UP 0.1090 -> 0.1203); and `--pad 260` on the overlay lane fixes
-  110's ROI clipping but not the mark - the constraint there is REGISTRATION
-  (0.109 vs the family's 0.310 median).
-- Two traps fixed in passing: the lane tests are autouse-pinned to overlay score
-  0.0 because CI has no template and Legion does (a synthetic fixture was
-  passing/failing BY MACHINE); and argparse %-formats help text, so `--faint`'s
-  literal `%` took two existing CLI tests red until doubled.
-
-**NEXT:** p2402 + 110-cleanup are queued for the MANUAL IOPaint lane - nothing
-automates them. 110's real fix is the overlay lane's registration on
-weakly-correlating frames.
