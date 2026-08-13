@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import os
 import sys
+import warnings
 
 import numpy as np
 from PIL import Image
@@ -570,7 +571,13 @@ VEIL_CLOSE = 51              # fill the holes a threshold leaves in a solid regi
 # 0.05 the raw support sprawls across x 643-2290 of the band.
 VEIL_OPEN_R = 5
 VEIL_RING = 8                # ring width used to read the boundary step
-VEIL_GAIN_GRID = tuple(round(0.5 + 0.25 * i, 2) for i in range(19))  # 0.5 .. 5.0
+# 0.5 .. 10.0. The old grid stopped at 5.0 and the shipped matte fitted EXACTLY
+# 5.0 - a boundary solution, which cannot be read as an optimum. Measured
+# 2026-08-12 over 31 flagged frames, the objective does turn: it minimises at
+# gain 3.75 (alpha 0.0999, err 14.29) and 5.0 is already worse (err 15.26). The
+# grid now extends far enough that a ceiling hit means "no minimum", not "grid
+# too short", and `_fit_veil_gain` says so.
+VEIL_GAIN_GRID = tuple(round(0.5 + 0.25 * i, 2) for i in range(39))
 VEIL_MIN_PX = 400            # below this the support is noise, not a veil
 # The support ends INSIDE the veil's true edge (see `_veil_support`), so its
 # boundary is not an edge of the ORIGINAL: measured over six corpus frames on
@@ -666,6 +673,13 @@ def _fit_veil_gain(bands, support, raw_alpha, w_ref, ring: int = VEIL_RING,
         mean = float(np.mean(errs))
         if mean < best[0]:
             best = (mean, float(g))
+    if best[1] >= float(gains[-1]):
+        # A gain ON the last grid point is not a minimum, it is where the search
+        # ran out. The shipped 2026-08-11 matte did exactly this on the old
+        # 0.5..5.0 grid and was recorded as an optimum; say it out loud instead.
+        warnings.warn(f"veil gain hit the grid ceiling {gains[-1]} - the "
+                      f"amplitude is a boundary solution, not a fitted optimum",
+                      RuntimeWarning, stacklevel=2)
     return best[1], best[0]
 
 

@@ -53,11 +53,24 @@ One commit. Suite **1957 passed / 18 skipped** (3.14). LEDGER 101. ROADMAP
   removal-QUALITY gate.** A frame can sit at 0.076, deep inside the clean
   distribution, and still show its artist credit line at 1:1.
 
-**NEXT:** the veil AMPLITUDE is still unverified: `_fit_veil_gain` matches a ring
-16-24px inside the support against one 16-24px outside, and that outer ring is
-itself still veiled. If a candidate ship gate is wanted, build it on a
-legibility measure (mean |gray - median21| over the mask's credit-line band:
-original 14.32 / pre-pass 15.97 / +LaMa 7.00 medians), not the detector.
+- **The veil AMPLITUDE was settled in the same session (LEDGER 102).** The
+  ring-pair confound is REFUTED by a control: the same objective over 31 frames
+  carrying NO overlay minimises at the smallest gain (alpha 0.0133) and rises
+  monotonically. But the shipped `alpha 0.1332 = raw 0.0266 x gain 5.0` sat
+  EXACTLY on the old grid's last point - a boundary solution written up as an
+  interior optimum; on a grid to 19.75 the objective turns at gain 3.75 ->
+  **alpha 0.0999**. It barely matters: the clean-frame run is also an
+  11.48-level noise floor against a ~14-level signal, so 0.09-0.13 all fit, and
+  by eye on `dark-cosmic-ahri` the current value leaves neither residue nor dark
+  blob. `VEIL_GAIN_GRID` -> 10.0 and `_fit_veil_gain` WARNS on a ceiling hit.
+  **The matte is deliberately NOT rebuilt** - 0.03 of alpha on a flat objective
+  is not worth invalidating 33 candidates again.
+
+**NEXT:** if a candidate ship gate is wanted, build it on a legibility measure
+(mean |gray - median21| over the mask's credit-line band: original 14.32 /
+pre-pass 15.97 / +LaMa 7.00 medians), not the detector score. When the matte is
+next rebuilt for any reason, the wider grid applies automatically and the
+warning will say whether the new fit is interior.
 
 ---
 

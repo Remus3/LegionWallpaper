@@ -32,6 +32,7 @@ import os
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "tools"))
@@ -107,6 +108,27 @@ def test_veil_alpha_is_calibrated_to_the_boundary_step():
     veil = ov.estimate_veil(_frames(), band=BAND, **SMALL)
     assert abs(veil["alpha"] - ALPHA_TRUE) < 0.04, veil["alpha"]
     assert veil["raw"] < veil["alpha"], "the raw whitening is expected to underread"
+
+
+def test_a_gain_on_the_grid_ceiling_is_reported_as_a_boundary_solution():
+    """A fit that stops where the search stops is not a measurement.
+
+    The 2026-08-11 matte recorded gain 5.0 against a 0.5..5.0 grid and the value
+    was written up as an interior optimum. Measured 2026-08-12 over 31 flagged
+    frames, the objective actually minimises at gain 3.75 (alpha 0.0999) and 5.0
+    is already worse - so the shipped amplitude is 33 percent above its own
+    estimator's optimum, and nothing in the pipeline said so. It does now.
+    """
+    bands = [np.asarray(f, dtype=np.float64) for f in _frames(4)]
+    sup = np.zeros((H, W_PX), dtype=bool)
+    sup[VEIL_BOX] = True
+    short = (0.5, 1.0)          # a grid far too short for a 0.15 veil
+    with pytest.warns(RuntimeWarning, match="grid ceiling"):
+        gain, _ = ov._fit_veil_gain(bands, sup, 0.02, np.asarray(ov.W_REF),
+                                    gains=short)
+    assert gain == short[-1]
+    # and the shipped grid must reach well past where the corpus optimum sits
+    assert ov.VEIL_GAIN_GRID[-1] >= 10.0, ov.VEIL_GAIN_GRID[-1]
 
 
 def test_removal_with_the_veil_erases_the_step():

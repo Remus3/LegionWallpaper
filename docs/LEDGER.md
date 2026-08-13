@@ -27,6 +27,49 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+102. DONE **2026-08-12 (veil amplitude settled; grid widened + boundary warning).**
+    Answers the question LEDGER 101 left open and explicitly flagged: is the
+    veil alpha right, given `_fit_veil_gain` matches a ring 16-24px INSIDE the
+    support against one 16-24px OUTSIDE it, and the support is eroded so the
+    outer ring may itself be veiled?
+    **THE CONFOUND IS REFUTED, by a control.** The same objective, same support,
+    run over **31 frames that carry NO overlay**: minimised at the smallest gain
+    on the grid (alpha 0.0133) and monotonically rising after. On 31 MARKED
+    frames it has a real interior minimum. The geometry does not manufacture a
+    veil out of centre-versus-surround artwork.
+    **BUT THE SHIPPED NUMBER IS A BOUNDARY SOLUTION.** The cached matte records
+    `alpha 0.1332 = raw 0.0266 x gain 5.0` and 5.0 was EXACTLY the last point of
+    the old `VEIL_GAIN_GRID` (0.5..5.0) - written up as "an interior optimum".
+    On a grid extended to 19.75 the objective turns at **gain 3.75 -> alpha
+    0.0999 (err 14.29)**; 5.0 is already worse (15.26). The shipped value is
+    ~33 percent above its own estimator's optimum.
+    **AND IT BARELY MATTERS - the estimator's SNR is ~1.** The clean-frame run
+    is also a noise floor: with no veil to fit, the two rings still differ by
+    **11.48 levels** for artistic reasons, against a veil signal of ~14. Gains
+    3.5-5.0 span err 14.33-15.26, so alpha anywhere in **0.09-0.13 fits equally
+    well**. By eye on `dark-cosmic-ahri` (the frame whose veil is most visible -
+    the chevron over near-black cloth), the current alpha flattens the blocks
+    into the cloth: no bright residue, no dark blob.
+    **SHIPPED:** `VEIL_GAIN_GRID` extends to 10.0, and `_fit_veil_gain` now
+    raises a `RuntimeWarning` when the winning gain lands on the last grid point,
+    so a boundary solution can never again be recorded as a fit. TDD, pinned by
+    `test_a_gain_on_the_grid_ceiling_is_reported_as_a_boundary_solution`. Suite
+    **1958 passed / 18 skipped**, ruff clean. The matte is deliberately NOT
+    rebuilt and no candidate re-cut: at most 0.03 of alpha on a flat objective,
+    for no visible gain, against invalidating all 33 feathered candidates again.
+    **DO NOT REDO these three dead ends** (all measured, all in the doc): there
+    is NO same-artwork clean/marked pair (302 firstdones signature-matched
+    outside the mark band peak below 0.85 correlation; all 15 separately fetched
+    DeviantArt sources are watermarked too, 0.15-0.65); the five two-resolution
+    slugs give NO lever (the annulus between the two veil footprints reads alpha
+    0.000-0.004, indistinguishable from its controls - the overlay scales WITH
+    the served image); and both the "notch" estimator (0.065 +- 0.017) and the
+    floor test are defeated by the same flaw - the support's closing
+    (`VEIL_CLOSE` 51) fills the chevron's UNVEILED notch, so 19 of 31 frames
+    show sub-floor pixels that simply are not veiled, and the notch estimator
+    reports 0.024 for a frame that is plainly ~0.13 by eye.
+    Evidence: `docs/CLEAN_VEIL_AMPLITUDE_2026-08-12.md`.
+
 101. DONE **2026-08-12 (overlay lane: feather the veil, drop the LaMa ring).**
     Rules on ROADMAP `cleaning-detector-recall` open item (a) - whether the
     softening on pale flat art (`mecha-ahri`) is acceptable at 1:1.
