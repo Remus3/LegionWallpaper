@@ -11,9 +11,9 @@ reference ring may itself be veiled, and the rings also sample different ART
 (image centre versus surround). Either would bias the fit.
 
 **Verdict: the estimator is sound - the confound is refuted by a control - but
-the shipped NUMBER is a boundary solution and about 33 percent above its own
-estimator's optimum. The difference is not visible, so nothing is re-cut, and
-the failure mode that hid it is now impossible to repeat silently.**
+the shipped NUMBER was a boundary solution. The grid is widened, the matte is
+REBUILT (section 7), and the whole correction moved by 5 percent: alpha 0.1332 ->
+0.1398, or about 1 level of extra darkening on mid-grey art.**
 
 ## 1. The confound is refuted, by a clean-frame control
 
@@ -40,8 +40,13 @@ it was written up as "an interior optimum".
 
 Measured over 31 flagged frames on a grid extended to 19.75, the objective turns
 at **gain 3.75 -> alpha 0.0999 (err 14.29)**, and 5.0 is already worse (15.26).
-So the shipped value sits ~33 percent above the optimum of its own estimator on
-a larger set of the same family.
+
+That is a DIFFERENT frame set from the one the matte is estimated on (the 19
+confirmed slugs), and the difference between the two is itself the point - see
+section 7: rebuilt on its own 19, the same objective picks gain **5.25**, one
+step PAST the old ceiling, for alpha 0.1398. Swap the frame set and the estimate
+moves by 40 percent. Do not read the 31-frame figure as "the true alpha"; read
+it as the width of the estimator's uncertainty.
 
 ## 3. Why it barely matters: the objective's precision is ~1 SNR
 
@@ -97,13 +102,52 @@ it is not worth a visible defect in either direction.
 - Pinned by
   `tests/test_lw_clean_overlay_veil.py::test_a_gain_on_the_grid_ceiling_is_reported_as_a_boundary_solution`.
 
-The cached matte is NOT rebuilt and no candidate is re-cut. Rebuilding it would
-move alpha by at most 0.03 on a flat objective, for no visible gain, and would
-invalidate all 33 feathered candidates a second time. When the matte IS next
-rebuilt (any change to the confirmed-slug set), the wider grid applies
-automatically and the warning will say whether the new fit is interior.
+## 7. The matte REBUILT on the wider grid
+
+Rebuilt from the same 19 confirmed slugs against the same wide template:
+
+```
+veil alpha=0.140 (raw 0.027 x gain 5.25), support 38375 px, residual step 12.45
+```
+
+**The fit is now interior** (5.25 of a 0.5..10.0 grid, no ceiling warning), and
+it landed ONE STEP past the old ceiling - so the boundary was costing 5 percent,
+UPWARD. The 31-frame curve pointed the other way (3.75); that is the SNR-1 point
+made concrete, not a contradiction.
+
+Diffed against the backed-up matte, **the veil alpha is the only thing that
+moved**: stroke alpha, `W` and the veil support are bit-identical
+(`0.1332 -> 0.1398`, +5.0%, = +1.1 levels of darkening on mid-grey art).
+
+Blast radius over all 33 candidates, re-cut with the rebuilt matte:
+
+| | alpha 0.1332 | alpha 0.1398 |
+| --- | --- | --- |
+| median detector score | 0.0664 | **0.0645** |
+| worst score | 0.0955 | **0.0942** |
+| under the 0.15 flag | 33 of 33 | **33 of 33** |
+| median mask px | 41349 | 41433 (+0.2%) |
+
+Per-frame the score moves by a median of +0.0002, worst +0.0040
+(`miss-fortune`), best -0.0090 (`mecha-ahri`); 14 frames improve, 18 worsen -
+a wash, exactly what a flat objective predicts. Off disk, the pre-pass frame
+changes by **1-2 levels over 13-16 percent of the ROI, maximum 2 levels**, and
+by eye on `dark-cosmic-ahri` the chevron still flattens into the cloth with no
+dark blob.
+
+The previous matte is kept at
+`ops/runtime/clean/_backup_2026-08-12/overlay_matte_wide.npz`; the ring-era and
+0.1332-feather candidate sets (`overlay_lane/`, `overlay_feather/`) are both
+superseded by `overlay_rebuilt/`. The non-wide `overlay_matte.npz` was NOT
+rebuilt - nothing in the removal lane or the gate reads it (`load_overlay_pair`
+takes the wide pair; `overlay_score` uses the template).
 
 ## Reproduce
+
+```
+C:\Tools\lw-clean\venv\Scripts\python.exe tools\lw_clean_detector_probe.py --wide --build-overlay-matte <the 19 confirmed slugs listed in docs/CLEAN_OVERLAY_DETECTOR_2026-08-11.md>
+C:\Tools\lw-clean\venv\Scripts\python.exe tools\lw_clean_iopaint.py <slug> --overlay --image <firstdone> --out-dir ops\runtime\clean\overlay_rebuilt\<slug>
+```
 
 The probes for sections 1-3 are one-offs; the objective curve is
 `_fit_veil_gain`'s own loop evaluated over `VEIL_GAIN_GRID` on band images from

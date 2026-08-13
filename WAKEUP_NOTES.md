@@ -63,8 +63,17 @@ One commit. Suite **1957 passed / 18 skipped** (3.14). LEDGER 101. ROADMAP
   11.48-level noise floor against a ~14-level signal, so 0.09-0.13 all fit, and
   by eye on `dark-cosmic-ahri` the current value leaves neither residue nor dark
   blob. `VEIL_GAIN_GRID` -> 10.0 and `_fit_veil_gain` WARNS on a ceiling hit.
-  **The matte is deliberately NOT rebuilt** - 0.03 of alpha on a flat objective
-  is not worth invalidating 33 candidates again.
+- **MATTE REBUILT on operator call (LEDGER 103) - and it went UP, not down.**
+  Rebuilt from the same 19 slugs: gain **5.25** (interior, no warning), **alpha
+  0.1332 -> 0.1398 (+5.0%)** - one step past the old ceiling, the OPPOSITE
+  direction from the 31-frame curve. That is the SNR-1 finding made concrete:
+  swap the frame set and this estimator moves 40 percent. Only the veil alpha
+  changed - stroke alpha, `W` and the support are bit-identical. All 33
+  candidates re-cut into `ops/runtime/clean/overlay_rebuilt/`: median score
+  0.0664 -> 0.0645, worst 0.0955 -> 0.0942, 33/33 under the flag, pre-pass moves
+  1-2 levels over 13-16% of the ROI, no dark blob by eye on `dark-cosmic-ahri`.
+  Old matte kept in `ops/runtime/clean/_backup_2026-08-12/`; `overlay_lane/` and
+  `overlay_feather/` are superseded.
 
 **NEXT:** if a candidate ship gate is wanted, build it on a legibility measure
 (mean |gray - median21| over the mask's credit-line band: original 14.32 /

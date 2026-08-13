@@ -331,11 +331,18 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   ~14-level signal, so alpha 0.09-0.13 fits equally well, and by eye on
   `dark-cosmic-ahri` the current value leaves neither residue nor dark blob.
   `VEIL_GAIN_GRID` now runs to 10.0 and `_fit_veil_gain` WARNS on a ceiling hit
-  (test-pinned). The matte is deliberately NOT rebuilt. DO NOT redo the three
-  dead ends recorded there: no same-artwork clean/marked pair exists in the
-  corpus, the two-resolution slugs carry no lever, and both the notch estimator
-  and the floor test are defeated by the support's closing filling the chevron's
-  unveiled notch.
+  (test-pinned). **MATTE REBUILT on the wider grid (LEDGER 103): the fit is now
+  INTERIOR at gain 5.25 and alpha went UP, 0.1332 -> 0.1398 (+5.0%)** - one step
+  past the old ceiling, the opposite direction from the 31-frame curve, which is
+  the SNR-1 point made concrete (swap the frame set, the estimate moves 40%).
+  Only the veil alpha moved; stroke alpha, `W` and the support are bit-identical.
+  All 33 candidates re-cut: median score 0.0664 -> 0.0645, worst 0.0955 ->
+  0.0942, 33/33 still under the flag, pre-pass changes 1-2 levels over 13-16% of
+  the ROI. Candidates now in `ops/runtime/clean/overlay_rebuilt/`. DO NOT redo
+  the three dead ends recorded there: no same-artwork clean/marked pair exists in
+  the corpus, the two-resolution slugs carry no lever, and both the notch
+  estimator and the floor test are defeated by the support's closing filling the
+  chevron's unveiled notch.
   Evidence: `docs/CLEAN_QA_PRECISION_2026-08-12.md` +
   `docs/CLEAN_OVERLAY_SCALE_2026-08-12.md` +
   `docs/CLEAN_FAINT_LANE_2026-08-12.md` +

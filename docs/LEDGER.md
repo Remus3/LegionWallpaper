@@ -27,6 +27,35 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+103. DONE **2026-08-12 (matte REBUILT on the wider grid; alpha 0.1332 -> 0.1398).**
+    Operator call, against the LEDGER 102 recommendation not to rebuild. Done,
+    measured, and the recommendation's premise turned out to be half wrong.
+    **THE FIT IS NOW INTERIOR AND IT WENT UP, NOT DOWN.** Rebuilt from the same
+    19 confirmed slugs against the same wide template: `veil alpha=0.140 (raw
+    0.027 x gain 5.25), support 38375 px, residual step 12.45`. Gain 5.25 is one
+    step PAST the old 5.0 ceiling and interior to the new 0.5..10.0 grid, so no
+    warning fired. The 31-frame curve of LEDGER 102 pointed the other way (gain
+    3.75 / alpha 0.0999) - not a contradiction but the SNR-1 finding made
+    concrete: **swap the frame set and this estimator moves 40 percent.** The
+    doc's "33 percent above its own optimum" line is corrected accordingly.
+    **THE VEIL ALPHA IS THE ONLY THING THAT MOVED.** Diffed against the backup:
+    stroke alpha, `W` and the veil support are BIT-IDENTICAL; alpha 0.1332 ->
+    0.1398 (+5.0%) = +1.1 levels of darkening on mid-grey art.
+    **BLAST RADIUS over all 33 re-cut candidates:** median detector score 0.0664
+    -> 0.0645, worst 0.0955 -> 0.0942, **33 of 33 still under the 0.15 flag**,
+    median mask 41349 -> 41433 px (+0.2%). Per-frame delta median +0.0002, worst
+    +0.0040 (`miss-fortune`), best -0.0090 (`mecha-ahri`); 14 improve, 18 worsen
+    - a wash, exactly what a flat objective predicts. Off disk the pre-pass frame
+    changes by 1-2 levels over 13-16% of the ROI, max 2. By eye on
+    `dark-cosmic-ahri` (most visible veil in the corpus) the chevron still
+    flattens into the cloth: no residue, no dark blob.
+    Old matte kept at `ops/runtime/clean/_backup_2026-08-12/`; candidates in
+    `ops/runtime/clean/overlay_rebuilt/` - `overlay_lane/` (ring era) and
+    `overlay_feather/` (alpha 0.1332) are both superseded. The non-wide
+    `overlay_matte.npz` was deliberately NOT rebuilt: nothing reads it
+    (`load_overlay_pair` takes the wide pair, `overlay_score` uses the template).
+    Evidence: `docs/CLEAN_VEIL_AMPLITUDE_2026-08-12.md` section 7.
+
 102. DONE **2026-08-12 (veil amplitude settled; grid widened + boundary warning).**
     Answers the question LEDGER 101 left open and explicitly flagged: is the
     veil alpha right, given `_fit_veil_gain` matches a ring 16-24px INSIDE the
