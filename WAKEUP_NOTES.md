@@ -7,11 +7,42 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12), and the 2026-08-12 QA-lane precision-census session (pruned 2026-08-12) - keep the last 3.
 
 ---
 
-## 2026-08-12 (latest) - bare pytest swept the wrong tree; 8 tests ran nowhere
+## 2026-08-12 (latest) - clean-retry-degrades CLOSED: one engine per submission
+
+One commit (`74a6b09`). Suite **1975 passed / 18 skipped** (baseline 1961 + 14
+new), CI run 31659578807 green (`check` + `cv-lane`). LEDGER 105, ADR-009. The
+`clean-retry-degrades` ROADMAP item is REMOVED - both halves answered, closed
+entries live in the ledger per the archival contract.
+
+- **The question was: gate the cross-engine ladder on a measured improvement, or
+  drop it? Answer: DROP it.** No improvement gate is available, and that IS the
+  finding. Over the 24 scored retries, seam_ssim gain tracks edit area (Pearson
+  r=+0.46; mean area ratio 3.06x when a retry gains seam vs 1.61x when it does
+  not) and every seam-gaining retry was rejected. Gating on seam would select
+  for the biggest repaint - the `overlay_score` failure mode (LEDGER 101-103).
+- **Two further blocks on any label-fitted threshold**, both read off the
+  manifests this turn: the 3 adjudicated slugs' workings are GC'd off disk (the
+  metric census can only score UNDECIDED slugs), and the 50 rejects are three
+  BLANKET engine verdicts - identical timestamps and identical notes across the
+  whole queue. Per-slug ladder spend buys a per-ENGINE decision.
+- **Shipped:** `lw_pipeline.assert_ladder_allowed` + `cleaning_engines_used`.
+  `save-working --tool X` exits 3 when the slug already carries cleaning
+  workings from another engine, unless `--allow-ladder`. Fails closed (an
+  unclassified tool counts as an engine); `operator-select` / `clean-scan` /
+  `manual` / `qa` / untagged operator saves exempt; cleaning stage ONLY.
+- **The engines are KEPT** - `lw_clean_sdxl` for content-bearing marks,
+  `lw_clean_iopaint` as the QA-lane candidate generator. Only the automatic
+  chain is gone. `.claude/commands/cleaning-pass.md` step 6 says so.
+- Do NOT re-open on a seam_ssim argument, and do NOT fit a threshold on the
+  undecided queue - it carries no strong labels.
+
+---
+
+## 2026-08-12 - bare pytest swept the wrong tree; 8 tests ran nowhere
 
 Two commits (`eee55d6`, `26c5ae3`) plus this doc sync. Suite **1961 passed / 18
 skipped** (3.14, up 3 from the new guard file), CI run 31658420160 green
@@ -110,36 +141,3 @@ next rebuilt for any reason, the wider grid applies automatically and the
 warning will say whether the new fit is interior.
 
 ---
-
-## 2026-08-12 - QA-lane precision census, 67 rows labelled by eye
-
-One commit. Doc + one new probe tool. LEDGER 100. ROADMAP
-`cleaning-detector-recall` item **(d) CLOSED** - the item's last open
-measurement.
-
-- **The human queue is 94 percent real work.** All 67 `qa` rows of the live
-  gate-v4 302-image corpus labelled from crops that were actually viewed.
-  Region precision (is the BOXED thing a mark) **62/67 = 92.5 percent**; frame
-  precision (does the frame carry a mark anywhere) **63/67 = 94.0 percent**.
-  Per reason, region: `centre_overlay` **32/32**, `not_border` 25/28,
-  `faint_mark` 4/5, `low_conf` 1/1, `area_too_large` 0/1.
-- **The two precisions disagree on exactly one row, and that is the finding.**
-  `258-cleanup` boxes its letterbox bars (junk) but DOES carry a
-  `TYSIUUUL.DEVIANTART.COM` credit line at `overlay_score` 0.1254 - just under
-  the 0.15 flag. Right for the wrong reason; a second signal saved it.
-- **No threshold moved, deliberately.** The 4 mark-free frames (`177-cleanup`
-  jersey logo + "FAKER", `186-cleanup` "unto DARKNESS/LIGHT" art typography,
-  `193-cleanup` a painted snowflake, `dbwtlkx-eeb94ce2` brick texture) sit
-  INSIDE the true-positive range on `conf_max`, `n_boxes`, `area_pct` and
-  `ocr_hit`. Any cut that drops them drops real marks.
-- **New tool `tools/lw_clean_qa_crops.py`** - crops what a row actually flagged
-  (template support bbox for `centre_overlay`, box union elsewhere), tiles
-  labelled sheets, adds an amplified high-pass tile for the low-amplitude DA
-  overlay. `--reason` / `--slug` / `--per-sheet`. Sheets land in
-  `ops/runtime/clean/qa_precision/` (gitignored).
-- Verified: ruff clean, doc/roadmap/ledger subset **43 passed / 2 skipped**.
-  Full suite NOT re-run - Tier-0/1 change, no production path touched.
-- Evidence: `docs/CLEAN_QA_PRECISION_2026-08-12.md`.
-
-STILL OPEN on the item: (a) LaMa softening on pale flat art (`mecha-ahri`), and
-(f) `p2402-kda-evelynn` in the MANUAL IOPaint lane.
