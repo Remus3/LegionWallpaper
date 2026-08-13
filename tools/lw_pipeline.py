@@ -817,10 +817,68 @@ def cmd_start_stage(ctx, slug, pick_next):
 
 # ---------------------------------------------------------------- save-working (T3)
 
-def cmd_save_working(ctx, slug, from_path, adopt, tool, params_json):
+# Cleaning ladder gate (ADR-009). The cleaning stage runs ONE inpaint engine per
+# submission: the lama -> sdxl -> iopaint chain is not fired automatically on a
+# REJECT. Measured over the whole cleaning stage by tools/lw_clean_retry_probe.py
+# (21 slugs / 18 with 2+ workings / 50 rejected workings / 24 scored retries): a
+# second engine won 0 of the 3 adjudicated slugs, sdxl-animagine lost seam_ssim
+# to lama in 14 of 15 samples, and iopaint's 6-of-9 seam wins are bought by
+# repainting 2.66x the area - all 9 rejected. A measured-improvement gate is not
+# available: seam gain tracks edit area (r = +0.46), so gating on it would select
+# for the biggest repaint. The engines stay; a second one costs an explicit flag.
+# Evidence: docs/CLEAN_LADDER_DECISION_2026-08-12.md, pinned by
+# tests/test_lw_clean_ladder_gate.py.
+LADDER_EXEMPT_TOOLS = frozenset({"operator-select", "clean-scan", "manual", "qa"})
+_CLEAN_WORKING_RE = re.compile(r"_cleanworking_\d+\.", re.IGNORECASE)
+
+
+def cleaning_engines_used(man):
+    """Ordered, de-duplicated inpaint engines behind a slug's cleaning workings.
+
+    Reads SAVE_WORKING transitions whose dst is a `_cleanworking_NN` file, so
+    first-pass workings sharing the same manifest never count. Bookkeeping tools
+    (LADDER_EXEMPT_TOOLS, and an untagged operator save) are not engines.
+    """
+    engines = []
+    for t in (man or {}).get("transitions") or []:
+        if t.get("op") != "SAVE_WORKING":
+            continue
+        if not _CLEAN_WORKING_RE.search(str(t.get("dst") or "")):
+            continue
+        tool = t.get("tool")
+        if not tool or tool in LADDER_EXEMPT_TOOLS:
+            continue
+        if tool not in engines:
+            engines.append(tool)
+    return engines
+
+
+def assert_ladder_allowed(stage, man, tool, allow_ladder=False):
+    """Refuse a SECOND cleaning engine for one slug unless opted in (exit 3).
+
+    Fails closed: any tool that is not exempt counts as an engine, so a new
+    worker inherits the gate rather than slipping past it.
+    """
+    if stage != "clean" or allow_ladder:
+        return
+    if not tool or tool in LADDER_EXEMPT_TOOLS:
+        return
+    prior = [e for e in cleaning_engines_used(man) if e != tool]
+    if not prior:
+        return
+    raise PipelineError(
+        f"save-working: cleaning already used engine(s) {', '.join(prior)}; "
+        f"adding {tool} starts the cross-engine ladder, which measurably "
+        "degrades (ADR-009). Pass --allow-ladder to override.",
+        code=3)
+
+
+def cmd_save_working(ctx, slug, from_path, adopt, tool, params_json,
+                     allow_ladder=False):
     stage, folder = find_scratch(ctx, slug)
     if stage is None:
         raise PipelineError(f"save-working: {slug} not in any scratch", code=2)
+    assert_ladder_allowed(stage, load_manifest(folder), tool, allow_ladder)
     params = None
     if params_json:
         try:
@@ -1533,6 +1591,8 @@ def build_parser():
     s.add_argument("--adopt", action="store_true")
     s.add_argument("--tool")
     s.add_argument("--params")
+    s.add_argument("--allow-ladder", action="store_true",
+                   help="permit a SECOND cleaning engine on this slug (ADR-009)")
     s.add_argument("--dry-run", action="store_true")
 
     s = sub.add_parser("submit", help="T4: latest working -> _needauth")
@@ -1597,7 +1657,7 @@ def main(argv=None):
                 raise PipelineError(
                     "save-working: exactly one of --from/--adopt", code=2)
             return cmd_save_working(ctx, args.slug, args.from_path, args.adopt,
-                                    args.tool, args.params)
+                                    args.tool, args.params, args.allow_ladder)
         if args.cmd == "submit":
             return cmd_submit(ctx, args.slug)
         if args.cmd == "approve":

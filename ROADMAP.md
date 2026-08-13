@@ -6,63 +6,6 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
-- **clean-retry-degrades - the cleaning stage's later iterations make the image
-  WORSE than `_cleanworking_01` - NEW 2026-08-02, two witnesses.**
-  Operator review of the 12-slug cleaning queue: "the iterations after `_01` just
-  degrade it further which is why the `_01`s are the best result out of them so
-  far." Confirmed on both slugs that survived review -
-  `nguyen-ky-phuc-reyjin-leblanc-j-f1` and
-  `p08e8-shadow-hunter-vayne-by-namakx-dg9ydp9-pre` - where `_01` was the
-  approved result and `_02`/`_03` were rejected. So the retry loop is not just
-  unhelpful past attempt 1, it is actively harmful, and every REJECT currently
-  spends a pass making things worse.
-  HALF 1 ANSWERED + FIXED 2026-08-10 (`2958338`). The probe is `tools/lw_clean_retry_probe.py`
-  (read-only; verdict census on stdlib, metric census under the cv venv).
-  Measured over the whole cleaning stage - 21 slugs, 18 with 2+ workings, 50
-  rejected workings:
-    * Retries won **0** of the 3 slugs the operator has adjudicated. Two settled
-      on `_01`'s content, one on `_cleaninitial` (no clean at all). Resolved by
-      sha256, because each winning `_04`/`_03` is an `operator-select` COPY of
-      earlier content - the approving version number overstates which attempt
-      actually produced the accepted pixels.
-    * `_02` (always sdxl-animagine): n=15, seam_ssim better than `_01` in 1,
-      worse in 14, editing 1.66x more area, moving further from the initial in
-      14/15. Strict degradation, matching the operator's read.
-    * `_03` (always iopaint): n=9, seam better in 6 - but repainting 2.66x the
-      area of `_01`, and all 9 rejected. Its seam "win" is bought by painting
-      over more of the picture, which is the detector-precision problem below,
-      not a better clean.
-  Root cause of the INTRA-working loop: `_auto_inpaint` builds `mask`/`base`
-  once ABOVE its attempt loop and `inpaint_lama` is pure over them, so attempt 2
-  recomputed bit-identical pixels and re-derived an identical verdict - pure
-  spent GPU. Fix landed: `max_attempts` defaults to 1 in `process_slug`,
-  `run_batch` and `--max-attempts`, pinned by
-  `tests/test_lw_clean_retry_default.py`. Do NOT raise it again without making
-  something vary per attempt (growing the dilation is the obvious candidate).
-  Still open: the cross-engine ladder (lama -> sdxl -> iopaint) is fired on
-  REJECT by the operator/skill, not by a code default, so nothing in code yet
-  stops attempt 2 being spent. Decide whether the ladder should be gated on a
-  measured improvement or dropped to a single engine.
-  HALF 2 (`cleaning-detector-precision`) ANSWERED 2026-08-11 - **the detector is
-  precise; no rule was narrowed.** Measured by `tools/lw_clean_detector_probe.py`
-  over the WHOLE gated corpus (all 21 cleaning-stage slugs, detect + gate re-run
-  on each `_cleaninitial`): 14 slugs gate to `auto`, and all 14 regions were then
-  looked at directly - every one is an artist credit URL, handle, signature or
-  credit strip, i.e. ADR-005 REMOVE content. **0 false positives.** 4 route to
-  `qa` (a human decides, not a proposal) and 3 to `clean`.
-  Both cited cases are stale: `vayne3` detects NOTHING now (n=0; the bare-`@`
-  narrowing already closed it, and the team logos never produced a box), and
-  `p08e8`'s fire is the real `@namakxin` signature whose removal the operator
-  APPROVED - its `_cleandone` differs from `_cleaninitial` by 65122 px. Same
-  correction for `nguyen-ky-phuc` (9719 px). A REJECT note is a WEAK label - it
-  lands on one working's pixels; the strong label is the APPROVE_CLEAN sha256.
-  Of the 3 adjudicated slugs exactly one (`vayne3`) settled on uncleaned pixels,
-  and the detector proposes nothing on it.
-  Shipped instead of a narrowing: `tests/test_lw_clean_detector_precision.py`
-  pins all 21 measured rows (real OCR strings + geometry) to their verdict, plus
-  a KEEP-set test asserting no measured KEEP slug may ever become `auto`.
-  Evidence: `docs/CLEAN_DETECTOR_PRECISION_2026-08-11.md`; LEDGER 85 + 90.
-
 - **cleaning-detector-recall - the detector MISSES marks: 14 confirmed false
   negatives, ~12 percent of the `clean` verdicts - NEW 2026-08-11, measured.**
   The mirror of the precision census, and the reason precision alone was not an
@@ -524,7 +467,8 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   SHIPPED. The reviewer itself is the remaining slice.**
   Ruling: a vision reviewer may FLAG, never REJECT, and an unresolved flag
   BLOCKS approval by any actor that is not the operator. Reasons, all measured:
-  a REJECT demotes, and `clean-retry-degrades` shows a further pass makes the
+  a REJECT demotes, and `clean-retry-degrades` (closed, ADR-009 + LEDGER 105)
+  shows a further pass makes the
   image WORSE, so a false REJECT degrades what it was protecting; a vision 2AFC
   is not reproducible, so the operator cannot re-derive a verdict they dispute;
   and splash art is deliberately non-anatomical with no ground truth to check.

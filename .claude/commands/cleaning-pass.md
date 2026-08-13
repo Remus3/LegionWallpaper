@@ -41,7 +41,15 @@ Contract references: `docs/research/CLEANING_INPAINT.md` (stack + install), `doc
    - OUTSIDE the dilated mask: SSIM >= 0.995 AND mean abs diff <= 1/255 - the identity assertion. Any violation = pipeline bug (full-image pass slipped through) - HARD FAIL, discard the output.
    - INSIDE the mask: change-happened check (SSIM vs original patch <= 0.90, else the inpaint no-opped - fail); text-residue check (MSER/morphological-gradient text detection inside the old bbox - any text-like components = residual watermark - fail); seam check (boundary-ring SSIM + texture-statistics mismatch inside vs outside = flag).
 4. Verify pass -> register: `... lw_pipeline.py save-working <slug> --from <path> --tool lama --params <json-with-mask-bbox>`.
-5. Verify fail after 2 attempts -> human QA queue.
+5. Verify fail -> human QA queue (ONE attempt: `max_attempts` defaults to 1, and
+   a repeat attempt recomputes bit-identical pixels).
+6. **ONE ENGINE PER SUBMISSION (ADR-009).** Do NOT answer a REJECT by climbing
+   the lama -> sdxl -> iopaint ladder: measured over the whole cleaning stage, a
+   second engine won 0 of the 3 adjudicated slugs, sdxl lost seam to lama in
+   14/15, and iopaint's seam wins are bought by repainting 2.66x the area (all 9
+   rejected). `save-working` REFUSES a second engine on a slug (exit 3) unless
+   `--allow-ladder` is passed; the engines stay available for an explicit,
+   operator-chosen swap. Evidence: `docs/CLEAN_LADDER_DECISION_2026-08-12.md`.
 
 Any helper script authored here that spawns subprocesses MUST pass `creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)` (Legion focus-steal rule).
 

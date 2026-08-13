@@ -27,6 +27,50 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+105. DONE **2026-08-12 (clean-retry-degrades CLOSED: the cross-engine cleaning
+    ladder is dropped to ONE engine per submission; ADR-009).** The remaining
+    half of the item - half 1 pinned `max_attempts=1` for the INTRA-engine retry
+    (`2958338`); nothing in code stopped the CROSS-engine chain
+    (lama -> sdxl-animagine -> iopaint), which was fired on REJECT by the
+    operator/skill.
+    **DECIDED ON A FULL-STAGE CENSUS, NOT A SAMPLE.**
+    `tools/lw_clean_retry_probe.py --metrics` re-run this turn under
+    `C:\Tools\lw-clean\venv` over the whole cleaning stage - 21 slugs, 18 with
+    2+ workings, 50 rejected workings, 24 scored retries - reproducing the
+    2026-08-10 numbers exactly. Retries won **0 of the 3** adjudicated slugs
+    (2 settled on `_01`, 1 on `_cleaninitial`). `_02` (sdxl-animagine) n=15,
+    seam better 1 / worse 14, 1.66x edit area. `_03` (iopaint) n=9, seam better
+    6 - and all 9 rejected.
+    **NO MEASURED-IMPROVEMENT GATE IS AVAILABLE, and that is the finding.** New
+    this turn: over the 24 retries, seam gain TRACKS edit area - Pearson
+    r = **+0.46**, mean area ratio **3.06x** when a retry gains seam vs **1.61x**
+    when it does not, and every seam-gaining retry was rejected. Gating on seam
+    would select for the biggest repaint - the `overlay_score` failure mode
+    (LEDGER 101-103) again. Two further blocks on any label-fitted gate, both
+    measured from the manifests: the 3 adjudicated slugs' workings are GC'd off
+    disk (so the metric census can only score UNDECIDED slugs), and the 50
+    rejects are **three BLANKET engine verdicts** - identical timestamps and
+    identical notes across the whole queue (2026-07-16T20:37 "swap LaMa erase ->
+    SDXL Animagine reconstruction", 2026-07-16T22:15 "block-SDXL rejected; redo
+    via Dekel", 2026-08-02T00:11 "operator reject: corrections are contextually
+    incorrect for the image"). Per-slug ladder spend buys a per-ENGINE decision.
+    **SHIPPED:** `lw_pipeline.assert_ladder_allowed` + `cleaning_engines_used`
+    refuse (exit 3) a `save-working --tool` that introduces a second cleaning
+    engine on a slug, unless `--allow-ladder` is passed. Fails closed (an
+    unclassified tool counts as an engine); exempt are `operator-select`,
+    `clean-scan`, `manual`, `qa` and an untagged operator save, so the operator
+    is never refused (mirrors ADR-008); cleaning stage only. The engines are
+    KEPT - `lw_clean_sdxl` for content-bearing marks, `lw_clean_iopaint` as the
+    QA-lane candidate generator - just not chained.
+    **TDD RED first:** `tests/test_lw_clean_ladder_gate.py` (14 tests) written
+    before the implementation, observed **12 failed / 2 passed**, then green.
+    Verified this turn: `pytest -q` **1975 passed / 18 skipped** (baseline 1961
+    + 14 new). Docs: `docs/adr/ADR-009-single-engine-cleaning-ladder.md`,
+    `docs/CLEAN_LADDER_DECISION_2026-08-12.md`; ROADMAP item removed (closed
+    entries live in the ledger, per the archival contract).
+    **DO NOT REDO:** do not re-open the ladder on a seam_ssim argument, and do
+    not fit a threshold on the undecided queue - it carries no strong labels.
+
 104. DONE **2026-08-12 (bare `pytest` collected the wrong tree; 8 solver tests ran
     nowhere; `eee55d6`, `26c5ae3`).** Started from a Stop-hook refusal: the
     session-open banner's "CI green" was hook-reported, not a run this session,
