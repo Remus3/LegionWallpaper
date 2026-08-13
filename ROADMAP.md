@@ -310,9 +310,16 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   nothing automates it - a stylised wordmark on busy art that no threshold
   separates; **`mecha-ahri` now joins it** (the logo strokes and credit line lie
   across the nose and upper lip, so any automatic fill invents facial structure).
-  MEASURED LEAD, not shipped: the algebraic pre-pass alone already clears the
-  0.15 flag on 5 of 6 frames (0.084-0.156), so "skip LaMa when the pre-pass
-  clears" is worth measuring over all 32.
+  **"Skip LaMa when the pre-pass clears" MEASURED over all 33 and REJECTED**
+  (2026-08-12, same doc section 6): by score it is 21 of 33 under the flag, not
+  the 5 of 6 the first sample suggested (median 0.1331, max 0.2009, and the
+  inversion RAISES the score on 3 frames); by eye, 3 of 3 of the BEST-scoring
+  frames (0.076-0.084) still read their credit line at 1:1. Measured cause: the
+  pre-pass keeps **103 percent** of the credit line's local stroke contrast
+  (median over 33) while LaMa keeps 48 percent - the inversion suppresses the
+  whole-band high-pass CORRELATION, not the text. **Standing rule that falls out
+  of it: `overlay_score` is a DETECTION flag and must never gate removal
+  QUALITY.** A future ship gate needs a legibility measure, not the detector.
   Evidence: `docs/CLEAN_QA_PRECISION_2026-08-12.md` +
   `docs/CLEAN_OVERLAY_SCALE_2026-08-12.md` +
   `docs/CLEAN_FAINT_LANE_2026-08-12.md` +

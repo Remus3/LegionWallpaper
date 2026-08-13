@@ -40,11 +40,24 @@ One commit. Suite **1957 passed / 18 skipped** (3.14). LEDGER 101. ROADMAP
 - Evidence: `docs/CLEAN_VEIL_FEATHER_2026-08-12.md`. Feathered candidates in
   `ops/runtime/clean/overlay_feather/`; the `overlay_lane/` set is STALE.
 
-**NEXT:** the algebraic pre-pass ALONE clears the 0.15 flag on 5 of 6 frames
-(0.084-0.156) with zero invented pixels - measure "skip LaMa when the pre-pass
-clears" over all 32 before the next candidate batch. Separately, the veil
-AMPLITUDE is still unverified: `_fit_veil_gain` matches a ring 16-24px inside the
-support against one 16-24px outside, and that outer ring is itself still veiled.
+- **"Skip LaMa when the pre-pass clears" was measured over all 33 in the same
+  session and REJECTED.** A six-frame sample said 5 of 6; the population says
+  **21 of 33** (median 0.1331, max 0.2009, and the inversion RAISES the score on
+  `110-cleanup`, `270f`, `dark-cosmic-ahri`). Worse, the score lies: credit-line
+  strips cut at 1:1 from the three LOWEST-scoring frames (0.076-0.084) still READ
+  ("STELLASTRIA.D" plainly legible on `ahri-dmbclo0`), and the reason is
+  measured - the pre-pass keeps **103 percent** of the credit line's local stroke
+  contrast (median over 33; LaMa keeps 48 percent). It kills the whole-band
+  CORRELATION, not the text.
+- **Standing rule from that: `overlay_score` is a DETECTION flag, never a
+  removal-QUALITY gate.** A frame can sit at 0.076, deep inside the clean
+  distribution, and still show its artist credit line at 1:1.
+
+**NEXT:** the veil AMPLITUDE is still unverified: `_fit_veil_gain` matches a ring
+16-24px inside the support against one 16-24px outside, and that outer ring is
+itself still veiled. If a candidate ship gate is wanted, build it on a
+legibility measure (mean |gray - median21| over the mask's credit-line band:
+original 14.32 / pre-pass 15.97 / +LaMa 7.00 medians), not the detector.
 
 ---
 

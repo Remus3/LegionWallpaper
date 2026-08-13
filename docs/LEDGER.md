@@ -68,10 +68,26 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
     narrowed mask asks a filler to invent facial structure and it shows at 1:1.
     DO-NOT-REDO: do not re-add the ring (pinned by a test); do not read `hf_keep`
     as the damage signal (0.27-0.76 across 34 candidates, `mecha-ahri` mid-pack
-    at 0.452 rank 9); do not chase the outside-ROI count. FUTURE, measured but
-    NOT shipped: the algebraic pre-pass ALONE already clears the flag on 5 of 6
-    frames (0.084-0.156), so "skip LaMa when the pre-pass clears" is worth
-    measuring over all 32. The ring-era candidates in
+    at 0.452 rank 9); do not chase the outside-ROI count.
+    **SAME SESSION, second question answered: "skip LaMa when the pre-pass
+    clears" is MEASURED over all 33 and REJECTED.** The six-frame sample that
+    suggested it (5 of 6 under the flag) does not survive the population: by
+    score it is **21 of 33** (median 0.1331, p90 0.1683, max 0.2009), and the
+    inversion RAISES the score on `110-cleanup` 0.1090 -> 0.1229, `270f` 0.1548
+    -> 0.1921, `dark-cosmic-ahri` 0.1508 -> 0.1580. By eye it fails even where
+    the score is best: credit-line strips cut at 1:1 from the three LOWEST
+    pre-pass scores (`239f` 0.0760, `bayonetta-dm7iirw` 0.0833, `ahri-dmbclo0`
+    0.0840) all three still READ the line, and LaMa clears all three. Measured
+    cause - mean |gray - median21| over the lane's own mask in the credit-line
+    band: original 14.32, pre-pass-only 15.97 (**103 percent kept**, 28 of 33 at
+    or above 85 percent), +LaMa 7.00 (48 percent). The inversion suppresses the
+    whole-band high-pass CORRELATION (it removes the flat logo, most of the
+    template's support), not the text. **STANDING RULE: `overlay_score` is a
+    DETECTION flag calibrated on untouched frames and must NEVER gate removal
+    QUALITY** - a frame can sit at 0.076, inside the clean distribution, and
+    still show its artist credit line at 1:1. A candidate ship gate needs a
+    legibility measure like the stroke-contrast one above. The ring-era
+    candidates in
     `ops/runtime/clean/overlay_lane/` are STALE; the feathered set is in
     `ops/runtime/clean/overlay_feather/`. Evidence:
     `docs/CLEAN_VEIL_FEATHER_2026-08-12.md`.

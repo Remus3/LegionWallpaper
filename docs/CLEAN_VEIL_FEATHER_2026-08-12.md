@@ -129,23 +129,53 @@ outline and the credit line genuinely lie across the nose and the upper lip, so
 even the narrowed mask asks a filler to invent facial structure, and at 1:1 it
 still shows. This slug joins `p2402-kda-evelynn` in the MANUAL IOPaint queue.
 
-Measured lead for whoever picks that up - **the algebraic pre-pass ALONE nearly
-clears the flag**, so on most of this family the inpaint may be optional:
+A first six-frame sample suggested the algebraic pre-pass alone nearly clears the
+flag (5 of 6 under 0.15), which would have made the inpaint optional on most of
+the family. Measured over all 33 it does not hold - see section 6.
 
-| frame | raw | pre-pass only |
+## 6. "Skip LaMa when the pre-pass clears" - measured over all 33, REJECTED
+
+The six-frame sample in section 5 was optimistic twice over.
+
+**By score it is 21 of 33, not 5 of 6.** Pre-pass-only detector score: median
+**0.1331**, p90 0.1683, max 0.2009, **21 of 33 under the 0.15 flag** (64%). The
+population sits ON the threshold, where the LaMa candidates sit at median 0.0664
+/ max 0.0955 - a different distribution, not a slightly worse one. The inversion
+also RAISES the score on some frames (`110-cleanup` 0.1090 -> 0.1229, `270f`
+0.1548 -> 0.1921, `dark-cosmic-ahri` 0.1508 -> 0.1580), which LEDGER 98 had
+already recorded for `110-cleanup`.
+
+**By eye it fails even where the score is best.** Credit-line strips cut at 1:1
+from the three LOWEST pre-pass scores - `239f` 0.0760, `ahri-dmbclo0` 0.0840,
+`bayonetta-dm7iirw` 0.0833, all at or under the clean population's own p50 of
+0.0596-0.15 range - and viewed: **3 of 3 still read the credit line**
+("STELLASTRIA.D" is plainly legible on `ahri-dmbclo0`). The LaMa candidate clears
+all three.
+
+**Why, measured.** Mean |gray - median21| over the lane's own mask pixels in the
+credit-line band (the bottom 30% of the ROI), the same pixel set in all three
+versions:
+
+| | median stroke contrast | kept vs original |
 | --- | --- | --- |
-| mecha-ahri | 0.6958 | 0.1560 |
-| 245f | 0.5858 | 0.1208 |
-| miss-fortune | 0.5853 | 0.0984 |
-| ahri-dmbclo0 | 0.5645 | 0.0840 |
-| bayonetta-dm7iirw | 0.4476 | 0.0833 |
-| 225f | 0.3967 | 0.1136 |
+| original | 14.32 | - |
+| pre-pass only | 15.97 | **103%** |
+| pre-pass + LaMa | 7.00 | **48%** |
 
-Five of six are already under 0.15 with ZERO invented pixels. A "skip LaMa when
-the pre-pass clears" rule is worth measuring over all 32 - it is NOT shipped
-here, because six frames is not the population.
+The algebraic pre-pass does not reduce the credit line's LOCAL contrast at all -
+28 of 33 frames sit at or above 85%, and several exceed 100% because the
+inversion lightens the background under the strokes. It suppresses the
+whole-band high-pass CORRELATION (it removes the big flat logo, which is most of
+the template's support), and that is a different quantity.
 
-## 6. Do not redo
+**The standing lesson is bigger than the rule:** `overlay_score` is a DETECTION
+flag calibrated on untouched frames. It must never be used as a removal-QUALITY
+gate. A frame can sit at 0.076 - deep inside the clean distribution - and still
+show its artist credit line at 1:1. Any future "is this candidate good enough"
+gate needs a legibility measure like the stroke-contrast one above, not the
+detector score.
+
+## 7. Do not redo
 
 - Do NOT re-add the veil ring "to blend the edge". There is no edge to blend
   once the correction is feathered; the ring's only job was a cliff of the
@@ -159,6 +189,12 @@ here, because six frames is not the population.
 - Do NOT chase the outside-ROI changed-pixel count. Unchanged from the
   established baseline; the inversion legitimately edits sub-threshold alpha
   across the whole band.
+- Do NOT re-propose "skip LaMa when the pre-pass clears". Measured over all 33
+  in section 6: 21 of 33 by score, and 3 of 3 of the BEST-scoring frames still
+  show a legible credit line at 1:1.
+- Do NOT gate removal quality on `overlay_score` in any form. It is a detection
+  flag; the pre-pass keeps 103% of the credit line's stroke contrast while
+  driving that score to 0.076.
 - The veil AMPLITUDE is untouched and is NOT verified by this work.
   `_fit_veil_gain` calibrates alpha by matching a ring 16-24px inside the support
   against one 16-24px outside it, and section 3 shows the outer ring is itself
