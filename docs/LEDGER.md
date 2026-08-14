@@ -27,6 +27,38 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+106. DONE **2026-08-13 (/sync-all-md congruence pass; `b80e7cb`, docs-only).**
+    Reconciled the 7 living docs against facts established live this turn, not
+    against each other. **Premise CORRECTED on one point:** the skill's fact
+    table expects a product VERSION and product data counts to reconcile - LW
+    still has neither, so the only cross-cutting numbers available were the
+    suite counts, and no living doc cites a suite count (they live in LEDGER /
+    WAKEUP, both append-only). The drift was therefore STRUCTURAL, not numeric,
+    which is the opposite of what the skill's "usual offenders" list predicts.
+    **Four stale facts fixed, each verified at its definition site:** README's
+    ADR list stopped at ADR-008 (ADR-009 shipped `74a6b09`); ARCHITECTURE named
+    the lw_ports allocations "(monitor=8901)" while `tools/lw_ports.py:33-34`
+    also pins `RUNDASH = 8900`; ARCHITECTURE's component map carried no
+    `tools/lw_rundash.py` entry despite the module existing with its own spec;
+    OPERATIONS asserted "HTTP health endpoints: TBD - product not yet defined
+    (no ports exist)" while `lw_rundash.py:718` and `lw_monitor.py` both serve
+    `/api/health`. **Cross-reference integrity: 0 broken refs** over all
+    relative links + backticked paths in the living set; every non-existent
+    target is in the documented-TBD set and is named as absent by the doc
+    citing it (`ops/lw_supervisor.py`, `ops/runtime/health.json`, `agents/**`,
+    `tests/test_bare_py_ban.py`). **Verified:** ruff ALL CHECKS PASSED, hygiene
+    trio 10 passed, full suite **1975 passed / 18 skipped** (3.14) run fresh
+    after the edits, drift_guard exit 0 (0 breaches / 4 notes), 0 banned glyphs
+    and 0 non-ASCII bytes in every touched file. Scheduled-task roster
+    re-probed live (3 `LW-*` Ready) and found already congruent with
+    OPERATIONS - no edit needed there. **NOT applied, operator's call:** the
+    gemini-vendor doc surface is still tracked as live post-retirement
+    (CLAUDE.md keeps `gemini_audit.ps1` as the rollback path, so quarantine is
+    a decision, not a sync), and 13 `MEMORY.md` index lines exceed the 150-char
+    cap - deferred to `/consolidate-memory` per the skill's own boundary.
+    **Do not redo:** the 4 fixes above are shipped; the documented-TBD refs are
+    intentional placeholders, not breakage.
+
 105. DONE **2026-08-12 (clean-retry-degrades CLOSED: the cross-engine cleaning
     ladder is dropped to ONE engine per submission; ADR-009).** The remaining
     half of the item - half 1 pinned `max_attempts=1` for the INTRA-engine retry
