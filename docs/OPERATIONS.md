@@ -136,6 +136,18 @@ trigger - `/RI` is rejected for `/SC ONLOGON`. Note that a `LogonTrigger`'s
 `Next Run Time: N/A` and sits idle until the next logon. This applies to any
 future `LW-*` task that wants a repeat from the moment it is armed.
 
+**Exactly ONE trigger in a task may carry a `Repetition`.** Task Scheduler
+runs every repeating trigger's pattern independently, so a second one halves
+the real interval. Measured 2026-08-13: `LW-Wallpaper` carried `PT3M` on both
+its `LogonTrigger` and its `TimeTrigger` and ticked every 1.54 min, wrapping a
+468 image deck in ~12 h instead of ~23 h; `LW-CIWatchdog` had the same shape
+at `PT2M`. The `TimeTrigger` owns the cadence (it resumes its pattern across
+reboots on its own); the logon/boot trigger stays a one-shot kick. Audit with:
+
+```
+Get-ScheduledTask -TaskName 'LW-*' | ForEach-Object { $n=$_.TaskName; $x=Export-ScheduledTask -TaskName $n; "$n repetitions=$(([regex]::Matches($x,'<Repetition>')).Count)" }
+```
+
 Check state: `Get-ScheduledTask -TaskName "LW-*" | Select TaskName, State`
 (expected today: `LW-Wallpaper`, `LW-WeeklyHygiene` and `LW-CIWatchdog` all
 Ready, nothing else).
