@@ -400,6 +400,11 @@ def task_xml(python_exe, script, *, every_minutes=2):
     boot-only task registers Ready and sits idle until the next reboot. The
     TimeTrigger below arms the repeat from install time, which is the same
     correction `docs/OPERATIONS.md` records for any LW-* task wanting a repeat.
+
+    EXACTLY ONE of the two repeats. Giving both a Repetition runs two
+    independent schedules at once and halves the real interval - measured on
+    LW-Wallpaper 2026-08-13 (1.54 min per tick against a configured 3), same
+    defect, same generator shape. The BootTrigger is a one-shot kick.
     """
     start = time.strftime("%Y-%m-%dT%H:%M:%S")
     return f"""<?xml version="1.0" encoding="UTF-16"?>
@@ -411,10 +416,6 @@ ops\\runtime\\ci_watchdog\\HALT or Disable-ScheduledTask {TASK_NAME}.</Descripti
   <Triggers>
     <BootTrigger>
       <Enabled>true</Enabled>
-      <Repetition>
-        <Interval>PT{every_minutes}M</Interval>
-        <StopAtDurationEnd>false</StopAtDurationEnd>
-      </Repetition>
     </BootTrigger>
     <TimeTrigger>
       <StartBoundary>{start}</StartBoundary>

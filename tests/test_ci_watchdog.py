@@ -207,3 +207,23 @@ def test_release_lets_the_next_run_in(tmp_path: Path):
 def test_a_corrupt_lock_file_does_not_wedge_the_watchdog(tmp_path: Path):
     (tmp_path / "lock.json").write_text("{not json", encoding="utf-8")
     assert cw.acquire(tmp_path, pid=111, now=1000.0) is True
+
+
+# ---- 7. task schedule ------------------------------------------------------
+
+def test_task_xml_has_exactly_one_repeating_trigger():
+    """Two repeating triggers run two independent schedules at once.
+
+    Measured on LW-Wallpaper 2026-08-13: a BootTrigger/LogonTrigger repeat
+    PLUS a TimeTrigger repeat halved the real interval (1.54 min against a
+    configured 3). The TimeTrigger owns the cadence; the boot trigger is a
+    one-shot kick so the task survives a reboot without a second schedule.
+    """
+    xml = cw.task_xml("py.exe", "watchdog.py", every_minutes=2)
+
+    assert "<BootTrigger>" in xml, "must still start after a reboot"
+    assert "<TimeTrigger>" in xml, "must arm the repeat from install time"
+    assert xml.count("<Repetition>") == 1
+    assert xml.count("<Interval>PT2M</Interval>") == 1
+    boot = xml.split("<BootTrigger>")[1].split("</BootTrigger>")[0]
+    assert "<Repetition>" not in boot, "the boot trigger must not repeat"

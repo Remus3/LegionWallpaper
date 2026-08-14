@@ -520,9 +520,15 @@ def test_task_xml_carries_a_time_trigger_so_rotation_starts_without_a_logon():
     assert "<TimeTrigger>" in xml
     assert "<StartBoundary>2026-07-18T18:30:00</StartBoundary>" in xml
     assert "<LogonTrigger>" in xml, "logon trigger must survive reboots"
-    # Both triggers repeat, otherwise the time trigger fires exactly once.
-    assert xml.count("<Interval>PT3M</Interval>") == 2
-    assert xml.count("<StopAtDurationEnd>false</StopAtDurationEnd>") == 2
+    # EXACTLY ONE repeating trigger. Two of them ran two independent 3 minute
+    # schedules at once on the live machine (measured 2026-08-13: 1.54 min per
+    # tick, so a 468 image cycle wrapped in 12 h instead of 23 h - the
+    # "same image within 12 hours" complaint). The TimeTrigger owns the
+    # cadence; the LogonTrigger is a one-shot kick after a logon.
+    assert xml.count("<Interval>PT3M</Interval>") == 1
+    assert xml.count("<Repetition>") == 1
+    logon = xml.split("<LogonTrigger>")[1].split("</LogonTrigger>")[0]
+    assert "<Repetition>" not in logon, "the logon trigger must not repeat"
 
 
 def test_task_xml_defaults_the_start_boundary_to_now():

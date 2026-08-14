@@ -430,10 +430,15 @@ def task_xml(interval_minutes: int, start_boundary: str = "") -> str:
     ONLOGON schedule, and the Task Scheduler UI only offers preset repetition
     intervals - an arbitrary 3 minute repeat has to be set programmatically.
     """
-    # A LogonTrigger's Repetition only starts when that trigger fires, so a
-    # logon-only task sits idle until the next logon. The TimeTrigger below
-    # starts the repeat at install time; the LogonTrigger keeps it alive
-    # across reboots. Local time, not UTC - schtasks reads it as local.
+    # EXACTLY ONE trigger repeats. A LogonTrigger's Repetition only starts
+    # when that trigger fires, so a logon-only task sits idle until the next
+    # logon - hence the TimeTrigger, which starts the repeat at install time
+    # and resumes its pattern across reboots on its own. Giving BOTH triggers
+    # a Repetition ran two independent schedules at once, halving the real
+    # interval (measured 2026-08-13: 1.54 min per tick against a configured 3)
+    # and wrapping a 468 image cycle in 12 h instead of 23 h. The LogonTrigger
+    # therefore stays as a one-shot kick after a logon.
+    # Local time, not UTC - schtasks reads it as local.
     boundary = start_boundary or datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     script = str(Path(__file__).resolve())
     command = _xml_escape(_pythonw())
@@ -462,10 +467,6 @@ def task_xml(interval_minutes: int, start_boundary: str = "") -> str:
         "  <Triggers>\n"
         "    <LogonTrigger>\n"
         "      <Enabled>true</Enabled>\n"
-        "      <Repetition>\n"
-        f"        <Interval>PT{int(interval_minutes)}M</Interval>\n"
-        "        <StopAtDurationEnd>false</StopAtDurationEnd>\n"
-        "      </Repetition>\n"
         "    </LogonTrigger>\n"
         "    <TimeTrigger>\n"
         "      <Enabled>true</Enabled>\n"
