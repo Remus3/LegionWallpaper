@@ -27,7 +27,8 @@ images\                              pipeline root (ADR-003; content gitignored
   0.Originals\                       raw drops (files, no subfolders)
   1.First Pass Scratch\<slug>\       stage=first  (source recovery + single upscale)
   2.First Pass Done\<slug>\
-  3.Cleaning Scratch\<slug>\         stage=clean  (detect->gate->mask->LaMa->verify)
+  3.Cleaning Scratch\<slug>\         stage=clean  (detect->gate->mask->LaMa->verify;
+                                     ONE engine per submission - ADR-009)
   4.Cleaning Done\<slug>\
   5.Final Scratch\<slug>\            stage=final  (masked face/eye repair, debanding)
   6.Final Done\<slug>\
@@ -56,8 +57,15 @@ tools\lw_monitor.py                  read-only stdlib HTTP monitor on
                                      /api/shutdown. Fail-soft everywhere;
                                      CREATE_NO_WINDOW on any subprocess.
 
+tools\lw_rundash.py                  read-only stdlib HTTP run dashboard on
+                                     127.0.0.1:8900 (spec:
+                                     docs/RUNDASH_SPEC_2026-08-01.md). Serves
+                                     the headless-run view + /api/health;
+                                     state reader is tools/lw_rundash_state.py.
+
 tools\lw_ports.py                    LW's reserved TCP block 8900-8919 and its
-                                     named allocations (monitor=8901). Any new
+                                     named allocations (rundash=8900,
+                                     monitor=8901). Any new
                                      LW listener takes next_free() and gets
                                      pinned in tests/test_lw_ports.py against
                                      its real definition site. Cross-project

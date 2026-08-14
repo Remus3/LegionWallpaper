@@ -46,9 +46,9 @@ unbacked claim.
 Design decisions live as numbered ADRs in `docs/adr/`: the product and
 architecture (ADR-002), the folder and state scheme (ADR-003), the primary
 upscaler chosen on a golden A/B sweep (ADR-004), signature removal (ADR-005),
-the downscale-only gate (ADR-006), the comparison pixel budget (ADR-007), and
-the vision-reviewer authority limit (ADR-008). The operational plan is
-`docs/RESTORATION_PLAN.md`.
+the downscale-only gate (ADR-006), the comparison pixel budget (ADR-007), the
+vision-reviewer authority limit (ADR-008), and one cleaning engine per
+submission (ADR-009). The operational plan is `docs/RESTORATION_PLAN.md`.
 
 ## What is reusable here
 

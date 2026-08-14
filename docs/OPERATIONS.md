@@ -37,7 +37,10 @@ python -c "import json; print(json.dumps(json.loads(open(r'ops/runtime/health.js
 python -c "import time; from pathlib import Path; print(Path('logs/'+time.strftime('%Y-%m-%d')+'.log').read_text(encoding='utf-8',errors='replace')[-4000:])"
 ```
 
-HTTP health endpoints: TBD - product not yet defined (no ports exist).
+HTTP health endpoints: the two read-only servers each expose `/api/health` -
+run dashboard on `127.0.0.1:8900` (`tools/lw_rundash.py`) and pipeline monitor
+on `127.0.0.1:8901` (`tools/lw_monitor.py`). Both are started on demand, not
+supervised; the product's own health producer is still TBD.
 
 ---
 
