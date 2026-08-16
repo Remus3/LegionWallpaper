@@ -606,6 +606,37 @@ def _load_pipeline(config, model_abs, fast, controlnet_path=None, ip_adapter=Non
             code=4) from exc
 
 
+def base_load_kind(model_abs):
+    """'pretrained' for a diffusers FOLDER base, else 'single_file'.
+
+    from_single_file rejects a directory, so this is resolved before the
+    multi-GB load rather than by catching the failure afterwards. DreamShaper XL
+    and the RealVis diffusers export both sit on disk as folders.
+    """
+    return "pretrained" if os.path.isdir(model_abs) else "single_file"
+
+
+def pretrained_variant_for(filenames):
+    """'fp16' when the only weights present are *.fp16.safetensors, else None.
+
+    from_pretrained without variant='fp16' silently finds no weight file in an
+    fp16-only export and builds an EMPTY module - a wrong-looking generation,
+    not an error, so the variant has to be derived rather than assumed.
+    """
+    names = [os.path.basename(f) for f in filenames]
+    full = [n for n in names if n.endswith(".safetensors") and ".fp16." not in n]
+    fp16 = [n for n in names if n.endswith(".fp16.safetensors")]
+    return "fp16" if fp16 and not full else None
+
+
+def pretrained_variant(model_abs):
+    """The variant a diffusers folder needs, read off its unet/ directory."""
+    unet = os.path.join(model_abs, "unet")
+    if not os.path.isdir(unet):
+        return None
+    return pretrained_variant_for(os.listdir(unet))
+
+
 def _load_pipeline_locked(config, model_abs, fast, controlnet_path, ip_adapter=None):
     """The body of _load_pipeline, run while GPU_MUTEX is held."""
     import torch
@@ -618,14 +649,26 @@ def _load_pipeline_locked(config, model_abs, fast, controlnet_path, ip_adapter=N
             if not os.path.exists(cn_abs):
                 raise GenError(f"controlnet model not found: {controlnet_path}", code=4)
             controlnet = ControlNetModel.from_pretrained(cn_abs, torch_dtype=torch.bfloat16)
-            pipe = StableDiffusionXLControlNetPipeline.from_single_file(
-                model_abs, controlnet=controlnet, torch_dtype=torch.bfloat16
-            )
+            if base_load_kind(model_abs) == "pretrained":
+                pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
+                    model_abs, controlnet=controlnet, torch_dtype=torch.bfloat16,
+                    variant=pretrained_variant(model_abs)
+                )
+            else:
+                pipe = StableDiffusionXLControlNetPipeline.from_single_file(
+                    model_abs, controlnet=controlnet, torch_dtype=torch.bfloat16
+                )
         else:
             from diffusers import StableDiffusionXLPipeline
-            pipe = StableDiffusionXLPipeline.from_single_file(
-                model_abs, torch_dtype=torch.bfloat16
-            )
+            if base_load_kind(model_abs) == "pretrained":
+                pipe = StableDiffusionXLPipeline.from_pretrained(
+                    model_abs, torch_dtype=torch.bfloat16,
+                    variant=pretrained_variant(model_abs)
+                )
+            else:
+                pipe = StableDiffusionXLPipeline.from_single_file(
+                    model_abs, torch_dtype=torch.bfloat16
+                )
         # Optional subject LoRA (sharpens a specific champion's identity). Applied
         # before device placement / offload. lora_path may be a dir or a
         # .safetensors file; both are accepted by load_lora_weights.

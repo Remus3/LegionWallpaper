@@ -98,6 +98,9 @@ ACQUIRE_SITES = [
     # only hand another process a card LW still occupies) and weapon_crop_report
     # takes one for the single --weapon-crop encode. Both are pure leaves: this
     # module has no subprocess call at all, so no split is needed here.
+    # medium yardstick: one hold covering the CLIP load plus every encode in
+    # the set, mirroring ClipScorer.load + score_batch. No subprocess inside.
+    ("lw_gen_medium.py", "encode_paths"),
     ("lw_gen_qa.py", "score_batch"),
     ("lw_gen_qa.py", "weapon_crop_report"),
     # Weapon pass. TWO sites, both strictly inside the in-process CUDA work -

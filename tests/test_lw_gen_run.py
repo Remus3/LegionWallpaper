@@ -399,3 +399,44 @@ def test_resolve_ip_adapter_missing_subfolder_names_the_weight(tmp_path):
         gr.resolve_ip_adapter(_ip_spec(str(tmp_path)))
     assert ei.value.code == 4
     assert "ip_adapter weight not found" in str(ei.value)
+
+
+# ---------------------------------------------------------------------------
+# Base-checkpoint loader shape (single-file .safetensors vs diffusers folder).
+# A folder base is how DreamShaper XL / the RealVis diffusers export sit on
+# disk; from_single_file rejects a directory, so the kind must be resolved
+# BEFORE the multi-GB load rather than by catching its failure.
+# ---------------------------------------------------------------------------
+def _diffusers_tree(tmp_path, name, unet_file):
+    root = tmp_path / name
+    (root / "unet").mkdir(parents=True)
+    (root / "unet" / unet_file).write_text("x", encoding="utf-8")
+    (root / "model_index.json").write_text("{}", encoding="utf-8")
+    return root
+
+
+def test_base_load_kind_single_file_for_a_safetensors_path(tmp_path):
+    ckpt = tmp_path / "animagine-opt.safetensors"
+    ckpt.write_text("x", encoding="utf-8")
+    assert gr.base_load_kind(str(ckpt)) == "single_file"
+
+
+def test_base_load_kind_pretrained_for_a_diffusers_folder(tmp_path):
+    root = _diffusers_tree(tmp_path, "dreamshaper-xl", "diffusion_pytorch_model.fp16.safetensors")
+    assert gr.base_load_kind(str(root)) == "pretrained"
+
+
+def test_fp16_only_folder_needs_the_fp16_variant():
+    """A folder holding ONLY *.fp16.safetensors loads empty without variant='fp16'."""
+    assert gr.pretrained_variant_for(["diffusion_pytorch_model.fp16.safetensors"]) == "fp16"
+
+
+def test_folder_with_full_precision_weights_takes_no_variant():
+    assert gr.pretrained_variant_for(
+        ["diffusion_pytorch_model.safetensors",
+         "diffusion_pytorch_model.fp16.safetensors"]) is None
+
+
+def test_pretrained_variant_reads_the_unet_directory(tmp_path):
+    root = _diffusers_tree(tmp_path, "ds", "diffusion_pytorch_model.fp16.safetensors")
+    assert gr.pretrained_variant(str(root)) == "fp16"
