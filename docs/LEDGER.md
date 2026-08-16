@@ -27,6 +27,55 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+117. DONE **2026-08-16 (the pasted-on face: instrument built, nine arms null,
+    and a pixel correction that lands 26 -> 89 percent in the corpus band).**
+    Operator on the shipped frames: still reads as a face cropped onto the body,
+    light and shadow not matching the rest of the figure. **INSTRUMENT FIRST,
+    CALIBRATED ON THE CORPUS, AND v1 WAS DEAD:** comparing the face box's
+    shading-gradient angle to a torso BAND spread p10 15 to p90 148 degrees on
+    the REAL corpus - that band is hair and costume, not a lighting plane.
+    Recorded as a null rather than reported. v2 compares SKIN to SKIN via a
+    chroma model seeded from the face's own centre pixels: real splash art keys
+    face skin **+24.3 levels** above body skin with **0.83x** its modelling
+    (p10/p90 -3..45 and 0.64..1.26); the shipped generator produced **+9.9 /
+    0.62**, under-keyed and flatter than the body - the complaint, quantified.
+    **NINE ARMS, ALL NULL.** Four lighting-tag arms (rim/backlight, chiaroscuro,
+    anti-flat negative, combined) and two CFG arms (7.5, 9.0) landed between
+    -6.6 and +9.4; the anti-flat negative INVERTED it. Then the operator chose
+    (b)-before-(a) and face-region img2img at **3x effective resolution** (ROI
+    344px -> 1024, strengths 0.25/0.35/0.45) moved level the WRONG way at every
+    strength while modelling held at 0.61 - which **rules out "the face is flat
+    because it is rendered small"**: more pixels bought detail, not integration.
+    That arm reused `paste_back` + `assert_outside_identity` from the weapon
+    pass, and the guard passed on all nine frames. **THEN (a), AND THREE OF MY
+    OWN DEFECTS FOUND BY MEASUREMENT, NOT BY REVIEW.** (1) The first prototype
+    blurred the skin mask directly; a skin mask is speckled, so its blurred
+    interior never reaches 1.0 and only a fraction of the computed shift landed
+    - it missed its target and moved level DOWN. Mask is closed before
+    feathering now. (2) "Apply, then apply the residual" is NOT convergent -
+    each pass shifts which pixels the mask selects, and one frame went +13.5 ->
+    **-2.7**. Passes are now accepted only if they move the frame CLOSER, with a
+    damped step search (1.0/0.6/0.3) so an overshooting frame gets a smaller
+    correction rather than none. (3) Distance-only acceptance took **3 of 57**
+    frames that were already INSIDE the band and pushed them OUT; being in the
+    band now outranks being nearer its centre. **I also refused to grade my own
+    homework:** the tool's first numbers (3/3 in band) disagreed with an
+    independently-written probe (median 15.5 against a 24.3 target), and the
+    difference was the probe's stricter skin mask - so the TOOL adopted the
+    stricter definition, the one the corpus band was calibrated with, rather
+    than keeping the flattering one. **VALIDATED OVER 57 FRAMES** (every frame
+    generated in this study): in band **15/57 (26 percent) -> 51/57 (89
+    percent)**, median level **+5.0 -> +20.7** (corpus +24.3), median ratio
+    **0.615 -> 0.764** (corpus 0.83), **zero regressions**. Six frames stay out
+    and the tool leaves them alone; on the shipped trio it is 2 of 3, the third
+    refused at every step size and unexplained. **NOT WIRED IN** - a manual tool
+    writing a per-frame before/after report with an in-band verdict; whether
+    generated frames get auto-corrected is an operator call. Shipped:
+    `tools/lw_gen_facekey.py` + 11 tests (numpy-only, torch-free import proven),
+    each of the three defects pinned by a test that names the measurement that
+    caught it. Evidence appended to `docs/GEN_FACE_REALISM_2026-08-16.md`.
+    **Verified:** 2025 passed / 18 skipped, ruff clean.
+
 116. DONE **2026-08-16 (splash-booru face realism: the shipped base moved to
     the corpus register by PROMPT, and the operator's reference crops
     characterised).** Operator direction was one line - more real faces, not

@@ -106,3 +106,76 @@ Pinned by `tests/test_lw_gen_data.py`: the realism block must be present, the
 negative guards must sit inside the first 20 tags, and the anti-realism tags
 must stay deleted. Re-measure with a CLIP tokenizer if the negative is
 reordered - the test pins position as a proxy, not the token count itself.
+
+
+## The pasted-on face - measured, and what fixed it
+
+Operator, on the shipped frames: still reads as a face cropped onto the body,
+"perhaps due to light and shadows not matching reference plane & rest of the
+body." That is measurable, and the measure was calibrated on the corpus first.
+
+**Instrument v1 was dead and is recorded as a null.** Comparing the face box's
+shading-gradient angle against a torso BAND below it spread p10 15 to p90 148
+degrees on the REAL corpus - that band is hair, costume and background, not a
+lighting plane.
+
+**Instrument v2 compares skin to skin.** The face's own centre pixels seed a
+chroma model, that model masks skin frame-wide, and face-skin is compared with
+body-skin on level and on modelling (luminance std). On the 21 real splashes:
+
+    level_offset    median +24.3   (p10 -3.0, p90 +45.0)
+    modelling_ratio median  0.83   (p10 0.64, p90 1.26)
+
+Real splash art keys the face well above body skin and gives it nearly the same
+modelling. The shipped generator produced **+9.9 / 0.62** - under-keyed and
+flatter than the body it sits on, which is the pasted-on read exactly.
+
+**Nine arms failed to move it.** Four lighting-tag arms (rim/backlight,
+chiaroscuro, an anti-flat negative, and all combined) and two CFG arms (7.5,
+9.0) all landed between -6.6 and +9.4 on level; the anti-flat negative INVERTED
+it. Then face-region img2img refinement at 3x effective resolution (ROI 344px ->
+1024, strengths 0.25/0.35/0.45) moved level the WRONG way at every strength
+(-0.1 / -2.0 / -2.6) while modelling stayed at 0.61. **That rules out "the face
+is flat because it is rendered small"** - more pixels bought detail, not
+integration. A defect worth noting in that arm: the face-pass prompt carried no
+champion canon, so the eyes drifted magenta.
+
+**`tools/lw_gen_facekey.py` fixes it in pixels**, and three defects were found
+and fixed by measurement on the way:
+
+1. **Feather dilution** - the first prototype blurred the skin mask directly.
+   A skin mask is speckled (eyes, brows, lips punch holes), so the blurred
+   interior never reaches 1.0 and only a fraction of the computed shift landed.
+   It missed its target and moved level DOWN. The mask is now closed before
+   feathering, so the interior saturates.
+2. **Non-convergent iteration** - "apply, then apply the residual" pushed one
+   frame +13.5 -> -2.7, because each pass shifts which pixels the mask selects.
+   Each pass is now kept only if it moves the frame CLOSER, with a damped step
+   search (1.0 / 0.6 / 0.3) so an overshooting frame gets a smaller correction
+   rather than none.
+3. **Band regressions** - distance-only acceptance took 3 of 57 frames that were
+   already INSIDE the corpus band and pushed them out. Being in the band now
+   outranks being nearer its centre.
+
+The correction is multiplicative on luminance (an additive lift greys the skin),
+and the skin mask carries the same luminance window the yardstick uses - the
+tool must not grade itself on an easier scale than the corpus was measured with.
+
+**Validated over 57 frames** - every frame generated in this study:
+
+    in corpus band   15/57 (26%)  ->  51/57 (89%)
+    median level     +5.0         ->  +20.7      (corpus +24.3)
+    median ratio      0.615       ->    0.764    (corpus 0.83)
+    regressions       none
+
+Six frames stay out of band and the tool leaves them alone rather than damaging
+them; on the shipped trio it is 2 of 3, with the third refused at every step
+size. An independent probe (a separately-written script) reads a smaller move
+than the tool's own numbers on the same frames - same direction, same sign,
+smaller magnitude - so the honest claim is that this closes most of the gap on
+most frames, not all of it on all of them.
+
+NOT wired into the pipeline: it is a manual tool that writes a before/after
+report with an in-band verdict per frame. Whether generated frames should be
+auto-corrected is an operator call, and the residual case (a face whose skin
+statistics resist every step size) is unexplained.
