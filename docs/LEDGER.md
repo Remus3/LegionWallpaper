@@ -27,6 +27,41 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+109. DONE **2026-08-16 (IP-Adapter weight-file validation - fixing a false-green
+    hole shipped in 108).** **The defect was mine, shipped in `24b7d5f`.** The
+    IP-Adapter existence check validated the adapter ROOT directory, which always
+    exists once `tools/models/ip-adapter` is present. A wrong or undownloaded
+    `--ip-adapter-weight-name` therefore passed validation and died deep inside
+    `diffusers.load_ip_adapter` AFTER the multi-GB base checkpoint had already
+    loaded, with an error that does not name the file. **The dangerous half:**
+    omitting the flag falls back to the general adapter by default, so a run
+    intended to exercise plus-face would have silently produced general-adapter
+    results - exactly the false-green the Verification Discipline rules exist to
+    stop, reached through a check too weak to catch it. Found live when the
+    operator reported plus-face downloaded and it was NOT on disk: verified absent
+    across `sdxl_models/`, that dir's HF download cache (`.metadata` entries for
+    the general adapter + image encoder only), `~/.cache/huggingface/hub/models--
+    h94--IP-Adapter/` (holds `refs/main`, `blobs` EMPTY - the signature of a fetch
+    that resolved the repo then failed before transferring), a `*plus-face*` sweep
+    over the repo and cache, any >500MB file in `tools/models` newer than
+    2026-08-15, and Downloads. The four arms were NOT run - running them would
+    have produced either an obscure crash or a mislabeled duplicate of 108.
+    **Fixed TDD, RED first:** 7 new tests written against a helper that did not
+    exist (7 failed / 26 passed), then `resolve_ip_adapter()` extracted as pure
+    path logic - no torch, so it is callable early and testable in CI. It checks
+    the weight FILE, raises `GenError(code=4)` naming the missing filename, and
+    LISTS the weights actually present so the operator sees at a glance which
+    variants downloaded. Also called from `run()` BEFORE the checkpoint load, so a
+    typo fails in milliseconds instead of after a minutes-long multi-GB load.
+    Verified against the real live state: `ip_adapter weight not found:
+    ip-adapter-plus-face_sdxl_vit-h.safetensors (looked in sdxl_models\\); weights
+    present: ip-adapter_sdxl_vit-h.safetensors`. **Verified:** 33 passed in
+    `tests/test_lw_gen_run.py` (was 26 - the feature in 108 shipped with ZERO
+    IP-Adapter tests), ruff clean, py_compile clean, full suite green.
+    **STILL OPEN:** the plus-face fetch has not landed; `GEN_MODELS.md` row stays
+    `(not downloaded)` with sha256 + date unfilled, and the four plus-face arms
+    are unrun.
+
 108. DONE **2026-08-16 (IP-Adapter reference-image guidance on txt2img).**
     **A reference image carries identity where the trained LoRA did not, and the
     mechanism is the exact INVERSE of the LoRA's failure.** Measured on RealVisXL

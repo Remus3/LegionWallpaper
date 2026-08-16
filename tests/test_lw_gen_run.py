@@ -304,3 +304,98 @@ def test_stage_filename_chain():
     # stem, never cand_00_wfix_repair.png.
     assert gr.stage_filename("cand_00_wfix.png", "repair") == "cand_00_repair.png"
     assert gr.stage_filename("cand_00_repair.png", "finish") == "cand_00_finish.png"
+
+
+# ---------------------------------------------------------------------------
+# IP-Adapter path resolution (2026-08-16).
+#
+# The first cut of this feature validated only the ADAPTER ROOT directory, which
+# always exists once tools/models/ip-adapter is present. A wrong or missing
+# --ip-adapter-weight-name therefore sailed past validation and died deep inside
+# diffusers.load_ip_adapter AFTER a multi-GB base checkpoint had already loaded.
+# Worse, omitting the flag silently falls back to the general adapter, so a run
+# intended to test plus-face would quietly produce general-adapter results.
+# These tests pin the weight FILE check. Pure path logic - no torch.
+# ---------------------------------------------------------------------------
+def _ip_spec(root, weight_name="ip-adapter_sdxl_vit-h.safetensors"):
+    return {
+        "path": root,
+        "subfolder": "sdxl_models",
+        "weight_name": weight_name,
+        "image_encoder_folder": "models/image_encoder",
+        "scale": 0.5,
+    }
+
+
+def _make_adapter_tree(tmp_path, weight_name="ip-adapter_sdxl_vit-h.safetensors"):
+    sub = tmp_path / "sdxl_models"
+    sub.mkdir(parents=True)
+    (sub / weight_name).write_bytes(b"stub")
+    enc = tmp_path / "models" / "image_encoder"
+    enc.mkdir(parents=True)
+    (enc / "model.safetensors").write_bytes(b"stub")
+    return tmp_path
+
+
+def test_resolve_ip_adapter_returns_root_and_weight(tmp_path):
+    root = _make_adapter_tree(tmp_path)
+    ip_abs, weight_abs = gr.resolve_ip_adapter(_ip_spec(str(root)))
+    assert ip_abs == str(root)
+    assert os.path.isfile(weight_abs)
+    assert weight_abs.endswith("ip-adapter_sdxl_vit-h.safetensors")
+
+
+def test_resolve_ip_adapter_refuses_missing_root(tmp_path):
+    with pytest.raises(gr.GenError) as ei:
+        gr.resolve_ip_adapter(_ip_spec(str(tmp_path / "nope")))
+    assert ei.value.code == 4
+    assert "ip_adapter path not found" in str(ei.value)
+
+
+def test_resolve_ip_adapter_refuses_missing_weight_file(tmp_path):
+    # The regression this whole block exists for: root present, weight absent.
+    root = _make_adapter_tree(tmp_path)
+    spec = _ip_spec(str(root), "ip-adapter-plus-face_sdxl_vit-h.safetensors")
+    with pytest.raises(gr.GenError) as ei:
+        gr.resolve_ip_adapter(spec)
+    assert ei.value.code == 4
+    msg = str(ei.value)
+    assert "ip_adapter weight not found" in msg
+    # The message must name the file that is actually missing, not just the root -
+    # naming only the root is what made the original failure unreadable.
+    assert "ip-adapter-plus-face_sdxl_vit-h.safetensors" in msg
+
+
+def test_resolve_ip_adapter_error_lists_available_weights(tmp_path):
+    # A typo'd weight name should show what IS there, so the operator sees at a
+    # glance that only the general adapter was downloaded.
+    root = _make_adapter_tree(tmp_path)
+    spec = _ip_spec(str(root), "ip-adapter-plus-face_sdxl_vit-h.safetensors")
+    with pytest.raises(gr.GenError) as ei:
+        gr.resolve_ip_adapter(spec)
+    assert "ip-adapter_sdxl_vit-h.safetensors" in str(ei.value)
+
+
+def test_resolve_ip_adapter_resolves_relative_against_root(tmp_path, monkeypatch):
+    root = _make_adapter_tree(tmp_path)
+    monkeypatch.setattr(gr, "ROOT", str(tmp_path.parent))
+    spec = _ip_spec(os.path.basename(str(root)))
+    ip_abs, weight_abs = gr.resolve_ip_adapter(spec)
+    assert os.path.isabs(ip_abs)
+    assert os.path.isfile(weight_abs)
+
+
+def test_resolve_ip_adapter_keeps_absolute_path(tmp_path):
+    root = _make_adapter_tree(tmp_path)
+    ip_abs, _ = gr.resolve_ip_adapter(_ip_spec(str(root)))
+    assert os.path.isabs(ip_abs)
+    assert ip_abs == str(root)
+
+
+def test_resolve_ip_adapter_missing_subfolder_names_the_weight(tmp_path):
+    # Root exists but sdxl_models/ was never created.
+    tmp_path.joinpath("models").mkdir()
+    with pytest.raises(gr.GenError) as ei:
+        gr.resolve_ip_adapter(_ip_spec(str(tmp_path)))
+    assert ei.value.code == 4
+    assert "ip_adapter weight not found" in str(ei.value)

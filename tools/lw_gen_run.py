@@ -537,6 +537,42 @@ def advance_cand_file(cand, new_file, stage):
 # --------------------------------------------------------------------------
 # Generation (LAZY torch/diffusers - never reached in CI).
 # --------------------------------------------------------------------------
+def resolve_ip_adapter(ip_adapter):
+    """Resolve + VALIDATE an IP-Adapter spec. Returns (root_abs, weight_abs).
+
+    Checks the weight FILE, not just the adapter root. The root is always present
+    once tools/models/ip-adapter exists, so a root-only check let a wrong or
+    undownloaded --ip-adapter-weight-name through to diffusers.load_ip_adapter,
+    where it failed AFTER a multi-GB base checkpoint had already loaded. Two
+    failure modes made that worse than slow: the diffusers-level error does not
+    name the file, and omitting the flag falls back to the general adapter, so a
+    run meant to exercise plus-face would silently produce general-adapter
+    results. Pure path logic - no torch, so it is callable early and testable.
+
+    Raises GenError(code=4) naming the missing path, and lists what IS present
+    so an operator can see at a glance which variants were actually downloaded.
+    """
+    root_abs = (ip_adapter["path"] if os.path.isabs(ip_adapter["path"])
+                else os.path.join(ROOT, ip_adapter["path"]))
+    if not os.path.isdir(root_abs):
+        raise GenError(f"ip_adapter path not found: {ip_adapter['path']}", code=4)
+    sub = ip_adapter.get("subfolder") or ""
+    weight_abs = os.path.join(root_abs, sub, ip_adapter["weight_name"])
+    if not os.path.isfile(weight_abs):
+        have = []
+        sub_abs = os.path.join(root_abs, sub)
+        if os.path.isdir(sub_abs):
+            have = sorted(f for f in os.listdir(sub_abs)
+                          if f.endswith((".safetensors", ".bin")))
+        listing = ", ".join(have) if have else "(none)"
+        raise GenError(
+            f"ip_adapter weight not found: {ip_adapter['weight_name']} "
+            f"(looked in {os.path.join(sub, '') if sub else root_abs}); "
+            f"weights present: {listing}",
+            code=4)
+    return root_abs, weight_abs
+
+
 def _load_pipeline(config, model_abs, fast, controlnet_path=None, ip_adapter=None):
     """Lazily build a diffusers text2image pipeline, optionally ControlNet-conditioned
     (OpenPose skeleton control). Heavy imports live here.
@@ -608,10 +644,7 @@ def _load_pipeline_locked(config, model_abs, fast, controlnet_path, ip_adapter=N
         # ip_adapter_image - the exact ordering gotcha hit end-to-end on the
         # inpaint pipe (lw_gen_weaponpass.py:262-274).
         if ip_adapter is not None:
-            ip_abs = (ip_adapter["path"] if os.path.isabs(ip_adapter["path"])
-                      else os.path.join(ROOT, ip_adapter["path"]))
-            if not os.path.exists(ip_abs):
-                raise GenError(f"ip_adapter path not found: {ip_adapter['path']}", code=4)
+            ip_abs, _weight_abs = resolve_ip_adapter(ip_adapter)
             pipe.load_ip_adapter(
                 ip_abs, subfolder=ip_adapter["subfolder"],
                 weight_name=ip_adapter["weight_name"],
@@ -844,6 +877,10 @@ def run(args, config=None, styles=None):
             "image_encoder_folder": "models/image_encoder",
             "scale": float(getattr(args, "ip_adapter_scale", None) or 0.5),
         }
+        # Validate NOW, not at pipe-build time: loading the base checkpoint is
+        # multi-GB and minutes long, and failing after it for a typo'd weight
+        # name wastes the whole load. Fail before anything heavy happens.
+        resolve_ip_adapter(ip_adapter)
 
     manifest = build_manifest(plan, config, style_def, res, pos, neg, batch_id, args.fast)
     if ip_adapter is not None:
