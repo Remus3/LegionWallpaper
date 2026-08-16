@@ -27,6 +27,61 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+111. DONE **2026-08-16 (tight-crop A/B - NULL on identity, one real win, and the
+    experiment is CONFOUNDED by source resolution).** Single-variable A/B against
+    LEDGER 110's plus-face run: base, seeds, prompt, adapter and scales all held,
+    ONLY the reference crop changed. **The hypothesis was that plus-face was
+    understated because the reference was not a tight face crop. HALF RIGHT, and
+    the useful half is not the half predicted.** Crop QUANTIFIED, not asserted:
+    loose source box (565,5,885,325), face bbox 78x82 = **6.2 percent** of frame,
+    ~16 CLIP patches; tight box (658,108,770,220) = 112x112 native upsampled to
+    320x320, same face bbox = **51.0 percent**, **~131 patches (8.2x more)**.
+    **TIGHT IS WORSE ON IDENTITY AT EVERY SCALE** - margin 0.0982 -> 0.0844 (0.3),
+    0.0968 -> 0.0888 (0.5), 0.0994 -> 0.0929 (0.7); pass rate collapses **8/9 ->
+    4/9** (tight 0.7 is 0/3). Two thirds of the loss is `off_cos` rising back above
+    control (0.1998 -> 0.2109): **the loose crop's "wasted" context - ears, ruff,
+    costume - was doing real discriminative work.** All tight arms still beat
+    control. **Recommendation UNCHANGED: loose 0.3.** **THE CONFOUND, and it caps
+    what this experiment can conclude:** the source splash is 1215x717 and the face
+    is only 78x82 NATIVE pixels, so cropping tighter NECESSARILY blurs the
+    reference - reference `lap_var` at CLIP's 224 is 1608 loose vs **108** tight.
+    Face-fraction and reference-sharpness CANNOT be separated from this source.
+    `lap_var` 226.4/146.0/102.2 vs loose 296.5/231.0/162.4 (-24 to -37 percent);
+    all five tight rejects are `blurry`, none `weak_margin`. **WHAT TIGHT GENUINELY
+    WON:** maroon cheek whisker slashes on **3/3 seeds at tight 0.3** vs **1 image
+    in 9** across the entire loose run - patch conditioning WAS input-starved for
+    the MARKINGS specifically. Caveat: they render eye-adjacent, roughly half
+    reading as red eye makeup rather than the reference's separated slash set.
+    **TWO IN-SESSION PREDICTIONS CORRECTED BY MEASUREMENT.** (1) It was predicted
+    tight might make the mouth/lip malformation WORSE by conditioning harder on
+    facial geometry - it made it **BETTER**; no tight arm shows the doubled-lip
+    failure that loose 0.5/0.7 had. (2) CLIP-to-real was reported in 110 as moving
+    the wrong way for every plus-face arm - tight 0.3 REPAIRS it at 0.8536, the
+    only plus-face arm in either run above control's 0.8518. **THE MOST USEFUL
+    CAUSAL RESULT:** the fox familiar **did not move at all** - same single seed,
+    every scale, BOTH crops. Cutting 94 percent of the reference context changed it
+    zero, so it is **base-model / prompt / seed, NOT reference bleed**. That
+    reclassifies it as a negative-prompt problem, not an adapter-tuning problem, and
+    makes it cheap to attack from that direction. **Pose copying: none**, and LESS
+    compositional disturbance than loose (corr to matched-seed control
+    +0.781/+0.702/+0.624 vs +0.721/+0.627/+0.559); corr to the tight reference stays
+    negative at every scale. Weak evidence by construction - a tight crop carries
+    almost no copyable composition. **A full-frame reference at high scale remains
+    UNTESTED across all four evals.** **Verified:** control reproduced
+    BYTE-IDENTICAL (`7437711d...` / `b4e6e5dc...` / `dd839993...`); all three
+    manifests read back with `weight_name: ip-adapter-plus-face_sdxl_vit-h.
+    safetensors` plus the tight reference path, so no silent fallback to the general
+    adapter; RC gate clear (a background `League VCS.exe` was present and is NOT one
+    of the three gated names - do not mistake it for one); `git status` clean before
+    and after; `tools/` untouched. n=3 per arm - direction-finding, not calibration.
+    **NEXT, and it is the only thing that settles this:** a tight crop from a
+    HIGH-RESOLUTION Ahri source, which separates face-fraction from
+    reference-sharpness. Every splash in the current 21-image set carries the same
+    78x82 native-face limit, so this needs a genuinely larger source, not a
+    different crop of what is already local. **Do-not-redo:** re-cropping the
+    existing corpus tighter - the confound is in the SOURCE, and another crop of a
+    1215x717 splash reproduces it exactly.
+
 110. DONE **2026-08-16 (IP-Adapter across two bases + two adapters; GEN_MODELS
     mechanism corrected).** Two evals, matched seeds throughout, n=3 per arm -
     direction-finding, NOT calibration. **plus-face BEATS the general adapter on

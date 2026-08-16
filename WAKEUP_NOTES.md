@@ -35,10 +35,27 @@ out to be the answer. LEDGER 108.
 - **Provenance gap found and closed:** the general adapter + CLIP image encoder
   had been on disk since 2026-07-16, load-bearing and completely unrecorded in
   `docs/GEN_MODELS.md`. Both now recorded with real hashes, license verified live.
-- **NEXT, operator-gated:** the plus-face fetch. Row is written, command is in
-  `docs/GEN_MODELS.md`, sha256 + date filled after. `--ip-adapter-weight-name`
-  exists so that run needs NO code change. Then re-run on animagine-xl-4.0 - this
-  eval is RealVisXL-only by design and says nothing about the shipped base.
+- **plus-face LANDED and was measured** (sha256 `677ad886...`, row filled). Three
+  further evals ran the same day - see LEDGER 110 + 111. Short version: plus-face
+  beats the general adapter on RealVisXL (best **loose 0.3**), the ranking INVERTS
+  on animagine, and a tight-crop A/B came back NULL on identity.
+- **NOTHING WAS PROMOTED and that is deliberate.** No config default changed, no
+  adapter setting adopted. On the SHIPPED base (animagine) the MEDIUM fails
+  independently of the adapter - 0 of 18 frames are hero-dominant key art - so
+  tuning adapter scale there optimizes the wrong variable.
+- **The gate is measurably blind.** Real-vs-real self-similarity ceiling **0.8373**:
+  RealVisXL arms sit at/above it, animagine arms 0.11-0.19 BELOW, while animagine
+  posts a near-best `subject_cos` 0.2909. NOT adopted as a gate - one champion only.
+- **The fox familiar is NOT reference bleed.** It survived cutting 94 percent of
+  reference context, unchanged across both crops and all scales. It is
+  base/prompt/seed - attack it with a negative prompt, not adapter tuning.
+- **NEXT, and it is the only thing that settles the crop question:** a tight crop
+  from a HIGH-RESOLUTION Ahri source. Every splash in the local 21-image set has a
+  78x82 native face, so cropping tighter necessarily blurs the reference and
+  face-fraction cannot be separated from reference-sharpness. Do NOT re-crop the
+  existing corpus - the confound is in the SOURCE.
+- **Still untested across all four evals:** a FULL-FRAME reference at high scale
+  (every run used a face crop, the input least able to carry copyable composition).
 - **Still open, untouched across both sessions:** `m1-gate-fund-or-close`
   (FUND/CLOSE), the two `g1-source-adequacy` policy questions, and the
   `legacy-audit-backfill` data call.
