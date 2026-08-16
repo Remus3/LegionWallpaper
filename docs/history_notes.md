@@ -251,6 +251,64 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-08-12 - clean-retry-degrades CLOSED: one engine per submission
+
+One commit (`74a6b09`). Suite **1975 passed / 18 skipped** (baseline 1961 + 14
+new), CI run 31659578807 green (`check` + `cv-lane`). LEDGER 105, ADR-009. The
+`clean-retry-degrades` ROADMAP item is REMOVED - both halves answered, closed
+entries live in the ledger per the archival contract.
+
+- **The question was: gate the cross-engine ladder on a measured improvement, or
+  drop it? Answer: DROP it.** No improvement gate is available, and that IS the
+  finding. Over the 24 scored retries, seam_ssim gain tracks edit area (Pearson
+  r=+0.46; mean area ratio 3.06x when a retry gains seam vs 1.61x when it does
+  not) and every seam-gaining retry was rejected. Gating on seam would select
+  for the biggest repaint - the `overlay_score` failure mode (LEDGER 101-103).
+- **Two further blocks on any label-fitted threshold**, both read off the
+  manifests this turn: the 3 adjudicated slugs' workings are GC'd off disk (the
+  metric census can only score UNDECIDED slugs), and the 50 rejects are three
+  BLANKET engine verdicts - identical timestamps and identical notes across the
+  whole queue. Per-slug ladder spend buys a per-ENGINE decision.
+- **Shipped:** `lw_pipeline.assert_ladder_allowed` + `cleaning_engines_used`.
+  `save-working --tool X` exits 3 when the slug already carries cleaning
+  workings from another engine, unless `--allow-ladder`. Fails closed (an
+  unclassified tool counts as an engine); `operator-select` / `clean-scan` /
+  `manual` / `qa` / untagged operator saves exempt; cleaning stage ONLY.
+- **The engines are KEPT** - `lw_clean_sdxl` for content-bearing marks,
+  `lw_clean_iopaint` as the QA-lane candidate generator. Only the automatic
+  chain is gone. `.claude/commands/cleaning-pass.md` step 6 says so.
+- Do NOT re-open on a seam_ssim argument, and do NOT fit a threshold on the
+  undecided queue - it carries no strong labels.
+
+---
+
+## 2026-08-12 - bare pytest swept the wrong tree; 8 tests ran nowhere
+
+Two commits (`eee55d6`, `26c5ae3`) plus this doc sync. Suite **1961 passed / 18
+skipped** (3.14, up 3 from the new guard file), CI run 31658420160 green
+(`check` + `cv-lane`). LEDGER 104. No ROADMAP item moved - this is test-infra,
+not product work.
+
+- **Triggered by the Stop hook, correctly.** The session-open banner said "CI
+  green"; that was hook-reported state, not a run. `claimed_green_gate.py`
+  refused the turn. Ran it, and the bare `python -m pytest -q` died at
+  collection with 2 errors while `pytest tests/ -q` was green at 1958/18.
+- **Cause: no pytest config at all**, so a bare invocation walked the repo root
+  and swept in `tools/test_lw_clean_dekel.py` (skimage, CV venv only) and a
+  vendored MCP extension's tests. `pytest.ini` pins `testpaths = tests`.
+  testpaths applies only when NO path arg is given, so `pytest tests/ -q` and
+  the cv-lane's explicit file arg are unaffected.
+- **The real find:** with testpaths pinned, `tools/test_lw_clean_dekel.py` was
+  reachable by nothing - and no CI lane named it either. 8 Dekel-solver tests
+  had been executing nowhere. Added to the cv-lane, floor raised 10 -> 18.
+- **Raise the cv-lane floor whenever you add a suite there.** A floor below the
+  real count is how an uncollected suite hides behind a green lane;
+  `tests/test_cv_lane_coverage.py` fails you if you forget.
+- Do NOT hunt a regression behind that original 2-error collection - the suite
+  was always green, only the invocation was wrong.
+
+---
+
 ## 2026-08-12 - the veil ring was hiding a cliff the lane made
 
 Four commits (`71bf503`, `d74888b`, `8766adf`, `5527059`). Suite **1958 passed /
@@ -321,47 +379,6 @@ Four commits (`71bf503`, `d74888b`, `8766adf`, `5527059`). Suite **1958 passed /
 pre-pass 15.97 / +LaMa 7.00 medians), not the detector score. When the matte is
 next rebuilt for any reason, the wider grid applies automatically and the
 warning will say whether the new fit is interior.
-
----
-
----
-
-## 2026-08-12 (later) - overlay registration searches SCALE
-
-One commit. Suite **1956 passed / 18 skipped** (3.14). LEDGER 99.
-
-- **`110-cleanup` clears, and it was never a one-image fix.** `best_shift`
-  registers translation only; the overlay is composited at a fixed size on the
-  DA-served image, so a frame from a different source resolution carries the
-  mark at a different PIXEL size. Swept every flagged slug under 0.25: EXACTLY
-  TWO are mismatched, both at the SAME 1.12 - `110-cleanup` 0.1090 -> 0.5052 and
-  `122` 0.1696 -> 0.6542, both landing in the well-registered range.
-- **Two boundaries, both measured, both pinned.** (1) The search is for REMOVAL,
-  never the GATE - a max-over-scales lifts clean `wallpapersden-sejuani` 0.1213
-  -> 0.1537, over the 0.15 flag; `overlay_score` is untouched and a test asserts
-  it never grows a scale parameter. (2) `SCALE_ACCEPT_RATIO = 2.0` - registered
-  frames wobble up to 1.22x, the two real ones are 3.86x and 4.63x; a refusal
-  keeps scale 1.0, which is the safe direction.
-- **Blast radius measured BEFORE trusting it:** 2 re-register, **31 register
-  exactly as before**, and `scale2d_centered` short-circuits at 1.0 so those 31
-  take a bit-identical pixel path - LEDGER 95/96 candidates stand. Live
-  spot-check: mecha-ahri 0.6958 -> 0.0737, 245f 0.5858 -> 0.0903.
-- **Result: 110 -> 0.0868, 122 -> 0.0941, credit line GONE on both by eye.**
-  Every changed pixel on all four verified frames sits inside one of the lane's
-  two editors (inversion band / LaMa ROI) - unexplained 0.
-- **Do not chase the outside-ROI count.** It reads 6-11k pixels and is not a
-  defect: the inversion legitimately edits sub-threshold alpha across the band,
-  which is why the tripwire compares post-LaMa against the PRE-PASS frame.
-- Fixture trap repeated and caught: the first synthetic test built its template
-  from the same noise realization as the test image, so the art correlated with
-  itself at scale 1.0 and drowned the mark - the same "frames must be unrelated"
-  lesson as the veil work (LEDGER 96).
-
-**NEXT:** `p2402-kda-evelynn` is the only faint-family slug still owed to the
-manual IOPaint lane. Note `122`'s candidate WAS regenerated at the correct scale
-into `ops/runtime/clean/overlay_scale/122/` during verification - the stale
-wrong-scale one from the LEDGER 95/96 pass is still sitting in
-`ops/runtime/clean/overlay_lane/`, so take the candidate from the new dir.
 
 ---
 
@@ -2473,3 +2490,44 @@ lane runs the operator's local py3.11 iopaint 1.6.0 install, WAKEUP
 > 8. API keys to project root (gitignored `API-Key-*.txt` convention):
 >    `API-Key-SauceNAO.txt`, `API-Key-DeviantArt.txt` (client-id/secret +
 >    refresh-token via `gallery-dl oauth:deviantart`).
+
+---
+
+---
+
+## 2026-08-12 (later) - overlay registration searches SCALE
+
+One commit. Suite **1956 passed / 18 skipped** (3.14). LEDGER 99.
+
+- **`110-cleanup` clears, and it was never a one-image fix.** `best_shift`
+  registers translation only; the overlay is composited at a fixed size on the
+  DA-served image, so a frame from a different source resolution carries the
+  mark at a different PIXEL size. Swept every flagged slug under 0.25: EXACTLY
+  TWO are mismatched, both at the SAME 1.12 - `110-cleanup` 0.1090 -> 0.5052 and
+  `122` 0.1696 -> 0.6542, both landing in the well-registered range.
+- **Two boundaries, both measured, both pinned.** (1) The search is for REMOVAL,
+  never the GATE - a max-over-scales lifts clean `wallpapersden-sejuani` 0.1213
+  -> 0.1537, over the 0.15 flag; `overlay_score` is untouched and a test asserts
+  it never grows a scale parameter. (2) `SCALE_ACCEPT_RATIO = 2.0` - registered
+  frames wobble up to 1.22x, the two real ones are 3.86x and 4.63x; a refusal
+  keeps scale 1.0, which is the safe direction.
+- **Blast radius measured BEFORE trusting it:** 2 re-register, **31 register
+  exactly as before**, and `scale2d_centered` short-circuits at 1.0 so those 31
+  take a bit-identical pixel path - LEDGER 95/96 candidates stand. Live
+  spot-check: mecha-ahri 0.6958 -> 0.0737, 245f 0.5858 -> 0.0903.
+- **Result: 110 -> 0.0868, 122 -> 0.0941, credit line GONE on both by eye.**
+  Every changed pixel on all four verified frames sits inside one of the lane's
+  two editors (inversion band / LaMa ROI) - unexplained 0.
+- **Do not chase the outside-ROI count.** It reads 6-11k pixels and is not a
+  defect: the inversion legitimately edits sub-threshold alpha across the band,
+  which is why the tripwire compares post-LaMa against the PRE-PASS frame.
+- Fixture trap repeated and caught: the first synthetic test built its template
+  from the same noise realization as the test image, so the art correlated with
+  itself at scale 1.0 and drowned the mark - the same "frames must be unrelated"
+  lesson as the veil work (LEDGER 96).
+
+**NEXT:** `p2402-kda-evelynn` is the only faint-family slug still owed to the
+manual IOPaint lane. Note `122`'s candidate WAS regenerated at the correct scale
+into `ops/runtime/clean/overlay_scale/122/` during verification - the stale
+wrong-scale one from the LEDGER 95/96 pass is still sitting in
+`ops/runtime/clean/overlay_lane/`, so take the candidate from the new dir.

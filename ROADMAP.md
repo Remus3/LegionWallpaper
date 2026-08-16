@@ -495,6 +495,38 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `tools/dwpose_onnx/onnxpose.py:26` silently substitutes the whole frame).
   Evidence: LEDGER 60; `docs/ANATOMY_CENSUS_2026-07-29.md`.
 
+- **gen-reference-lane - IP-Adapter BEATS the trained LoRA; NOTHING PROMOTED and
+  that is deliberate - NEXT is a base decision, not more adapter tuning.**
+  State after 2026-08-16 (LEDGER 107-113, six commits): a reference image carries
+  champion identity where a trained per-champion LoRA measurably lost. plus-face
+  beats the general adapter on RealVisXL (best **loose 0.3**; its worst margin
+  beats general's best by 17 percent); the ranking INVERTS on animagine (plus-face
+  0.5, general 0.3 worse than no adapter), so adapter choice interacts with the
+  base. `tools/lw_gen_run.py` carries `--ip-adapter-image` / `--ip-adapter-scale` /
+  `--ip-adapter-weight-name` / `--ip-adapter-path`, adapter-off path proven inert.
+  Next: decide the BASE. On the shipped base (animagine) the MEDIUM fails
+  INDEPENDENTLY of the adapter - it sits 0.11-0.19 below the 0.8373 real-vs-real
+  ceiling while posting a near-best `subject_cos`, so the subject gate is
+  measurably blind and tuning adapter scale there optimizes the wrong variable.
+  Do-not-redo, all measured this session: the composition tags (LEDGER 112 -
+  reverted; heads are TOO BIG not small, and 5/6 frames already sit inside the real
+  envelope); long-prompt encoding for the 77-token overrun (LEDGER 113 - built,
+  proven bit-exact against `encode_prompt`, reverted because identity fell on 12/12
+  seeds and the ADR-005 signature rationale is false: zero signature detections in
+  24/24 frames, and the shipped style never truncated those tokens); re-cropping
+  the existing corpus tighter (LEDGER 111 - the confound is in the SOURCE, every
+  local splash has a 78x82 native face); DWPose as a framing/head measure (zero
+  face points on 11 of 12 generated frames, and it failed on 6 of 21 REAL splashes
+  - use `tools/models/yolo/face_yolov8m.pt`); by-eye evidence as grounds to change
+  a prompt (three reasoning-derived fixes proposed, three refuted by measurement).
+  Open and untested across all four evals: a FULL-FRAME reference at high scale.
+  Known live traps: the `splash-booru` negative overruns CLIP at 93 > 77 TODAY and
+  silently drops its quality tail (left alone by operator call 2026-08-16 - the
+  discarded text was restored and measured WORSE); and `lw_gen_run.run()` called
+  twice in ONE process silently kills the second arm (exit 0, zero images) - one
+  fresh process per arm.
+  Evidence: `docs/LEDGER.md` 107-113; `docs/GEN_MODELS.md` IP-Adapter table.
+
 - **m1-gate-fund-or-close - decide attempt #4 on the weapon-canonicity gate - OPERATOR-GATED.**
   Next: operator decides FUND or CLOSE. Three measured negatives landed
   2026-07-26 (LEDGER 37) and the binding constraint is now known and cheap to

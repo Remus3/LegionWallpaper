@@ -7,14 +7,16 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12), and the 2026-08-12 QA-lane precision-census session (pruned 2026-08-12), and the 2026-08-12 veil-ring session (pruned 2026-08-13) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12), and the 2026-08-12 QA-lane precision-census session (pruned 2026-08-12), and the 2026-08-12 veil-ring session (pruned 2026-08-13), and the 2026-08-12 clean-retry-degrades/one-engine session + the 2026-08-12 bare-pytest-wrong-tree session (both pruned 2026-08-16) - keep the last 3.
 
 ---
 
 ## 2026-08-16 (latest) - IP-Adapter WINS where the LoRA lost
 
-One commit. The untested lane flagged at the end of the 2026-08-15 session turned
-out to be the answer. LEDGER 108.
+Six commits (`3cc6d8f` .. `f9f3ecd`). The untested lane flagged at the end of the
+2026-08-15 session turned out to be the answer. LEDGER 107-113. Two of the six
+commits are REVERTS recorded as findings, not failures - read 112 + 113 before
+re-opening anything in this workstream.
 
 - **A reference image carries identity; a trained per-champion LoRA did not.**
   Best scale **0.3**. Every adapter arm beats the no-adapter control on
@@ -41,8 +43,9 @@ out to be the answer. LEDGER 108.
   on animagine, and a tight-crop A/B came back NULL on identity.
 - **NOTHING WAS PROMOTED and that is deliberate.** No config default changed, no
   adapter setting adopted. On the SHIPPED base (animagine) the MEDIUM fails
-  independently of the adapter - 0 of 18 frames are hero-dominant key art - so
-  tuning adapter scale there optimizes the wrong variable.
+  independently of the adapter - it sits 0.11-0.19 below the real-vs-real ceiling
+  (see next bullet) - so tuning adapter scale there optimizes the wrong variable.
+  (The "0 of 18 hero-dominant" figure first cited here is RETRACTED - see 112.)
 - **The gate is measurably blind.** Real-vs-real self-similarity ceiling **0.8373**:
   RealVisXL arms sit at/above it, animagine arms 0.11-0.19 BELOW, while animagine
   posts a near-best `subject_cos` 0.2909. NOT adopted as a gate - one champion only.
@@ -56,9 +59,31 @@ out to be the answer. LEDGER 108.
   existing corpus - the confound is in the SOURCE.
 - **Still untested across all four evals:** a FULL-FRAME reference at high scale
   (every run used a face crop, the input least able to carry copyable composition).
+- **TWO MORE FIXES BUILT AND REVERTED after measurement (LEDGER 112 + 113).**
+  Both looked right on paper. Neither survived. Do not re-open either.
+  - **Composition tags (112):** the premise is RETRACTED. "0 of 18 hero-dominant"
+    was BY-EYE and inverts under measurement - heads are **TOO BIG** (mean
+    `head_frac` 0.0484 vs real median 0.0116) and **5 of 6 frames already sit
+    inside the real key-art envelope**. `GEN_MODELS.md` struck accordingly.
+  - **Long-prompt encoding (113):** the code is PROVEN CORRECT - bit-exact vs
+    `pipe.encode_prompt`, short styles byte-identical 6/6. Reverted anyway:
+    identity fell on **12 of 12 seeds** (p ~ 0.0002) and the ADR-005 rationale is
+    FALSE - zero signature detections in 24/24 frames, and the shipped style
+    never truncated those tokens at all.
+- **The 77-token overrun is REAL and LEFT ALONE by operator call.** splash 139/149,
+  splash-anime 97/125, splash-booru negative 93. Restoring the discarded text was
+  measured and made things WORSE. Do not "fix" it on tidiness grounds.
+- **Live trap worth remembering:** `lw_gen_run.run()` called twice in ONE process
+  silently kills the second arm - no traceback, exit 0, zero images. One fresh
+  process per arm, or a harness produces an empty arm that reads as a real null.
+- **Process note for the gen workstream specifically:** three reasoning-derived
+  fixes were proposed this session from correct-looking evidence; all three were
+  refuted by cheap measurement. Verify before commit is earning its cost here.
 - **Still open, untouched across both sessions:** `m1-gate-fund-or-close`
   (FUND/CLOSE), the two `g1-source-adequacy` policy questions, and the
   `legacy-audit-backfill` data call.
+
+---
 
 ## 2026-08-15 - gen recon triple: render capture proven, LoRA path dead
 
@@ -95,6 +120,8 @@ LEDGER 107.
   the two `g1-source-adequacy` policy questions and the `legacy-audit-backfill`
   data call, both untouched this session.
 
+---
+
 ## 2026-08-13 - /sync-all-md pass: four stale structural facts
 
 One commit (`b80e7cb`), docs only. Suite **1975 passed / 18 skipped** run fresh
@@ -125,61 +152,3 @@ LEDGER 106. No ROADMAP item moved - nothing shipped but doc congruence.
   (2) 13 `MEMORY.md` index lines exceed the 150-char cap (longest 248) - that is
   `/consolidate-memory`'s job, flagged only.
 - WAKEUP already at the keep-3 limit before this entry; prune re-run at wrap.
-
----
-
-## 2026-08-12 - clean-retry-degrades CLOSED: one engine per submission
-
-One commit (`74a6b09`). Suite **1975 passed / 18 skipped** (baseline 1961 + 14
-new), CI run 31659578807 green (`check` + `cv-lane`). LEDGER 105, ADR-009. The
-`clean-retry-degrades` ROADMAP item is REMOVED - both halves answered, closed
-entries live in the ledger per the archival contract.
-
-- **The question was: gate the cross-engine ladder on a measured improvement, or
-  drop it? Answer: DROP it.** No improvement gate is available, and that IS the
-  finding. Over the 24 scored retries, seam_ssim gain tracks edit area (Pearson
-  r=+0.46; mean area ratio 3.06x when a retry gains seam vs 1.61x when it does
-  not) and every seam-gaining retry was rejected. Gating on seam would select
-  for the biggest repaint - the `overlay_score` failure mode (LEDGER 101-103).
-- **Two further blocks on any label-fitted threshold**, both read off the
-  manifests this turn: the 3 adjudicated slugs' workings are GC'd off disk (the
-  metric census can only score UNDECIDED slugs), and the 50 rejects are three
-  BLANKET engine verdicts - identical timestamps and identical notes across the
-  whole queue. Per-slug ladder spend buys a per-ENGINE decision.
-- **Shipped:** `lw_pipeline.assert_ladder_allowed` + `cleaning_engines_used`.
-  `save-working --tool X` exits 3 when the slug already carries cleaning
-  workings from another engine, unless `--allow-ladder`. Fails closed (an
-  unclassified tool counts as an engine); `operator-select` / `clean-scan` /
-  `manual` / `qa` / untagged operator saves exempt; cleaning stage ONLY.
-- **The engines are KEPT** - `lw_clean_sdxl` for content-bearing marks,
-  `lw_clean_iopaint` as the QA-lane candidate generator. Only the automatic
-  chain is gone. `.claude/commands/cleaning-pass.md` step 6 says so.
-- Do NOT re-open on a seam_ssim argument, and do NOT fit a threshold on the
-  undecided queue - it carries no strong labels.
-
----
-
-## 2026-08-12 - bare pytest swept the wrong tree; 8 tests ran nowhere
-
-Two commits (`eee55d6`, `26c5ae3`) plus this doc sync. Suite **1961 passed / 18
-skipped** (3.14, up 3 from the new guard file), CI run 31658420160 green
-(`check` + `cv-lane`). LEDGER 104. No ROADMAP item moved - this is test-infra,
-not product work.
-
-- **Triggered by the Stop hook, correctly.** The session-open banner said "CI
-  green"; that was hook-reported state, not a run. `claimed_green_gate.py`
-  refused the turn. Ran it, and the bare `python -m pytest -q` died at
-  collection with 2 errors while `pytest tests/ -q` was green at 1958/18.
-- **Cause: no pytest config at all**, so a bare invocation walked the repo root
-  and swept in `tools/test_lw_clean_dekel.py` (skimage, CV venv only) and a
-  vendored MCP extension's tests. `pytest.ini` pins `testpaths = tests`.
-  testpaths applies only when NO path arg is given, so `pytest tests/ -q` and
-  the cv-lane's explicit file arg are unaffected.
-- **The real find:** with testpaths pinned, `tools/test_lw_clean_dekel.py` was
-  reachable by nothing - and no CI lane named it either. 8 Dekel-solver tests
-  had been executing nowhere. Added to the cv-lane, floor raised 10 -> 18.
-- **Raise the cv-lane floor whenever you add a suite there.** A floor below the
-  real count is how an uncollected suite hides behind a green lane;
-  `tests/test_cv_lane_coverage.py` fails you if you forget.
-- Do NOT hunt a regression behind that original 2-error collection - the suite
-  was always green, only the invocation was wrong.
