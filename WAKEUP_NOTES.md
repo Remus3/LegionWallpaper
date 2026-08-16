@@ -11,7 +11,38 @@
 
 ---
 
-## 2026-08-16 (latest) - IP-Adapter WINS where the LoRA lost
+## 2026-08-16 (latest) - the gen BASE decided by measurement (ADR-010)
+
+Commits `357b0a6` + the docs sync. LEDGER 114. The ROADMAP item asked for a base
+decision; it got one, and the number it rests on is reproducible now.
+
+- **The yardstick was recovered before it was used.** The 0.8373 real-vs-real
+  ceiling in `docs/GEN_MODELS.md` had no recomputable definition - it lived in a
+  dead scratchpad. `tools/lw_gen_medium.py` (TDD, 8 tests, torch-free import)
+  re-derives it: mean pairwise CLIP ViT-L-14-quickgelu cosine over the 21 real
+  Ahri splashes, **0.83732**. Landing on the recorded number is the validation.
+- **Three-base A/B, matched seeds, adapter OFF, one fresh process per arm:**
+  animagine **0.6843 (-0.153)**, RealVisXL **0.8609 (+0.024)**, DreamShaper XL
+  **0.8448 (+0.008)**. RealVis also wins subject_cos 0.2892 / margin 0.0761 /
+  3-of-3 QA. The shipped base was the ONLY arm below the ceiling and it cleared
+  the subject floor while there.
+- **DreamShaper XL had never been tried as a txt2img base** (on disk since
+  2026-07-16 for cleaning). It needed a loader fix - `from_single_file` rejects a
+  diffusers folder, and an fp16-only export needs `variant="fp16"` or
+  from_pretrained silently builds an EMPTY module.
+- **Operator ruled the flip** (one framed question - the metric is blind to the
+  by-eye Vayne complaint that caused the 2026-07-11 move to animagine). ADR-010
+  written, config flipped, **shipped default verified BY GENERATION before
+  commit**: medium 0.8635 on fresh seeds.
+- **The gpu-mutex guard caught my own gap** - `lw_gen_medium.encode_paths`
+  touched cuda unheld. Wired and registered in `ACQUIRE_SITES`.
+- **Do NOT read the flip as retiring the old complaint:** Ahri wears no glasses.
+  The Vayne glasses case is untested on this recipe and is item (2) in the
+  ROADMAP's next list.
+
+---
+
+## 2026-08-16 - IP-Adapter WINS where the LoRA lost
 
 Six commits (`3cc6d8f` .. `f9f3ecd`). The untested lane flagged at the end of the
 2026-08-15 session turned out to be the answer. LEDGER 107-113. Two of the six

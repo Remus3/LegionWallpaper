@@ -68,13 +68,23 @@ def test_config_sampler_shape():
         assert key in sampler, f"sampler missing key: {key}"
 
 
-# --- M0 (a): Animagine model flip + defensive steps lock ------------------
+# --- ADR-010: RealVisXL base + defensive steps lock -----------------------
 
-def test_config_model_path_is_animagine_single_file():
-    # M0 (a): model_path must point at the Animagine XL 4.0 SINGLE FILE
-    # (from_single_file rejects a directory), not the old RealVis checkpoint.
+def test_config_model_path_is_the_adr_010_base():
+    # ADR-010 (2026-08-16): the base is RealVisXL V5.0, flipped back from
+    # Animagine XL 4.0 on the measured three-base A/B (animagine renders 0.153
+    # BELOW the 0.8373 corpus ceiling while still clearing the subject gate).
+    # Moving this pin needs a new ADR, not a config edit.
     _, cfg = _load(CONFIG_PATH)
-    assert cfg["model_path"].endswith("animagine-xl-4.0-opt.safetensors")
+    assert cfg["model_path"].endswith("RealVisXL_V5.0_fp16.safetensors")
+
+
+def test_config_model_path_resolves_on_disk():
+    # A base that does not exist fails deep inside a multi-GB load, so the pin
+    # above is only worth as much as the path being real.
+    _, cfg = _load(CONFIG_PATH)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    assert os.path.exists(os.path.join(root, cfg["model_path"]))
 
 
 def test_config_sampler_steps_is_28():

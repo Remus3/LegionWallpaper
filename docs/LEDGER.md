@@ -27,6 +27,62 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+114. DONE **2026-08-16 (the gen BASE decided on measurement: ADR-010 flips
+    lw-gen to RealVisXL V5.0; `357b0a6` + this).** **The yardstick was recovered
+    before anything was decided with it.** `docs/GEN_MODELS.md` carried a
+    real-vs-real self-similarity ceiling of **0.8373** whose DEFINITION lived only
+    in a dead session scratchpad - a number no one could recompute. It is now
+    `tools/lw_gen_medium.py`: mean pairwise CLIP ViT-L-14-quickgelu/openai
+    image-embedding cosine over the 21 official Ahri splashes, reproducing
+    **0.83732** to four decimals. Landing on the recorded number is what VALIDATES
+    the definition - a different measure would not. Built TDD (8 tests RED first,
+    torch-free import proven by `assert_import_free`, ceiling asserted as the
+    upper-triangle mean via orthogonal rows so a full-matrix mean cannot pass).
+    **THE A/B, matched seeds, adapter OFF, one fresh process per arm (the
+    `run()`-twice trap), n=3:** animagine (shipped, `splash-booru`) **0.6843,
+    -0.1530**; RealVisXL V5.0 (`splash`) **0.8609, +0.0236**; DreamShaper XL
+    (`splash`) **0.8448, +0.0075**. All three arms drew the SAME per-image seeds
+    (2014205137 / 1502121425 / 2002287815), verified in the QA sidecars.
+    **RealVisXL dominates every axis** - subject_cos 0.2892, margin 0.0761, 3/3
+    PASS vs animagine's 0.2706 / 0.0512 / 2-of-3 - with NO adapter, which is the
+    point: LEDGER 110 found the medium fails independently of the adapter and this
+    says it from the base side. animagine reproduces 110's range (0.6427-0.7305)
+    and RealVis sits just above its (0.8467-0.8542) on a different style block, so
+    the agreement is confirmation, not identity. **DreamShaper XL is the new fact**
+    - on disk since 2026-07-16 for the cleaning lane, NEVER evaluated as a txt2img
+    base, and it clears the ceiling too. Testing it needed a loader fix:
+    `from_single_file` rejects a diffusers FOLDER, so `base_load_kind` resolves the
+    kind BEFORE the multi-GB load, and `pretrained_variant` supplies
+    `variant="fp16"` because from_pretrained on an fp16-only export otherwise
+    builds an EMPTY module silently - a wrong-looking generation, not an error.
+    **By eye on the matched seed, corroborating not substituting:** the animagine
+    frame is a generic anime girl - wrong costume, wrong palette, no tails, no orb
+    - while posting `subject_cos` 0.2706 ABOVE the 0.26 floor, which is the gate
+    blindness in one image; the RealVis frame is canonical, painterly and
+    hero-dominant, and the "too photoreal" failure that caused the 2026-07-11 flip
+    does NOT reproduce. **THE GUARD CAUGHT MY OWN GAP:**
+    `test_no_cuda_consumer_in_tools_is_left_unwired` failed on `lw_gen_medium.py`
+    touching cuda with no GPU mutex - wired to `gpu_lock` (one hold over load plus
+    every encode, borrowing lw_g1_gate's copy rather than minting a fifth) and
+    registered in `ACQUIRE_SITES`. **OPERATOR RULING, and it is theirs because the
+    metric cannot see what they rejected:** the 2026-07-11 flip to animagine was a
+    by-eye Vayne judgement (mangled glasses, odd expression) and no number here
+    measures that. One framed question, one answer: flip to RealVisXL. ADR-010
+    written, `model_path` flipped, and **the shipped default VERIFIED BY
+    GENERATION before commit** per the standing rule on this workstream - a config
+    run with no `--model-path` produced `model:
+    tools/models/RealVisXL_V5.0/...`, `style: splash`, medium **0.8635 (+0.0262)**
+    on two fresh unseen seeds. **Confounds stated, not buried:** register differs
+    by base on purpose (110 verified natural language scores 0/3 on animagine, so
+    `splash-booru` is its FAIR register) which makes these recipe-to-recipe
+    comparisons carrying different samplers; CLIP cosine is global similarity, not
+    medium in isolation; n=3, one champion. **Watch for:** the Vayne glasses case
+    is UNTESTED on this recipe - Ahri wears no glasses, so do not read the flip as
+    retiring the old complaint. The 0.8373 ceiling stays a MEASURE, never a gate,
+    on one champion's evidence. **Verified:** 2010 passed / 18 skipped, ruff clean
+    on `tools/` + `tests/`, ceiling re-measured AFTER the mutex edit (unchanged),
+    ASCII sweep clean on every touched file, repo clean between arms.
+
 113. DONE **2026-08-16 (long-prompt encoding BUILT, PROVEN CORRECT, and REVERTED
     - the code works and the BENEFIT does not exist).** Second measured revert of
     the day. **The 77-token overrun is REAL and is confirmed** - measured with the

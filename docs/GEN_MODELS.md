@@ -45,16 +45,19 @@ date (YYYY-MM-DD).
 
 | model | version | source_url | license | sha256 | date | notes |
 |---|---|---|---|---|---|---|
-| RealVisXL V5.0 | V5.0 fp16 | huggingface.co/SG161222/RealVisXL_V5.0 | openrail++ | 6a35a7855770ae9820a3c931d4964c3817b6d9e3c6f9c4dabb5b3a94e5643b80 | 2026-07-10 | approach A: photoreal-leaning SDXL finetune; ungated; no personal-use restriction (verified live). 6.94 GB, tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors |
+| RealVisXL V5.0 | V5.0 fp16 | huggingface.co/SG161222/RealVisXL_V5.0 | openrail++ | 6a35a7855770ae9820a3c931d4964c3817b6d9e3c6f9c4dabb5b3a94e5643b80 | 2026-07-10 | approach A: photoreal-leaning SDXL finetune; ungated; no personal-use restriction (verified live). 6.94 GB, tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors . **SHIPPED BASE per ADR-010 (2026-08-16)** - flipped back from Animagine on a measured three-base A/B: medium 0.8609 (+0.024 above the 0.8373 corpus ceiling) plus best subject_cos 0.2892 / margin 0.0761 / 3-of-3 QA, adapter OFF. Pair with the natural-language `splash` style |
 | SDXL base 1.0 | 1.0 fp16 | huggingface.co/stabilityai/stable-diffusion-xl-base-1.0 | CreativeML OpenRAIL++-M | (not downloaded) | - | approach B anchor - DEFERRED. Staged only if the RealVis by-eye spike is not painterly enough; then pull base SDXL + a splash/key-art LoRA |
-| Animagine XL 4.0 | 4.0 fp16 opt | huggingface.co/cagliostrolab/animagine-xl-4.0 | CreativeML OpenRAIL++-M | 6327eca98bfb6538dd7a4edce22484a1bbc57a8cff6b11d075d40da1afb847ac | 2026-07-11 | ANIME base (operator-directed anime-flat direction). 6.94 GB animagine-xl-4.0-opt.safetensors. Booru-tag prompting (style splash-booru). KNOWS LoL champions canonically (Vayne: correct glasses/dual-crossbows/ponytail) + clean anime faces/glasses - fixed the mangled-glasses + odd-expression + too-photoreal complaints RealVis could not |
+| Animagine XL 4.0 | 4.0 fp16 opt | huggingface.co/cagliostrolab/animagine-xl-4.0 | CreativeML OpenRAIL++-M | 6327eca98bfb6538dd7a4edce22484a1bbc57a8cff6b11d075d40da1afb847ac | 2026-07-11 | ANIME base (operator-directed anime-flat direction). 6.94 GB animagine-xl-4.0-opt.safetensors. Booru-tag prompting (style splash-booru). KNOWS LoL champions canonically (Vayne: correct glasses/dual-crossbows/ponytail) + clean anime faces/glasses - fixed the mangled-glasses + odd-expression + too-photoreal complaints RealVis could not. **NO LONGER THE SHIPPED BASE (ADR-010, 2026-08-16)** - it renders 0.153 BELOW the corpus self-similarity ceiling while still clearing the subject gate. Kept on disk; `--model-path` + `--style splash-booru` is the per-brief override |
 | ControlNet OpenPose SDXL | xinsir 1.0 | huggingface.co/xinsir/controlnet-openpose-sdxl-1.0 | Apache-2.0 | (diffusers fp16) | 2026-07-11 | 2.5 GB. POSE CONTROL - extract an OpenPose skeleton (with hand keypoints) from a real splash via controlnet_aux OpenposeDetector, condition Animagine on it. Deterministic fix for unnatural posing + mirrored/second-left-hand chirality, while KEEPING sharp txt2img detail (no img2img blur). --controlnet-pose <ref>. Preprocessor annotators from lllyasviel/Annotators. controlnet_aux is pure-pip (no onnxruntime/mediapipe) |
 
 **STALE AS WRITTEN - the Phase-0 spike is long over.** The paragraph below was the
 selection guidance BEFORE any weight existed; `model_path` in
 `tools/lw_gen_config.json` has pointed at a real downloaded checkpoint since
-2026-07-10 (RealVisXL V5.0, flipped to Animagine XL 4.0 on 2026-07-11). Kept for
-the reasoning, not as current state.
+2026-07-10 (RealVisXL V5.0, flipped to Animagine XL 4.0 on 2026-07-11, and flipped
+BACK to RealVisXL V5.0 on 2026-08-16 by ADR-010). Kept for the reasoning, not as
+current state. A diffusers FOLDER base is loadable now as well as a single file -
+`lw_gen_run.base_load_kind` picks the loader and `pretrained_variant` supplies
+`variant='fp16'` for an fp16-only export.
 
 > Placeholder path in `tools/lw_gen_config.json`:
 > `tools/models/<PLACEHOLDER checkpoint>.safetensors`. No weight is downloaded yet;
@@ -111,8 +114,16 @@ not.** Measured over 18 animagine frames against the 21 real Ahri splashes:
   and subject are independently controllable and the gate only sees one of them.
 
 **The 0.8373 real-vs-real ceiling is a gate-independent yardstick** and is the only
-thing in this study that separated the two bases decisively. NOT yet adopted as a
+thing in this study that separated the two bases decisively. NOT adopted as a
 gate - it rests on one champion. See LEDGER 110.
+
+**RECOVERED AND TOOLED 2026-08-16:** its definition (mean pairwise CLIP
+ViT-L-14-quickgelu/openai image-embedding cosine over the 21 real Ahri splashes)
+lived only in a session scratchpad. `tools/lw_gen_medium.py` re-derives it and
+reproduces 0.83732 to four decimals - which is what validates the definition. It
+then settled the base: see ADR-010 and `docs/GEN_BASE_DECISION_2026-08-16.md`.
+**DreamShaper XL, never previously evaluated as a txt2img base, also clears the
+ceiling** (0.8448, +0.008) at a sharpness cost (`lap_var` 286).
 
 ### Style LoRA (OPTIONAL - only if the Phase-0 spike shows anime/style leakage)
 
