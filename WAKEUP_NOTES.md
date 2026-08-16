@@ -11,7 +11,39 @@
 
 ---
 
-## 2026-08-15 (latest) - gen recon triple: render capture proven, LoRA path dead
+## 2026-08-16 (latest) - IP-Adapter WINS where the LoRA lost
+
+One commit. The untested lane flagged at the end of the 2026-08-15 session turned
+out to be the answer. LEDGER 108.
+
+- **A reference image carries identity; a trained per-champion LoRA did not.**
+  Best scale **0.3**. Every adapter arm beats the no-adapter control on
+  subject_cos, margin, CLIP-vs-real and luminance-vs-real.
+- **The mechanism is the INVERSE of the LoRA's failure**, which is why this is
+  believable rather than a lucky arm: the LoRA left subject_cos flat while
+  off_cos climbed (drift toward generic anime); the adapter lifts subject_cos and
+  pins off_cos. The margin gain is identity, not distractor collapse.
+- **The control reproduced byte-identical** to yesterday's run at matched seeds -
+  so the recipe has not drifted, and the adapter-off code path is provably inert.
+- **Costs are real and are in the ledger:** sharpness falls hard and
+  monotonically, and at scale >= 0.5 a second fox familiar hallucinates in. Best
+  arm 0.3 is also the sharpest arm. Do not reach for a higher scale to chase
+  identity without re-checking lap_var.
+- **What it does NOT do:** facial structure and the red whisker markings are not
+  transferred. That is expected of the GENERAL adapter (one global CLIP
+  embedding) and is the specific thing plus-face should fix.
+- **Provenance gap found and closed:** the general adapter + CLIP image encoder
+  had been on disk since 2026-07-16, load-bearing and completely unrecorded in
+  `docs/GEN_MODELS.md`. Both now recorded with real hashes, license verified live.
+- **NEXT, operator-gated:** the plus-face fetch. Row is written, command is in
+  `docs/GEN_MODELS.md`, sha256 + date filled after. `--ip-adapter-weight-name`
+  exists so that run needs NO code change. Then re-run on animagine-xl-4.0 - this
+  eval is RealVisXL-only by design and says nothing about the shipped base.
+- **Still open, untouched across both sessions:** `m1-gate-fund-or-close`
+  (FUND/CLOSE), the two `g1-source-adequacy` policy questions, and the
+  `legacy-audit-backfill` data call.
+
+## 2026-08-15 - gen recon triple: render capture proven, LoRA path dead
 
 One commit, one new tracked tool. Three background agents ran in parallel while
 the main window stayed free (operator restated the subagent-first directive).

@@ -67,6 +67,28 @@ flat cel-shaded art that still falsely passes the CLIP subject gate).
 
 Config key `lora_path` is `null` until a LoRA is adopted.
 
+### IP-Adapter (reference-image identity/concept transfer - NO training)
+
+Reference-image conditioning: hand the pipe a real splash crop and it carries
+identity without a trained LoRA. Adopted as a lane 2026-08-16 after the general
+adapter measurably BEAT the no-adapter control where the trained per-champion
+LoRA measurably lost (LEDGER 108). Consumed by `tools/lw_gen_run.py`
+(`--ip-adapter-image` / `--ip-adapter-scale` / `--ip-adapter-weight-name`) on the
+txt2img path and by `tools/lw_gen_weaponpass.py` on the inpaint path.
+
+| model | version | source_url | license | sha256 | date | notes |
+|---|---|---|---|---|---|---|
+| IP-Adapter SDXL ViT-H | h94/IP-Adapter, sdxl_models | huggingface.co/h94/IP-Adapter | Apache-2.0 | ebf05d918348aec7abb02a5e9ecef77e0aaea6914a5c4ea13f50d45eb1681831 | 2026-07-16 | 0.698 GB, `tools/models/ip-adapter/sdxl_models/ip-adapter_sdxl_vit-h.safetensors`. GENERAL adapter - conditions on ONE global CLIP ViT-H embedding, so it transfers palette/costume/eye-colour but NOT facial structure or fine markings (measured 2026-08-16). Row written retroactively: the weight was downloaded 2026-07-16 for the W3 weapon pass and went unrecorded until the txt2img lane made it load-bearing. Date is the file mtime, not a fetch this session |
+| CLIP ViT-H image encoder | h94/IP-Adapter, models/image_encoder | huggingface.co/h94/IP-Adapter | Apache-2.0 | 6ca9667da1ca9e0b0f75e46bb030f7e011f44f86cbfb8d5a36590fcd7507b030 | 2026-07-16 | 2.528 GB, `tools/models/ip-adapter/models/image_encoder/model.safetensors`. REQUIRED by both adapter variants below - do not re-download per variant. Must be registered on the pipe BEFORE `enable_model_cpu_offload`, or it stays unhooked on CPU and the run dies on a device mismatch (`lw_gen_run.py` `_load_pipeline_locked`, `lw_gen_weaponpass.py:262-274`) |
+| IP-Adapter plus-face SDXL ViT-H | h94/IP-Adapter, sdxl_models | huggingface.co/h94/IP-Adapter | Apache-2.0 | (not downloaded) | - | **PENDING FETCH - operator-approved 2026-08-16, row written BEFORE download per the rule at the top of this file.** `ip-adapter-plus-face_sdxl_vit-h.safetensors`, 847517512 bytes (0.848 GB, confirmed live against the HF file tree 2026-08-16), into the SAME `tools/models/ip-adapter/sdxl_models/`. A `.bin` of the same weights also exists (1013454761 bytes) - take the safetensors. Face-tuned: fine-grained PATCH embeddings from face crops rather than one global embedding, so it is the expected fix for exactly what the general adapter dropped (whisker markings, bone structure) AND for its two measured costs (sharpness lap_var 416-492 -> 138-231; a second fox familiar hallucinating in at scale >= 0.5). Reuses the image encoder above. Run it with `--ip-adapter-weight-name ip-adapter-plus-face_sdxl_vit-h.safetensors`. FILL THE sha256 + date AFTER download |
+
+Multi-GB fetches are OPERATOR-RUN by the policy in "Phase-0 setup" below - Claude
+does not execute them. Command for the pending row:
+
+```
+C:\LegionWallpaper\.venv-gen\Scripts\python.exe -c "from huggingface_hub import hf_hub_download; print(hf_hub_download('h94/IP-Adapter', 'sdxl_models/ip-adapter-plus-face_sdxl_vit-h.safetensors', local_dir=r'C:\LegionWallpaper\tools\models\ip-adapter'))"
+```
+
 ### Subject-QA CLIP (open-clip ViT-L-14, openai pretrained - into .venv-metrics)
 
 | model | version | source_url | license | sha256 | date | notes |

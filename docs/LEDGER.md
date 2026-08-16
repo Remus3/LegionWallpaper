@@ -27,6 +27,63 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+108. DONE **2026-08-16 (IP-Adapter reference-image guidance on txt2img).**
+    **A reference image carries identity where the trained LoRA did not, and the
+    mechanism is the exact INVERSE of the LoRA's failure.** Measured on RealVisXL
+    at matched seeds, n=3 per arm, GENERAL adapter, Ahri face crop as reference:
+    control `subject_cos` 0.2826 / `off_cos` 0.2075 / margin 0.0751; ip 0.3
+    0.2906 / 0.2076 / **0.0830**; ip 0.5 0.2861 / 0.2078 / 0.0783; ip 0.7 0.2856
+    / 0.2040 / 0.0815. The LoRA (LEDGER 107) left `subject_cos` FLAT while
+    `off_cos` climbed 0.207 -> 0.236; the adapter raises `subject_cos` above
+    control in ALL three arms while `off_cos` stays pinned, so the margin gain is
+    identity, not distractor collapse. Adapter rejects are `blurry`; all three
+    LoRA rejects were `weak_margin`. CLIP vs the 21 real splashes 0.8518 ->
+    0.8542 / 0.8560 / 0.8561 (every LoRA arm went the WRONG way, 0.789-0.830);
+    luminance 0.408 -> 0.374 / 0.375 / 0.363 toward real, where the LoRA blew out
+    to 0.53-0.56. Best arm **0.3**. **Control reproduced BYTE-IDENTICAL** (same
+    seeds, same sha256 prefixes as the 2026-08-15 eval), which proves both that
+    the recipe did not drift AND that the adapter-off path is a zero-diff no-op.
+    **By eye:** control is a generic anime fox-girl (brown eyes, gold tails, one
+    crop with a headband instead of ears); from 0.3 up the outputs pick up amber
+    eyes, black fox ears, white fur ruff, red/white nine-tails. None of the
+    LoRA's three failure signatures reproduce - hair stays canonical black in all
+    12 images, backgrounds stay legible. **Measured costs, both real:** sharpness
+    falls monotonically (`lap_var` 416-492 -> 138-231), which is what fails one
+    image each at 0.5 and 0.7; and at scale >= 0.5 a second fox familiar
+    hallucinates in. The adapter transfers costume / palette / eye-colour, NOT
+    facial structure or the red whisker markings - expected, since the general
+    adapter conditions on ONE global CLIP ViT-H embedding. **No pose or
+    composition copying at any scale** (structural correlation to the matched-seed
+    control stays +0.748 / +0.676 / +0.592 while correlation to the reference goes
+    slightly more negative). Caveat stated by the running agent: the reference was
+    a FACE CROP, the input least able to carry a copyable composition - a
+    full-frame reference at 0.7 is UNTESTED. **This is a LOWER BOUND** - the
+    weaker general adapter still won; plus-face uses fine-grained patch embeddings
+    and is the expected fix for both costs. **Shipped:** `tools/lw_gen_run.py`
+    gains `--ip-adapter-image` / `--ip-adapter-scale` / `--ip-adapter-weight-name`
+    / `--ip-adapter-path`; the adapter load sits BEFORE the offload branch because
+    SDXL txt2img's `model_cpu_offload_seq` is
+    `text_encoder->text_encoder_2->image_encoder->unet->vae` (verified live on
+    diffusers 0.39.0), so registering the CLIP encoder first is what gets it
+    offload-hooked - loading after `enable_model_cpu_offload` reproduces the exact
+    device-mismatch gotcha already documented at `lw_gen_weaponpass.py:262-274`.
+    `docs/GEN_MODELS.md` gains an **IP-Adapter section that did not exist**: the
+    general adapter (sha256 `ebf05d91...`) and the CLIP ViT-H image encoder
+    (sha256 `6ca9667d...`) had been on disk since 2026-07-16 and UNRECORDED
+    despite being load-bearing - a real gap in the provenance discipline, now
+    closed with hashes computed from the files and the license verified LIVE as
+    apache-2.0 (not assumed). **Premise CORRECTED before it reached the doc:** the
+    HF model card lists `ip-adapter-plus-face_sdxl_vit-h.bin`, so the intended
+    `.safetensors` filename was checked against the repo file tree rather than
+    trusted - both exist; safetensors is 847517512 bytes and is the one to take.
+    **Verified:** ruff ALL CHECKS PASSED, py_compile clean, ASCII-clean, full
+    suite green. **NEXT (operator-gated fetch):** the plus-face row is written
+    BEFORE download per the rule at the top of `GEN_MODELS.md`; sha256 + date get
+    filled after the operator runs the documented command. Then re-run these four
+    arms on plus-face, and separately re-run on animagine-xl-4.0 - this eval is
+    RealVisXL-only BY DESIGN (comparability with LEDGER 107) and says NOTHING
+    about the shipped base. n=3 is direction-finding, not calibration.
+
 107. DONE **2026-08-15 (gen recon triple + `tools/lw_render_skn.py` preserved).**
     Three parallel background agents (render recon / adversary / ahri eval), one
     tracked tool preserved out of the results. **Premise CORRECTED twice, both

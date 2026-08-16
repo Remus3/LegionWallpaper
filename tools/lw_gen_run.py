@@ -537,9 +537,17 @@ def advance_cand_file(cand, new_file, stage):
 # --------------------------------------------------------------------------
 # Generation (LAZY torch/diffusers - never reached in CI).
 # --------------------------------------------------------------------------
-def _load_pipeline(config, model_abs, fast, controlnet_path=None):
+def _load_pipeline(config, model_abs, fast, controlnet_path=None, ip_adapter=None):
     """Lazily build a diffusers text2image pipeline, optionally ControlNet-conditioned
-    (OpenPose skeleton control). Heavy imports live here."""
+    (OpenPose skeleton control). Heavy imports live here.
+
+    ip_adapter, when a dict {path, subfolder, weight_name, image_encoder_folder,
+    scale}, loads IP-Adapter weights + the CLIP image encoder onto the txt2img
+    pipe and sets the concept scale (mirrors lw_gen_weaponpass._build_real_inpainter,
+    which does the same on the inpaint pipe). Default None => byte-identical
+    behavior to before this parameter existed (no adapter, no image_encoder, no
+    ip_adapter_image kwarg on the pipe call).
+    """
     try:
         import torch  # noqa: F401
     except Exception as exc:  # noqa: BLE001 - degrade, never dump a raw import error
@@ -553,7 +561,8 @@ def _load_pipeline(config, model_abs, fast, controlnet_path=None):
     # between the two - see the module header on the hybrid case.
     try:
         with gpu_lock("cuda"):
-            return _load_pipeline_locked(config, model_abs, fast, controlnet_path)
+            return _load_pipeline_locked(config, model_abs, fast, controlnet_path,
+                                         ip_adapter=ip_adapter)
     except GpuBusy as exc:
         raise GenError(
             "the GPU is held by another run and did not free in time; "
@@ -561,7 +570,7 @@ def _load_pipeline(config, model_abs, fast, controlnet_path=None):
             code=4) from exc
 
 
-def _load_pipeline_locked(config, model_abs, fast, controlnet_path):
+def _load_pipeline_locked(config, model_abs, fast, controlnet_path, ip_adapter=None):
     """The body of _load_pipeline, run while GPU_MUTEX is held."""
     import torch
 
@@ -590,6 +599,25 @@ def _load_pipeline_locked(config, model_abs, fast, controlnet_path):
             if not os.path.exists(lora_abs):
                 raise GenError(f"lora_path set but not found: {lora_rel}", code=4)
             pipe.load_lora_weights(lora_abs)
+        # Optional IP-Adapter (reference-image concept guidance). Loaded BEFORE
+        # device placement on purpose: SDXL txt2img's model_cpu_offload_seq is
+        # text_encoder->text_encoder_2->image_encoder->unet->vae, so registering
+        # the CLIP image_encoder first is what gets it offload-hooked. Loading it
+        # after enable_model_cpu_offload leaves the encoder unhooked on CPU and
+        # the run dies with a CUDA/CPU device mismatch the moment it encodes
+        # ip_adapter_image - the exact ordering gotcha hit end-to-end on the
+        # inpaint pipe (lw_gen_weaponpass.py:262-274).
+        if ip_adapter is not None:
+            ip_abs = (ip_adapter["path"] if os.path.isabs(ip_adapter["path"])
+                      else os.path.join(ROOT, ip_adapter["path"]))
+            if not os.path.exists(ip_abs):
+                raise GenError(f"ip_adapter path not found: {ip_adapter['path']}", code=4)
+            pipe.load_ip_adapter(
+                ip_abs, subfolder=ip_adapter["subfolder"],
+                weight_name=ip_adapter["weight_name"],
+                image_encoder_folder=ip_adapter["image_encoder_folder"],
+            )
+            pipe.set_ip_adapter_scale(float(ip_adapter["scale"]))
         gen = config.get("gen") or {}
         # cpu-offload manages device placement itself; calling .to("cuda") first
         # conflicts with it, so only move to cuda on the all-resident fast path.
@@ -621,7 +649,7 @@ def _extract_pose(ref_abs, res):
 
 def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir,
                          count, round_no, start_index, init_image=None,
-                         control_image=None):
+                         control_image=None, ip_adapter_image=None):
     """Generate `count` candidate PNGs; return their manifest candidate dicts.
 
     When control_image is given, `pipe` is a ControlNet pipeline conditioned on an
@@ -637,6 +665,10 @@ def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir
     if round_no >= 2:
         emphasis = ", ".join(plan["subject_aliases"])
         round_pos = f"{pos}, {emphasis}"
+
+    # Only ever present when the caller loaded an IP-Adapter; an empty dict means
+    # every pipe call below is byte-identical to the pre-IP-Adapter code path.
+    ip_kw = {} if ip_adapter_image is None else {"ip_adapter_image": ip_adapter_image}
 
     out = []
     # ONE hold for the whole round rather than one per candidate: the pipe is
@@ -661,7 +693,7 @@ def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir
                                 plan.get("controlnet_scale", 0.75)),
                             width=res[0], height=res[1],
                             num_inference_steps=steps, guidance_scale=cfg,
-                            generator=generator,
+                            generator=generator, **ip_kw,
                         ).images[0]
                     elif init_image is not None:
                         image = pipe(
@@ -669,14 +701,14 @@ def _generate_candidates(pipe, plan, style_def, config, res, pos, neg, batch_dir
                             image=init_image,
                             strength=float(plan.get("img2img_strength", 0.55)),
                             num_inference_steps=steps, guidance_scale=cfg,
-                            generator=generator,
+                            generator=generator, **ip_kw,
                         ).images[0]
                     else:
                         image = pipe(
                             prompt=round_pos, negative_prompt=neg,
                             width=res[0], height=res[1],
                             num_inference_steps=steps, guidance_scale=cfg,
-                            generator=generator,
+                            generator=generator, **ip_kw,
                         ).images[0]
                     image.save(fpath)
                 except GenError:
@@ -784,7 +816,40 @@ def run(args, config=None, styles=None):
     batch_dir = os.path.join(out_root, batch_id)
     os.makedirs(batch_dir, exist_ok=True)
 
+    # IP-Adapter reference-image guidance (identity/concept transfer without a
+    # trained LoRA). None unless --ip-adapter-image was passed, so the default
+    # path never loads an adapter and never changes a pixel.
+    ip_adapter = None
+    ip_adapter_image = None
+    ip_ref_abs = None
+    ip_ref_rel = getattr(args, "ip_adapter_image", None)
+    if ip_ref_rel:
+        ip_ref_abs = (ip_ref_rel if os.path.isabs(ip_ref_rel)
+                      else os.path.join(ROOT, ip_ref_rel))
+        if not os.path.exists(ip_ref_abs):
+            raise GenError(f"ip_adapter_image not found: {ip_ref_rel}", code=2)
+        from PIL import Image
+        ip_adapter_image = Image.open(ip_ref_abs).convert("RGB")
+        ip_adapter = {
+            "path": (getattr(args, "ip_adapter_path", None)
+                     or (config.get("weapon") or {}).get("ip_adapter_path")
+                     or "tools/models/ip-adapter"),
+            "subfolder": "sdxl_models",
+            # Default = the general adapter (one global CLIP ViT-H embedding, so it
+            # transfers palette/costume but not facial structure). Override to
+            # ip-adapter-plus-face_sdxl_vit-h.safetensors for the face-tuned
+            # patch-embedding variant - see docs/GEN_MODELS.md IP-Adapter table.
+            "weight_name": (getattr(args, "ip_adapter_weight_name", None)
+                            or "ip-adapter_sdxl_vit-h.safetensors"),
+            "image_encoder_folder": "models/image_encoder",
+            "scale": float(getattr(args, "ip_adapter_scale", None) or 0.5),
+        }
+
     manifest = build_manifest(plan, config, style_def, res, pos, neg, batch_id, args.fast)
+    if ip_adapter is not None:
+        # Provenance only, and only when the adapter is actually on - a default
+        # run's manifest is unchanged.
+        manifest["ip_adapter"] = dict(ip_adapter, reference_image=ip_ref_abs)
     manifest_path = os.path.join(batch_dir, "gen_manifest.json")
 
     model_abs = os.path.join(ROOT, config["model_path"])
@@ -802,10 +867,11 @@ def run(args, config=None, styles=None):
             raise GenError(
                 "controlnet_pose set but config.controlnet_openpose_path is missing", code=4
             )
-        pipe = _load_pipeline(config, model_abs, args.fast, controlnet_path=cn_path)
+        pipe = _load_pipeline(config, model_abs, args.fast, controlnet_path=cn_path,
+                              ip_adapter=ip_adapter)
         control_image = _extract_pose(plan["controlnet_pose"], res)
     else:
-        pipe = _load_pipeline(config, model_abs, args.fast)
+        pipe = _load_pipeline(config, model_abs, args.fast, ip_adapter=ip_adapter)
         # img2img: seed from a real reference splash (inherits pose, palette, hands).
         # Derive an image2image pipe from the loaded base (from_pipe reuses weights).
         if plan.get("init_image"):
@@ -830,7 +896,7 @@ def run(args, config=None, styles=None):
         new_cands = _generate_candidates(
             pipe, plan, style_def, config, res, pos, neg, batch_dir,
             needed, round_no, produced, init_image=init_image,
-            control_image=control_image,
+            control_image=control_image, ip_adapter_image=ip_adapter_image,
         )
         produced += len(new_cands)
         manifest["candidates"].extend(new_cands)
@@ -940,6 +1006,18 @@ def build_parser():
                         "(natural pose + correct hands, sharp txt2img)")
     p.add_argument("--controlnet-scale", dest="controlnet_scale", type=float, default=None,
                    help="ControlNet conditioning scale 0-1 (default 0.75)")
+    p.add_argument("--ip-adapter-image", dest="ip_adapter_image", default=None,
+                   help="IP-Adapter reference image (path). Carries identity/concept "
+                        "from a real reference without a trained LoRA. Omit = adapter off.")
+    p.add_argument("--ip-adapter-scale", dest="ip_adapter_scale", type=float, default=None,
+                   help="IP-Adapter conditioning scale 0-1 (default 0.5)")
+    p.add_argument("--ip-adapter-path", dest="ip_adapter_path", default=None,
+                   help="override the IP-Adapter model root (default "
+                        "config.weapon.ip_adapter_path, else tools/models/ip-adapter)")
+    p.add_argument("--ip-adapter-weight-name", dest="ip_adapter_weight_name", default=None,
+                   help="IP-Adapter weight filename inside sdxl_models/ (default "
+                        "ip-adapter_sdxl_vit-h.safetensors; use "
+                        "ip-adapter-plus-face_sdxl_vit-h.safetensors for the face variant)")
     p.add_argument("--weapon-fix", dest="weapon_fix", action="store_true",
                    help="run the M1 weapon pass after gen/QA (masked inpaint re-roll)")
     p.add_argument("--wrist", choices=["left", "right"], default=None,
