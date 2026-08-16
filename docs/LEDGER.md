@@ -27,6 +27,61 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+112. DONE **2026-08-16 (composition tag fix MEASURED and REVERTED; the premise
+    behind it is RETRACTED).** A `splash-booru` edit was written, pinned with 4
+    RED-first tests, then verified BEFORE commit and **refuted**. Reverted; the
+    working tree is back to the shipped style and nothing was committed.
+    **What was tried:** remove `foreshortening` + `from below` from positive, add
+    `solo, solo focus`, add `from below, foreshortening, head out of frame,
+    cropped head` to negative, keep `cowboy shot`, sampler untouched (guarded by
+    its own test so the change could not silently become a confounded sampler
+    change). **Result: NO GAIN, slightly negative.** Hero-dominance 5/6 -> **4/6**
+    frames inside the real envelope; head centre pushed **DOWN** 0.0327 of frame
+    height on 5 of 6 seeds (permutation p=0.094). Identity HELD (`subject_cos`
+    0.2712 -> 0.2838, margin 0.0566 -> 0.0646), so there was no gain being bought
+    at a cost - there was simply no gain. Sharpness fell 24 percent (`lap_var` 564
+    -> 429, still far above the 150 floor). QA pass 5/6 -> 4/6 on one borderline
+    frame missing the margin floor by 0.0010 despite arm MEANS improving.
+    **THE PREMISE IS RETRACTED, which matters more than the failed edit.** LEDGER
+    110's "0 of 18 hero-dominant, heads small, rotated or inverted" was a BY-EYE
+    judgement recorded as fact, and it inverts under measurement: generated heads
+    are **TOO BIG, not small** (mean `head_frac` 0.0484 vs real median 0.0116; 3 of
+    6 above the real MAXIMUM) and **5 of 6 OLD-style frames already sit INSIDE the
+    real key-art envelope**. The single genuinely inverted frame (seed
+    1181241943, `head_cy` 0.66) appears in BOTH arms and was not fixed by the edit.
+    `docs/GEN_MODELS.md` corrected in the same commit - the composition half of its
+    mechanism note is struck and marked RETRACTED. **This was MY recommendation,
+    pitched to the operator as "the thing standing between your shipped base and
+    usable output". It was wrong, and it was wrong because it was built on an
+    unmeasured by-eye claim from a subagent that I repeated as fact.**
+    **METHOD NOTE - the measure had to be built before the result could be
+    trusted:** DWPose (pre-registered as the tool) proved near-useless here - its
+    WholeBody face block returned ZERO points on 11 of 12 generated frames and no
+    figure at all on 6 of 21 REAL splashes. Replaced with `tools/models/yolo/
+    face_yolov8m.pt` (adetailer, illustration-native): 21/21 real and 12/12
+    generated detected, boxes auditable in the run's overlay sheet. Bands were fixed
+    from the real corpus BEFORE looking at either arm. **`solo, solo focus` is
+    INERT** - every frame in both arms already had exactly one detected face.
+    **TWO LIVE PRE-EXISTING DEFECTS FOUND, both worth separate fixes:**
+    (1) **the `splash-booru` negative OVERRUNS CLIP's 77-token limit TODAY, on the
+    shipped style** - the generator reports 91 > 77 on the OLD string, so
+    `low quality, low score, bad score, blurry, photorealistic, 3d render` are
+    SILENTLY DROPPED on every run. The rejected edit would have pushed it to 106 >
+    77 and additionally evicted `standing straight, text, signature, watermark,
+    worst quality` - i.e. it would have bought composition negatives by discarding
+    the watermark/signature/text negatives, on a pipeline whose ADR-005 exists to
+    REMOVE artist signatures. (2) **calling `lw_gen_run.run()` twice in one process
+    SILENTLY kills the second arm** - no traceback, exit 0, zero images, on the
+    repeat CUDA pipeline load. One fresh process per arm is required; a harness that
+    does not know this produces an empty arm that looks like a legitimate null.
+    **Verified:** working tree left exactly as found by the eval (the old style was
+    injected via `run(args, styles=...)`, never by editing the tracked file), then
+    reverted clean - `git status` empty, `from below` + `foreshortening` confirmed
+    back in the shipped positive. RC gate clear, no `--force`, mutex honored.
+    n=6, one champion, one base - this refutes THIS fix, not the idea that some
+    prompt change could help. **Do-not-redo:** re-opening the composition tags on
+    by-eye evidence; DWPose as a framing/head measure on this content.
+
 111. DONE **2026-08-16 (tight-crop A/B - NULL on identity, one real win, and the
     experiment is CONFOUNDED by source resolution).** Single-variable A/B against
     LEDGER 110's plus-face run: base, seeds, prompt, adapter and scales all held,

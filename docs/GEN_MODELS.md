@@ -71,10 +71,24 @@ not.** Measured over 18 animagine frames against the 21 real Ahri splashes:
 - **"flat cel-shaded" is WRONG as the failure mode.** Measured flatness puts
   animagine (0.38) CLOSER to real splash art (0.358) than RealVisXL (0.25). The
   anime base is not too flat; if anything it is flatter-matched than the photoreal
-  one. The real failures are **bloom** (soft-airbrushed, blown highlights) and
-  **COMPOSITION**: the booru `from below` / `cowboy shot` / `foreshortening` tags
-  produce hip-dominant crops with heads small, rotated or inverted. **0 of 18
-  animagine frames are hero-dominant key art; all RealVisXL frames are.**
+  one. The confirmed failure is **bloom** (soft-airbrushed, blown highlights).
+- **RETRACTED 2026-08-16, same day - the COMPOSITION half of the line above was
+  wrong and is struck.** It read: "the booru `from below` / `cowboy shot` /
+  `foreshortening` tags produce hip-dominant crops with heads small, rotated or
+  inverted; 0 of 18 animagine frames are hero-dominant key art". That was a BY-EYE
+  judgement recorded as fact, and it does not survive an explicit measure.
+  Re-measured with a detector validated on the corpus first (`face_yolov8m.pt`,
+  21/21 real and 12/12 generated detected; bands fixed FROM the real corpus BEFORE
+  looking at any arm - hero := `head_frac` >= 0.0043 and `head_cy` <= 0.3430):
+  **5 of 6 frames sit INSIDE the real key-art envelope**, and generated heads are
+  **TOO BIG, not small** - mean `head_frac` 0.0484 vs a real median of 0.0116,
+  with 3 of 6 above the real MAXIMUM. One genuinely inverted frame exists (seed
+  1181241943, `head_cy` 0.66) and is present in BOTH arms. A tag edit built on the
+  retracted claim was measured and REVERTED - see LEDGER 112. **Do not re-open the
+  composition tags on by-eye evidence.**
+- **DWPose is not a usable framing measure on this content** (do-not-redo): its
+  WholeBody face block returned ZERO points on 11 of 12 generated frames and no
+  figure at all on 6 of 21 REAL splashes. Use an illustration-native face detector.
 - **"still falsely passes the CLIP subject gate" is EXACTLY RIGHT and was caught in
   the act.** Animagine plus-face 0.5 posts `subject_cos` 0.2909 - near the highest
   measured anywhere - while sitting 0.11-0.19 BELOW the real-vs-real self-similarity
