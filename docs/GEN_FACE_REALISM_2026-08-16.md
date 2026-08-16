@@ -179,3 +179,45 @@ NOT wired into the pipeline: it is a manual tool that writes a before/after
 report with an in-band verdict per frame. Whether generated frames should be
 auto-corrected is an operator call, and the residual case (a face whose skin
 statistics resist every step size) is unexplained.
+
+
+## Cross-champion validation (operator-directed)
+
+Six champions, 5 frames each on the shipped style, one fresh process per
+champion, then keyed.
+
+| champion | frames | scored | in band | median level | median ratio |
+|---|---|---|---|---|---|
+| Jinx | 5 | 5 | 1/5 -> 4/5 | +11.5 -> +18.0 | 0.58 -> 0.73 |
+| Katarina | 5 | 5 | 0/5 -> 4/5 | +22.1 -> +22.0 | 0.37 -> 0.69 |
+| Lux | 5 | 5 | 1/5 -> 4/5 | +16.4 -> +17.9 | 0.42 -> 0.77 |
+| Miss Fortune | 5 | 5 | 0/5 -> 4/5 | +9.4 -> +21.3 | 0.39 -> 0.78 |
+| Vayne | 5 | 4 | 1/4 -> 3/4 | +0.9 -> +18.2 | 0.59 -> 0.73 |
+| Yasuo | 5 | 5 | 3/5 -> 5/5 | -1.1 -> +17.2 | 0.66 -> 0.74 |
+| **TOTAL** | **30** | **29** | **6/29 -> 24/29** | | |
+
+Every champion improved, no frame regressed out of band, and the correction
+generalises past the champion it was calibrated on. Katarina is the clearest
+case of what it actually repairs: her level was already fine (+22.1) while her
+modelling ratio was the worst in the set (0.37), and the correction moved the
+ratio (0.69) without disturbing the level - it is not a brightness knob.
+
+**THE TARGET IS CHAMPION-DEPENDENT, and that is a real limit on the numbers
+above.** Re-measuring the band on the 18 detectable real Vayne splashes against
+the 21 real Ahri:
+
+    ahri   level median +22.5 (p10  -2.6, p90 +50.0)   ratio 0.81 (0.64..1.25)
+    vayne  level median +18.0 (p10 -11.3, p90 +60.2)   ratio 0.98 (0.72..1.53)
+
+Same direction and heavily overlapping, so one global target is defensible -
+but Vayne's real art keys the face 4.5 levels less and carries a fifth more
+face modelling than Ahri's. A per-champion band would be tighter, and nothing
+here justifies treating +24.3 / 0.83 as universal.
+
+**A defect the Vayne set caught:** one frame had no detectable face and the tool
+DROPPED it - the output folder came back with 4 of 5 images. A batch tool that
+silently loses frames is worse than one that declines to correct them, so a
+frame with no face (or too little skin to measure) is now copied through
+unchanged and recorded in the report with a `skipped` reason. Pinned by
+`test_a_frame_with_no_detectable_face_is_passed_through_not_dropped`. Output
+counts are now 5/5 for every champion.

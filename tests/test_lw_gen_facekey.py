@@ -8,6 +8,7 @@ pass all failed to move face-vs-body lighting (docs/GEN_FACE_REALISM_2026-08-16.
 md). Its targets are measured off the 21 real Ahri splashes: face skin sits
 +24.3 levels above body skin with 0.83x the modelling.
 """
+import json
 import os
 import sys
 
@@ -134,3 +135,22 @@ def test_a_frame_inside_the_band_is_never_pushed_out_of_it():
     _, before, after = fk.correct_frame(img, box)
     if fk.in_band(*before):
         assert fk.in_band(*after), "an in-band frame was pushed out of the band"
+
+
+def test_a_frame_with_no_detectable_face_is_passed_through_not_dropped(tmp_path, monkeypatch):
+    """Found on the Vayne set: one frame had no face and vanished from the
+    output folder. A batch tool must never silently lose a frame."""
+    from PIL import Image
+
+    src = tmp_path / "in"
+    src.mkdir()
+    img, _ = _synthetic_frame(120.0, 150.0, 10.0, 40.0)
+    Image.fromarray(img.astype(np.uint8)).save(src / "cand_00.png")
+    monkeypatch.setattr(fk, "_detect_face", lambda *_a, **_k: None)
+    out = tmp_path / "out"
+    assert fk.main([str(src), str(out)]) == 0
+    dst = out / "cand_00.png"
+    assert dst.is_file(), "frame was dropped instead of passed through"
+    assert dst.read_bytes() == (src / "cand_00.png").read_bytes()
+    report = json.loads((out / "facekey_report.json").read_text(encoding="utf-8"))
+    assert report[0]["skipped"] == "no_face"

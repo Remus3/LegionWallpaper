@@ -32,6 +32,7 @@ import argparse
 import glob
 import json
 import os
+import shutil
 import sys
 
 import numpy as np
@@ -260,14 +261,24 @@ def main(argv=None):
     os.makedirs(args.out, exist_ok=True)
     report = []
     for p in paths:
+        dst = os.path.join(args.out, os.path.basename(p))
         box = _detect_face(p, args.weights)
         if box is None:
-            print(f"{os.path.basename(p)}: no face - skipped", file=sys.stderr)
+            # PASS IT THROUGH, do not drop it. A batch tool whose output folder
+            # is missing frames is worse than one that declines to correct them
+            # - the loss is silent and the frame is gone from the set.
+            shutil.copyfile(p, dst)
+            report.append({"file": os.path.basename(p), "skipped": "no_face"})
+            print(f"{os.path.basename(p)}: no face - copied through unchanged")
             continue
         with Image.open(p) as im:
             rgb = np.asarray(im.convert("RGB"), dtype=np.float64)
         out, before, after = correct_frame(rgb, box, args.feather)
-        dst = os.path.join(args.out, os.path.basename(p))
+        if before is None or after is None:
+            shutil.copyfile(p, dst)
+            report.append({"file": os.path.basename(p), "skipped": "insufficient_skin"})
+            print(f"{os.path.basename(p)}: too little skin - copied through unchanged")
+            continue
         Image.fromarray(out).save(dst)
         row = {"file": os.path.basename(p),
                "before": {"level_offset": round(before[0], 1),
@@ -283,8 +294,11 @@ def main(argv=None):
               f"{row['after']['modelling_ratio']:.2f} | in_band "
               f"{row['before']['in_band']} -> {row['after']['in_band']}")
     if report:
-        n_in = sum(1 for r in report if r["after"]["in_band"])
-        print(f"in corpus band: {n_in}/{len(report)}")
+        scored = [r for r in report if "after" in r]
+        n_in = sum(1 for r in scored if r["after"]["in_band"])
+        skipped = len(report) - len(scored)
+        print(f"in corpus band: {n_in}/{len(scored)}"
+              + (f" ({skipped} passed through unscored)" if skipped else ""))
         tmp = os.path.join(args.out, "facekey_report.json.tmp")
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=1)

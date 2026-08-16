@@ -27,6 +27,31 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+118. DONE **2026-08-16 (face-key validated across six champions; a
+    frame-dropping defect found and fixed).** Operator: run it on at least 5
+    champions, at least 5 frames each. Jinx / Katarina / Lux / Miss Fortune /
+    Vayne / Yasuo, 5 frames each on the shipped style, one fresh process per
+    champion. **In band 6/29 -> 24/29; every champion improved and NO frame
+    regressed out of band.** Per champion after: Jinx 4/5, Katarina 4/5, Lux
+    4/5, Miss Fortune 4/5, Vayne 3/4, Yasuo 5/5. **Katarina is the case that
+    shows what the correction actually does:** her level was already fine
+    (+22.1) and her modelling ratio was the worst in the set (0.37); the
+    correction moved the ratio to 0.69 and left the level at +22.0 - it is not a
+    brightness knob. **THE TARGET IS CHAMPION-DEPENDENT and the ledger should
+    say so:** re-measured on 18 real Vayne splashes the band is level +18.0
+    (p10 -11.3, p90 +60.2) / ratio 0.98 (0.72..1.53) against Ahri's +22.5 /
+    0.81 - same direction, heavily overlapping, but Vayne's real art keys the
+    face 4.5 levels less and carries a fifth more face modelling. One global
+    target is defensible; treating +24.3 / 0.83 as universal is not, and a
+    per-champion band would be tighter. **DEFECT FOUND BY THE VAYNE SET AND
+    FIXED:** a frame with no detectable face was SKIPPED and never written, so
+    the output folder came back 4 of 5 - a batch tool silently losing a frame.
+    It now copies such a frame through unchanged and records a `skipped` reason
+    in the report; output counts are 5/5 for every champion and the behaviour is
+    pinned by a test that monkeypatches detection to fail. **Verified:** 2026
+    passed / 18 skipped, ruff clean, output frame counts re-counted on disk
+    after the fix rather than inferred from the report.
+
 117. DONE **2026-08-16 (the pasted-on face: instrument built, nine arms null,
     and a pixel correction that lands 26 -> 89 percent in the corpus band).**
     Operator on the shipped frames: still reads as a face cropped onto the body,
