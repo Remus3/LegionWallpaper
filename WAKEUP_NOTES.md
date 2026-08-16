@@ -11,7 +11,42 @@
 
 ---
 
-## 2026-08-13 (latest) - /sync-all-md pass: four stale structural facts
+## 2026-08-15 (latest) - gen recon triple: render capture proven, LoRA path dead
+
+One commit, one new tracked tool. Three background agents ran in parallel while
+the main window stayed free (operator restated the subagent-first directive).
+LEDGER 107.
+
+- **The operator's question was: capture 360 views of every skin from the 3D
+  models as trainer data for matching aesthetics + designs per champion.** The
+  answer is that capture WORKS and is cheap, and the training premise is DEAD.
+  Both halves are measured, not argued.
+- **No GUI / OBS / OCR / machine-control needed.** CommunityDragon serves every
+  skin's own `.skn` + `_tx_cm.png` script-only, unblocked. The operator-assist
+  lane stays in reserve for chromas and anything CDragon does not serve.
+- **The `.skl` 404 only ever blocked WEAPON ISOLATION.** For whole-mesh renders
+  it is irrelevant. Proven by the aristocrat control, recorded in the POC as an
+  outright failure, which renders clean first try.
+- **PRESERVED: `tools/lw_render_skn.py` + 13 tests.** The original POC code was
+  LOST with an ephemeral scratchpad (`LEDGER.md:2861`); the rebuild was sitting
+  in scratchpad about to be lost the same way. GPU imports are deferred so the
+  camera math tests in the main env; `.venv-poc` is still required to render.
+- **Ahri LoRA scored: FAILS, worse than no LoRA.** `subject_cos` flat across all
+  arms, `off_cos` rising - it drifts toward generic anime, it does not learn
+  Ahri. Trained on RealVisXL, not the current Animagine base. Never sampled from
+  before this run.
+- **Root cause, found independently by two agents:** one generic caption
+  averaged over mutually contradictory skins. The proposal to capture EVERY skin
+  scales exactly that failure mode.
+- **NEXT (nothing is blocked on it):** base model + ControlNet + IP-Adapter is
+  the stronger lane and IP-Adapter is still untested. A retried champion LoRA is
+  one skin / clean captions / ~400 steps. Render capture is parked and cheap for
+  the DISCRIMINATIVE consumer only - `m1-gate-fund-or-close`, still operator-gated.
+- **Operator decision still open:** the FUND/CLOSE call on m1. Also unanswered -
+  the two `g1-source-adequacy` policy questions and the `legacy-audit-backfill`
+  data call, both untouched this session.
+
+## 2026-08-13 - /sync-all-md pass: four stale structural facts
 
 One commit (`b80e7cb`), docs only. Suite **1975 passed / 18 skipped** run fresh
 this turn, ruff clean, hygiene trio green, drift_guard 0 breaches / 4 notes.

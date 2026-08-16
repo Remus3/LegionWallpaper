@@ -27,6 +27,70 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+107. DONE **2026-08-15 (gen recon triple + `tools/lw_render_skn.py` preserved).**
+    Three parallel background agents (render recon / adversary / ahri eval), one
+    tracked tool preserved out of the results. **Premise CORRECTED twice, both
+    load-bearing.** (1) BACKLOG's "PROVEN AND ALREADY BUILT" for the `.skn`
+    render chain is ENVIRONMENT-deep, not CODE-deep: a repo-wide grep for
+    `moderngl` / `pyritofile` / `.skn` across `.py` returns ZERO files - only
+    `.venv-poc` survived, exactly as `docs/LEDGER.md:2861` records (scratchpad
+    was ephemeral and was not preserved). The renderer was rebuilt from the doc
+    recipe in one pass, which makes `crossbow_render_poc.md` a good spec and a
+    lost artifact. (2) I told the operator the ahri LoRA had zero recorded eval;
+    `docs/research/GEN_RETUNE.md:161-163` carries a by-eye note ("washed out,
+    muddy bg, wrong hair"). Grep had covered ROADMAP + LEDGER, not GEN_RETUNE.
+    **Render capture PROVEN:** full-mesh multi-angle renders work for NON-base
+    skins with no bone isolation at all - dragonslayer (7354 verts) and
+    aristocrat (5195 verts), 12 yaw angles each, 1024px textured PNG, ~0.035s
+    per render on the RTX 5070. The decisive control is aristocrat, recorded at
+    `crossbow_render_poc.md:66-68` as an outright failure ("isolated a wine-bottle
+    prop"): rendered whole it comes out clean first try, so that failure was
+    100 percent a bone-set-isolation artifact and says nothing about acquire /
+    parse / texture / render. **Ahri LoRA SCORED and it FAILS** - loses to the
+    no-LoRA control on every measure. Provenance recovered from
+    `logs/dreambooth-lora-sd-xl/*/hparams.yml`: base `realvisxl5_diffusers`
+    (RealVisXL V5.0, NOT the current Animagine base - it predates the
+    2026-07-11 flip by hours), trigger `ahri, a league of legends champion,
+    splash art`, rank 16, UNet-only, `validation_prompt: null` so it had never
+    been sampled from. 5 arms x 3 images, matched seeds: `subject_cos` FLAT
+    across every arm (0.2765-0.2826) while `off_cos` climbs monotonically
+    0.207 -> 0.236, so the margin collapse is drift toward "generic anime
+    character", not identity gain. CLIP vs the 21 real splashes: control 0.8518
+    beats every LoRA arm. Luminance: real splashes 0.366, control 0.407, every
+    LoRA arm 0.53-0.56 - away from its own training data. ckpt-1500 and final
+    are byte-identical at matched seeds. **Renders as GENERATIVE training data:
+    KILLED** on measurements off this repo's own disk - the 10-image
+    `vayne_weapon_train/` set separates renders from real crops at AUC 1.0 on a
+    SINGLE scalar (laplacian var 73.1-105.6 vs 0.9-18.4; unique RGB 41.8k-53.8k
+    vs 92.3k-359.6k; gray-128 fraction 72.4-76.7 vs 16.2-56.5 percent; zero
+    overlap on all three). The matched-provenance defense at `ROADMAP.md:508-515`
+    does NOT transfer: it works because a DISCRIMINATIVE probe has two classes to
+    match, and a generative LoRA has no negative class. **Two agents converged
+    independently on the same root cause** - one generic caption averaged across
+    mutually contradictory skins (all 10 caption files byte-identical;
+    `lw_gen_train_weapon_lora.py:21` precomputes caption embeds for that reason;
+    `GEN_RETUNE.md:215` diagnoses skin dilution). Contamination found:
+    `ahri_06_academy` has four characters including two men, `ahri_07_arcade` has
+    a HUD + HP bar burned in. **Shipped:** `tools/lw_render_skn.py` (argparse CLI,
+    GPU imports deferred into the functions needing them so the camera math stays
+    importable outside `.venv-poc`, acquire recipe + the undocumented CDragon
+    User-Agent requirement + all four measured limits in the docstring) and
+    `tests/test_lw_render_skn.py` (13 tests, pure-numpy camera/bounds/CLI, no GL
+    context). **Verified:** 13 passed, ruff ALL CHECKS PASSED after fixing 9
+    net-new UP031, ASCII-clean, and the promoted tool re-rendered BOTH skins
+    post-refactor (nonbg 0.2325 / 0.1877-0.2101, matching the recon bands).
+    **Do-not-redo:** the v1-vs-v2 weapon-LoRA falsifier the adversary proposed is
+    now MOOT - the ahri result kills the generative premise on stronger evidence
+    (the method fails on a PERFECT-domain corpus, so a worse-domain corpus cannot
+    rescue it); do not spend the GPU. **FUTURE:** renders stay parked and are
+    cheap whenever a DISCRIMINATIVE consumer wants them (`m1-gate-fund-or-close`,
+    still operator-gated). Bind pose is permanent without the `.skl` (CDragon
+    404s it), so capture buys camera variety, never pose variety. If a champion
+    LoRA is retried the experiment is ONE skin / clean captions / ~400 steps, not
+    21 skins / one caption / 1500 steps. The base model alone (RealVisXL + prompt
+    + ControlNet-openpose) is currently the best splash-art producer measured,
+    and IP-Adapter face reference remains untested and needs no training.
+
 106. DONE **2026-08-13 (/sync-all-md congruence pass; `b80e7cb`, docs-only).**
     Reconciled the 7 living docs against facts established live this turn, not
     against each other. **Premise CORRECTED on one point:** the skill's fact
