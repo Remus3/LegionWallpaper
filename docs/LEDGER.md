@@ -27,6 +27,67 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+110. DONE **2026-08-16 (IP-Adapter across two bases + two adapters; GEN_MODELS
+    mechanism corrected).** Two evals, matched seeds throughout, n=3 per arm -
+    direction-finding, NOT calibration. **plus-face BEATS the general adapter on
+    RealVisXL and is not strictly dominant.** control margin 0.0751 / `lap_var`
+    464.3; general 0.3/0.5/0.7 margin 0.0830/0.0783/0.0815, `lap_var`
+    184.8/170.4/180.1; **plus-face 0.3/0.5/0.7 margin 0.0982/0.0968/0.0994**,
+    `lap_var` **296.5**/231.0/162.4. plus-face's WORST margin beats general's BEST
+    by 17 percent, and the mechanism differs: general lifted `subject_cos` with
+    `off_cos` pinned, while plus-face lifts `subject_cos` AND pushes `off_cos`
+    BELOW control (0.1984-0.2000 vs 0.2075). Sharpness at 0.3 keeps 64 percent of
+    control vs general's 40. Control reproduced BYTE-IDENTICAL against LEDGER 108
+    (`7437711d...` / `b4e6e5dc...` / `dd839993...`) and the weight name was
+    verified in every `gen_manifest.json`. **THREE regressions, all real:** the fox
+    familiar now fires at ALL THREE plus-face scales INCLUDING 0.3, where general
+    was clean until 0.5 - **0.3 is no longer a safe harbour** (rests on 1 of 3
+    seeds); saturation is WORSE than general at every scale, so the prediction that
+    patch conditioning would fix colour blow-out is **WRONG**; and mean CLIP to the
+    21 real splashes moves the wrong way, below control and every general arm.
+    **CORRECTION to LEDGER 108 / to what was reported in-session:** general's
+    sharpness cost is NOT monotone in arm means (184.8 -> 170.4 -> 180.1);
+    plus-face's is. **plus-face is UNDERSTATED here** - the reference was not a
+    tight face crop (face ~90x90 inside 320x320, about 4.5x4.5 CLIP patches), near
+    worst-case input for a face-tuned PATCH adapter. Tight-crop A/B is the open
+    follow-up. **On animagine (the SHIPPED base) the adapter lane HOLDS but the
+    MEDIUM FAILS INDEPENDENTLY.** Control mean `subject_cos` 0.2579 is BELOW the
+    0.26 floor with a `wrong_subject` reject, so animagine's canonical champion
+    knowledge is NOT sufficient alone; plus-face lifts every scale above it (3/3 at
+    0.3 and 0.5, best 0.5). Ranking INVERTS vs RealVisXL - plus-face beats general
+    on every measure here (margin 0.0532 vs 0.0394) and general 0.3 is WORSE than
+    the no-adapter control, so adapter choice genuinely interacts with the base.
+    Sharpness collapse is milder (435 -> 225, never crosses the 150 floor, zero
+    blur rejects) and the fox familiar does NOT reproduce on animagine at any
+    scale. **The finding that outranks the adapter result:** using real-vs-real
+    self-similarity as a ceiling (**0.8373**), RealVisXL arms sit AT OR ABOVE it
+    (0.8467-0.8542) while animagine arms sit 0.11-0.19 BELOW (0.6427-0.7305) - yet
+    animagine plus-face 0.5 posts `subject_cos` 0.2909, near the highest measured
+    anywhere. The gate is blind to exactly what `GEN_MODELS.md` warned it would be
+    blind to. 0 of 18 animagine frames are hero-dominant key art; ALL RealVisXL
+    frames are. **`docs/GEN_MODELS.md` mechanism CORRECTED:** its "flat cel-shaded"
+    warning had the CAUSE wrong - measured flatness puts animagine (0.38) CLOSER to
+    real (0.358) than RealVisXL (0.25); the failures are bloom and COMPOSITION (the
+    booru `from below` / `cowboy shot` tags), not flatness. Its CONCLUSION - that
+    the gate passes it anyway - is confirmed exactly. The same paragraph's stale
+    Phase-0 claim ("No weight is downloaded yet; the config path is a documented
+    placeholder") was blockquoted and dated rather than deleted. **Prompt register
+    VERIFIED not assumed:** a sixth diagnostic arm fed animagine the RealVis
+    natural-language prompt - 0/3 PASS, negative mean margin, and by eye a
+    different armored sword-wielding champion; `splash-booru` is the fair register.
+    That arm scored the BEST medium and WORST identity, so medium and subject are
+    independently controllable and the gate sees only one. **Do-not-redo:** a
+    hard-step detector returned 0.0000 on every set including real - dead, discarded
+    rather than reported as a null. **Confound on record:** the booru style block
+    carries its own sampler (euler_a/28/5.5 vs dpmpp_2m_sde/karras/32/5.0), so
+    cross-base rows are recipe-to-recipe, not sampler-controlled. **NOT PROMOTED
+    and deliberately so** - tuning adapter scale on a base whose medium fails
+    independently optimizes the wrong variable. No config default changed. The
+    0.8373 ceiling is NOT adopted as a gate; it rests on one champion.
+    **Verified:** repo tree clean throughout both evals, `tools/` unmodified, RC
+    gate 0 before and after, no `--force`, nothing killed, no weights downloaded by
+    either agent.
+
 109. DONE **2026-08-16 (IP-Adapter weight-file validation - fixing a false-green
     hole shipped in 108).** **The defect was mine, shipped in `24b7d5f`.** The
     IP-Adapter existence check validated the adapter ROOT directory, which always

@@ -50,14 +50,55 @@ date (YYYY-MM-DD).
 | Animagine XL 4.0 | 4.0 fp16 opt | huggingface.co/cagliostrolab/animagine-xl-4.0 | CreativeML OpenRAIL++-M | 6327eca98bfb6538dd7a4edce22484a1bbc57a8cff6b11d075d40da1afb847ac | 2026-07-11 | ANIME base (operator-directed anime-flat direction). 6.94 GB animagine-xl-4.0-opt.safetensors. Booru-tag prompting (style splash-booru). KNOWS LoL champions canonically (Vayne: correct glasses/dual-crossbows/ponytail) + clean anime faces/glasses - fixed the mangled-glasses + odd-expression + too-photoreal complaints RealVis could not |
 | ControlNet OpenPose SDXL | xinsir 1.0 | huggingface.co/xinsir/controlnet-openpose-sdxl-1.0 | Apache-2.0 | (diffusers fp16) | 2026-07-11 | 2.5 GB. POSE CONTROL - extract an OpenPose skeleton (with hand keypoints) from a real splash via controlnet_aux OpenposeDetector, condition Animagine on it. Deterministic fix for unnatural posing + mirrored/second-left-hand chirality, while KEEPING sharp txt2img detail (no img2img blur). --controlnet-pose <ref>. Preprocessor annotators from lllyasviel/Annotators. controlnet_aux is pure-pip (no onnxruntime/mediapipe) |
 
-Placeholder path in `tools/lw_gen_config.json`:
-`tools/models/<PLACEHOLDER checkpoint>.safetensors`. No weight is downloaded yet;
-the config path is a documented placeholder, not a live file. Candidate classes to
-try in the Phase-0 spike (plan section 2.2): a Juggernaut-XL / RealVisXL-class
-photoreal-leaning SDXL finetune; base SDXL 1.0 + a splash-art / concept-art / key-
-art LoRA; or a dedicated digital-painting / concept-art SDXL finetune. Pick ONE by
-eye against real 0.Originals - do NOT default to anime (an anime finetune renders
-flat cel-shaded art that still falsely passes the CLIP subject gate).
+**STALE AS WRITTEN - the Phase-0 spike is long over.** The paragraph below was the
+selection guidance BEFORE any weight existed; `model_path` in
+`tools/lw_gen_config.json` has pointed at a real downloaded checkpoint since
+2026-07-10 (RealVisXL V5.0, flipped to Animagine XL 4.0 on 2026-07-11). Kept for
+the reasoning, not as current state.
+
+> Placeholder path in `tools/lw_gen_config.json`:
+> `tools/models/<PLACEHOLDER checkpoint>.safetensors`. No weight is downloaded yet;
+> the config path is a documented placeholder, not a live file. Candidate classes to
+> try in the Phase-0 spike (plan section 2.2): a Juggernaut-XL / RealVisXL-class
+> photoreal-leaning SDXL finetune; base SDXL 1.0 + a splash-art / concept-art / key-
+> art LoRA; or a dedicated digital-painting / concept-art SDXL finetune. Pick ONE by
+> eye against real 0.Originals - do NOT default to anime (an anime finetune renders
+> flat cel-shaded art that still falsely passes the CLIP subject gate).
+
+**MECHANISM CORRECTED 2026-08-16 - the warning's CONCLUSION held and its CAUSE did
+not.** Measured over 18 animagine frames against the 21 real Ahri splashes:
+
+- **"flat cel-shaded" is WRONG as the failure mode.** Measured flatness puts
+  animagine (0.38) CLOSER to real splash art (0.358) than RealVisXL (0.25). The
+  anime base is not too flat; if anything it is flatter-matched than the photoreal
+  one. The real failures are **bloom** (soft-airbrushed, blown highlights) and
+  **COMPOSITION**: the booru `from below` / `cowboy shot` / `foreshortening` tags
+  produce hip-dominant crops with heads small, rotated or inverted. **0 of 18
+  animagine frames are hero-dominant key art; all RealVisXL frames are.**
+- **"still falsely passes the CLIP subject gate" is EXACTLY RIGHT and was caught in
+  the act.** Animagine plus-face 0.5 posts `subject_cos` 0.2909 - near the highest
+  measured anywhere - while sitting 0.11-0.19 BELOW the real-vs-real self-similarity
+  ceiling of 0.8373 (animagine 0.6427-0.7305; RealVisXL 0.8467-0.8542, at or above
+  the ceiling). Healthy gate number, output measurably outside the corpus
+  distribution.
+- **Do not read this as "animagine is disqualified".** It is the SHIPPED base and
+  the adapter demonstrably helps on it (control mean `subject_cos` 0.2579 is BELOW
+  the 0.26 floor with a `wrong_subject` reject; plus-face lifts every scale above
+  it). The finding is that the medium fails INDEPENDENTLY of the adapter, so tuning
+  adapter scale on this base optimizes the wrong variable.
+- **Confound on record:** the booru style block carries its own sampler
+  (euler_a/28/5.5) vs splash's (dpmpp_2m_sde/karras/32/5.0), so cross-base rows
+  compare recipe-to-recipe, NOT sampler-controlled.
+- **A natural-language prompt does not work on this base** and the failure is not
+  subtle: feeding animagine the RealVis natural-language prompt scored 0/3 PASS with
+  a negative mean margin and rendered a different armored sword-wielding champion
+  entirely. `splash-booru` is the fair register - confirmed by measurement, not
+  assumed. That same arm scored the BEST medium and the WORST identity, so medium
+  and subject are independently controllable and the gate only sees one of them.
+
+**The 0.8373 real-vs-real ceiling is a gate-independent yardstick** and is the only
+thing in this study that separated the two bases decisively. NOT yet adopted as a
+gate - it rests on one champion. See LEDGER 110.
 
 ### Style LoRA (OPTIONAL - only if the Phase-0 spike shows anime/style leakage)
 
