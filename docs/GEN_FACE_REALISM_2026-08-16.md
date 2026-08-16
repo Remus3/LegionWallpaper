@@ -221,3 +221,86 @@ frame with no face (or too little skin to measure) is now copied through
 unchanged and recorded in the report with a `skipped` reason. Pinned by
 `test_a_frame_with_no_detectable_face_is_passed_through_not_dropped`. Output
 counts are now 5/5 for every champion.
+
+
+## OPERATOR VERDICT: the correction failed, and the band does not track quality
+
+Frame-by-frame review by the operator, against my measure's 24/29 "in band":
+
+    ahri      01 ok, 02 ok, 03 failed (no change applied)
+    jinx      04 a little okay; 01 02 03 05 failed
+    katarina  all five failed
+    lux       01 a little okay; 02 03 04 05 failed
+    miss f.   all five failed
+    vayne     01 okay, 03 would be okay but the shadows are too black;
+              02 04 05 failed
+    yasuo     01 and 05 okay; 02 03 04 failed
+
+Roughly **6 acceptable out of 30** against **24 of 29 "in band"**. The band is
+NOT a quality gate. This is the second time in one day that a corpus-statistics
+measure ranked output the operator rejects (ADR-011 was the first), and the
+lesson is the same: a distribution match is not an aesthetic verdict.
+
+**The named mechanism was real and is now measured.** The operator called it
+"mascara like black line and blowing out the colors/shadows/highlights". The
+correction scaled raw luminance about its mean, so every deviation was
+amplified - including the one-pixel dark strokes that draw lashes, lash lines
+and lip lines. Measured over the six champion sets: **0.10-0.25 percent of each
+frame newly crushed to <= 8 levels, and darkening of up to 113 levels on
+Katarina**, the champion that failed entirely and had the largest gain (her
+modelling ratio 0.37 hit the 1.8 gain clip).
+
+**Three defects behind it, all fixed:**
+
+1. **Correction applied to raw luminance instead of shading only.** It now
+   splits luminance into low-frequency shading and high-frequency detail,
+   corrects the shading, and adds the detail back untouched.
+2. **Movement was unbounded.** A pixel may now lose at most `MAX_DARKEN` (12)
+   levels and gain at most `MAX_BRIGHTEN` (70), and any step that newly crushes
+   or blows out more than 0.05 percent of the frame is refused outright. The
+   gain clip fell from 1.8 to 1.35.
+3. **The blur padded with zeros**, which depressed the low-frequency term near
+   the border; the detail term absorbed the deficit and the correction
+   double-counted it - a synthetic frame overshot its target by +22 levels.
+   Padding is now edge-replicate everywhere except the mask feather, which
+   genuinely wants a taper to nothing at the frame edge.
+
+Measured after the fixes, same frames: **max darkening 113 -> 5 levels, crush
+0.25 -> 0.011 percent, blowout to zero**.
+
+## Per-champion bands (operator-directed)
+
+Built from real art in the local corpus - `tools/lw_gen_facekey_bands.json`,
+`--champion NAME` selects one. A champion needs >= 5 real images to get its own
+band; otherwise the corpus-wide default is used, and the tool PRINTS which it
+took.
+
+    ahri     n=30  level +22.4  ratio 0.79
+    vayne    n=24  level +14.3  ratio 0.94
+    camille  n=5   level +33.3  ratio 0.85
+    yasuo    n=5   level +16.4  ratio 0.87
+    janna    n=6   level +14.5  ratio 0.74
+    vex      n=6   level +11.6  ratio 0.88
+    samira   n=5   level  +7.0  ratio 0.78
+    _default n=259 level +16.9  ratio 0.84
+
+**This retires the global target and shows it was biased.** The old +24.3 came
+from Ahri alone; the corpus-wide median is **+16.9**, so every non-Ahri face was
+being pushed about 7 levels too bright before the unbounded gain did the rest.
+Champion spread is wide - camille +33.3 against samira +7.0 - so one number was
+never going to fit. Jinx, Katarina, Lux and Miss Fortune have 2-3 local images
+each and get the default; a proper band for them needs more real art.
+
+**Honest cost of the fix:** in-band fell from 24/29 to 9/29. The old number was
+bought with the damage above, so it was never worth what it appeared to be. The
+correction is now small and safe; whether small and safe is worth applying at
+all is an operator call on the frames, not a call the measure can make.
+
+## Separate and larger finding: non-Ahri generation is deformed
+
+Operator, on the same review: content "aside from ahri - are all vastly
+deformed, incorrect positioning and drawing". That is about GENERATION, not
+about the face key, and it is the first time the shipped style has been looked
+at on champions other than Ahri - every arm in this study, and in LEDGER
+107-116, used Ahri. The style's realism block and the whole splash-booru recipe
+are tuned on a single champion. Tracked in `ROADMAP.md`.

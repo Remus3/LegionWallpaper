@@ -27,6 +27,50 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+119. DONE **2026-08-16 (operator verdict overturns the face-key result: the
+    band is not a quality gate; mechanism fixed, per-champion bands built, and
+    a bigger finding surfaced).** **THE RESULT I REPORTED WAS WRONG WHERE IT
+    MATTERED.** I reported 24/29 frames "in the corpus band"; the operator's
+    frame-by-frame review is roughly **6 acceptable out of 30** - ahri 01/02 ok,
+    jinx 04 marginal, lux 01 marginal, vayne 01 ok and 03 marginal, yasuo 01/05
+    ok, EVERYTHING else failed and Katarina failed entirely. **This is the
+    second corpus-statistics measure in one day to rank output the operator
+    rejects** (ADR-011 was the first), and the lesson repeats: a distribution
+    match is not an aesthetic verdict, and I should not have presented in-band
+    as success. **THE OPERATOR NAMED THE MECHANISM AND IT MEASURES OUT EXACTLY:**
+    "mascara like black line and blowing out the colors/shadows/highlights". The
+    correction scaled RAW luminance about its mean, amplifying every deviation
+    including the 1px dark strokes that draw lashes and lip lines - **0.10-0.25
+    percent of each frame newly crushed to <= 8 levels and darkening up to 113
+    levels on Katarina**, whose 0.37 modelling ratio drove the gain to its 1.8
+    clip. That is why she failed entirely, predicted by the operator and
+    confirmed by measurement. **THREE DEFECTS FIXED:** (1) the correction now
+    splits luminance into low-frequency shading and high-frequency detail and
+    touches only the shading; (2) movement is bounded (MAX_DARKEN 12,
+    MAX_BRIGHTEN 70, gain clip 1.8 -> 1.35) and any step that newly crushes or
+    blows out more than 0.05 percent of the frame is refused; (3) `_box_blur`
+    padded with ZEROS, depressing the low-frequency term near the border so the
+    detail term absorbed the deficit and the correction double-counted it - a
+    synthetic frame overshot by +22 levels, caught by a test asserting the split
+    is unbiased. Re-measured on the same frames: **max darkening 113 -> 5, crush
+    0.25 -> 0.011 percent, blowout to zero**. **PER-CHAMPION BANDS BUILT** from
+    real corpus art (`tools/lw_gen_facekey_bands.json`, `--champion NAME`, >= 5
+    real images required, corpus default otherwise, and the tool PRINTS which it
+    used): ahri n=30 +22.4/0.79, vayne n=24 +14.3/0.94, camille +33.3, yasuo
+    +16.4, janna +14.5, vex +11.6, samira +7.0, default n=259 **+16.9/0.84**.
+    **That retires the global target and shows it was biased**: +24.3 came from
+    Ahri alone, so every other champion was being pushed ~7 levels too bright
+    before the unbounded gain did the rest. Jinx/Katarina/Lux/Miss Fortune have
+    2-3 local images and fall back to the default. **HONEST COST:** in-band fell
+    24/29 -> 9/29, because the old number was bought with the damage the
+    operator rejected. **SEPARATE, LARGER FINDING, now ROADMAP
+    `gen-nonahri-deformed`:** the operator reports everything except Ahri is
+    "vastly deformed, incorrect positioning and drawing". Every arm in LEDGER
+    107-118 used Ahri, so the whole recipe is tuned on one champion and the QA
+    gate does not catch the deformity - those frames scored in the normal range
+    while being unusable. **Verified:** 2029 passed / 18 skipped, ruff clean,
+    harm re-measured on disk after the fix rather than inferred.
+
 118. DONE **2026-08-16 (face-key validated across six champions; a
     frame-dropping defect found and fixed).** Operator: run it on at least 5
     champions, at least 5 frames each. Jinx / Katarina / Lux / Miss Fortune /

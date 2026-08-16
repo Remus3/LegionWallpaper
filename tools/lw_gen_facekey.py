@@ -44,7 +44,11 @@ CORPUS_BAND = {           # p10..p90 of the same corpus - the validation band
     "level_offset": (-3.0, 45.0),
     "modelling_ratio": (0.64, 1.26),
 }
-GAIN_CLIP = (0.8, 1.8)
+GAIN_CLIP = (0.85, 1.35)  # tight: 1.8 crushed lash lines to black (see MAX_DARKEN)
+MAX_DARKEN = 12.0        # a pixel may never lose more than this many levels
+MAX_BRIGHTEN = 70.0      # nor gain more, so speculars cannot be driven to clip
+CRUSH_LIMIT = 0.0005     # fraction of frame newly <= 8; above this the pass is refused
+BLOWOUT_LIMIT = 0.0005   # fraction newly >= 250
 SKIN_CHROMA_TOL = 0.045
 LUM_WINDOW = 90.0        # skin must sit within this many levels of the seed median
 PASSES = 2               # re-measure and apply the residual once
@@ -59,11 +63,20 @@ def key_targets(face_mean, face_std, body_mean, body_std,
     return gain, float(body_mean) + float(offset)
 
 
-def _box_blur(a, k):
+def _box_blur(a, k, pad_mode="edge"):
+    """Separable box blur.
+
+    `pad_mode` is load-bearing and defaults to EDGE. Zero padding depresses the
+    result near the frame border, which biases the shading/detail split - the
+    detail term inherits the deficit and the correction then double-counts it
+    (measured: a synthetic frame overshot its target by +22 levels). The mask
+    feathering is the one caller that WANTS zero padding, so that the weight
+    tapers to nothing at the image edge; it asks for it explicitly.
+    """
     k = max(3, int(k) | 1)
     out = np.asarray(a, dtype=np.float64)
     for axis in (0, 1):
-        pad = np.pad(out, k // 2, mode="constant")
+        pad = np.pad(out, k // 2, mode=pad_mode)
         acc = np.zeros_like(out)
         for d in range(k):
             if axis == 0:
@@ -89,11 +102,11 @@ def feathered_weight(mask, feather_px=15):
     # punch holes in it - so blurring it directly never reaches 1.0 anywhere,
     # which is precisely how the first prototype scaled its own correction
     # away. Closing fills those holes so the region reads as solid.
-    solid = (_box_blur(m, feather_px) > 0.15).astype(np.float64)
+    solid = (_box_blur(m, feather_px, pad_mode="constant") > 0.15).astype(np.float64)
     solid = np.maximum(solid, m)
     # Then a plain blur gives interior 1.0 with the taper on the boundary; the
     # 0.9 divisor makes the saturation robust to a ragged edge.
-    return np.clip(_box_blur(solid, feather_px) / 0.9, 0.0, 1.0)
+    return np.clip(_box_blur(solid, feather_px, pad_mode="constant") / 0.9, 0.0, 1.0)
 
 
 def luminance(rgb):
@@ -101,23 +114,56 @@ def luminance(rgb):
     return 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
 
 
-def apply_face_key(rgb, mask, weight, gain, target_mean):
-    """Return `rgb` with the masked region keyed to (gain, target_mean).
+def shading_split(lum, face_width):
+    """Split luminance into low-frequency shading and high-frequency detail.
 
-    Outside the weight map the output is byte-identical to the input.
+    THE CORRECTION MUST ONLY TOUCH THE SHADING. Scaling raw luminance about its
+    mean amplifies every deviation, including the fine dark strokes that draw
+    lashes, lash lines, nostrils and lip lines - which is exactly the "mascara
+    like black line" the operator reported, and why a gain of 1.8 darkened
+    Katarina by up to 113 levels. Detail is carried through untouched.
+    """
+    k = max(9, int(face_width // 3) | 1)
+    low = _box_blur(np.asarray(lum, dtype=np.float64), k)
+    return low, np.asarray(lum, dtype=np.float64) - low
+
+
+def apply_face_key(rgb, mask, weight, gain, target_mean, face_width=None):
+    """Return `rgb` with the masked region's SHADING keyed to (gain, target_mean).
+
+    Outside the weight map the output is byte-identical to the input. Inside it,
+    per-pixel movement is bounded by MAX_DARKEN / MAX_BRIGHTEN so the correction
+    can never manufacture black strokes or blow highlights out.
     """
     a = np.asarray(rgb, dtype=np.float64)
     lum = luminance(a)
     sel = np.asarray(mask, dtype=bool)
     if not sel.any():
         return a.astype(np.uint8)
-    face_mean = float(lum[sel].mean())
-    target = (lum - face_mean) * float(gain) + float(target_mean)
-    scale = np.divide(target, np.maximum(lum, 1e-6))
+    if face_width is None:
+        cols = np.where(sel.any(axis=0))[0]
+        face_width = max(9, int(cols.max() - cols.min()) if cols.size else 9)
+    low, detail = shading_split(lum, face_width)
+    face_low_mean = float(low[sel].mean())
+    new_low = (low - face_low_mean) * float(gain) + float(target_mean)
+    new_lum = new_low + detail
+    # Bound the movement BEFORE it becomes a scale factor.
+    new_lum = np.maximum(new_lum, lum - MAX_DARKEN)
+    new_lum = np.minimum(new_lum, lum + MAX_BRIGHTEN)
+    new_lum = np.clip(new_lum, 2.0, 250.0)
+    scale = np.divide(new_lum, np.maximum(lum, 1e-6))
     w = np.asarray(weight, dtype=np.float64)
     scale = 1.0 + (scale - 1.0) * w
-    out = np.clip(a * scale[..., None], 0, 255)
-    return out.astype(np.uint8)
+    return np.clip(a * scale[..., None], 0, 255).astype(np.uint8)
+
+
+def harm(before_rgb, after_rgb):
+    """(crush, blowout) - fractions of the frame newly crushed or blown out."""
+    x = luminance(np.asarray(before_rgb, dtype=np.float64))
+    y = luminance(np.asarray(after_rgb, dtype=np.float64))
+    crush = float(((y <= 8) & (x > 8)).mean())
+    blow = float(((y >= 250) & (x < 250)).mean())
+    return crush, blow
 
 
 def skin_mask(rgb, seed_box, tol=SKIN_CHROMA_TOL, lum_window=LUM_WINDOW):
@@ -176,7 +222,8 @@ def in_band(level_offset, modelling_ratio, band=CORPUS_BAND):
     return bool(lo <= level_offset <= hi and rlo <= modelling_ratio <= rhi)
 
 
-def correct_frame(rgb, face_box, feather_px=15):
+def correct_frame(rgb, face_box, feather_px=15, offset=CORPUS_OFFSET,
+                  ratio=CORPUS_RATIO, band=CORPUS_BAND):
     """Key one frame. Returns (out_rgb, before, after) measurement tuples."""
     a = np.asarray(rgb, dtype=np.float64)
     lum = luminance(a)
@@ -196,8 +243,8 @@ def correct_frame(rgb, face_box, feather_px=15):
     # +13.5 -> -2.7 that way). Each pass is therefore kept only if it moves the
     # frame CLOSER to the corpus relationship, and the best pass wins.
     best = a
-    best_score = _distance(before)
-    before_in_band = in_band(*before)
+    best_score = _distance(before, offset, ratio)
+    before_in_band = in_band(*before, band=band)
     cur = a
     for _ in range(PASSES):
         lum_i = luminance(cur)
@@ -206,7 +253,8 @@ def correct_frame(rgb, face_box, feather_px=15):
         if fs_i.sum() < 200 or bs_i.sum() < 200:
             break
         gain, target_mean = key_targets(lum_i[fs_i].mean(), lum_i[fs_i].std(),
-                                        lum_i[bs_i].mean(), lum_i[bs_i].std())
+                                        lum_i[bs_i].mean(), lum_i[bs_i].std(),
+                                        offset=offset, ratio=ratio)
         w = feathered_weight(fs_i, feather_px)
         # Damped step search: a full-strength correction fixes the modelling
         # ratio but can carry the level past the target, and the guard then
@@ -214,13 +262,17 @@ def correct_frame(rgb, face_box, feather_px=15):
         # such a frame gets a smaller correction rather than none.
         improved = False
         for step in STEPS:
-            cand = apply_face_key(cur, fs_i, w * step, gain, target_mean).astype(np.float64)
+            cand = apply_face_key(cur, fs_i, w * step, gain, target_mean,
+                                  face_width=x1 - x0).astype(np.float64)
+            crush, blow = harm(a, cand)
+            if crush > CRUSH_LIMIT or blow > BLOWOUT_LIMIT:
+                continue          # this step manufactures black strokes or clipping
             m_cand = measure(cand, face_box)
-            score = _distance(m_cand)
+            score = _distance(m_cand, offset, ratio)
             # Never trade a frame that is already inside the corpus band for a
             # nominally shorter distance outside it. Measured over 57 frames,
             # distance-only acceptance pushed 3 in-band frames OUT.
-            if before_in_band and not (m_cand and in_band(*m_cand)):
+            if before_in_band and not (m_cand and in_band(*m_cand, band=band)):
                 continue
             if score < best_score:
                 best, best_score, cur, improved = cand, score, cand, True
@@ -245,6 +297,42 @@ def _detect_face(path, weights):
     return [int(round(v)) for v in boxes[0][:4]]
 
 
+BANDS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "lw_gen_facekey_bands.json")
+MIN_BAND_N = 5           # fewer real images than this cannot support a band
+
+
+def load_bands(path=BANDS_PATH):
+    """Per-champion targets, or {} when the file is absent."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def targets_for(champion, bands=None):
+    """(offset, ratio, band, source) for a champion.
+
+    Per-champion when the corpus carries enough real art for that champion,
+    otherwise the corpus-wide default - never silently the Ahri numbers, which
+    is what the single global target actually was.
+    """
+    bands = load_bands() if bands is None else bands
+    key = (champion or "").strip().lower().replace(" ", "-")
+    entry = bands.get(key)
+    if entry and entry.get("n", 0) >= MIN_BAND_N:
+        src = f"champion:{key} (n={entry['n']})"
+    else:
+        entry = bands.get("_default")
+        src = f"corpus-default (n={entry['n']})" if entry else "built-in"
+    if not entry:
+        return CORPUS_OFFSET, CORPUS_RATIO, CORPUS_BAND, src
+    return (entry["level_median"], entry["ratio_median"],
+            {"level_offset": tuple(entry["level_band"]),
+             "modelling_ratio": tuple(entry["ratio_band"])}, src)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="key generated faces to the corpus")
     ap.add_argument("src", help="image file or directory of PNGs")
@@ -252,10 +340,14 @@ def main(argv=None):
     ap.add_argument("--weights", default=os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "models", "yolo", "face_yolov8m.pt"))
     ap.add_argument("--feather", type=int, default=15)
+    ap.add_argument("--champion", default=None,
+                    help="use this champion's measured band when one exists")
     args = ap.parse_args(argv)
 
     from PIL import Image  # lazy heavy dep
 
+    offset, ratio, band, src_label = targets_for(args.champion)
+    print(f"targets: level {offset:+.1f}, ratio {ratio:.2f}  [{src_label}]")
     paths = ([args.src] if os.path.isfile(args.src)
              else sorted(glob.glob(os.path.join(args.src, "*.png"))))
     os.makedirs(args.out, exist_ok=True)
@@ -273,7 +365,8 @@ def main(argv=None):
             continue
         with Image.open(p) as im:
             rgb = np.asarray(im.convert("RGB"), dtype=np.float64)
-        out, before, after = correct_frame(rgb, box, args.feather)
+        out, before, after = correct_frame(rgb, box, args.feather,
+                                           offset=offset, ratio=ratio, band=band)
         if before is None or after is None:
             shutil.copyfile(p, dst)
             report.append({"file": os.path.basename(p), "skipped": "insufficient_skin"})
@@ -281,12 +374,15 @@ def main(argv=None):
             continue
         Image.fromarray(out).save(dst)
         row = {"file": os.path.basename(p),
+               "targets": src_label,
                "before": {"level_offset": round(before[0], 1),
                           "modelling_ratio": round(before[1], 3),
-                          "in_band": in_band(*before)},
+                          "in_band": in_band(*before, band=band)},
                "after": {"level_offset": round(after[0], 1),
                          "modelling_ratio": round(after[1], 3),
-                         "in_band": in_band(*after)}}
+                         "in_band": in_band(*after, band=band),
+                         "crush": round(harm(rgb, out)[0], 5),
+                         "blowout": round(harm(rgb, out)[1], 5)}}
         report.append(row)
         print(f"{row['file']}: level {row['before']['level_offset']:+.1f} -> "
               f"{row['after']['level_offset']:+.1f} | ratio "

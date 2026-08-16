@@ -495,6 +495,23 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `tools/dwpose_onnx/onnxpose.py:26` silently substitutes the whole frame).
   Evidence: LEDGER 60; `docs/ANATOMY_CENSUS_2026-07-29.md`.
 
+- **gen-nonahri-deformed - the shipped recipe is tuned on ONE champion and the
+  others come out deformed - NEW 2026-08-16, operator verdict.**
+  Reviewing 5 frames each of Jinx, Katarina, Lux, Miss Fortune, Vayne and Yasuo
+  on the shipped `splash-booru` style, the operator's verdict was that
+  everything except Ahri is "vastly deformed, incorrect positioning and
+  drawing". Every arm in LEDGER 107-118 used Ahri, so the realism block, the
+  anti-doll negative, the QA floors and the whole recipe have only ever been
+  evaluated on one champion. The QA gate does NOT catch it: those frames scored
+  in the normal range while being unusable.
+  Next: pick 3-4 champions with real local art (vayne n=24, yasuo n=5, camille,
+  janna, vex all have bands built at `tools/lw_gen_facekey_bands.json`), review
+  a control set by eye BEFORE changing anything, and find whether the deformity
+  tracks the realism block, the booru pose vocabulary (`from below`, `cowboy
+  shot`, `foreshortening`), or the base's champion knowledge. Do not tune on
+  Ahri and assume it transfers - that assumption is what produced this.
+  Evidence: `docs/GEN_FACE_REALISM_2026-08-16.md`, LEDGER 119.
+
 - **gen-reference-lane - BASE SETTLED 2026-08-16 (ADR-011: Animagine XL 4.0
   HELD; RealVisXL + DreamShaper DROPPED). NEXT is facial realism ON THIS BASE,
   then the adapter lane re-run.**
