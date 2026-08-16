@@ -27,6 +27,44 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+120. DONE **2026-08-16 (gen-nonahri-deformed round 1: the cause is the POSE
+    STACK, and the base's champion knowledge was never the problem).** Ablation
+    on the two champions that failed 5/5 (Katarina, Miss Fortune) plus Ahri and
+    Yasuo controls; matched seeds, one fresh process per arm, 3 frames per arm,
+    seven arms. **Looked at the failing frames FIRST**, per the ROADMAP item:
+    both failures land in the same place - torso-to-hip articulation reading as
+    two halves stitched together, mitten/claw hands with wrong finger counts,
+    and neither champion carrying her canonical weapon. **FOUR RESULTS.** (1)
+    **The realism block shipped this morning is NOT the cause** - the deformity
+    persists without it and is arguably worse, so LEDGER 116 is not implicated.
+    (2) **The pose vocabulary IS the cause.** The positive stacks five
+    conflicting pose tags (`dynamic action pose` / `twisted torso` /
+    `contrapposto` / `leaning forward` / `foreshortening` / `from below` /
+    `cowboy shot`) and removing them produces clean anatomy - at the cost of the
+    body leaving frame entirely (those arms are face portraits, not key art).
+    (3) **THE BASE KNOWS THESE CHAMPIONS, which inverts the hypothesis in the
+    ROADMAP item.** A minimal prompt renders Miss Fortune CANONICAL - tricorn
+    hat, correct costume, correct anatomy, hero framing - where the full style
+    gave a deformed figure in generic black leather with no guns. The elaborate
+    style was OVERRIDING the base's champion knowledge, not compensating for a
+    lack of it. (4) **`official splash art` summons the splash TITLE CARD** (the
+    champion wordmark, top-left) and the negative's `text, signature, watermark`
+    do NOT suppress it even though they sit inside the 77-token window; dropping
+    those two words removes the text but loses the key-art framing anchor.
+    **Two candidate recipes measured, neither shipped:** `canon` (minimal
+    positive + full protective negative) gives the best identity and carries the
+    title card; `lean` (one pose tag + lighting + realism + full negative) fixes
+    anatomy and keeps hero framing but dilutes canon - no tricorn, no guns.
+    **NOTHING SHIPPED and the tree is clean:** the style file was edited
+    temporarily for each arm and restored byte-for-byte, verified by
+    `git status` after every batch. 60 frames + an INDEX at
+    `images/_review_ablation/` for the operator's eye, which is the only gate
+    that matters here - the QA gate scored the deformed frames in the normal
+    range, and today's two corpus-statistics measures both ranked output the
+    operator rejects. **NEXT:** operator picks between canon and lean, and
+    whether a text-specific negative (`logo, title, english text`) can strip the
+    title card while keeping `official splash art`.
+
 119. DONE **2026-08-16 (operator verdict overturns the face-key result: the
     band is not a quality gate; mechanism fixed, per-champion bands built, and
     a bigger finding surfaced).** **THE RESULT I REPORTED WAS WRONG WHERE IT

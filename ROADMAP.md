@@ -504,13 +504,25 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   anti-doll negative, the QA floors and the whole recipe have only ever been
   evaluated on one champion. The QA gate does NOT catch it: those frames scored
   in the normal range while being unusable.
-  Next: pick 3-4 champions with real local art (vayne n=24, yasuo n=5, camille,
-  janna, vex all have bands built at `tools/lw_gen_facekey_bands.json`), review
-  a control set by eye BEFORE changing anything, and find whether the deformity
-  tracks the realism block, the booru pose vocabulary (`from below`, `cowboy
-  shot`, `foreshortening`), or the base's champion knowledge. Do not tune on
-  Ahri and assume it transfers - that assumption is what produced this.
-  Evidence: `docs/GEN_FACE_REALISM_2026-08-16.md`, LEDGER 119.
+  **ROUND 1 DONE 2026-08-16 (LEDGER 120) - cause found, nothing shipped.** Seven
+  ablation arms on Katarina + Miss Fortune (both failed 5/5), matched seeds:
+  the realism block is NOT the cause (deformity persists without it); the POSE
+  STACK is (`dynamic action pose` / `twisted torso` / `contrapposto` /
+  `leaning forward` / `foreshortening` / `from below` / `cowboy shot`), and
+  removing it gives clean anatomy but drops the body out of frame; **the base
+  KNOWS these champions** - a minimal prompt renders Miss Fortune canonical
+  (tricorn, costume, anatomy, hero framing) where the full style gave a
+  deformed figure in generic leather, so the style was OVERRIDING champion
+  knowledge rather than supplying it; and `official splash art` summons the
+  splash TITLE CARD, which `text, signature, watermark` do not suppress.
+  Next: operator picks between the two measured candidates - `canon` (minimal
+  positive + full negative: best identity, carries the title card) and `lean`
+  (one pose tag + lighting + realism: fixes anatomy, keeps framing, dilutes
+  canon) - and whether a text-specific negative strips the title card while
+  keeping `official splash art`. Then re-validate on 4+ champions BY EYE; the
+  QA gate scored the deformed frames in the normal range and cannot arbitrate.
+  Frames + index: `images/_review_ablation/`.
+  Evidence: `docs/GEN_FACE_REALISM_2026-08-16.md`, LEDGER 119-120.
 
 - **gen-reference-lane - BASE SETTLED 2026-08-16 (ADR-011: Animagine XL 4.0
   HELD; RealVisXL + DreamShaper DROPPED). NEXT is facial realism ON THIS BASE,
