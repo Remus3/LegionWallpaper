@@ -27,6 +27,57 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+116. DONE **2026-08-16 (splash-booru face realism: the shipped base moved to
+    the corpus register by PROMPT, and the operator's reference crops
+    characterised).** Operator direction was one line - more real faces, not
+    uncanny. **TWO FACTS FOUND BEFORE ANY ARM RAN, both from the tokenizer:**
+    `photorealistic, 3d render` in the negative were ALREADY INERT (the negative
+    is 93 tokens against CLIP's 77, both sat in the discarded tail), so nothing
+    was pushing this base away from realism; and the positive had 8 tokens of
+    headroom, so every realism arm also spends the `masterpiece/absurdres` tail.
+    **ROUND A (6 arms):** the realism block moves the base's rendering register
+    from **0.6843 (-0.153)** to **0.8350 (-0.002)** against the 0.8373 ceiling -
+    **the gap ADR-010 flipped the base over, closed on the SHIPPED base by a
+    prompt change** - while subject_cos and margin both improve. Eye colour
+    drifted magenta/grey on the positive-only arms and a `yellow eyes` tag
+    restored it. **ROUND B (6 arms, operator's 5 approved face crops):** a
+    reference carrying a COMPETING champion identity is not a style transfer -
+    Jinx at plus-face 0.3 pulls Ahri's hair blue-black and drops subject below
+    the 0.26 floor; at 0.5 the margin goes NEGATIVE, 0/3. The identity-neutral
+    crop posts the best margin of the round (0.0646) with sharpness kept, and
+    only the real-Ahri reference holds identity AND register, at 45 percent of
+    sharpness. **The crops also answer LEDGER 111's open confound:** they sit at
+    ~50 percent face fraction (its "tight" framing) with sharpness 1740-4613
+    instead of 108, and tight framing did NOT hurt - the blurred reference did.
+    **ROUND C, and this is where the shippable answer came from:** `yellow eyes`
+    is Ahri-specific and cannot enter a champion-agnostic style block, so the
+    block was re-measured without it - positive alone 0.7958, positive plus the
+    anti-doll negative 0.8344. **A PREDICTION OF MINE WAS REFUTED:** I expected
+    `cel shading` to be the source of the softness and dropped it; sharpness did
+    not recover (267 vs 256) and 0.013 of register was lost. The softness comes
+    from the rest of the block. **THE TRAP THE EDIT NEARLY SHIPPED:** inserting
+    the 16-token anti-doll block naively pushed **`text, signature, watermark`
+    out of the 77-token window** - the signature guard, silently. Fixed by
+    REORDERING by priority (anti-doll, quality core, text/signature/watermark,
+    anatomy core, glasses, pose) so the discarded tail is the redundant
+    finger/limb duplicates and the score tags; nothing was deleted except
+    `photorealistic, 3d render`, whose inertness was measured, not assumed.
+    **VERIFIED BY GENERATION with the shipped style and no CLI extras** per the
+    standing rule on this workstream: subject **0.2843** (+0.0137 vs control),
+    margin **0.0592** (+0.0080), sharpness **519.5** (control 537.8 - the
+    reorder recovered what round C was spending at 256.4), 2/3 PASS, register
+    **0.8268 (-0.0105)**. **Pinned by three new tests** in
+    `test_lw_gen_data.py`: the realism block present, every guard inside the
+    first 20 tags (position as a CI-safe proxy for the token count, with the
+    tokenizer re-measure written into the comment), and the anti-realism tags
+    staying deleted. Evidence: `docs/GEN_FACE_REALISM_2026-08-16.md`.
+    **Standing:** champion canon (eye colour) goes in the brief's
+    `prompt_extra`, never the shared style; the IP-Adapter stays a per-brief
+    option in the real-splash shape, never a default and never another
+    champion's face. The operator's reference crops live in `images/_ip_refs/`
+    (gitignored); the sources were read in place and never copied into the repo.
+    **Verified:** 2014 passed / 18 skipped, ruff clean.
+
 115. DONE **2026-08-16 (ADR-010 REVERSED the same day: the base stays animagine,
     and corpus similarity is barred from selecting a base).** **The operator
     inspected every candidate frame from all three arms and the ranking inverts

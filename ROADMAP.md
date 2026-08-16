@@ -511,16 +511,25 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   convention-breaking bases first. Do not re-run a base A/B scored on it.
   `tools/lw_gen_medium.py` (the recovered yardstick, reproduces the recorded
   0.8373 to four decimals) is kept for what it does measure.
-  Next, in order: (1) **facial realism on animagine** - operator direction
-  2026-08-16: push the faces somewhat more real WITHOUT the uncanny register the
-  dropped bases produced. Prompt / adapter / sampler work on THIS base, verified
-  by generation and operator eye, never a base swap; (2) re-run plus-face loose
-  0.3 on animagine and measure sharpness as well as identity - on animagine the
-  ranking INVERTS vs RealVis (plus-face 0.5 best, general 0.3 worse than control),
-  so the RealVis tuning does not transfer; (3) the fox familiar is base/prompt/
-  seed, NOT reference bleed (LEDGER 111) - attack it as a negative-prompt problem.
+  **FACIAL REALISM SHIPPED 2026-08-16 (LEDGER 116).** `splash-booru` carries a
+  face-realism block and a priority-ordered anti-doll negative; verified by
+  generation with no CLI extras: subject 0.2843 (+0.014), margin 0.0592 (+0.008),
+  sharpness 519.5 held, and the base's rendering register moved from **0.6843
+  (-0.153) to 0.8268 (-0.011)** against the 0.8373 ceiling - the ADR-010 gap
+  closed on the SHIPPED base by a prompt change. Evidence:
+  `docs/GEN_FACE_REALISM_2026-08-16.md`.
+  Next, in order: (1) **operator eye on the shipped frames** - hands, weapon
+  canon and likeness have no automatic measure (ADR-011), so the realism block
+  stands until inspected on more champions than Ahri; (2) champion canon (eye
+  colour) belongs in each brief's `prompt_extra` - Ahri's `yellow eyes` is
+  measured to matter and is NOT in the shared style; (3) the fox familiar is
+  base/prompt/seed, NOT reference bleed (LEDGER 111) - attack it as a
+  negative-prompt problem.
   Do-not-redo, all measured: a base A/B scored on corpus similarity (LEDGER 115 -
-  it selected two bases that break the product); composition tags (112 - reverted;
+  it selected two bases that break the product); an IP-Adapter reference carrying
+  ANOTHER champion's face (116 - Jinx at plus-face 0.3 drops Ahri below the
+  subject floor, at 0.5 the margin goes negative, 0/3); dropping `cel shading`
+  from the anti-doll negative (116 - costs register, buys no sharpness); composition tags (112 - reverted;
   heads are TOO BIG, and 5/6 frames sit inside the real envelope); long-prompt
   encoding (113 - built, proven bit-exact, reverted; identity fell on 12/12 seeds);
   re-cropping the local corpus tighter (111 - the confound is in the SOURCE);

@@ -275,3 +275,49 @@ def test_brief_style_exists_in_styles():
     _, brief = _load(BRIEF_PATH)
     _, styles = _load(STYLES_PATH)
     assert brief["style"] in styles, "brief style not defined in styles.json"
+
+
+# --- splash-booru face-realism block (2026-08-16) --------------------------
+# The negative is 103 tokens against CLIP's 77-token window, so ORDER decides
+# what survives. This cannot be asserted directly without a CLIP tokenizer (a
+# heavy dep CI does not carry), so the invariant is pinned as tag POSITION:
+# the guards that must survive sit early, and the redundant finger/limb
+# duplicates sit last where truncation eats them. Re-measure with the
+# tokenizer if this block is reordered - see docs/GEN_FACE_REALISM_2026-08-16.md.
+BOORU_SURVIVORS = (
+    "flat color", "cel shading", "doll face", "plastic skin",
+    "smooth featureless skin", "lowres", "worst quality", "low quality",
+    "blurry", "text", "signature", "watermark", "bad anatomy", "bad hands",
+)
+
+
+def _tags(text):
+    return [t.strip() for t in text.split(",") if t.strip()]
+
+
+def test_splash_booru_positive_carries_the_face_realism_block():
+    _, styles = _load(STYLES_PATH)
+    pos = styles["splash-booru"]["positive"]
+    for token in ("semi-realistic", "realistic face", "detailed skin"):
+        assert token in pos, f"splash-booru positive lost: {token}"
+
+
+def test_splash_booru_negative_keeps_its_guards_inside_the_clip_window():
+    _, styles = _load(STYLES_PATH)
+    tags = _tags(styles["splash-booru"]["negative"])
+    for token in BOORU_SURVIVORS:
+        idx = next((i for i, t in enumerate(tags) if t == token), None)
+        assert idx is not None, f"splash-booru negative lost: {token}"
+        assert idx <= 20, (
+            f"'{token}' sits at tag {idx} - too late to survive the 77-token "
+            f"window. The signature/quality guards must precede the redundant "
+            f"finger and limb duplicates.")
+
+
+def test_splash_booru_negative_drops_the_anti_realism_tags():
+    # Measured 2026-08-16: both sat PAST the token cut (inert) and they oppose
+    # the face-realism direction. Deleted, not merely reordered.
+    _, styles = _load(STYLES_PATH)
+    neg = styles["splash-booru"]["negative"]
+    for token in ("photorealistic", "3d render"):
+        assert token not in neg, f"splash-booru negative re-added: {token}"
