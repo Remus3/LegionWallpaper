@@ -27,6 +27,64 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+113. DONE **2026-08-16 (long-prompt encoding BUILT, PROVEN CORRECT, and REVERTED
+    - the code works and the BENEFIT does not exist).** Second measured revert of
+    the day. **The 77-token overrun is REAL and is confirmed** - measured with the
+    live CLIP tokenizer over the shipped styles: `splash` positive 139 tokens (62
+    discarded) / negative 149 (72); `splash-anime` 97/125; `splash-booru` negative
+    93 (16). diffusers truncates SILENTLY. **What was built:** `chunk_token_ids` /
+    `pad_chunk_pairs` / `_encode_windows` / `encode_long_prompt` /
+    `build_prompt_kwargs` - 75-token windows, BOS/EOS per window, hidden states
+    concatenated on the sequence axis, positive and negative padded to equal
+    window counts, pooled taken from the FIRST window (SDXL's pooled conditioning
+    is one vector by construction). 9 pure-logic tests RED-first; full suite 2005
+    passed / 18 skipped. **The implementation is PROVEN CORRECT, not merely
+    plausible:** against `pipe.encode_prompt` the first window is **bit-exact,
+    max abs diff 0.0, pooled included** - NEW is OLD conditioning plus appended
+    windows, exactly as designed. Shapes [1,154,2048] with matching pos/neg, both
+    pooled [1,1280]. **Scoping PROVEN:** byte-identity regression 6/6 sha256
+    IDENTICAL on `portrait` + `landscape-ambient` (old arm was the actual `HEAD`
+    file extracted to scratchpad, NOT a decoded-prompt approximation; portrait
+    hashes reproduced in a fourth independent process). **REVERTED ANYWAY, on the
+    images.** n=6 matched seeds, fresh process per arm, both bases: **identity
+    falls on 12 of 12 seeds** (sign test p ~ 0.0002 - a direction, not n=6 noise).
+    splash-booru/animagine `subject_cos` 0.2930 -> 0.2675 (0up/6dn), margin 0.0676
+    -> 0.0522, QA 5/6 -> 4/6 (seed 1001 flips to REJECT `wrong_subject`), CLIP vs
+    the 21 real 0.7021 -> 0.6686; splash/RealVisXL `subject_cos` 0.2948 -> 0.2837
+    (0up/6dn), saturation **+0.1685 (6up/0dn)**, luminance -0.1023 (6dn) - the
+    frames turn hard saturated-gold. **THE STATED RATIONALE COLLAPSES, and it was
+    MINE.** (a) **Zero text / watermark / signature / logo detections in 24 of 24
+    frames, BOTH arms** (easyocr + a 1:1 bottom-strip visual check). Worse for the
+    argument: on `splash-booru` - the SHIPPED style - `text, signature, watermark`
+    sit at tokens ~69-74 and were **NEVER TRUNCATED**. The signature loss is real
+    only on `splash` / `splash-anime`, where no signatures appear anyway. **I
+    pitched the ADR-005 signature angle to the operator twice as the compelling
+    reason to do this; it does not survive contact with the pixels.** (b) **The
+    restored POSITIVE terms do not change composition** - `face_yolov8m` finds
+    exactly 1 face in all 24 frames, old and new (0up/0dn both pairs), so "single
+    dominant hero character" had nothing to fix. This is the SECOND time today a
+    composition claim died under measurement (LEDGER 112 was the first). (c) What
+    the restored tokens ACTUALLY do: "blurry / low quality" drives `lap_var` +185
+    on booru, and "desaturated palette, gray washed out low contrast" drives the
+    splash saturation swing. Real effects, not the intended ones, net-negative on
+    identity. (d) Cost: cross-attention key length doubles 77 -> 154 every step on
+    every overflowing style. **IF RETRIED - one concrete lead, deliberately NOT
+    overclaimed by the verifier:** `pad_chunk_pairs` pads BOTH sides, forcing
+    splash-booru's 67-token positive (which FITS) into two windows where window 2
+    is BOS+EOS+75 pads - norm 463.9 vs 476.9 for real content, so not negligible.
+    An isolation probe (portrait, identical content, forced empty second window,
+    n=3) moved only 0.2792 -> 0.2765, so the empty window is NOT claimed as the
+    driver; the `lap_var` signature points at the restored quality negatives
+    instead. Pad only the side that needs it and re-measure on splash-booru.
+    **Do-not-redo:** shipping long-prompt encoding on the strength of the token
+    census alone - the overrun is real, the discarded text is real, and restoring
+    it still made the shipped base worse. **STANDING PATTERN, worth naming:** three
+    reasoning-derived fixes were proposed today from correct-looking evidence
+    (composition tags, long prompts, and the ADR-005 framing behind both); all
+    three were refuted by measurement, and in every case the measurement was cheap
+    relative to the ship. Verify-before-commit is earning its cost on this
+    workstream specifically.
+
 112. DONE **2026-08-16 (composition tag fix MEASURED and REVERTED; the premise
     behind it is RETRACTED).** A `splash-booru` edit was written, pinned with 4
     RED-first tests, then verified BEFORE commit and **refuted**. Reverted; the
