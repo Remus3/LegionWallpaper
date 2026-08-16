@@ -79,12 +79,21 @@ def test_config_model_path_is_the_adr_010_base():
     assert cfg["model_path"].endswith("RealVisXL_V5.0_fp16.safetensors")
 
 
-def test_config_model_path_resolves_on_disk():
+def test_config_model_path_resolves_where_the_weights_live():
     # A base that does not exist fails deep inside a multi-GB load, so the pin
-    # above is only worth as much as the path being real.
+    # above is only worth as much as the path being real - but weights are
+    # gitignored, so CI has the checkpoint DIRECTORY and not the file. Assert
+    # existence only on a box that actually carries weights (Legion); on a
+    # weightless checkout assert the shape instead, which is what CI can know.
     _, cfg = _load(CONFIG_PATH)
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    assert os.path.exists(os.path.join(root, cfg["model_path"]))
+    rel = cfg["model_path"]
+    assert rel.startswith("tools/models/") and rel.endswith(".safetensors")
+    abs_path = os.path.join(REPO_ROOT, rel)
+    checkpoint_dir = os.path.dirname(abs_path)
+    if os.path.isdir(checkpoint_dir) and os.listdir(checkpoint_dir):
+        assert os.path.exists(abs_path), (
+            f"{rel} is missing but its directory has other files - the pinned "
+            f"base was renamed or moved, not merely un-downloaded")
 
 
 def test_config_sampler_steps_is_28():
