@@ -11,7 +11,32 @@
 
 ---
 
-## 2026-08-16 (latest) - the gen BASE decided by measurement (ADR-010)
+## 2026-08-16 (latest) - the base flip REVERSED; similarity cannot pick a base
+
+LEDGER 115, ADR-011. Same day as ADR-010, and the reversal is the finding.
+
+- **Operator inspected every candidate frame** from all three arms. Animagine
+  holds League and corpus conventions on ALL of them. RealVisXL violates hand
+  conventions, weapon/tool canon and facial likeness. DreamShaper violates the
+  corpus look outright. Both are DROPPED as base candidates.
+- **The measure ranked the two failing bases FIRST.** CLIP corpus similarity is
+  global image statistics - register, palette, lighting - and is blind to hands,
+  weapon canon and likeness. It is a MEASURE and never selects a base. Do not
+  re-run a base A/B scored on it.
+- **My by-eye read was the load-bearing error.** I called the animagine frame
+  off-canon and the RealVis frame canonical from ONE frame each, conflating anime
+  register with off-canon - the same error the metric makes, reported as if it
+  corroborated the metric. Retracted in place in the evidence doc.
+- **Kept because still right:** `tools/lw_gen_medium.py`, the diffusers-folder
+  base loader, the gpu-mutex wiring, the weightless-checkout config pin fix.
+- **NEXT (operator):** more-real faces ON animagine, not uncanny. Prompt /
+  adapter / sampler on this base. Note the adapter ranking INVERTS on animagine
+  (plus-face 0.5 best; general 0.3 worse than control), so nothing from the
+  RealVis tuning transfers.
+
+---
+
+## 2026-08-16 - the gen BASE study (ADR-010, reversed by ADR-011)
 
 Commits `357b0a6` + the docs sync. LEDGER 114. The ROADMAP item asked for a base
 decision; it got one, and the number it rests on is reproducible now.

@@ -27,6 +27,51 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+115. DONE **2026-08-16 (ADR-010 REVERSED the same day: the base stays animagine,
+    and corpus similarity is barred from selecting a base).** **The operator
+    inspected every candidate frame from all three arms and the ranking inverts
+    completely.** Animagine holds League and corpus conventions on ALL of its
+    frames; RealVisXL violates hand conventions, weapon/tool canon and facial
+    design/likeness; DreamShaper XL violates the corpus look and feel outright.
+    The measure in item 114 ranked those two FIRST and the surviving base LAST -
+    so it is not a close call to split, it is a measure that cannot see the
+    deciding property. **MECHANISM, worth keeping so nobody re-derives 114:** CLIP
+    embedding cosine to the corpus is GLOBAL image statistics - palette, lighting,
+    rendering softness, photographic texture - and is blind to hand anatomy,
+    weapon canon and champion likeness. A photoreal base scores well by looking
+    photographically plausible while rendering broken hands and a wrong weapon; an
+    anime base scores badly on register while keeping every convention intact.
+    **MY OWN BY-EYE CALL WAS THE LOAD-BEARING ERROR AND IS RETRACTED IN PLACE.** I
+    read ONE frame per arm and wrote that the animagine frame was a "generic anime
+    girl - wrong costume, wrong palette, no tails, no orb" and that the RealVis
+    frame was canonical. Both readings are wrong. I conflated anime REGISTER with
+    off-canon, which is the exact conflation the metric makes, and I reported it as
+    corroboration of the metric while it was the same error twice. One frame per
+    arm read by the agent that chose the metric is not an inspection.
+    `docs/GEN_BASE_DECISION_2026-08-16.md` keeps the numbers (they reproduce) with
+    the conclusion struck and the retraction written into the section that was
+    wrong; ADR-010 is kept in full at status SUPERSEDED as the record of a decision
+    made on a measure that could not see the deciding property. **SHIPPED:**
+    ADR-011 holds Animagine XL 4.0 with `splash-booru`, DROPS RealVisXL and
+    DreamShaper as base candidates (not parked, not per-brief overrides), and makes
+    the 0.8373 yardstick a MEASURE that never selects a base - any future base
+    change requires operator inspection of frames for hands, weapon canon and
+    likeness, for which there is no validated automatic measure today.
+    `model_path` reverted to animagine; the config pin test now pins ADR-011 and
+    carries the reason. Frames for the two dropped arms deleted at operator
+    instruction; `images/_gen_scratch/basedecide/animagine/` kept. **NEXT, operator
+    direction:** more-real faces ON animagine without the uncanny register the
+    dropped bases produced - prompt / adapter / sampler work on this base, verified
+    by generation and operator eye. Note for that work: on animagine the adapter
+    ranking INVERTS vs RealVisXL (plus-face 0.5 best, general 0.3 worse than the
+    no-adapter control, LEDGER 110), so nothing from the RealVis tuning transfers.
+    **Kept, because they are still right:** `tools/lw_gen_medium.py` and its
+    reproduction of the ceiling; the folder-base loader fix (`base_load_kind` /
+    `pretrained_variant`, which the cleaning lane's registry also needs); the
+    gpu-mutex wiring; and the weightless-checkout fix to the config pin.
+    **Verified:** full suite green after the revert, ruff clean, ASCII sweep clean,
+    CI confirmed on the pushed head.
+
 114. DONE **2026-08-16 (the gen BASE decided on measurement: ADR-010 flips
     lw-gen to RealVisXL V5.0; `357b0a6` + this).** **The yardstick was recovered
     before anything was decided with it.** `docs/GEN_MODELS.md` carried a

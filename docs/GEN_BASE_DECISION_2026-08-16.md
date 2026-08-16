@@ -3,6 +3,17 @@
 _2026-08-16. Evidence for the `gen-reference-lane` ROADMAP item. n=3 per arm,
 matched seeds, adapter OFF - direction-finding, not calibration._
 
+> **THE CONCLUSION THIS DOCUMENT REACHED WAS REVERSED THE SAME DAY (ADR-011).**
+> The numbers below are real and reproduce; the ranking they produce is wrong
+> for base selection. Operator inspection of every candidate frame: animagine
+> holds League and corpus conventions on ALL of them, RealVisXL violates hand
+> conventions, weapon/tool canon and facial likeness, and DreamShaper violates
+> the corpus look outright. CLIP corpus-similarity is global image statistics -
+> palette, lighting, rendering softness - and is blind to hands, weapon canon
+> and likeness, so it ranked the two failing bases first. It is a MEASURE, never
+> a base-selection criterion on its own. Read the table as what it is: rendering
+> register distance, nothing more.
+
 ## The yardstick is a repo artifact now, not a dead scratchpad number
 
 `docs/GEN_MODELS.md` records a real-vs-real self-similarity ceiling of **0.8373**
@@ -34,8 +45,8 @@ The animagine number reproduces LEDGER 110's range (0.6427-0.7305) and the
 RealVis number sits just above its range (0.8467-0.8542) - a different style
 block and no adapter, so agreement at this level is confirmation, not identity.
 
-**RealVisXL dominates on every axis measured** - medium, subject, margin, pass
-rate - and it does so with the adapter OFF, which is the point: LEDGER 110 found
+**RealVisXL dominates every axis THIS STUDY MEASURED** - medium, subject,
+margin, pass rate - and it does so with the adapter OFF, which is the point: LEDGER 110 found
 the medium fails independently of the adapter, and this says the same thing from
 the other side.
 
@@ -48,17 +59,26 @@ multi-GB load (`base_load_kind` / `pretrained_variant`; an fp16-only export need
 
 ## By eye, on the matched seed 2014205137
 
-Corroborates the metric rather than substituting for it:
+**RETRACTED 2026-08-16, same day - this section was my by-eye read of ONE frame
+per arm and the operator's inspection of ALL SIX frames contradicts it.** What I
+wrote is struck; what the frames actually show is below it.
 
-- **RealVis**: canonical costume (pink/blue/gold), orb, fox tails, hero-dominant
-  key-art composition, painterly - NOT the "too photoreal" failure that got this
-  base flipped away from on 2026-07-11. Face and expression are clean.
-- **animagine**: generic anime girl - wrong costume, wrong palette, no tails, no
-  orb, heavy bloom. The medium failure and an identity failure at once, on a
-  frame whose `subject_cos` (0.2706) still clears the 0.26 gate floor. This is
-  the gate blindness in one image.
-- **DreamShaper**: credible painterly splash art, hero-dominant, slightly less
-  canonical costume than RealVis and softer (`lap_var` 286 vs 490).
+- ~~RealVis: canonical costume, orb, tails, painterly, clean face.~~ **WRONG.**
+  RealVisXL violates hand conventions, weapon/tool canon and facial
+  design/likeness - the 2026-07-11 complaints, which this A/B did not retire
+  because it never tested them.
+- ~~animagine: generic anime girl, wrong costume, wrong palette, no tails, no
+  orb.~~ **WRONG, and it was the load-bearing error.** Animagine holds League
+  and corpus conventions on all candidate frames. I read "anime register" as
+  "off-canon" from a single frame, which is precisely the conflation the metric
+  makes.
+- ~~DreamShaper: credible painterly splash art.~~ **WRONG.** It violates the
+  corpus look and feel outright and is dropped as a candidate.
+
+The lesson is not that by-eye evidence beats measurement. It is that ONE frame
+per arm, read by the same agent that chose the metric, is not an inspection -
+and that the properties in dispute (hands, weapon canon, likeness) had no
+measure in this study at all.
 
 ## Confounds, stated
 
@@ -80,9 +100,17 @@ Corroborates the metric rather than substituting for it:
 ## What this does and does not settle
 
 Settled by measurement: the shipped base sits **0.153 below** the corpus's own
-self-similarity while passing the subject gate, and **two locally-available
-bases clear that ceiling**. Nothing here was promoted and no config default was
-changed.
+self-similarity on rendering register while passing the subject gate, and two
+other bases clear that ceiling. That result stands and reproduces.
 
-NOT settled by measurement: whether the anime direction is the product. That was
-an operator call, and reversing it is an operator call.
+**NOT settled by this measurement, and it turned out to be the whole question:**
+hand conventions, weapon/tool canon and facial likeness. Nothing in this study
+scored them, and they are what the base is actually selected on. ADR-011 holds
+animagine and drops RealVisXL and DreamShaper as candidates; the frames for
+those two arms were deleted at operator instruction, leaving
+`images/_gen_scratch/basedecide/animagine/`.
+
+**If a future base experiment runs, it must score the deciding properties.**
+There is no validated automatic measure for them today, so that means operator
+inspection of candidate frames - and a corpus-similarity number is at best a
+tiebreak among bases that already hold the conventions.

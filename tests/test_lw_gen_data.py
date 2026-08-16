@@ -68,15 +68,17 @@ def test_config_sampler_shape():
         assert key in sampler, f"sampler missing key: {key}"
 
 
-# --- ADR-010: RealVisXL base + defensive steps lock -----------------------
+# --- ADR-011: Animagine base HELD + defensive steps lock ------------------
 
-def test_config_model_path_is_the_adr_010_base():
-    # ADR-010 (2026-08-16): the base is RealVisXL V5.0, flipped back from
-    # Animagine XL 4.0 on the measured three-base A/B (animagine renders 0.153
-    # BELOW the 0.8373 corpus ceiling while still clearing the subject gate).
-    # Moving this pin needs a new ADR, not a config edit.
+def test_config_model_path_is_the_adr_011_base():
+    # ADR-011 (2026-08-16) HOLDS Animagine XL 4.0 and supersedes ADR-010's
+    # one-day flip to RealVisXL: the corpus-similarity measure that ranked
+    # RealVis first is blind to hand conventions, weapon canon and facial
+    # likeness, which operator inspection found RealVis violating on every
+    # frame. Moving this pin needs a new ADR, not a config edit - and not a
+    # similarity number on its own.
     _, cfg = _load(CONFIG_PATH)
-    assert cfg["model_path"].endswith("RealVisXL_V5.0_fp16.safetensors")
+    assert cfg["model_path"].endswith("animagine-xl-4.0-opt.safetensors")
 
 
 def test_config_model_path_resolves_where_the_weights_live():

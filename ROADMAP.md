@@ -495,44 +495,42 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `tools/dwpose_onnx/onnxpose.py:26` silently substitutes the whole frame).
   Evidence: LEDGER 60; `docs/ANATOMY_CENSUS_2026-07-29.md`.
 
-- **gen-reference-lane - BASE DECIDED 2026-08-16 (ADR-010: RealVisXL V5.0).
-  NEXT is the adapter lane re-run on the new base, plus the Vayne glasses
-  re-check the flip did not test.**
-  The base question is closed by measurement, not reasoning. `tools/lw_gen_medium.py`
-  recovered the medium yardstick whose definition had been lost to a scratchpad
-  (mean pairwise CLIP ViT-L-14-quickgelu cosine over the 21 real Ahri splashes; it
-  reproduces the recorded **0.8373** to four decimals). A three-base A/B (matched
-  seeds, adapter OFF, one fresh process per arm, n=3): animagine **0.6843
-  (-0.153)**, RealVisXL **0.8609 (+0.024)**, DreamShaper XL **0.8448 (+0.008)**.
-  RealVisXL also took subject_cos 0.2892 / margin 0.0761 / 3-of-3 QA. The shipped
-  base was the only arm below the ceiling AND it cleared the subject floor while
-  there - LEDGER 110's gate blindness seen from the base side. Operator ruled the
-  flip; `model_path` now points at RealVisXL and the shipped default was VERIFIED
-  by generation (medium 0.8635, +0.026, fresh seeds). Evidence:
-  `docs/GEN_BASE_DECISION_2026-08-16.md`, ADR-010, LEDGER 114.
-  Carried forward from the adapter work (LEDGER 107-113): plus-face beats the
-  general adapter on RealVisXL at **loose 0.3** (its worst margin beats general's
-  best by 17 percent); the loose crop's "wasted" context does real discriminative
-  work, so do not crop tighter; the fox familiar is base/prompt/seed, NOT reference
-  bleed, which makes it a negative-prompt problem.
-  Next, in order: (1) re-run plus-face loose 0.3 on RealVisXL now that the base is
-  settled, and measure MEDIUM as well as identity - the adapter cost sharpness on
-  every previous arm; (2) **re-check the Vayne glasses case**, the by-eye failure
-  that caused the 2026-07-11 flip away from RealVis and which an Ahri A/B cannot
-  test; (3) optionally close the register/sampler confound (animagine ran
-  `splash-booru` euler_a, the others `splash` dpmpp) with a sampler-controlled
-  sweep at n>=6.
-  Do-not-redo, all measured: composition tags (LEDGER 112 - reverted; heads are TOO
-  BIG, and 5/6 frames already sit inside the real envelope); long-prompt encoding
-  (113 - built, proven bit-exact, reverted; identity fell on 12/12 seeds and the
-  ADR-005 signature rationale is false); re-cropping the local corpus tighter (111 -
-  the confound is in the SOURCE); DWPose as a framing measure (use
-  `tools/models/yolo/face_yolov8m.pt`); by-eye evidence as grounds to change a
-  prompt. Untested across every eval so far: a FULL-FRAME reference at high scale.
+- **gen-reference-lane - BASE SETTLED 2026-08-16 (ADR-011: Animagine XL 4.0
+  HELD; RealVisXL + DreamShaper DROPPED). NEXT is facial realism ON THIS BASE,
+  then the adapter lane re-run.**
+  A corpus-similarity A/B (matched seeds, adapter OFF, n=3) ranked animagine LAST:
+  **0.6843 (-0.153)** vs RealVisXL **0.8609 (+0.024)** and DreamShaper **0.8448
+  (+0.008)**, with RealVis also taking subject_cos / margin / pass rate. ADR-010
+  flipped the base on that and **ADR-011 reversed it the same day on operator
+  inspection of every candidate frame**: animagine holds League and corpus
+  conventions on ALL frames; RealVisXL violates hand conventions, weapon/tool
+  canon and facial likeness; DreamShaper violates the corpus look outright.
+  **The standing rule that came out of it: corpus similarity is a MEASURE of
+  rendering register and NEVER selects a base.** It is CLIP global image
+  statistics - blind to hands, weapon canon and likeness - so it ranked the two
+  convention-breaking bases first. Do not re-run a base A/B scored on it.
+  `tools/lw_gen_medium.py` (the recovered yardstick, reproduces the recorded
+  0.8373 to four decimals) is kept for what it does measure.
+  Next, in order: (1) **facial realism on animagine** - operator direction
+  2026-08-16: push the faces somewhat more real WITHOUT the uncanny register the
+  dropped bases produced. Prompt / adapter / sampler work on THIS base, verified
+  by generation and operator eye, never a base swap; (2) re-run plus-face loose
+  0.3 on animagine and measure sharpness as well as identity - on animagine the
+  ranking INVERTS vs RealVis (plus-face 0.5 best, general 0.3 worse than control),
+  so the RealVis tuning does not transfer; (3) the fox familiar is base/prompt/
+  seed, NOT reference bleed (LEDGER 111) - attack it as a negative-prompt problem.
+  Do-not-redo, all measured: a base A/B scored on corpus similarity (LEDGER 115 -
+  it selected two bases that break the product); composition tags (112 - reverted;
+  heads are TOO BIG, and 5/6 frames sit inside the real envelope); long-prompt
+  encoding (113 - built, proven bit-exact, reverted; identity fell on 12/12 seeds);
+  re-cropping the local corpus tighter (111 - the confound is in the SOURCE);
+  DWPose as a framing measure (use `tools/models/yolo/face_yolov8m.pt`).
+  Untested across every eval so far: a FULL-FRAME reference at high scale.
   Known live traps: the `splash-booru` negative overruns CLIP at 93 > 77 and
-  silently drops its quality tail (left alone by operator call - the discarded text
-  was restored and measured WORSE); `lw_gen_run.run()` called twice in ONE process
-  silently kills the second arm (exit 0, zero images) - one fresh process per arm.
+  silently drops its quality tail (left alone by operator call - the discarded
+  text was restored and measured WORSE); `lw_gen_run.run()` called twice in ONE
+  process silently kills the second arm (exit 0, zero images) - one fresh process
+  per arm.
 
 - **m1-gate-fund-or-close - decide attempt #4 on the weapon-canonicity gate - OPERATOR-GATED.**
   Next: operator decides FUND or CLOSE. Three measured negatives landed

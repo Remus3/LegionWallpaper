@@ -1,7 +1,15 @@
 # ADR-010: lw-gen base checkpoint is RealVisXL V5.0
 
 **Date:** 2026-08-16
-**Status:** Accepted
+**Status:** SUPERSEDED by ADR-011 (same day, 2026-08-16)
+
+> **REVERSED on operator inspection of every candidate frame.** RealVisXL
+> violates hand conventions, weapon/tool canon and facial likeness;
+> DreamShaper XL violates the corpus look outright; animagine holds League
+> and corpus conventions on all of its frames. The corpus-similarity measure
+> this ADR rested on ranked the two failing bases FIRST - it is blind to
+> hands, weapon canon and likeness. Kept in full as the record of a decision
+> made on a measure that could not see the deciding property. See ADR-011.
 
 ## Context
 

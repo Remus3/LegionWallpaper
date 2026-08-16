@@ -45,9 +45,9 @@ date (YYYY-MM-DD).
 
 | model | version | source_url | license | sha256 | date | notes |
 |---|---|---|---|---|---|---|
-| RealVisXL V5.0 | V5.0 fp16 | huggingface.co/SG161222/RealVisXL_V5.0 | openrail++ | 6a35a7855770ae9820a3c931d4964c3817b6d9e3c6f9c4dabb5b3a94e5643b80 | 2026-07-10 | approach A: photoreal-leaning SDXL finetune; ungated; no personal-use restriction (verified live). 6.94 GB, tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors . **SHIPPED BASE per ADR-010 (2026-08-16)** - flipped back from Animagine on a measured three-base A/B: medium 0.8609 (+0.024 above the 0.8373 corpus ceiling) plus best subject_cos 0.2892 / margin 0.0761 / 3-of-3 QA, adapter OFF. Pair with the natural-language `splash` style |
+| RealVisXL V5.0 | V5.0 fp16 | huggingface.co/SG161222/RealVisXL_V5.0 | openrail++ | 6a35a7855770ae9820a3c931d4964c3817b6d9e3c6f9c4dabb5b3a94e5643b80 | 2026-07-10 | approach A: photoreal-leaning SDXL finetune; ungated; no personal-use restriction (verified live). 6.94 GB, tools/models/RealVisXL_V5.0/RealVisXL_V5.0_fp16.safetensors . **DROPPED as a base candidate by ADR-011 (2026-08-16)** - it violates hand conventions, weapon/tool canon and facial likeness on operator inspection. It DID win the corpus-similarity A/B (0.8609, +0.024, best subject_cos/margin/QA), which is exactly why that measure never selects a base on its own. ADR-010's one-day flip to it is superseded. The weight stays on disk for the cleaning lane's checkpoint registry |
 | SDXL base 1.0 | 1.0 fp16 | huggingface.co/stabilityai/stable-diffusion-xl-base-1.0 | CreativeML OpenRAIL++-M | (not downloaded) | - | approach B anchor - DEFERRED. Staged only if the RealVis by-eye spike is not painterly enough; then pull base SDXL + a splash/key-art LoRA |
-| Animagine XL 4.0 | 4.0 fp16 opt | huggingface.co/cagliostrolab/animagine-xl-4.0 | CreativeML OpenRAIL++-M | 6327eca98bfb6538dd7a4edce22484a1bbc57a8cff6b11d075d40da1afb847ac | 2026-07-11 | ANIME base (operator-directed anime-flat direction). 6.94 GB animagine-xl-4.0-opt.safetensors. Booru-tag prompting (style splash-booru). KNOWS LoL champions canonically (Vayne: correct glasses/dual-crossbows/ponytail) + clean anime faces/glasses - fixed the mangled-glasses + odd-expression + too-photoreal complaints RealVis could not. **NO LONGER THE SHIPPED BASE (ADR-010, 2026-08-16)** - it renders 0.153 BELOW the corpus self-similarity ceiling while still clearing the subject gate. Kept on disk; `--model-path` + `--style splash-booru` is the per-brief override |
+| Animagine XL 4.0 | 4.0 fp16 opt | huggingface.co/cagliostrolab/animagine-xl-4.0 | CreativeML OpenRAIL++-M | 6327eca98bfb6538dd7a4edce22484a1bbc57a8cff6b11d075d40da1afb847ac | 2026-07-11 | ANIME base (operator-directed anime-flat direction). 6.94 GB animagine-xl-4.0-opt.safetensors. Booru-tag prompting (style splash-booru). KNOWS LoL champions canonically (Vayne: correct glasses/dual-crossbows/ponytail) + clean anime faces/glasses - fixed the mangled-glasses + odd-expression + too-photoreal complaints RealVis could not. **SHIPPED BASE, HELD by ADR-011 (2026-08-16).** It renders 0.153 BELOW the corpus self-similarity ceiling on rendering register - real, reproducible, and NOT decisive: it holds League and corpus conventions (hands, weapon/tool canon, likeness) on every candidate frame, which the two higher-scoring bases do not. ADR-010's one-day flip away from it was reversed the same day |
 | ControlNet OpenPose SDXL | xinsir 1.0 | huggingface.co/xinsir/controlnet-openpose-sdxl-1.0 | Apache-2.0 | (diffusers fp16) | 2026-07-11 | 2.5 GB. POSE CONTROL - extract an OpenPose skeleton (with hand keypoints) from a real splash via controlnet_aux OpenposeDetector, condition Animagine on it. Deterministic fix for unnatural posing + mirrored/second-left-hand chirality, while KEEPING sharp txt2img detail (no img2img blur). --controlnet-pose <ref>. Preprocessor annotators from lllyasviel/Annotators. controlnet_aux is pure-pip (no onnxruntime/mediapipe) |
 
 **STALE AS WRITTEN - the Phase-0 spike is long over.** The paragraph below was the
@@ -123,7 +123,15 @@ lived only in a session scratchpad. `tools/lw_gen_medium.py` re-derives it and
 reproduces 0.83732 to four decimals - which is what validates the definition. It
 then settled the base: see ADR-010 and `docs/GEN_BASE_DECISION_2026-08-16.md`.
 **DreamShaper XL, never previously evaluated as a txt2img base, also clears the
-ceiling** (0.8448, +0.008) at a sharpness cost (`lap_var` 286).
+ceiling** (0.8448, +0.008) at a sharpness cost (`lap_var` 286) - and is DROPPED
+as a candidate anyway (ADR-011: it violates the corpus look outright).
+
+**READ THE CEILING NARROWLY (ADR-011, 2026-08-16).** It measures RENDERING
+REGISTER distance from the corpus and nothing else. It is CLIP global image
+statistics, so it is blind to hand conventions, weapon/tool canon and facial
+likeness - the properties a base is actually selected on - and in the one study
+that tried, it ranked the two convention-breaking bases FIRST. Use it to
+describe an arm, never to choose a base.
 
 ### Style LoRA (OPTIONAL - only if the Phase-0 spike shows anime/style leakage)
 
