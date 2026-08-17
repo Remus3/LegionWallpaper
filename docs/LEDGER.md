@@ -27,6 +27,72 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+121. DONE **2026-08-17 (corpus drained to cleaning; Pictures reconciled 1:1 and
+    de-duped; directed-crop override; Done-N pruned at the transition; two
+    console-flash fixes; 2028026 + 6db5443 + d916f9a + 690ffb7).** Operator-driven
+    throughput session. **Directed-crop override (2028026):** the first-pass driver
+    only center-cropped and hard-HELD past `AREA_LOSS_MAX`, so an operator naming
+    the sides a crop may eat into had no path through the tool. `anchored_crop_box`
+    treats named sides as a PERMISSION, not a demand - only the axis that actually
+    needs cropping is touched, so a horizontal grant on a too-TALL frame is dropped
+    rather than costing extra area (this was ruled explicitly: 4 of the 9 held slugs
+    named left/right on frames that only needed height). `--crop-overrides` reopens a
+    HELD slug; NEEDAUTH still never reprocesses; `crop_sides` lands in the manifest so
+    a >8 percent crop is auditable. 16 tests, 15 observed RED first. All 9 held slugs
+    then passed G1. **Done-N prune (6db5443):** `start-stage` left the stage-N folder
+    behind until Done N+1 - 327 stale directories on the live corpus. It now prunes AT
+    the transition, which is safe only because step 2 already copies EVERY milestone
+    forward; verified per slug (new `_initial` must match the `_done` byte-for-byte and
+    every other file must have a same-named twin) else `PRUNE_SKIPPED`. Supersedes the
+    retention half of FM-02; the hash-verified Done N -> Done N+1 GC is untouched.
+    `test_lw_pipeline_moves.py` carried an assertion encoding the OLD contract - it was
+    inverted with the ruling cited, not deleted. Proved at scale later the same session:
+    242 folders removed automatically, `2.First Pass Done` fully drained, 0 stale
+    folders across all 8 stage dirs. **Console flashes (d916f9a, 690ffb7):** operator
+    reported a window stealing focus. `LW-CIWatchdog` was registered against
+    `python.exe` with `<Hidden>false</Hidden>` repeating every 2 min, and every tick
+    makes a live `gh` call so the console lived 1-2s. The module's docstring promises
+    CREATE_NO_WINDOW on every subprocess - that care covered the CHILDREN; `install()`
+    passed `sys.executable` through, giving the PARENT a console. `windowless_python()`
+    maps to the `pythonw.exe` sibling, guarded on it existing (a task pointed at a
+    missing exe fails silently forever). Measured cadence from the watchdog log was
+    every 2 min without a gap, NOT the 5-10 the operator perceived. Roster audit then
+    found the same class in `LW-WeeklyHygiene` (no `-WindowStyle Hidden`, weekly 04:17,
+    which is why nobody saw it); fixed live via XML export/patch/re-import and in
+    `docs/OPERATIONS.md`, which IS the de-facto installer for that task - re-running the
+    old documented command would have restored the flash. Recorded that `LW-Wallpaper`
+    needs no `<Hidden>` (pythonw has no console) so a naive sweep does not "fix" it.
+    **Pipeline throughput:** intaked 243 (225 `ref_*` restaged from
+    `images/reference_pictures` - the cleaner source, not the Pictures copies - plus 18
+    new operator drops), 0 skips; first pass 242 PASS / 0 flag / 1 FAIL / 0 held; 242
+    approved and all staged to cleaning. 225 of the 243 routed downscale-only because
+    the refs are already 2560x1440, which is why the run took ~45 min rather than the
+    10-12 h a 243-slug GPU batch would have. `3.Cleaning Scratch` = 566, `first_done` =
+    0. **The 1 FAIL is unfixable and was proven so, not assumed:**
+    `1000040081-by-hahaosnsnsondneks-dmmirml-375w-2x` failed `lap_ratio 0.912 < 1.0`;
+    its source is a 750x437 / 56 KB DeviantArt `375w-2x` thumbnail, and decoding the
+    token (deviation 1368083037) and pulling the authoritative fullview through
+    gallery-dl OAuth returned the SAME 750x437 bytes. Left unsubmitted per the gate
+    contract. This is live evidence for the open `g1-source-adequacy` item. **Pictures
+    reconciled to 555**, 1:1 with the repo except the 225-file `ref_` block that this
+    session then folded in: 243 `_cleaninitial` delivered, 243 byte-identical
+    `_firstdone` twins retired, 24 operator-resolved duplicates applied, 3 kept-firstdone
+    choices landed via `save-working --tool operator-select` -> submit -> approve (the
+    only sanctioned route - there is NO reverse stage transition, and re-running first
+    pass on a finished 2560x1440 output would be the double-resample the doctrine
+    forbids). End state: 0 duplicate-content pairs, 0 slugs with two entries, every
+    Pictures file in the rotator deck, 0 orphans in the owed half. `ref_17_cleanup.png`
+    dropped from rotation as a close crop of `vayne3` (source survives in
+    `reference_pictures` as a face stub). **NOT DONE, blocked on the operator:** the
+    cleaning triage ran read-only over all 566 (460 clean / 86 qa / 20 auto; only 20 need
+    inpainting) but the destructive half was NOT started - awaiting the gate-driven vs
+    blanket-approve call and whether `qa` stops at scratch with the named 13. Notable:
+    the gate independently flagged 9 of the operator's 13 named slugs as `qa`, 8 of them
+    `centre_overlay`. **Process miss worth keeping:** the source-recovery waterfall was
+    run on the earlier 19-image batch but NOT on the 18 new drops before first pass; it
+    happened not to matter for the one failure, but the other 17 went to GPU on whatever
+    source was dropped in.
+
 120. DONE **2026-08-16 (gen-nonahri-deformed round 1: the cause is the POSE
     STACK, and the base's champion knowledge was never the problem).** Ablation
     on the two champions that failed 5/5 (Katarina, Miss Fortune) plus Ahri and

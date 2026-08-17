@@ -11,7 +11,33 @@
 
 ---
 
-## 2026-08-16 (latest) - face realism shipped, face-key overturned, deformity cause found
+## 2026-08-17 (latest) - corpus drained to cleaning, Pictures 1:1, two console-flash fixes
+
+Operator-driven session, mostly pipeline throughput plus three shipped fixes.
+
+- **Shipped:** `2028026` first-pass directed-crop override (`--crop-overrides`,
+  `anchored_crop_box`, named sides are a PERMISSION not a demand - horizontal
+  grants on a too-tall frame are dropped); `6db5443` Done-N folder is now pruned
+  AT the transition (supersedes the FM-02 retention half; verified per-slug
+  before delete, `PRUNE_SKIPPED` on anything unproven); `d916f9a` +
+  `690ffb7` two console-flash fixes - LW-CIWatchdog ran `python.exe` every 2 min
+  (now `pythonw.exe` + Hidden), LW-WeeklyHygiene had no `-WindowStyle Hidden`.
+  Suite 2058 passed / 18 skipped, ruff clean, CI green.
+- **Pipeline:** intaked 243 (225 `ref_*` restaged from `reference_pictures` +
+  18 new operator drops), first pass 242 PASS / 1 FAIL / 0 held, approved, all
+  staged to cleaning. `3.Cleaning Scratch` = **566**, `first_done` = 0,
+  `2.First Pass Done` fully drained by the new prune, 0 stale folders anywhere.
+- **Pictures = 555**, deduped to 0 duplicate-content pairs and 0 slugs with two
+  entries; every file is in the rotator deck, 0 orphans in the owed half.
+- **BLOCKED ON OPERATOR:** cleaning triage is DONE (566 rows: 460 clean / 86 qa
+  / 20 auto) but the destructive half was NOT run - awaiting the gate-driven vs
+  blanket-approve call, and whether `qa` stops at scratch with the named 13.
+- **Do NOT redo:** the 750px thumbnail `1000040081-...-375w-2x` FAIL is
+  unfixable - DeviantArt's authoritative fetch returns the same 750x437 bytes.
+
+---
+
+## 2026-08-16 - face realism shipped, face-key overturned, deformity cause found
 
 Commits `34d366a` `e132d00` `3f2b9bc` `b90b260` `ea05ef3`. LEDGER 116-120.
 
@@ -64,34 +90,3 @@ LEDGER 115, ADR-011. Same day as ADR-010, and the reversal is the finding.
   adapter / sampler on this base. Note the adapter ranking INVERTS on animagine
   (plus-face 0.5 best; general 0.3 worse than control), so nothing from the
   RealVis tuning transfers.
-
----
-
-## 2026-08-16 - the gen BASE study (ADR-010, reversed by ADR-011)
-
-Commits `357b0a6` + the docs sync. LEDGER 114. The ROADMAP item asked for a base
-decision; it got one, and the number it rests on is reproducible now.
-
-- **The yardstick was recovered before it was used.** The 0.8373 real-vs-real
-  ceiling in `docs/GEN_MODELS.md` had no recomputable definition - it lived in a
-  dead scratchpad. `tools/lw_gen_medium.py` (TDD, 8 tests, torch-free import)
-  re-derives it: mean pairwise CLIP ViT-L-14-quickgelu cosine over the 21 real
-  Ahri splashes, **0.83732**. Landing on the recorded number is the validation.
-- **Three-base A/B, matched seeds, adapter OFF, one fresh process per arm:**
-  animagine **0.6843 (-0.153)**, RealVisXL **0.8609 (+0.024)**, DreamShaper XL
-  **0.8448 (+0.008)**. RealVis also wins subject_cos 0.2892 / margin 0.0761 /
-  3-of-3 QA. The shipped base was the ONLY arm below the ceiling and it cleared
-  the subject floor while there.
-- **DreamShaper XL had never been tried as a txt2img base** (on disk since
-  2026-07-16 for cleaning). It needed a loader fix - `from_single_file` rejects a
-  diffusers folder, and an fp16-only export needs `variant="fp16"` or
-  from_pretrained silently builds an EMPTY module.
-- **Operator ruled the flip** (one framed question - the metric is blind to the
-  by-eye Vayne complaint that caused the 2026-07-11 move to animagine). ADR-010
-  written, config flipped, **shipped default verified BY GENERATION before
-  commit**: medium 0.8635 on fresh seeds.
-- **The gpu-mutex guard caught my own gap** - `lw_gen_medium.encode_paths`
-  touched cuda unheld. Wired and registered in `ACQUIRE_SITES`.
-- **Do NOT read the flip as retiring the old complaint:** Ahri wears no glasses.
-  The Vayne glasses case is untested on this recipe and is item (2) in the
-  ROADMAP's next list.

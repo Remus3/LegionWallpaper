@@ -6,6 +6,23 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
+- **clean-566-disposition - BLOCKED ON OPERATOR 2026-08-17. The whole corpus is
+  staged in `3.Cleaning Scratch` (566 slugs) and the read-only triage is DONE:
+  460 `clean` / 86 `qa` / 20 `auto`, so only 20 images actually need inpainting.**
+  The destructive half was deliberately NOT started. Two shapes were put to the
+  operator: (1) gate-driven - inpaint the 20 `auto`, approve the 460 `clean`
+  through to cleaning done, queue the 86 `qa` for the manual IOPaint lane; or
+  (2) blanket-approve all 566 to cleaning done, which reaches Pictures 1:1
+  fastest but records 106 undisposed marks as cleaned. Second open question:
+  does the `qa` bucket stop at cleaning scratch alongside the operator's 13
+  named `ref_*` slugs, or carry through. Triage rows are at
+  `scratchpad/clean_triage.jsonl` (ephemeral - re-run
+  `lw_clean_pass --all-scratch --dry-run --triage-out <path>` under the
+  lw-clean venv to regenerate; ~4 min, writes no pixels). Note the gate
+  independently landed 9 of the operator's 13 named slugs in `qa`, 8 of them on
+  `centre_overlay`, so eye and detector agree on most of that set. ADR-009 still
+  binds: ONE engine per submission, no automatic ladder.
+
 - **cleaning-detector-recall - the detector MISSES marks: 14 confirmed false
   negatives, ~12 percent of the `clean` verdicts - NEW 2026-08-11, measured.**
   The mirror of the precision census, and the reason precision alone was not an
@@ -447,6 +464,16 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   FAIL? Deliberately NOT guessed; guessing repeats the mistake `anat-vision-review`
   caught the same day. Cheap once decided - `src_dims` is already in every
   manifest, so no model and no pixels needed.
+  NEW EVIDENCE 2026-08-17, the first time this cost real GPU time: the 243-slug
+  batch produced exactly one hard FAIL, `1000040081-by-hahaosnsnsondneks-dmmirml
+  -375w-2x`, on `lap_ratio 0.912 < 1.0`. Its source is a 750x437 / 56 KB
+  DeviantArt `375w-2x` thumbnail - the smallest tier they serve. Decoding the
+  token (deviation 1368083037) and pulling the authoritative fullview through
+  gallery-dl OAuth returned the SAME 750x437 bytes, so no better source exists
+  and no retune can rescue it. A source-adequacy check would have caught this
+  BEFORE the upscale rather than after, which is the concrete argument for
+  answering the two questions above. Note the filename shape `-375w-2x` is itself
+  a reliable tell and is cheaper than any metric.
   Do-not-redo: do NOT retune the G1 fidelity metrics - they are correct at their
   job; the gap is a MISSING ABSOLUTE precondition, not a miscalibrated relative one.
   Evidence: LEDGER 60; `docs/SOURCE_ADEQUACY_CENSUS_2026-07-29.md`.
