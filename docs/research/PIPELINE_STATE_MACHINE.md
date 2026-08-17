@@ -264,9 +264,17 @@ T2 START-STAGE (S2->S3, S4->S5, S6->S7)   [command: start-stage]
      copies as <slug>_<N+1>initial.png
   3. SAFE-COPY <slug>_<N+1>initial.png -> 9.Image Backup\<slug>\ (hash-idempotent, FM-09)
   4. SAFE-COPY manifest.json forward; append started_stage transition (tmp+replace)
-  5. append log line; release lock.  Done N is retained (deleted at T5 - FM-02).
+  5. append log line; PRUNE Done N\<slug>\; release lock.
+     Operator ruling 2026-08-17 (supersedes the old "Done N is retained until
+     T5" half of FM-02): step 2 already carried every milestone forward, so
+     <slug>_<N+1>initial.png IS the fallback and the stage-N folder has no
+     further job. The prune is verified, not assumed - the new _initial must
+     match the _<N>done byte-for-byte and every other Done-N file must have a
+     same-named twin in Scratch N+1, else the folder is KEPT and the skip is
+     printed. FM-02's hash-verified GC still governs the Done N -> Done N+1 hop.
   recovery: partial scratch set -> rerun completes missing copies (hash-equal
-  skips); Done N untouched throughout, so nothing can be lost.
+  skips); the prune runs last, after the full set verifies, so an interrupted
+  transition leaves Done N in place and is simply re-runnable.
 
 T3 SAVE-WORKING (within scratch)   [command: save-working]
   input: an edited file (--from <path>) or --adopt (newest unparsed image file

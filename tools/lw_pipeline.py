@@ -808,6 +808,13 @@ def cmd_start_stage(ctx, slug, pick_next):
         ops.write_json(scratch / "manifest.json", man)
         ctx.log(slug, START_OP[next_stage], DONE_DIR[done_stage],
                 SCRATCH_DIR[next_stage], new_initial_hash[:12])
+        # Operator ruling 2026-08-17: Done N goes AT the transition. Every
+        # milestone it held was copied into Scratch N+1 above (the loop copies
+        # all of them, not just the _done), so the new _initial is the
+        # fallback the transition exists to create. Retaining Done N until
+        # Done N+1 - the old FM-02 half - left a stale folder behind for the
+        # whole editing stage.
+        _prune_prior_done(ctx, ops, done_folder, scratch, initial_name)
     finally:
         release_lock(lock)
     _emit(ctx, ops, f"start-stage {slug} -> {next_stage}")
@@ -1057,6 +1064,45 @@ def _gc_folder(ctx, ops, folder, force=False):
         print(f"SCRATCH_RESIDUE: {folder} kept (non-pipeline files remain)")
         return False
     ops.rmdir(folder)
+    return True
+
+
+def _prune_prior_done(ctx, ops, prior_folder, scratch, initial_name):
+    """Delete Done N once Scratch N+1 provably carries its content.
+
+    Verified, not assumed: the new `_initial` must exist and match the `_done`
+    it was copied from byte-for-byte, and every other file in Done N must have
+    a same-named twin in the scratch folder. Anything unaccounted for leaves
+    the folder alone - a stale directory is cheap, a lost milestone is not.
+    """
+    if ctx.dry:
+        ops.note(f"prune-done {prior_folder}")
+        return False
+
+    new_initial = scratch / initial_name
+    if not new_initial.is_file():
+        return False
+
+    unmatched = []
+    for p in sorted(prior_folder.iterdir()):
+        if not p.is_file():
+            unmatched.append(p.name)
+            continue
+        m = parse_milestone(p.name)
+        if m and m["phase"] == "done":
+            if sha256_file(p) != sha256_file(new_initial):
+                unmatched.append(p.name)
+        elif not (scratch / p.name).is_file():
+            unmatched.append(p.name)
+    if unmatched:
+        print(f"PRUNE_SKIPPED: {prior_folder} kept "
+              f"(unverified: {', '.join(unmatched[:4])})")
+        return False
+
+    for p in sorted(prior_folder.iterdir()):
+        if p.is_file():
+            ops.delete(p)
+    ops.rmdir(prior_folder)
     return True
 
 

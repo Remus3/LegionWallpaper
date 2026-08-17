@@ -155,7 +155,10 @@ def test_full_stage_walk_milestone_sets(root: Path, tmp_path: Path):
     assert _milestones(scratch3) == {"ahri_firstinitial.png", "ahri_cleaninitial.png"}
     # _cleaninitial content = _firstdone content; backed up at stage start
     assert (root / "9.Image Backup" / "ahri" / "ahri_cleaninitial.png").is_file()
-    assert done2.is_dir()  # Done N retained until N+1 verifies
+    # Operator ruling 2026-08-17: Done N is pruned AT the transition, its
+    # content having been carried into Scratch N+1 above. The hash-verified
+    # FM-02 GC still governs the later Done N -> Done N+1 hop.
+    assert not done2.exists()
 
     _edit(root, "ahri", "clean", b"c1", tmp_path)
     assert run(root, "approve", "ahri") == 0
