@@ -440,7 +440,7 @@ ops\\runtime\\ci_watchdog\\HALT or Disable-ScheduledTask {TASK_NAME}.</Descripti
     <StartWhenAvailable>true</StartWhenAvailable>
     <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
     <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
+    <Hidden>true</Hidden>
   </Settings>
   <Actions Context="Author">
     <Exec>
@@ -452,9 +452,30 @@ ops\\runtime\\ci_watchdog\\HALT or Disable-ScheduledTask {TASK_NAME}.</Descripti
 """
 
 
+def windowless_python(exe):
+    """Return the pythonw.exe beside `exe`, or `exe` unchanged.
+
+    install() used to register sys.executable verbatim. Run the installer from
+    a normal python.exe - which is how anyone runs it - and the task inherits a
+    CONSOLE, so every two-minute tick flashed a window and stole focus. The
+    module's CREATE_NO_WINDOW care only ever covered child processes; this
+    covers the parent. Falls back to the original path when the sibling is
+    missing, because pointing a task at a non-existent exe fails silently on
+    every trigger, forever.
+    """
+    p = Path(exe)
+    if p.name.lower() == "pythonw.exe":
+        return exe
+    if p.name.lower() != "python.exe":
+        return exe
+    sibling = p.with_name("pythonw.exe")
+    return str(sibling) if sibling.is_file() else exe
+
+
 def install():
     TASK_XML.parent.mkdir(parents=True, exist_ok=True)
-    xml = task_xml(sys.executable, str(Path(__file__).resolve()))
+    xml = task_xml(windowless_python(sys.executable),
+                   str(Path(__file__).resolve()))
     # UTF-16 with a BOM: schtasks /XML rejects anything else for this schema.
     tmp = Path(str(TASK_XML) + ".tmp")
     tmp.write_bytes(xml.encode("utf-16"))
