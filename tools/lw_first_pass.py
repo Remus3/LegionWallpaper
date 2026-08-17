@@ -105,6 +105,78 @@ def center_crop_box(w, h):
     return (0, 0, w, h)
 
 
+CROP_SIDES = ("left", "right", "top", "bottom")
+
+
+def anchored_crop_box(w, h, sides):
+    """Exact-16:9 crop box taking its loss only from operator-permitted sides.
+
+    `sides` is the set of edges the operator has allowed the crop to eat into.
+    They are a PERMISSION, not a demand: only the axis that actually needs
+    cropping is touched, so a horizontal grant on a too-TALL frame is unused
+    (narrowing it would move the ratio further from 16:9 and cost extra area).
+
+    Both sides of the needed axis permitted -> the center crop. Exactly one ->
+    the whole loss comes off that edge. Neither -> ValueError, because the
+    instruction cannot be honoured and silently center-cropping would ignore
+    the operator. A frame already within ASPECT_TOL of 16:9 is returned whole.
+    """
+    bad = [s for s in sides if s not in CROP_SIDES]
+    if bad:
+        raise ValueError(f"unknown crop side(s): {bad}; want {CROP_SIDES}")
+    if not sides:
+        raise ValueError("no crop side given")
+
+    ratio = w / h
+    if abs(ratio - TARGET_ASPECT) <= ASPECT_TOL:
+        return (0, 0, w, h)
+
+    if ratio > TARGET_ASPECT:  # too wide - the width shrinks
+        allowed = [s for s in ("left", "right") if s in sides]
+        if not allowed:
+            raise ValueError(
+                "frame is too wide but no left/right crop side permitted")
+        new_w = min(round(h * 16 / 9), w)
+        remove = w - new_w
+        if len(allowed) == 2:
+            left = remove // 2
+        else:
+            left = remove if allowed[0] == "left" else 0
+        return (left, 0, left + new_w, h)
+
+    allowed = [s for s in ("top", "bottom") if s in sides]  # too tall
+    if not allowed:
+        raise ValueError(
+            "frame is too tall but no top/bottom crop side permitted")
+    new_h = min(round(w * 9 / 16), h)
+    remove = h - new_h
+    if len(allowed) == 2:
+        top = remove // 2
+    else:
+        top = remove if allowed[0] == "top" else 0
+    return (0, top, w, top + new_h)
+
+
+def parse_crop_overrides(path):
+    """Read a {slug: sides} operator override file. Returns {slug: [sides]}.
+
+    Values may be a comma-separated string ("left,top") or a list. Every side
+    is validated here so a typo fails at parse time, not mid-batch after the
+    GPU has already burned minutes on earlier slugs.
+    """
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    out = {}
+    for slug, val in raw.items():
+        sides = ([s.strip() for s in val.split(",")]
+                 if isinstance(val, str) else list(val))
+        sides = [s for s in sides if s]
+        bad = [s for s in sides if s not in CROP_SIDES]
+        if bad or not sides:
+            raise ValueError(f"{slug}: bad crop sides {val!r}")
+        out[slug] = sides
+    return out
+
+
 def aspect_class(w, h):
     """Classify a source's aspect and return (cls, box, area_loss).
 
@@ -430,22 +502,34 @@ def pipeline_submit(slug):
 # ==========================================================================
 # Aspect conditioning: write a cropped temp source when needed
 # ==========================================================================
-def condition_source(src_path, tmp_dir):
+def condition_source(src_path, tmp_dir, crop_sides=None):
     """Prepare the upscale input: return (path, plan_dict).
 
     plan_dict = {aspect_class, src_dims:[w,h], area_loss, crop_box, cropped}.
     - 'ok'         -> returns src_path unchanged, cropped False.
     - 'crop_ok'    -> writes a center-cropped exact-16:9 temp PNG, cropped True.
     - 'crop_heavy' -> returns (None, plan) so the caller HOLDs.
+
+    `crop_sides` is the operator override: it anchors the crop to the permitted
+    edges AND authorises an area loss past AREA_LOSS_MAX, turning what would be
+    a HOLD into a real crop classed 'crop_override'. An already-16:9 source
+    stays a passthrough whatever sides are named.
     """
     from PIL import Image
 
     with Image.open(src_path) as im:
         w, h = im.size
         cls, box, area_loss = aspect_class(w, h)
+        if crop_sides and cls != "ok":
+            box = anchored_crop_box(w, h, crop_sides)
+            left, top, right, bottom = box
+            area_loss = 1.0 - ((right - left) * (bottom - top)) / (w * h)
+            cls = "crop_override"
         plan = {"aspect_class": cls, "src_dims": [w, h],
                 "area_loss": round(area_loss, 6), "crop_box": box,
                 "cropped": False}
+        if crop_sides:
+            plan["crop_sides"] = list(crop_sides)
         if cls == "ok":
             return src_path, plan
         if cls == "crop_heavy":
@@ -493,7 +577,7 @@ def slug_state(slug):
     return "absent"
 
 
-def process_slug(slug, source_urls, tmp_dir, dry_run=False):
+def process_slug(slug, source_urls, tmp_dir, dry_run=False, crop_sides=None):
     """Run the full first-pass chain for one slug. Returns a result dict.
 
     result = {slug, status, ...}. status is one of:
@@ -503,7 +587,9 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
       'error'                  - a source-selection or subprocess failure.
     """
     state = slug_state(slug)
-    if state in ("needauth", "held"):
+    # An operator crop override is the whole point of revisiting a HELD slug,
+    # so it - and only it - reopens one. NEEDAUTH still never reprocesses.
+    if state == "needauth" or (state == "held" and not crop_sides):
         return {"slug": slug, "status": "skipped", "reason": state}
 
     scratch = scratch_dir_for(slug)
@@ -518,9 +604,16 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
     with Image.open(src) as im:
         w, h = im.size
     cls, box, area_loss = aspect_class(w, h)
+    if crop_sides and cls != "ok":
+        box = anchored_crop_box(w, h, crop_sides)
+        left, top, right, bottom = box
+        area_loss = 1.0 - ((right - left) * (bottom - top)) / (w * h)
+        cls = "crop_override"
     plan = {"slug": slug, "source_choice": kind, "source_path": src,
             "aspect_class": cls, "src_dims": [w, h],
             "area_loss": round(area_loss, 6), "crop_box": box}
+    if crop_sides:
+        plan["crop_sides"] = list(crop_sides)
 
     if cls == "crop_heavy":
         hold_metrics = {"hold": "aspect_crop_heavy", "src_dims": [w, h],
@@ -539,7 +632,7 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
         return plan
 
     # Condition (write cropped temp if crop_ok), then upscale.
-    conditioned, cplan = condition_source(src, tmp_dir)
+    conditioned, cplan = condition_source(src, tmp_dir, crop_sides=crop_sides)
     up_out = os.path.join(str(tmp_dir), slug + "_firstpass_up.png")
     audit = run_upscale(conditioned, up_out)
 
@@ -566,6 +659,9 @@ def process_slug(slug, source_urls, tmp_dir, dry_run=False):
         "verdict": v["verdict"], "reasons": v["reasons"],
         "source_choice": kind, "aspect_class": cls, "crop_box": box,
         "area_loss": round(area_loss, 6), "cropped": cplan.get("cropped"),
+        # crop_sides is the operator's directed-crop instruction; recording it
+        # is what makes a >AREA_LOSS_MAX crop auditable rather than silent.
+        "crop_sides": list(crop_sides) if crop_sides else None,
         # usm_applied tells a reviewer whether halo_pct measured a real
         # sharpening pass or a no-resample passthrough (see params above).
         # source_mode + alpha_flattened make the always-RGB output's alpha drop
@@ -617,10 +713,11 @@ def _print_slug_line(res):
         print(f"  {res['slug']:<58} ERROR   {res.get('reason')}")
 
 
-def run_batch(slugs, limit=None, dry_run=False):
+def run_batch(slugs, limit=None, dry_run=False, crop_overrides=None):
     """Sequentially process slugs (GPU is one device). Prints a summary banner."""
     if limit is not None:
         slugs = slugs[:limit]
+    crop_overrides = crop_overrides or {}
     source_urls = load_source_urls()
     counts = {"processed": 0, "pass": 0, "flag": 0, "fail": 0,
               "held": 0, "skipped": 0, "error": 0}
@@ -629,7 +726,8 @@ def run_batch(slugs, limit=None, dry_run=False):
     with tempfile.TemporaryDirectory(prefix="lw_first_pass_") as tmp_dir:
         for slug in slugs:
             try:
-                res = process_slug(slug, source_urls, tmp_dir, dry_run=dry_run)
+                res = process_slug(slug, source_urls, tmp_dir, dry_run=dry_run,
+                                   crop_sides=crop_overrides.get(slug))
             except Exception as exc:  # noqa: BLE001 - one slug != batch death
                 res = {"slug": slug, "status": "error", "reason": str(exc)}
             _print_slug_line(res)
@@ -661,16 +759,27 @@ def main(argv=None):
     p.add_argument("--limit", type=int, help="cap the number of slugs")
     p.add_argument("--dry-run", action="store_true",
                    help="print the plan without mutating")
+    p.add_argument("--crop-overrides", metavar="JSON",
+                   help="operator directed-crop file {slug: 'top,left'}; "
+                        "anchors the crop and reopens a HELD slug")
     args = p.parse_args(argv)
+
+    overrides = (parse_crop_overrides(args.crop_overrides)
+                 if args.crop_overrides else {})
 
     if args.batch or args.all_scratch:
         if args.all_scratch or args.batch == "--all-scratch":
             slugs = _all_scratch_slugs()
+            # a held slug is invisible to _all_scratch_slugs; an override is
+            # the operator explicitly reopening it, so pull it back in.
+            slugs += [s for s in overrides
+                      if s not in slugs and slug_state(s) == "held"]
         else:
             text = Path(args.batch).read_text(encoding="utf-8")
             slugs = [ln.strip() for ln in text.splitlines()
                      if ln.strip() and not ln.strip().startswith("#")]
-        run_batch(slugs, limit=args.limit, dry_run=args.dry_run)
+        run_batch(slugs, limit=args.limit, dry_run=args.dry_run,
+                  crop_overrides=overrides)
         return 0
 
     if not args.slug:
@@ -679,7 +788,8 @@ def main(argv=None):
     source_urls = load_source_urls()
     with tempfile.TemporaryDirectory(prefix="lw_first_pass_") as tmp_dir:
         res = process_slug(args.slug, source_urls, tmp_dir,
-                           dry_run=args.dry_run)
+                           dry_run=args.dry_run,
+                           crop_sides=overrides.get(args.slug))
     print(json.dumps(res, indent=2, default=str))
     return 0
 
