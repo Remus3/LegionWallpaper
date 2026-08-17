@@ -81,7 +81,7 @@ trigger, silently, forever.
 
 | Task | Trigger | Context | Description | Status |
 |---|---|---|---|---|
-| `LW-Wallpaper` | At logon + time trigger, repeat PT3M | Administrator / LeastPrivilege | Runs `pythonw.exe tools/lw_wallpaper_rotate.py tick` - desktop wallpaper deck rotator, every image once before any repeat (LEDGER 34) | REGISTERED 2026-07-18 |
+| `LW-Wallpaper` | At logon + time trigger, repeat PT3M | Administrator / LeastPrivilege | Runs `pythonw.exe tools/lw_wallpaper_rotate.py tick` - desktop wallpaper deck rotator, every image once before any repeat (LEDGER 34) | REGISTERED 2026-07-18. Carries no `<Hidden>` element and does not need one: `pythonw.exe` has no console to show. Do not "fix" this row by analogy with the two below. |
 | `LW-Supervisor` | At logon | Administrator / HIGHEST | Runs `pythonw.exe ops/lw_supervisor.py` - owns the main process lifecycle, PID lock, restart trigger (supervisor script TBD) | BLOCKED ON SCRIPT - `ops/lw_supervisor.py` does not exist, so this is gated on the file, not on operator approval; registering it today arms a task that fails every logon |
 | `LW-GeminiAudit` | Daily | Administrator | Gemini read-only auditor pass over the repo (`tools/gemini_audit.ps1` - exists) | **DROPPED 2026-08-02 - do not register.** `gemini-removal` retired the vendor this task exists to run; the loop's auditor role now runs read-only Claude. The script stays on disk as the rollback path, so this row stays here as a record rather than being deleted. |
 | `LW-WeeklyHygiene` | Weekly Sunday 04:17 | Administrator | Unattended `/weekly-hygiene` pass via headless Claude (`tools/weekly_hygiene_run.ps1`) | **REGISTERED 2026-08-02** (operator direction). Verified `Ready`. Its `-Model` default was `claude-sonnet-4-6`, not a current model id - fixed to `claude-sonnet-5` in the same change, because arming a weekly task nobody watches with a stale id fails silently every Sunday. |
@@ -92,9 +92,18 @@ RUN (2026-08-02); the other two are held until their target script exists, and
 `LW-GeminiAudit` is retired outright.
 
 ```
-REM REGISTERED 2026-08-02 - this exact command was run
+REM REGISTERED 2026-08-02, ARGS CORRECTED 2026-08-17.
+REM -WindowStyle Hidden is LOAD-BEARING: without it powershell.exe opens a
+REM console and steals focus when the task fires. The original command omitted
+REM it (RC's equivalent always carried it) and so flashed every Sunday 04:17 -
+REM the same defect class as the LW-CIWatchdog two-minute flash, just rare
+REM enough that nobody caught it. -NonInteractive keeps an unattended headless
+REM run from blocking forever on a prompt no one is there to answer.
+REM The live task ALSO carries <Hidden>true</Hidden>, which schtasks flags
+REM cannot express; to restore that, export the XML, insert the element and
+REM re-register with /Create /XML /F. This flag form alone will not set it.
 schtasks /Create /TN "LW-WeeklyHygiene" /SC WEEKLY /D SUN /ST 04:17 /F ^
-  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\LegionWallpaper\tools\weekly_hygiene_run.ps1"
+  /TR "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\LegionWallpaper\tools\weekly_hygiene_run.ps1"
 
 REM BLOCKED ON SCRIPT - ops\lw_supervisor.py does not exist
 schtasks /Create /TN "LW-Supervisor" /SC ONLOGON /RL HIGHEST /F ^
