@@ -81,7 +81,7 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
     (it signs its boundaries into the output), blanket mask escalation (destroys
     art), contrast-based residue as a STARTING detector, and further LaMa fill
     variants before the healing brush is tried. Also fixed: `IOPAINT_LAUNCH` is
-    now one verified constant - the documented `C:\Tools\iopaintenv` path
+    now one verified constant - the documented `C:\Tools\iopaint\venv` path
     never existed, LEDGER 30 recorded that in 2026-07-16, and the string still
     cost the operator a failed launch today.
 
