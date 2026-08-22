@@ -52,3 +52,55 @@ on quality - checked before claiming it. The two edits address DIFFERENT marks:
 bottom credit line (what the operator removed in these 82 steps). The veil is
 still there in the accepted frame. The lesson stands anyway - a single scalar
 over a frame with two marks cannot gate either one.
+
+## Second capture: 107-cleanup, 46 iterations with deliberately broader strokes
+
+The operator cleaned a second slug and named their reason unprompted: broader
+strokes "due to the softer color gradient transitions being so prominent". That
+turns a stylistic remark into a testable scaling rule, and the numbers agree.
+
+| | 105-cleanup | 107-cleanup |
+|---|---|---|
+| iterations | 82 | 46 |
+| median brush mask | 6,495 px (0.176% of frame) | 16,298 px (0.442%) |
+| median changed px | 766 | 1,996 |
+| median mask bbox | 218 x 56 | 366 x 105 |
+| cumulative changed | 21,766 px (0.590%) | 84,998 px (2.306%) |
+| **changed / mask** | **0.118** | **0.122** |
+| median local gradient near the stroke | 3.48 | 2.70 |
+
+Two things fall out.
+
+**1. The margin ratio is invariant.** Across a 2.5x change in stroke size, LaMa
+changes ~12% of what was brushed in BOTH captures. The operator consistently
+brushes about eight times the area that actually needs to change - a generous
+margin around the mark is part of the method, not sloppiness. Any automated mask
+that hugs the glyph is not reproducing this.
+
+**2. Stroke size tracks the local gradient, inversely, exactly as stated.** The
+softer slug (median local gradient 2.70) got 2.5x LARGER strokes than the busier
+one (3.48). That is the scaling rule the automation needs: smooth art tolerates
+big tiles, high-frequency art demands small ones.
+
+CAUTION on the within-slug correlation (+0.32 on 105, +0.51 on 107): it has the
+OPPOSITE sign to the across-slug relation, and it is almost certainly an artifact
+- gradient is measured over the mask bbox neighbourhood, so a larger stroke pulls
+in more varied art and reads a higher gradient by construction. Do not fit on it.
+The across-slug direction is n=2: a direction to build toward and re-measure, not
+a law to hard-code.
+
+## What to build, concretely
+
+A tiled decomposition worker: split the mark mask into ordered tiles, inpaint
+each with a tight crop around it, commit, repeat - the loop IOPaint's UI performs
+by hand. Two calibration anchors from the captures:
+
+- tile target area: ~6.5k px where local gradient is ~3.5, ~16k px where it is
+  ~2.7 (inverse, re-measure as more captures land)
+- dilate the mark to roughly 8x its own area before tiling, matching the observed
+  changed/mask ratio of 0.12
+
+Validation is available and honest: run it on 105-cleanup and 107-cleanup and
+compare against the operator's own finals pixel-for-pixel. Anything that cannot
+land near those two does not ship.
+
