@@ -27,6 +27,64 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+123. DONE **2026-08-22 (the cleaning problem split in two by measurement: the
+    FILL was never at fault, DETECTION is; bar raised to zero residue).** Commits
+    `737a160` `8c0a67c` `486b5f5` `0f7bab3` `a68aa77` `8a3fcae` `5e9c691`
+    `2248313` `8971391` `4682b5c` `9ed619b` `bfdae45` `abc8f14` `4c5abf7`
+    `ff7e582` `7d4b6ef` `ad4643e` `98f1d65` `418f328`. Started as the gate-driven
+    disposition of the 566-slug corpus (460 clean approved, 19 of 20 auto
+    inpainted, 87 held; `4.Cleaning Done` 6 -> 485) and became the session that
+    found out why automated cleaning had never worked. **The operator rejected
+    ALL 87 automated candidates across four review rounds** - 45 overlay-filled,
+    the same 45 un-filled (2 passed on the signature only), 40
+    region/singleton/faint, and the 7 that survived a coverage guard. Zero
+    accepted. Two of our own bugs fell out: the 25% mask-coverage refusal was
+    written `if faint and ...` so the region lane drove masks covering a median
+    47.6% of their ROI into LaMa (the operator: "the entirety of the cropped
+    regions are being blurred out"), now shared with stale-candidate deletion;
+    and **7 slugs were DETECTOR FALSE POSITIVES** flagging in-art text - a jersey
+    name, a lore line, a snowflake, a faction motto - which overturns the
+    standing "false positives are zero" claim and were approved UNEDITED.
+    **The turn came from the operator hand-cleaning two slugs in IOPaint and
+    capturing all 128 steps.** Measured off that: each stroke is ~0.18% of frame
+    (105) or 0.44% (107), LaMa changes ~12% of what is brushed in BOTH captures,
+    and stroke size scales INVERSELY with local gradient - the operator said so
+    unprompted and the numbers agreed (softer slug, 2.5x larger strokes). The
+    strokes are NOT a sweep: 30x overlap, median pixel brushed 19 times, median
+    NEW area per stroke 3.0%, and 86% of convergence in the last 30 of 82 steps
+    as the mask grows 55x. Our one-shot mask had been LARGER than the operator's
+    entire cumulative edit. **The decisive experiment was the operator's idea:
+    replay their captured masks in order through our fill.** The result was clean
+    and they PASSED it - so the fill was never the problem and every rejection
+    was a mask failure. Built the mask SCHEDULE from the captures (residue ->
+    contiguous run -> pad 5x for context -> tight crop -> commit): it cleaned 105
+    from a derived footprint and DAMAGED 107, which is worse than doing nothing,
+    because 107's footprint covers real art. **Detection is now the open problem
+    and contrast is dead in both directions:** absolute residue fires on genuine
+    brush detail, and a control-band-calibrated RELATIVE measure misses the mark
+    entirely - it reports no excess on frames that still carry the watermark,
+    because a semi-transparent credit line is not busier than the art. Best
+    result is the proven centre-overlay TEMPLATE supplying the footprint with the
+    schedule filling it (`tools/lw_clean_overlay_schedule.py`): logo gone, art
+    intact, credit line down to a faint ghost - and that **FAILS the new bar**.
+    **NEW STANDARD (operator): ZERO watermark; ghost, banding and faint residue
+    are not acceptable.** Next session runs five tracks in parallel, PRIMARY
+    being a healing-brush fill - exemplar plus gradient-domain Poisson blending,
+    "like photoshops healing brush" - which is deterministic, cannot hallucinate
+    phantom context, and preserves lines by construction, retro-explaining every
+    piece of operator guidance this session. Plan in
+    `docs/CLEAN_NEXT_SESSION_PLAN_2026-08-22.md`; analysis in
+    `docs/CLEAN_HANDEDIT_ANALYSIS_2026-08-22.md`. New tools: `lw_clean_dispose`,
+    `lw_clean_lane`, `lw_clean_review`, `lw_clean_tiled`, `lw_clean_replay`,
+    `lw_clean_overlay_schedule` (+ 4 test files, 60 tests on the tiler alone).
+    Suite 2161 passed / 18 skipped. **Do NOT redo:** lattice tiling of any kind
+    (it signs its boundaries into the output), blanket mask escalation (destroys
+    art), contrast-based residue as a STARTING detector, and further LaMa fill
+    variants before the healing brush is tried. Also fixed: `IOPAINT_LAUNCH` is
+    now one verified constant - the documented `C:\Tools\iopaintenv` path
+    never existed, LEDGER 30 recorded that in 2026-07-16, and the string still
+    cost the operator a failed launch today.
+
 122. DONE **2026-08-22 (clean-566 disposition executed gate-driven: 479 of 566
     slugs out of cleaning scratch, 87 held, and the driver refuses rather than
     forces).** The operator answered the 2026-08-17 block with shape (1) -

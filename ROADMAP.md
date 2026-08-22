@@ -6,6 +6,44 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
+- **clean-zero-watermark - the acceptance standard is ZERO watermark; ghost,
+  banding and faint residue all FAIL (operator, 2026-08-22). NEXT SESSION: four
+  tracks in parallel.** This is stricter than anything measured so far and it
+  settles several arguments: a near-zero detector score does not pass, "much
+  reduced" does not pass, and today's best result (template + scheduled fill on
+  `105-cleanup` - logo gone, credit line down to a faint ghost) does NOT pass.
+  Where it stands, all measured: the FILL is solved (the operator accepted a
+  replay of their own masks through simple-lama, and it held on the harder slug);
+  the mask SCHEDULE is built and cleaned 105 from a derived footprint; DETECTION
+  is the open problem, and contrast-based measures are dead in both directions -
+  absolute fires on genuine art detail and damaged 107, relative misses the mark
+  because a semi-transparent line is not busier than the art. Only the
+  centre-overlay TEMPLATE works, and it covers 45 of the 80 slugs.
+  PRIMARY TRACK, named by the operator: **a HEALING BRUSH fill** - "like
+  photoshops healing brush". That is exemplar + GRADIENT-DOMAIN (Poisson)
+  blending, not learned inpainting, and it retro-explains every piece of
+  guidance they gave: gradient-domain blending preserves the source's gradients
+  so LINES stay crisp and continue (the exact defect that got 45 candidates
+  rejected), the seam vanishes by construction rather than by a model guessing,
+  "reach into similar-like areas to pull down into the area" IS source-patch
+  selection, and it is deterministic so "phantom/incorrect context" cannot
+  appear. Classical, no model, pure-numpy feasible on small blobs. Try this
+  BEFORE more LaMa variants: LaMa was validated as adequate against frames
+  accepted at the OLD bar, and the bar is now zero residue.
+  The other four tracks, operator-specified, framing is SPOT HEALING not
+  whole-image generation: (A) analyse the content BEHIND the mark, cropped, to
+  drive stroke placement - the schedule currently reads the marked frame to
+  decide how to treat the mark; (B) an overlap-muxed comparison layer carried
+  through the stepped processing so art LINES stay crisp and true to design,
+  giving a per-step check on whether a stroke broke a line; (C) spot healing per
+  blob with ROLLBACK, since the schedule currently commits every step
+  unconditionally; (D) opacity / hue / tone conditioning inside the region
+  between passes so the iterative fills converge. Plan + rules:
+  `docs/CLEAN_NEXT_SESSION_PLAN_2026-08-22.md`. Ground truth for validation is
+  the two hand-clean captures (128 labelled steps + two accepted finals) in
+  `ops/runtime/clean/handedits/` (gitignored).
+
+
 - **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
   accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the
   current removal + fill stack; it is not a threshold problem.** Rounds: 45

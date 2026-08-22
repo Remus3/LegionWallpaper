@@ -11,7 +11,52 @@
 
 ---
 
-## 2026-08-22 (latest) - clean-566 disposed gate-driven, cleaning scratch 566 -> 87
+## 2026-08-22 (latest) - cleaning: fill solved, detection open, bar set to ZERO
+
+Long operator-driven session. Two halves of the cleaning problem separated by
+measurement, and the acceptance bar raised.
+
+- **Disposed the 566-slug cleaning corpus gate-driven** (LEDGER 122): 460 clean
+  approved, 19 of 20 auto inpainted, 87 held. `4.Cleaning Done` 6 -> 485.
+- **Then the operator rejected ALL 87 automated candidates** over 4 review
+  rounds (45 overlay filled, the same 45 un-filled, 40 region/faint/singleton,
+  7 guard survivors). Zero accepted. Two real bugs of ours fell out: the 25%
+  mask-coverage guard was gated on `faint` so the region lane repainted a median
+  47.6% of its ROI, and 7 slugs were DETECTOR FALSE POSITIVES flagging in-art
+  text (approved unedited; the "false positives are zero" claim is overturned).
+- **The operator then hand-cleaned two slugs in IOPaint and captured all 128
+  steps.** That is the ground truth everything below rests on.
+  - per stroke: ~0.18% of frame (105) / 0.44% (107); LaMa changes ~12% of what
+    is brushed in BOTH captures; stroke size scales INVERSELY with local
+    gradient, exactly as the operator said.
+  - the strokes are not a sweep: 30x overlap, median pixel brushed 19 times,
+    median NEW area per stroke 3.0%, and 86% of convergence lands in the last 30
+    of 82 steps as the mask grows 55x.
+- **REPLAY of their masks through our fill: the operator PASSED it.** So the
+  FILL was never the problem - every rejection was a mask failure.
+- **Built the mask SCHEDULE** (residue -> contiguous run -> pad 5x -> tight crop
+  -> commit): cleaned 105 from a derived footprint, DAMAGED 107 (worse than
+  doing nothing) because its footprint covers real art.
+- **Detection is the open problem and contrast is dead both ways:** absolute
+  residue fires on art detail; relative residue (control-band calibrated) misses
+  the mark entirely - it reports NO excess on frames that still carry the
+  watermark, because a semi-transparent line is not busier than the art.
+- **Template + schedule** (`tools/lw_clean_overlay_schedule.py`) is the best
+  result: logo gone, art intact, credit line down to a faint ghost. Still FAILS
+  the new bar.
+- **NEW STANDARD:** zero watermark; ghost / banding / faint all fail. Next
+  session runs five tracks in parallel, PRIMARY being a **healing-brush fill**
+  (exemplar + gradient-domain Poisson blending, "like photoshops healing
+  brush") - deterministic, no hallucination, preserves lines by construction.
+  Plan: `docs/CLEAN_NEXT_SESSION_PLAN_2026-08-22.md`.
+- **Do NOT redo:** lattice tiling of any kind (it signs its own boundaries into
+  the result), blanket mask escalation (destroys art), absolute or relative
+  contrast residue as a starting detector, and more LaMa fill variants before
+  the healing brush is tried.
+
+---
+
+## 2026-08-22 - clean-566 disposed gate-driven, cleaning scratch 566 -> 87
 
 Operator answered the standing block with shape (1) (gate-driven).
 
