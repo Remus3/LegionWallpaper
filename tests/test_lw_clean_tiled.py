@@ -636,3 +636,67 @@ def test_the_schedule_run_reports_its_masks_growing():
     sizes = plan["mask_px_per_step"]
     assert len(sizes) >= 2
     assert sizes[-1] >= sizes[0]
+
+
+# --------------------------------------------------- relative residue measure
+# Absolute residue is not a valid target or stop rule: the operator's OWN
+# accepted frames still read 3,986 px (105-cleanup) and 5,761 px (107-cleanup)
+# as residue under a fixed threshold, and on 107 - where the footprint covers
+# real art rather than a text line - chasing it damaged the picture. "Blended
+# out" has to mean INDISTINGUISHABLE FROM THE SURROUNDING ART, so the threshold
+# is calibrated per image on a control band of untouched art beside the mark.
+def test_the_control_band_hugs_the_footprint_without_overlapping_it():
+    foot = np.zeros((120, 300), dtype=bool)
+    foot[50:70, 80:220] = True
+    ctrl = T.control_band(foot, inner=4, outer=20)
+    assert not (ctrl & foot).any(), "the control must be UNtouched art"
+    assert ctrl.any()
+    ys, xs = np.nonzero(ctrl)
+    assert ys.min() >= 50 - 20 - 1 and ys.max() <= 70 + 20
+    assert xs.min() >= 80 - 20 - 1 and xs.max() <= 220 + 20
+
+
+def test_the_control_band_is_empty_for_an_empty_footprint():
+    assert not T.control_band(np.zeros((20, 20), dtype=bool)).any()
+
+
+def test_the_threshold_calibrates_higher_on_busier_art():
+    rng = np.random.default_rng(5)
+    quiet = np.full((120, 300, 3), 120, dtype=np.uint8)
+    quiet[::7] = 124                                   # faint texture
+    busy = rng.integers(0, 255, (120, 300, 3), dtype=np.uint8)
+    ctrl = np.zeros((120, 300), dtype=bool)
+    ctrl[10:110, 10:290] = True
+    assert T.calibrate_threshold(busy, ctrl) > T.calibrate_threshold(quiet, ctrl)
+
+
+def test_a_footprint_that_looks_like_its_surroundings_reports_no_excess():
+    rng = np.random.default_rng(7)
+    img = rng.integers(90, 150, (140, 320, 3), dtype=np.uint8)
+    foot = np.zeros((140, 320), dtype=bool)
+    foot[60:80, 90:230] = True                          # nothing special here
+    res, stats = T.relative_residue(img, foot)
+    assert stats["excess_ratio"] < 1.6
+    assert res.sum() <= foot.sum() * 0.15
+
+
+def test_a_surviving_mark_reads_as_excess_over_the_control():
+    rng = np.random.default_rng(9)
+    img = rng.integers(90, 150, (140, 320, 3), dtype=np.uint8)
+    img[66:74, 100:220] = 255                           # a leftover bright bar
+    foot = np.zeros((140, 320), dtype=bool)
+    foot[60:80, 90:230] = True
+    res, stats = T.relative_residue(img, foot)
+    assert stats["excess_ratio"] > 2.0
+    assert res[66:74, 100:220].any()
+
+
+def test_the_schedule_stops_once_the_footprint_matches_its_control(monkeypatch):
+    rng = np.random.default_rng(11)
+    img = rng.integers(90, 150, (140, 320, 3), dtype=np.uint8)
+    foot = np.zeros((140, 320), dtype=bool)
+    foot[60:80, 90:230] = True
+    _out, plan = T.run_schedule(img, foot, lambda c, m: c, steps=6,
+                                relative=True, log=lambda *_: None)
+    assert plan["stopped_early"] is True
+    assert plan["steps_run"] == 0, "nothing to do on art that already matches"

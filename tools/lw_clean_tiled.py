@@ -515,6 +515,99 @@ def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
     return cur, plan
 
 
+CONTROL_INNER = 6
+CONTROL_OUTER = 48
+CONTROL_QUANTILE = 0.95
+EXCESS_STOP = 1.6
+
+
+def control_band(footprint, inner=CONTROL_INNER, outer=CONTROL_OUTER):
+    """A ring of UNTOUCHED art just outside the footprint.
+
+    This is the reference the whole measure hangs on: the same picture, the same
+    local style, none of the mark. `inner` keeps the ring clear of the mark's
+    soft edge, which would otherwise pollute the reference with the very thing
+    being measured.
+    """
+    foot = np.asarray(footprint, dtype=bool)
+    if not foot.any():
+        return np.zeros(foot.shape, dtype=bool)
+    near = foot.copy()
+    for _ in range(int(inner)):
+        near = _dilate1(near)
+    far = near.copy()
+    for _ in range(max(0, int(outer) - int(inner))):
+        far = _dilate1(far)
+    return far & ~near
+
+
+def _deviation(img, k=9):
+    """Local structure: distance from the surrounding box mean."""
+    g = np.asarray(img, dtype=np.float32)
+    if g.ndim == 3:
+        g = g.mean(axis=2)
+    return np.abs(g - _box_mean(g, k))
+
+
+def calibrate_threshold(img, control, quantile=CONTROL_QUANTILE, k=9):
+    """The deviation level that ordinary art in THIS image already reaches.
+
+    A fixed threshold cannot work: the operator's own accepted frames still read
+    thousands of pixels as residue under one, and chasing that damaged 107 where
+    the footprint covers real art. Calibrating on the control makes the measure
+    say what it should - "busier than this picture's own detail".
+    """
+    ctrl = np.asarray(control, dtype=bool)
+    if not ctrl.any():
+        return float("inf")
+    dev = _deviation(img, k)
+    return float(np.quantile(dev[ctrl], float(quantile)))
+
+
+def relative_residue(img, footprint, inner=CONTROL_INNER, outer=CONTROL_OUTER,
+                     quantile=CONTROL_QUANTILE, k=9):
+    """Residue measured against the picture's own art, not an absolute cut.
+
+    MEASURED LIMIT, 2026-08-22 - do not use this alone to decide a frame is
+    dirty. On the two ground-truth slugs it reports NO excess even while the
+    watermark is plainly present:
+
+      105-cleanup untouched (mark present) excess 1.01 | accepted 0.64
+      107-cleanup untouched (mark present) excess 0.36 | accepted 0.17
+
+    The measure is not broken - it is answering "is this region busier than the
+    art beside it", and a semi-transparent credit line honestly is NOT. These
+    marks are low-amplitude COHERENT STRUCTURE, and local contrast fires on
+    brush detail while missing text. It works as a STOP rule shape (an accepted
+    frame does score lower than an untouched one, both times) but it cannot
+    START the work. Detection needs a feature that sees coherence - template
+    correlation for the known overlay, or a legibility measure.
+
+    Returns (mask, stats). `excess_ratio` is how much more of the footprint
+    exceeds the calibrated level than the control does; by construction the
+    control sits at 1 - quantile, so a ratio near 1.0 means the footprint is
+    indistinguishable from the art beside it - which is what "blended out"
+    means and what the operator's accepted frames look like.
+    """
+    foot = np.asarray(footprint, dtype=bool)
+    ctrl = control_band(foot, inner, outer)
+    if not foot.any() or not ctrl.any():
+        return np.zeros(foot.shape, dtype=bool), {
+            "threshold": None, "foot_density": 0.0, "control_density": 0.0,
+            "excess_ratio": 0.0}
+    thr = calibrate_threshold(img, ctrl, quantile, k)
+    dev = _deviation(img, k)
+    hot = dev > thr
+    foot_density = float(hot[foot].mean())
+    control_density = float(hot[ctrl].mean())
+    ratio = (foot_density / control_density) if control_density > 0 else (
+        float("inf") if foot_density > 0 else 0.0)
+    return (foot & hot), {"threshold": round(thr, 3),
+                          "foot_density": round(foot_density, 5),
+                          "control_density": round(control_density, 5),
+                          "excess_ratio": round(ratio, 3)}
+
+
 def coverage_at(step, steps, start=0.05):
     """Fraction of the detected residue to treat at `step` of `steps`.
 
@@ -572,7 +665,8 @@ CONTEXT_RATIO = 5.0
 
 
 def run_schedule(img, mark_mask, inpaint, steps=12, context_ratio=CONTEXT_RATIO,
-                 crop_margin=CROP_MARGIN, min_residue_px=64, log=print):
+                 crop_margin=CROP_MARGIN, min_residue_px=64, relative=False,
+                 excess_stop=EXCESS_STOP, log=print):
     """Generate the operator's mask SCHEDULE and fill along it.
 
     Each step: find what is left inside the original footprint, take a
@@ -590,13 +684,27 @@ def run_schedule(img, mark_mask, inpaint, steps=12, context_ratio=CONTEXT_RATIO,
     mask_px, residue_px = [], []
     stopped_early = False
     run = 0
+    excess = []
     for k in range(max(1, int(steps))):
-        res = residue_mask(cur, footprint)
-        residue_px.append(int(res.sum()))
-        if int(res.sum()) < int(min_residue_px):
-            stopped_early = True
-            log(f"LW SCHEDULE: residue down to {int(res.sum())} px - done")
-            break
+        if relative:
+            # Stop when the footprint is no busier than the art beside it: that
+            # is what "blended out" means, and an absolute pixel count says the
+            # operator's own accepted frames are still dirty.
+            res, stats = relative_residue(cur, footprint)
+            excess.append(stats["excess_ratio"])
+            residue_px.append(int(res.sum()))
+            if stats["excess_ratio"] <= float(excess_stop):
+                stopped_early = True
+                log(f"LW SCHEDULE: excess {stats['excess_ratio']} <= "
+                    f"{excess_stop} - the footprint matches its control, done")
+                break
+        else:
+            res = residue_mask(cur, footprint)
+            residue_px.append(int(res.sum()))
+            if int(res.sum()) < int(min_residue_px):
+                stopped_early = True
+                log(f"LW SCHEDULE: residue down to {int(res.sum())} px - done")
+                break
         sel = select_residue(res, coverage_at(k, steps))
         mask = grow_to_ratio(sel, context_ratio) & reach
         mask_px.append(int(mask.sum()))
@@ -616,6 +724,7 @@ def run_schedule(img, mark_mask, inpaint, steps=12, context_ratio=CONTEXT_RATIO,
         log(f"LW SCHEDULE: step {run}/{steps} residue={int(res.sum())} "
             f"selected={int(sel.sum())} mask={int(mask.sum())}")
     plan = {"steps_run": run, "stopped_early": stopped_early,
+            "excess_per_step": excess,
             "mask_px_per_step": mask_px, "residue_px_per_step": residue_px,
             "changed_px": int(np.any(cur != np.asarray(img, dtype=np.uint8),
                                      axis=2).sum())}
@@ -651,6 +760,10 @@ def main(argv=None):
                     help="run the operator's measured mask SCHEDULE for N steps "
                          "(residue -> contiguous run -> context pad -> fill)")
     ap.add_argument("--context-ratio", type=float, default=CONTEXT_RATIO)
+    ap.add_argument("--relative", action="store_true",
+                    help="measure residue against a control band of the same "
+                         "art and stop when the footprint matches it")
+    ap.add_argument("--excess-stop", type=float, default=EXCESS_STOP)
     ap.add_argument("--target-residue", action="store_true",
                     help="later passes work only where the mark has not blended "
                          "out yet, instead of dilating everywhere")
@@ -688,7 +801,9 @@ def main(argv=None):
     if args.schedule:
         out, plan = run_schedule(img, mark, _lama_inpainter(), steps=args.schedule,
                                  context_ratio=args.context_ratio,
-                                 crop_margin=args.crop_margin)
+                                 crop_margin=args.crop_margin,
+                                 relative=args.relative,
+                                 excess_stop=args.excess_stop)
         tmp = args.out + ".part"
         Image.fromarray(out).save(tmp, format="PNG")
         os.replace(tmp, args.out)

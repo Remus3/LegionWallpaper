@@ -194,3 +194,38 @@ when the footprint's residue density reaches the control's. Do not run more fill
 variants until that lands - the 105 success and the 107 damage came from the
 same code, so the difference is entirely in what the detector called residue.
 
+## The relative residue measure: built, calibrated, and it cannot start the work
+
+Implemented as `control_band` + `calibrate_threshold` + `relative_residue`: take
+a ring of untouched art just outside the footprint, calibrate the deviation
+threshold on it so "residue" means busier than THIS picture's own detail, and
+stop when the footprint's density matches the control's.
+
+Calibrated against frames whose answer is known:
+
+| frame | excess ratio | footprint density | control | would |
+|---|---|---|---|---|
+| 105 untouched, MARK PRESENT | 1.01 | 5.1% | 5.0% | stop |
+| 105 operator accepted | 0.64 | 3.2% | 5.0% | stop |
+| 107 untouched, MARK PRESENT | 0.36 | 1.8% | 5.0% | stop |
+| 107 operator accepted | 0.17 | 0.8% | 5.0% | stop |
+
+**It reports no excess on frames that still carry the watermark.** The measure
+is not buggy - it answers "is this region busier than the art beside it", and a
+semi-transparent credit line honestly is not. That is the whole lesson: these
+marks are low-amplitude COHERENT STRUCTURE, and every detector tried so far
+keys on local contrast, which fires on brush detail (the absolute version,
+which damaged 107) and misses text (this relative version).
+
+What it IS good for: an accepted frame scores lower than an untouched one on
+both slugs (0.64 vs 1.01, 0.17 vs 0.36), so the shape works as a STOP rule once
+work is underway. It cannot decide where to start.
+
+WHAT A DETECTOR ACTUALLY NEEDS, stated so the next attempt does not repeat this
+family: a feature that sees COHERENCE rather than amplitude. Three candidates,
+none tried yet - template correlation against the known overlay (already exists
+for the centre mark and is the one proven detector in this repo), an OCR-driven
+legibility measure (the ROADMAP already records that a ship gate needs one), and
+supervised learning from the 128 captured hand-clean steps, which are labelled
+by construction.
+
