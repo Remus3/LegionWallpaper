@@ -388,3 +388,128 @@ def test_context_extension_is_a_no_op_without_a_similar_neighbour():
     grown = T.extend_into_similar(img, labels, mark, max_labels=1,
                                   max_delta=20.0)
     assert np.array_equal(grown, mark)
+
+
+# ------------------------------------------------- subdividing large regions
+# Operator, on the residue the first contour run left over the tan area: extend
+# into more regions AND subdivide the large ones. A single big low-gradient
+# region hands the model a fill area with the mark still inside its own context,
+# so the text survives. Subdivision is HIERARCHICAL - it re-segments inside the
+# region, so the new boundaries still follow edge flow rather than a lattice.
+def _fake_segmenter(calls):
+    def seg(crop, target_area):
+        calls.append((crop.shape[:2], target_area))
+        h, w = crop.shape[:2]
+        lab = np.zeros((h, w), dtype=np.int32)
+        lab[:, w // 2:] = 1          # split every crop in half
+        return lab
+    return seg
+
+
+def test_a_small_region_is_left_alone():
+    labels = np.zeros((20, 20), dtype=np.int32)
+    img = np.zeros((20, 20, 3), dtype=np.uint8)
+    calls = []
+    out = T.subdivide_labels(img, labels, max_area=10_000,
+                             segmenter=_fake_segmenter(calls))
+    assert calls == []
+    assert len(np.unique(out)) == 1
+
+
+def test_a_large_region_is_split_into_several():
+    labels = np.zeros((100, 100), dtype=np.int32)
+    img = np.zeros((100, 100, 3), dtype=np.uint8)
+    calls = []
+    out = T.subdivide_labels(img, labels, max_area=1000,
+                             segmenter=_fake_segmenter(calls))
+    assert calls, "the oversized region must be re-segmented"
+    assert len(np.unique(out)) > 1
+
+
+def test_subdivision_never_moves_a_pixel_between_regions():
+    labels = np.zeros((80, 80), dtype=np.int32)
+    labels[:, 40:] = 1                       # two regions, one oversized each
+    img = np.zeros((80, 80, 3), dtype=np.uint8)
+    out = T.subdivide_labels(img, labels, max_area=500,
+                             segmenter=_fake_segmenter([]))
+    for lab in np.unique(labels):
+        region = labels == lab
+        # every sub-label inside this region must stay inside it
+        for sub in np.unique(out[region]):
+            assert np.all(region[out == sub]), "a sub-label escaped its parent"
+
+
+def test_subdivision_keeps_the_labels_disjoint_and_total():
+    labels = np.zeros((60, 90), dtype=np.int32)
+    labels[:, 45:] = 1
+    img = np.zeros((60, 90, 3), dtype=np.uint8)
+    out = T.subdivide_labels(img, labels, max_area=400,
+                             segmenter=_fake_segmenter([]))
+    assert out.shape == labels.shape
+    assert out.min() >= 0
+    assert int(np.unique(out).size) >= int(np.unique(labels).size)
+
+
+def test_a_smooth_region_is_not_subdivided_when_a_gradient_floor_is_set():
+    """SLIC on smooth content degenerates to regular cells, so subdividing a
+    smooth region rebuilds the very lattice the contour mode removed - measured
+    on 105-cleanup, where blanket subdivision put the hatching back across the
+    whole band including the side that had come out clean. It also contradicts
+    the operator's own rule: soft gradients get BROADER strokes, not finer.
+    """
+    smooth = np.full((100, 100, 3), 128, dtype=np.uint8)
+    labels = np.zeros((100, 100), dtype=np.int32)
+    calls = []
+    out = T.subdivide_labels(smooth, labels, max_area=500,
+                             segmenter=_fake_segmenter(calls),
+                             min_gradient=1.0)
+    assert calls == [], "a smooth region must be left whole"
+    assert len(np.unique(out)) == 1
+
+
+def test_a_busy_region_is_still_subdivided_under_the_same_floor():
+    rng = np.random.default_rng(2)
+    busy = rng.integers(0, 255, (100, 100, 3), dtype=np.uint8)
+    labels = np.zeros((100, 100), dtype=np.int32)
+    calls = []
+    out = T.subdivide_labels(busy, labels, max_area=500,
+                             segmenter=_fake_segmenter(calls),
+                             min_gradient=1.0)
+    assert calls, "a busy region must still be split"
+    assert len(np.unique(out)) > 1
+
+
+# --------------------------------------------------------- escalating context
+# Operator: "as the text smudges into small pieces, i increase the masking area
+# to pull more context into the bad areas. and it continues to blend/iterate
+# out". The mask GROWS between passes - a fixed mask re-fills the same hole from
+# the same surroundings and converges on whatever it converged on first.
+def test_the_mask_grows_between_passes_when_escalation_is_on():
+    img = _textured(160, 500, seed=21)
+    band = _band(h=160, w=500, y0=70, y1=86, x0=60, x1=440)
+    sizes = []
+
+    def probe_inpaint(crop, cmask):
+        sizes.append(int((cmask > 0).sum()))
+        return crop
+
+    T.run_tiled(img, band, probe_inpaint, passes=3, escalate_px=6,
+                min_pass_change=0.0, log=lambda *_: None)
+    assert sizes, "the inpainter must have been called"
+
+
+def test_escalation_is_recorded_per_pass():
+    img = _textured(160, 500, seed=23)
+    band = _band(h=160, w=500, y0=70, y1=86, x0=60, x1=440)
+    _out, plan = T.run_tiled(img, band, lambda c, m: c, passes=3, escalate_px=6,
+                             min_pass_change=0.0, log=lambda *_: None)
+    assert plan["mask_px_per_pass"] == sorted(plan["mask_px_per_pass"])
+    assert plan["mask_px_per_pass"][-1] > plan["mask_px_per_pass"][0]
+
+
+def test_no_escalation_keeps_the_mask_fixed():
+    img = _textured(160, 500, seed=25)
+    band = _band(h=160, w=500, y0=70, y1=86, x0=60, x1=440)
+    _out, plan = T.run_tiled(img, band, lambda c, m: c, passes=3, escalate_px=0,
+                             min_pass_change=0.0, log=lambda *_: None)
+    assert len(set(plan["mask_px_per_pass"])) == 1

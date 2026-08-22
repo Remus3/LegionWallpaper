@@ -244,6 +244,57 @@ def extend_into_similar(img, labels, mark, max_labels=2, max_delta=18.0):
     return out
 
 
+def subdivide_labels(img, labels, max_area, segmenter=None,
+                     min_gradient=None):
+    """Re-segment any region larger than `max_area`, hierarchically.
+
+    A single large low-gradient region hands the model a fill area with the mark
+    still sitting inside its own context, and the text survives - measured as
+    residue over the tan half of 105-cleanup after the first contour run. The
+    split is done by re-segmenting INSIDE the region, so the new boundaries keep
+    following edge flow instead of falling back to a lattice.
+
+    `min_gradient` gates it: a region flatter than this is left WHOLE. SLIC on
+    smooth content degenerates to regular cells, so subdividing a smooth region
+    rebuilds the lattice the contour mode exists to avoid - measured, it put the
+    hatching back across the whole band. It also contradicts the operator's own
+    rule that soft gradients take BROADER strokes, not finer ones.
+
+    `segmenter(crop_rgb, target_area) -> label array` is injectable, so the
+    bookkeeping here is testable without skimage.
+    """
+    labels = np.asarray(labels)
+    img = np.asarray(img)
+    seg = segmenter or segment_contours
+    out = np.zeros_like(labels)
+    nxt = 0
+    for lab in np.unique(labels):
+        region = labels == lab
+        area = int(region.sum())
+        if area <= max_area:
+            out[region] = nxt
+            nxt += 1
+            continue
+        bb = mask_bbox(region)
+        x0, y0, x1, y1 = bb
+        crop = img[y0:y1, x0:x1]
+        if min_gradient is not None and local_gradient(img, bb, pad=0) < min_gradient:
+            out[region] = nxt
+            nxt += 1
+            continue
+        sub = np.asarray(seg(crop, max_area))
+        local = region[y0:y1, x0:x1]
+        for s in np.unique(sub[local]):
+            piece = local & (sub == s)
+            if not piece.any():
+                continue
+            target = out[y0:y1, x0:x1]
+            target[piece] = nxt
+            out[y0:y1, x0:x1] = target
+            nxt += 1
+    return out
+
+
 def segment_contours(img, target_area, compactness=8.0):
     """Label map whose boundaries follow edge flow (SLIC, lazily imported).
 
@@ -321,7 +372,7 @@ def build_plan(img, mark_mask, margin_ratio=MARGIN_RATIO,
 def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
               crop_margin=CROP_MARGIN, passes=DEFAULT_PASSES,
               min_pass_change=MIN_PASS_CHANGE, stride_frac=STRIDE_FRAC,
-              labels=None, log=print):
+              labels=None, escalate_px=0, log=print):
     """Inpaint tile by tile over REPEATED staggered passes, committing as it goes.
 
     `inpaint(crop_rgb, crop_mask_u8) -> filled_rgb` is injected, so ordering,
@@ -346,11 +397,21 @@ def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
     step = max(1, int(round(math.sqrt(plan["target_tile_area"]))))
     total_tiles = 0
     passes_run = 0
+    mask_px_per_pass = []
     stopped_early = False
     per_pass = []
     for p in range(max(1, int(passes))):
         before = cur.copy()
         offset = (p * step) // max(1, int(passes))
+        if escalate_px and p:
+            # The operator, on the residue a pass leaves: "as the text smudges
+            # into small pieces, i increase the masking area to pull more
+            # context into the bad areas. and it continues to blend/iterate
+            # out". A fixed mask re-fills the same hole from the same
+            # surroundings and converges on whatever it converged on first.
+            for _ in range(int(escalate_px)):
+                grown = _dilate1(grown)
+        mask_px_per_pass.append(int(grown.sum()))
         if labels is not None:
             # Contour mode: boundaries follow edge flow, so a pass leaves its
             # seams on edges the picture already has. Re-segmenting per pass
@@ -387,6 +448,7 @@ def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
     plan["passes_run"] = passes_run
     plan["stopped_early"] = stopped_early
     plan["px_moved_per_pass"] = per_pass
+    plan["mask_px_per_pass"] = mask_px_per_pass
     changed = int(np.any(cur != base, axis=2).sum())
     plan["changed_px"] = changed
     plan["changed_over_mask"] = (round(changed / plan["grown_px"], 4)
@@ -417,6 +479,15 @@ def main(argv=None):
     ap.add_argument("--crop-margin", type=int, default=CROP_MARGIN)
     ap.add_argument("--contours", action="store_true",
                     help="tile on edge-following segments instead of a lattice")
+    ap.add_argument("--subdivide", type=float, default=0,
+                    help="re-segment any region larger than N x the tile area "
+                         "(0 = off)")
+    ap.add_argument("--escalate-px", type=int, default=0,
+                    help="dilate the mask by N px before each later pass, to "
+                         "pull more context into whatever the last pass left")
+    ap.add_argument("--subdivide-min-gradient", type=float, default=None,
+                    help="only subdivide regions busier than this (smooth ones "
+                         "stay whole - splitting them rebuilds a lattice)")
     ap.add_argument("--extend-labels", type=int, default=0,
                     help="reach into N neighbouring regions of matching "
                          "luminance to source the fill texture")
@@ -446,13 +517,20 @@ def main(argv=None):
     if args.contours:
         bb = mask_bbox(mark)
         grad = local_gradient(img, bb) if bb else 0.0
-        labels = segment_contours(img, target_tile_area(grad))
+        area = target_tile_area(grad)
+        labels = segment_contours(img, area)
+        if args.subdivide:
+            # A region bigger than one brush-sized tile still hides the mark in
+            # its own context; split it before any fill happens.
+            labels = subdivide_labels(img, labels, max_area=area * args.subdivide,
+                                      min_gradient=args.subdivide_min_gradient)
         if args.extend_labels:
             mark = extend_into_similar(img, labels, mark,
                                        max_labels=args.extend_labels)
     out, plan = run_tiled(img, mark, _lama_inpainter(), args.margin_ratio,
                           args.crop_margin, passes=args.passes,
-                          stride_frac=args.stride_frac, labels=labels)
+                          stride_frac=args.stride_frac, labels=labels,
+                          escalate_px=args.escalate_px)
     tmp = args.out + ".part"
     # format is explicit: PIL infers it from the extension, and the atomic
     # temp name ends in .part, which it cannot resolve.
