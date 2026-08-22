@@ -6,6 +6,35 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
+- **clean-detector-false-positives - the detector flags IN-ART content as a mark:
+  7 named by the operator 2026-08-22. This OVERTURNS the standing "false positives
+  are currently zero" claim - do not cite that line again without re-measuring.**
+  In-art TEXT and ICONOGRAPHY: a jersey name (`177-cleanup` "faker"), a lore line
+  (`186-cleanup` "unto darkness unto light"), a snowflake (`193-cleanup`), a
+  faction motto plus its icon (`darius-the-hand-of-noxus-by-vexxsoul-dm8cizj-pre`),
+  and three more in the faint lane (`75f`, `dbwtlkx-eeb94ce2-...`, `image3`).
+  Nothing in the gate distinguishes typography that BELONGS to the picture from
+  typography stamped ON it, and the corpus is League splash art where in-art
+  lettering is everywhere. The old census could not have caught this: it scored
+  the detector's own output band, not the class of object. These 7 frames carry
+  no mark and must never be inpainted. OPEN: decide whether they are approved
+  unedited (they are clean frames) and whether the gate needs an in-art-text
+  rule at all, or whether this stays a human call. Evidence:
+  `docs/CLEAN_OVERLAY_REVIEW_2026-08-22.md`.
+
+- **clean-coverage-guard-shared - FIXED 2026-08-22 (our bug, found by operator
+  review).** The 25% mask-coverage refusal was written `if faint and not
+  faint_mask_ok(cov)`, so ONLY the faint lane was guarded; the region lane ran
+  masks covering a median 47.6% of the ROI (24 of 27 over the line, 16 over 40%)
+  straight into LaMa, which is why the operator saw "the entirety of the cropped
+  regions ... blurred out". The ceiling is now shared (`COVERAGE_MAX`,
+  `mask_coverage_ok`) and a refusal DELETES any candidate a previous permissive
+  run left behind, so a stale after-image cannot keep showing up in the review
+  sheet as a result. Re-run under the guard: region 27 -> 3 candidates,
+  singletons 3 -> 1, faint 12 -> 9; the rest refuse to the human lane, which is
+  the correct answer. Pinned by `tests/test_lw_clean_coverage_guard.py`.
+
+
 - **clean-overlay-fill-rejected - the overlay lane's LaMa fill FAILS operator
   review 45 of 45 - NEW 2026-08-22, measured on the whole centre_overlay bucket.**
   The lane ran clean on its own numbers (median `overlay_score` 0.2712 -> 0.0647,

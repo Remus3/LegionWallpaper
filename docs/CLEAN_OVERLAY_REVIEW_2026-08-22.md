@@ -129,3 +129,53 @@ acceptable frames from the 43 unacceptable ones. Any further tuning loop that
 optimizes against it is optimizing against a measure known to be blind. A
 stronger removal needs a different objective with an anchor the eye agrees with.
 
+## Round 3: the region, singleton and faint lanes were reviewed - all fail, two causes
+
+The operator reviewed the other three sheets. Verdict on every candidate:
+"all of them fail as the entirety of the cropped regions are being blurred out
+in the image". Two separate problems came out of it.
+
+### Cause 1: the coverage guard was gated on the wrong thing (our bug)
+
+The faint lane REFUSES to inpaint when the mask covers more than 25% of the ROI.
+That guard was written `if faint and not faint_mask_ok(cov)`, so the region lane
+walked straight past it. Measured over the region lane's own records:
+
+| lane | n | median mask coverage | over 25% | over 40% |
+|---|---|---|---|---|
+| not_border (region) | 27 | 47.6% | 24 | 16 |
+| singletons (region) | 3 | 30.9% | 2 | 1 |
+| faint | 7 | 10.5% | 1 | 1 |
+
+A mask covering half the ROI is the picture, not a mark - which is exactly what
+the operator saw. The guard's own reasoning was never faint-specific, so it is
+now shared (`COVERAGE_MAX`, `mask_coverage_ok`), and a refusal DELETES any
+candidate a previous permissive run left on disk, so a stale after-image cannot
+keep appearing in the review sheet as if it were a result. Re-run under the
+guard: region 27 -> 3 candidates, singletons 3 -> 1, faint 12 -> 9. The rest
+refuse to the human lane, which is the correct answer, not a regression.
+
+### Cause 2: the detector has FALSE POSITIVES - in-art content is not a mark
+
+Seven slugs were flagged on content that is part of the artwork. The operator
+named each one:
+
+| slug | lane | what was flagged |
+|---|---|---|
+| `177-cleanup` | region | "faker on the jacket is not a signature/logo to remove" |
+| `186-cleanup` | region | "unto darkness unto light is not a signature/logo to remove" |
+| `193-cleanup` | region | "snowflake is not a signature/logo to remove" |
+| `darius-the-hand-of-noxus-by-vexxsoul-dm8cizj-pre` | region | "no mercy no retreat in noxus, strength and its icon ... on the left side" |
+| `75f` | faint | "is not a signature/logo to remove" |
+| `dbwtlkx-eeb94ce2-166d-4457-abc3-615a5bc07fd4` | faint | "is not a signature/logo to remove" |
+| `image3` | faint | "is not a signature/logo to remove" |
+
+This OVERTURNS the standing "false positives are currently zero" claim, which
+came from the 2026-08-11 precision census. Note what the two censuses actually
+measured: that one scored the detector's own bottom-band output, and these seven
+are in-art TEXT and ICONOGRAPHY - lore lines, a jersey name, a faction motto and
+its icon, a snowflake. Nothing in the gate distinguishes typography that belongs
+to the picture from typography stamped on top of it, and the corpus is League
+splash art, where in-art lettering is common. These seven frames carry no mark
+to remove and must not be inpainted at all.
+

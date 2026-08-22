@@ -333,7 +333,14 @@ FAINT_BRIGHT_THR = 42.0
 # fails too: the art's own crevices satisfy it at every reach, 30.9-34.4%).
 # Calibrated on n=3, so it is a tripwire and not a classifier - but it errs
 # toward REFUSING, and a refusal routes to a human, which is the safe direction.
-FAINT_COVERAGE_MAX = 25.0
+# The ceiling is LANE-INDEPENDENT. It was gated on the faint lane until the
+# 2026-08-22 operator review rejected the entire region lane in one sentence -
+# "the entirety of the cropped regions are being blurred out in the image" -
+# with a measured median mask coverage of 47.6% of the ROI (24 of 27 slugs over
+# this line, 16 over 40%). The reasoning never was faint-specific: a mask that
+# covers half the ROI is the PICTURE, not a mark, whichever lane built it.
+COVERAGE_MAX = 25.0
+FAINT_COVERAGE_MAX = COVERAGE_MAX   # back-compat name, same number
 
 
 # A faint box says "something is here"; it does not say WHICH object. When the
@@ -402,9 +409,26 @@ def faint_residual(faint_boxes, roi_box):
     return [d for d in (faint_boxes or ()) if _boxes_overlap(d["box"], roi_box)]
 
 
+def mask_coverage_ok(coverage_pct) -> bool:
+    """True when the mask is small enough to be a mark, not the picture."""
+    return float(coverage_pct) <= COVERAGE_MAX
+
+
 def faint_mask_ok(coverage_pct) -> bool:
-    """True when the faint mask is small enough to be a mark, not the picture."""
-    return float(coverage_pct) <= FAINT_COVERAGE_MAX
+    """Back-compat alias for the shared ceiling."""
+    return mask_coverage_ok(coverage_pct)
+
+
+def clear_stale_candidate(target_dir, slug):
+    """Remove any candidate an earlier, more permissive run left behind.
+
+    A refusal that leaves the old after-image on disk keeps feeding it to the
+    review sheet as though it were a result worth judging.
+    """
+    for name in (f"{slug}_iopaint_after.png", f"{slug}_clean_cand.png"):
+        path = os.path.join(target_dir, name)
+        if os.path.exists(path):
+            os.remove(path)
 
 
 def _faint_detect(image_path):
@@ -931,15 +955,16 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
         log(f"  mask   {_file_link(mask_path)}")
         return rec
 
-    if faint and not faint_mask_ok(cov):
+    if not mask_coverage_ok(cov):
         # The mark is on art the mask cannot separate it from. Refuse BEFORE the
         # GPU and leave the mask on disk as the evidence - repainting this much
         # of the frame to remove a signature is the worse outcome, and a refusal
         # routes to the human lane rather than dropping the slug silently.
+        clear_stale_candidate(target, slug)
         rec["status"] = "manual"
         rec["reason"] = (
             f"mask covers {cov:.1f}% of the ROI (ceiling "
-            f"{FAINT_COVERAGE_MAX:.0f}%) - the mark cannot be separated from the "
+            f"{COVERAGE_MAX:.0f}%) - the mark cannot be separated from the "
             f"art here, so this slug goes to the manual IOPaint lane, not LaMa")
         log(f"LW IOPAINT {slug}: MANUAL - {rec['reason']}")
         log(f"  before {_file_link(before_path)}")
