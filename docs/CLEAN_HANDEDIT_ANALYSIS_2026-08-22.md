@@ -104,3 +104,56 @@ Validation is available and honest: run it on 105-cleanup and 107-cleanup and
 compare against the operator's own finals pixel-for-pixel. Anything that cannot
 land near those two does not ship.
 
+## The replay: our fill is NOT the problem
+
+The operator proposed the decisive experiment - replay their captured masks in
+order, each waiting on the committed result of the last, and see what can be
+inferred. `tools/lw_clean_replay.py` does exactly that: mask 1..82 through
+simple-lama, cropped around each mask the way IOPaint's crop strategy does.
+
+**The replayed frame is clean.** Text gone, art intact, the brush handle that
+crosses the credit line survives, no seams, no speckles - visually equivalent to
+the operator's own result.
+
+| variant | in-mask mean distance to the operator's final |
+|---|---|
+| untouched original | 15.22 |
+| best derived-mask attempt (contours + gated subdivision) | 11.12 |
+| **replay of the operator's own masks** | **7.74** (72.9% within 8 levels) |
+
+Per-step divergence stayed BOUNDED across all 82 steps (median 8.59, max 13.04)
+rather than growing, which rules out drift from sequential commits.
+
+Two conclusions, and they redirect the whole effort:
+
+1. **The fill engine is adequate.** Given the right mask, our pipeline produces
+   an acceptable clean. Every rejected candidate was a MASK failure wearing a
+   fill failure's clothes.
+2. **The residual 7.74 is engine difference, not method** - IOPaint's LaMa
+   serving versus simple-lama. It is not worth closing; the frame is acceptable
+   at that distance.
+
+So mask GENERATION is the entire remaining problem, and the captures say what it
+has to produce.
+
+## What the stroke pattern actually is (forward and backward)
+
+Reading the 82 steps in both directions - each step against the one before, and
+each step against the finished frame - contradicts the obvious model:
+
+- **median NEW area per stroke: 3.0%.** 97% of every stroke re-covers ground
+  already brushed. This is not a sweep with small strokes.
+- **direction is not monotonic:** 52 of 81 steps move right, the rest backtrack;
+  the x centroid wanders 1237 -> 1376 and ends back at 1273.
+- **no coarse-to-fine phase:** new area is 3.1% in the first half, 2.8% in the
+  second.
+- **the work is back-loaded:** after 40 of 82 steps the frame is still at 12.97
+  of its starting 15.06 distance from the final. **86% of the convergence
+  happens in the last 30 steps**, as the mask grows past ~10k px.
+- **the mask grows 55x** from first stroke (382 px) to last (21,157 px) over one
+  small area.
+
+So the method is: park on a spot, re-brush it repeatedly with a mask that keeps
+GROWING, move on, come back. The generator has to reproduce that schedule, not a
+one-shot mask and not a fixed-size multi-pass.
+
