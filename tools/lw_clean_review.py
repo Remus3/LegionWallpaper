@@ -52,11 +52,22 @@ def row_html(slug, rec, runtime=RUNTIME, prefix="."):
     meta = (f'{flag} score {ov.get("score_before")} -&gt; {ov.get("score_after")} '
             f'(flag {ov.get("flag_threshold")}) | mask '
             f'{rec.get("mask_coverage_pct")}% of ROI | {html.escape(str(rec.get("mask")))}')
+    # The algebraic pre-pass output, when the overlay lane wrote one. It inverts
+    # the matting equation per pixel - it CANNOT displace a line or invent one -
+    # so showing it beside the LaMa-filled result separates "removal too weak"
+    # from "fill hallucinated". The 2026-08-22 operator review rejected all 45
+    # filled results for exactly that pair of defects.
+    raw_rel = f"{prefix}/{slug}/{slug}_overlay_raw.png"
+    mid = ""
+    if os.path.exists(os.path.join(runtime, slug, f"{slug}_overlay_raw.png")):
+        mid = (f'<figure><figcaption>algebraic only (no fill)</figcaption>'
+               f'<img src="{html.escape(raw_rel)}" alt="{name} algebraic"></figure>')
     return (f'<section class="row"><h2>{name}</h2>'
             f'<p class="note">{meta}</p><div class="pair">'
             f'<figure><figcaption>before</figcaption>'
             f'<img src="{html.escape(before)}" alt="{name} before"></figure>'
-            f'<figure><figcaption>after</figcaption>'
+            f'{mid}'
+            f'<figure><figcaption>after (LaMa fill)</figcaption>'
             f'<img src="{html.escape(after)}" alt="{name} after"></figure>'
             f'</div></section>')
 

@@ -97,3 +97,20 @@ def test_main_writes_the_sheet_atomically(tmp_path):
     assert out.exists()
     assert not (tmp_path / "review.html.part").exists()
     assert "echo" in out.read_text(encoding="utf-8")
+
+
+def test_the_algebraic_only_frame_is_shown_when_present(tmp_path):
+    _slug_dir(tmp_path, "sierra")
+    (tmp_path / "sierra" / "sierra_overlay_raw.png").write_bytes(b"")
+    page = rev.build_page(["sierra"], "t", str(tmp_path))
+    assert "sierra_overlay_raw.png" in page
+    assert "algebraic only" in page
+    # order matters for the eye: before, then no-fill, then filled
+    assert (page.index("_iopaint_before.png") < page.index("_overlay_raw.png")
+            < page.index("_iopaint_after.png"))
+
+
+def test_no_algebraic_frame_when_the_pre_pass_left_nothing(tmp_path):
+    _slug_dir(tmp_path, "tango")
+    page = rev.build_page(["tango"], "t", str(tmp_path))
+    assert "_overlay_raw.png" not in page

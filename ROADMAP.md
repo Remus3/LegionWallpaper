@@ -6,6 +6,29 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
+- **clean-overlay-fill-rejected - the overlay lane's LaMa fill FAILS operator
+  review 45 of 45 - NEW 2026-08-22, measured on the whole centre_overlay bucket.**
+  The lane ran clean on its own numbers (median `overlay_score` 0.2712 -> 0.0647,
+  zero frames left at or above the 0.15 flag) and the eye rejected every frame.
+  Two defects, different stages: (1) blur, smudges and MISALIGNED lines where art
+  crosses the matte-plus-buffer boundary - that is the LaMa residual FILL, since
+  the algebraic pre-pass inverts the matting equation per pixel and physically
+  cannot displace or invent a line; (2) the signature's `(c)` left behind, which
+  is removal being too weak, the already-known partial state of the removal half.
+  Registration is NOT the obvious culprit: the fitted shift is 0 or +-1px on 43 of
+  45 frames (outliers one 24px, one 30px, one scale 1.12) - worth a look, but it
+  cannot explain a whole-bucket rejection. Verdicts and the four defect classes
+  (A 17 / B 25 / C 1 / D 2) are in `docs/CLEAN_OVERLAY_REVIEW_2026-08-22.md`.
+  NEXT, and it is one operator question, not a build: the review sheet now shows
+  before / algebraic-only (no fill) / after (LaMa fill) per slug, so the operator
+  can say whether the UN-FILLED algebraic result is shippable. If it is, the
+  overlay lane drops LaMa entirely and ships a faithful, fill-free result; if the
+  mark still reads at 1:1 without the fill, the removal half needs to get stronger
+  before any fill question matters. Do NOT tune the fill before that answer.
+  Sheet: `ops/runtime/clean/review_overlay.html`. Nothing was approved; all 45
+  are still in `3.Cleaning Scratch`.
+
+
 - **clean-566-disposition - DONE 2026-08-22, gate-driven (operator call). 479 of
   566 slugs left `3.Cleaning Scratch`; 87 are held for the manual IOPaint lane.**
   The operator chose shape (1): inpaint the `auto` bucket, approve the `clean`
