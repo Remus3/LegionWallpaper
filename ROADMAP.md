@@ -17,9 +17,11 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   typography stamped ON it, and the corpus is League splash art where in-art
   lettering is everywhere. The old census could not have caught this: it scored
   the detector's own output band, not the class of object. These 7 frames carry
-  no mark and must never be inpainted. OPEN: decide whether they are approved
-  unedited (they are clean frames) and whether the gate needs an in-art-text
-  rule at all, or whether this stays a human call. Evidence:
+  no mark and must never be inpainted. The 7 were APPROVED UNEDITED the same day
+  on the operator's call (clean-scan passthrough, original pixels, no inpaint):
+  `4.Cleaning Done` 485 -> 492, `3.Cleaning Scratch` 87 -> 80. STILL OPEN: whether
+  the gate needs an in-art-text rule at all, or whether this stays a human call.
+  Evidence:
   `docs/CLEAN_OVERLAY_REVIEW_2026-08-22.md`.
 
 - **clean-coverage-guard-shared - FIXED 2026-08-22 (our bug, found by operator

@@ -179,3 +179,11 @@ to the picture from typography stamped on top of it, and the corpus is League
 splash art, where in-art lettering is common. These seven frames carry no mark
 to remove and must not be inpainted at all.
 
+### Disposition of the seven: approved UNEDITED (operator call, same day)
+
+They carry no mark, so they took the same unedited passthrough the 460 `clean`
+slugs took - `save-working --tool clean-scan` -> `submit` -> `approve`, original
+pixels intact, no inpainting, `--actor tool:auto-approve` so the ADR-008 rail
+sees a non-operator approver. 7 of 7 landed; `4.Cleaning Done` 485 -> 492,
+`3.Cleaning Scratch` 87 -> 80.
+
