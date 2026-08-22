@@ -513,3 +513,67 @@ def test_no_escalation_keeps_the_mask_fixed():
     _out, plan = T.run_tiled(img, band, lambda c, m: c, passes=3, escalate_px=0,
                              min_pass_change=0.0, log=lambda *_: None)
     assert len(set(plan["mask_px_per_pass"])) == 1
+
+
+# ------------------------------------------------------- residue-targeted work
+# Operator, defining "the bad areas": "where the text used to be and hasnt been
+# blended out completely while keeping the affected area crisp". So residue is
+# looked for INSIDE the original footprint only, and later passes work on that
+# alone - blanket dilation repaints clean art and destroyed the frame.
+def test_residue_is_found_where_structure_survives_inside_the_footprint():
+    img = np.full((80, 200, 3), 120, dtype=np.uint8)
+    img[38:42, 60:90] = 200                 # a leftover bright streak
+    foot = np.zeros((80, 200), dtype=bool)
+    foot[30:50, 20:180] = True
+    res = T.residue_mask(img, foot)
+    assert res[38:42, 60:90].any()
+    assert not res[:30].any() and not res[50:].any()
+
+
+def test_residue_is_confined_to_the_original_footprint():
+    img = np.full((80, 200, 3), 120, dtype=np.uint8)
+    img[5:9, 5:40] = 240                    # bright, but OUTSIDE the footprint
+    foot = np.zeros((80, 200), dtype=bool)
+    foot[30:50, 20:180] = True
+    assert not T.residue_mask(img, foot)[5:9, 5:40].any()
+
+
+def test_a_blended_area_reports_no_residue():
+    img = np.full((80, 200, 3), 120, dtype=np.uint8)
+    foot = np.zeros((80, 200), dtype=bool)
+    foot[30:50, 20:180] = True
+    assert not T.residue_mask(img, foot).any()
+
+
+def test_later_passes_target_the_residue_not_the_whole_band():
+    """The second pass must be SMALLER and local, not a grown copy of the first."""
+    img = _textured(120, 400, seed=31)
+    band = _band(h=120, w=400, y0=50, y1=62, x0=40, x1=360)
+    img[54:58, 100:140] = 255               # one stubborn patch
+
+    def blending_inpaint(crop, cmask):
+        out = crop.copy()
+        sel = cmask > 0
+        # blends everything except the stubborn patch, which stays bright
+        med = int(np.median(crop)) if crop.size else 0
+        keep = out[..., 0] == 255
+        out[sel & ~keep] = med
+        return out
+
+    _out, plan = T.run_tiled(img, band, blending_inpaint, passes=3,
+                             escalate_px=4, target_residue=True,
+                             min_pass_change=0.0, log=lambda *_: None)
+    per_pass = plan["mask_px_per_pass"]
+    assert per_pass[1] < per_pass[0], "later passes must narrow onto the residue"
+
+
+def test_targeting_stops_when_nothing_is_left(monkeypatch):
+    img = _textured(120, 400, seed=33)
+    band = _band(h=120, w=400, y0=50, y1=62, x0=40, x1=360)
+    monkeypatch.setattr(T, "residue_mask",
+                        lambda *a, **k: np.zeros(img.shape[:2], dtype=bool))
+    _out, plan = T.run_tiled(img, band, lambda c, m: c, passes=4,
+                             escalate_px=4, target_residue=True,
+                             min_pass_change=0.0, log=lambda *_: None)
+    assert plan["passes_run"] < 4
+    assert plan["stopped_early"] is True

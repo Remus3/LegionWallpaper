@@ -174,6 +174,45 @@ def tile_mask(mask, target_area, offset=0, stride_frac=1.0):
     return tiles
 
 
+def _box_mean(g, k):
+    """Mean over a (2k+1) box, via an integral image. Pure numpy, O(n)."""
+    pad = np.pad(g, k + 1, mode="edge")
+    ii = pad.cumsum(axis=0).cumsum(axis=1)
+    h, w = g.shape
+    y0 = np.arange(h)
+    x0 = np.arange(w)
+    yy0, xx0 = np.meshgrid(y0, x0, indexing="ij")
+    a = ii[yy0, xx0]
+    b = ii[yy0, xx0 + 2 * k + 1]
+    c = ii[yy0 + 2 * k + 1, xx0]
+    d = ii[yy0 + 2 * k + 1, xx0 + 2 * k + 1]
+    area = float((2 * k + 1) ** 2)
+    return (d - b - c + a) / area
+
+
+def residue_mask(img, footprint, thr=10.0, k=9):
+    """Where the mark USED to be and still has not blended out.
+
+    The operator's definition of the bad areas: "where the text used to be and
+    hasnt been blended out completely while keeping the affected area crisp".
+    Two consequences, both load-bearing:
+
+      - the search is confined to the ORIGINAL footprint, so a later pass can
+        never wander into clean art (a blanket dilation did exactly that and
+        destroyed the frame);
+      - it looks for surviving local STRUCTURE, not for a colour: leftover
+        glyph fragments stand off their surroundings, blended fill does not.
+    """
+    foot = np.asarray(footprint, dtype=bool)
+    if not foot.any():
+        return np.zeros(foot.shape, dtype=bool)
+    g = np.asarray(img, dtype=np.float32)
+    if g.ndim == 3:
+        g = g.mean(axis=2)
+    dev = np.abs(g - _box_mean(g, k))
+    return foot & (dev > float(thr))
+
+
 def tiles_from_labels(labels, mark):
     """One tile per labelled region the mark touches - boundaries ON contours.
 
@@ -372,7 +411,8 @@ def build_plan(img, mark_mask, margin_ratio=MARGIN_RATIO,
 def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
               crop_margin=CROP_MARGIN, passes=DEFAULT_PASSES,
               min_pass_change=MIN_PASS_CHANGE, stride_frac=STRIDE_FRAC,
-              labels=None, escalate_px=0, log=print):
+              labels=None, escalate_px=0, target_residue=False,
+              log=print):
     """Inpaint tile by tile over REPEATED staggered passes, committing as it goes.
 
     `inpaint(crop_rgb, crop_mask_u8) -> filled_rgb` is injected, so ordering,
@@ -391,6 +431,10 @@ def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
     """
     plan = build_plan(img, mark_mask, margin_ratio, stride_frac)
     grown = plan.pop("grown")
+    footprint = np.asarray(mark_mask, dtype=bool)
+    # The reach a residue pass may ever use: the footprint plus the same margin
+    # the first pass had. Nothing outside this is ever touched again.
+    footprint_grown = grow_to_ratio(footprint, margin_ratio * 2.0)
     cur = np.array(img, dtype=np.uint8, copy=True)
     base = np.asarray(img, dtype=np.uint8)
     h, w = cur.shape[:2]
@@ -403,14 +447,28 @@ def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
     for p in range(max(1, int(passes))):
         before = cur.copy()
         offset = (p * step) // max(1, int(passes))
-        if escalate_px and p:
-            # The operator, on the residue a pass leaves: "as the text smudges
+        if p and (escalate_px or target_residue):
+            # The operator, on what a pass leaves behind: "as the text smudges
             # into small pieces, i increase the masking area to pull more
             # context into the bad areas. and it continues to blend/iterate
             # out". A fixed mask re-fills the same hole from the same
             # surroundings and converges on whatever it converged on first.
-            for _ in range(int(escalate_px)):
-                grown = _dilate1(grown)
+            if target_residue:
+                # ...and the bad areas are "where the text used to be and hasnt
+                # been blended out completely". Later passes work ONLY there,
+                # so clean art stays crisp - a blanket dilation repainted 30px
+                # beyond the mark and destroyed the frame.
+                res = residue_mask(cur, footprint)
+                if not res.any():
+                    stopped_early = True
+                    log("LW TILED: no residue left inside the footprint - done")
+                    break
+                for _ in range(int(escalate_px)):
+                    res = _dilate1(res)
+                grown = res & footprint_grown
+            else:
+                for _ in range(int(escalate_px)):
+                    grown = _dilate1(grown)
         mask_px_per_pass.append(int(grown.sum()))
         if labels is not None:
             # Contour mode: boundaries follow edge flow, so a pass leaves its
@@ -482,6 +540,9 @@ def main(argv=None):
     ap.add_argument("--subdivide", type=float, default=0,
                     help="re-segment any region larger than N x the tile area "
                          "(0 = off)")
+    ap.add_argument("--target-residue", action="store_true",
+                    help="later passes work only where the mark has not blended "
+                         "out yet, instead of dilating everywhere")
     ap.add_argument("--escalate-px", type=int, default=0,
                     help="dilate the mask by N px before each later pass, to "
                          "pull more context into whatever the last pass left")
@@ -530,7 +591,8 @@ def main(argv=None):
     out, plan = run_tiled(img, mark, _lama_inpainter(), args.margin_ratio,
                           args.crop_margin, passes=args.passes,
                           stride_frac=args.stride_frac, labels=labels,
-                          escalate_px=args.escalate_px)
+                          escalate_px=args.escalate_px,
+                          target_residue=args.target_residue)
     tmp = args.out + ".part"
     # format is explicit: PIL infers it from the extension, and the atomic
     # temp name ends in .part, which it cannot resolve.
