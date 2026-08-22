@@ -229,3 +229,42 @@ legibility measure (the ROADMAP already records that a ship gate needs one), and
 supervised learning from the 128 captured hand-clean steps, which are labelled
 by construction.
 
+## Four captures now, and the "margin invariant" is FALSIFIED
+
+Two more hand cleans from the `not_border` bucket, which had no ground truth at
+all: `dgk8f92-...` (583x112 block on busy mid-frame art, 18 steps) and
+`209-cleanup` (a painted artist signature, "CHENBO 12.24.2024", on a smooth
+panel - ONE stroke).
+
+| capture | steps | median mask | median changed | **changed / mask** |
+|---|---|---|---|---|
+| 105-cleanup (credit line) | 82 | 6,495 | 766 | 0.118 |
+| 107-cleanup (area) | 46 | 16,298 | 1,996 | 0.122 |
+| dgk8f92 (block, busy art) | 18 | 7,476 | 1,759 | 0.235 |
+| 209-cleanup (signature) | 1 | 3,571 | 3,668 | **1.027** |
+
+**The ratio is not a margin rule.** It was reported here earlier as an invariant
+of the method - "the operator brushes about eight times the area that actually
+needs to change" - on the strength of two captures that happened to have similar
+step counts. With four it runs 0.118 to 1.027 and tracks the ITERATION COUNT: at
+82 steps with 30x overlap almost every brushed pixel is already clean, so only
+12% of the brush changes anything; at one step, everything under the brush
+changes. It measures RE-WORK, not margin.
+
+Consequence: `CONTEXT_RATIO = 5.0` in `lw_clean_tiled` was derived from that
+misreading and should be derived per image, not fixed. The real margin question
+is mask area against MARK area - on 209 the brush bbox is 117x52 against an
+86x43 detector box, about 1.6x, nothing like 8x.
+
+**A second measurement flaw, same family:** `local_gradient` is computed on the
+MARKED frame, so a high-contrast mark inflates its own busyness score - 209
+reads 7.71, the highest of the four, on a smooth panel. The tile-size rule keyed
+on it is therefore partly measuring the mark instead of the art. That is exactly
+what track A (analyse the content BEHIND the mark) has to fix.
+
+**What the four captures agree on** and can still be relied upon: fill locality
+(a tight crop per stroke), sequential commits, mask boundaries on contours, and
+that a single large one-shot mask never works on a mark with structure around
+it. The step COUNT is set by the mark's difficulty, not by a rule - 1 step for a
+signature on a smooth panel, 82 for a credit line crossing folded fabric.
+

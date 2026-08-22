@@ -659,8 +659,14 @@ def select_residue(residue, fraction):
     return out
 
 
-# Only ~20% of each operator brush is residue; the rest is context they pull the
-# fill from. That is the multiplier a generated mask needs.
+# CAUTION, corrected 2026-08-22 on the third and fourth captures: this was
+# derived from "only ~20% of each operator brush is residue", which held on two
+# captures with similar step counts and FAILS on four - changed/mask runs 0.118,
+# 0.122, 0.235, 1.027 and tracks the ITERATION COUNT (re-work), not the margin.
+# At 82 steps with 30x overlap nearly every brushed pixel is already clean; at
+# one step everything under the brush changes. Measured against MARK area the
+# margin is about 1.6x on 209-cleanup, nothing like 5x. Derive this per image
+# rather than trusting the constant.
 CONTEXT_RATIO = 5.0
 
 

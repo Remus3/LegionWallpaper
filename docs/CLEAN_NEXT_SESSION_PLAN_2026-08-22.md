@@ -94,3 +94,30 @@ region's tone to its surroundings before asking the filler for anything.
 - Nothing is approved and nothing leaves `3.Cleaning Scratch` on a metric.
 - Ground truth for validation is the two captures - 128 labelled steps, plus two
   accepted final frames - in `ops/runtime/clean/handedits/` (gitignored).
+
+## Ground truth available at the start of next session: FOUR captures
+
+| slug | mark | art | steps |
+|---|---|---|---|
+| `105-cleanup` | credit line, 549x69 | folded fabric, gradient 3.68 | 82 |
+| `107-cleanup` | area, 674x290 | soft gradients, 3.18 | 46 |
+| `dgk8f92-...` | block, 583x112 | busy mid-frame, 6.18 | 18 |
+| `209-cleanup` | painted signature | smooth panel | **1** |
+
+All four are in `ops/runtime/clean/handedits/` with masks, outputs and
+highlighted-area snips per step, plus an accepted final frame each. The two
+`not_border` captures were made specifically because that bucket has no template
+and no other ground truth.
+
+**Two constants are already falsified by them - do not carry these forward:**
+
+1. `CONTEXT_RATIO` / the "8x margin invariant". changed/mask runs 0.118 to 1.027
+   across the four and tracks ITERATION COUNT, not margin. Derive per image.
+2. `local_gradient` is measured on the MARKED frame, so a high-contrast mark
+   inflates its own busyness score (209 reads the highest of the four on a
+   smooth panel). Track A fixes this by measuring the content BEHIND the mark.
+
+**And the step count is set by the mark, not by a rule:** one stroke for a
+signature on a smooth panel, 82 for a credit line crossing folded fabric. Any
+generator that fixes the number of passes is wrong before it starts.
+
