@@ -157,3 +157,40 @@ So the method is: park on a spot, re-brush it repeatedly with a mask that keeps
 GROWING, move on, come back. The generator has to reproduce that schedule, not a
 one-shot mask and not a fixed-size multi-pass.
 
+## 107-cleanup: the fill holds, the residue detector does not
+
+The operator asked for the harder slug to get the same treatment, noting it was
+trickier despite fewer strokes. The captures say why, and the two runs split the
+remaining problem cleanly.
+
+| | 105-cleanup | 107-cleanup |
+|---|---|---|
+| footprint | 21,766 px | 84,998 px |
+| shape | 549 x 69, a line | 674 x 290, an AREA |
+| residue as share of footprint | 41.8% | 13.0% |
+| luma spread across the band | 27.0 | 31.9 |
+
+**Replay of their 46 masks: GOOD.** Hair, shoulder and pendant intact; in-mask
+distance 12.35 against 23.39 untouched. The fill holds on the harder case too,
+which matches the 105 replay the operator passed.
+
+**Schedule on derived masks: FAILS, worse than doing nothing** - 27.95 against
+23.39 untouched, with the character's hair and shoulder smeared where 105 came
+out clean.
+
+The cause is the detector, not the fill, and the same fill given the operator's
+masks proves it. On 107 the footprint covers real ART rather than a text line,
+so the residue detector fires on genuine detail and the generator repaints it.
+
+**The blunt confirming measurement: the operator's OWN accepted frames still
+read 3,986 px (105) and 5,761 px (107) as residue by this detector.** Absolute
+residue is therefore neither a valid target nor a valid stop rule. "Blended out"
+has to mean INDISTINGUISHABLE FROM THE SURROUNDING ART - measured against a
+control region of the same image - not a fixed pixel count.
+
+NEXT, and it is a measurement change rather than another fill pass: define
+residue relative to a control band of untouched art in the same frame, and stop
+when the footprint's residue density reaches the control's. Do not run more fill
+variants until that lands - the 105 success and the 107 damage came from the
+same code, so the difference is entirely in what the detector called residue.
+
