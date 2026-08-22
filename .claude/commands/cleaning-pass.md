@@ -19,7 +19,7 @@ Contract references: `docs/research/CLEANING_INPAINT.md` (stack + install), `doc
 4. Tooling readiness - each item is an INSTALL TARGET from the `docs/RESTORATION_PLAN.md` install checklist, not an assumption; report exact install steps when absent, never fail mid-image:
    - **Detection + inpaint venv:** `C:\Tools\lw-clean\venv` (torch cu128 + ultralytics + easyocr + simple-lama-inpainting + opencv-python). Missing -> detection degrades to the cheap high-pass corner/edge pre-filter + operator eyeballing; inpainting is unavailable -> queue images for the human QA route instead.
    - **Watermark detector weights:** anti-watermark YOLO weights (e.g. joycaption-watermark-detection yolo11x) downloaded per RESTORATION_PLAN.md. Missing -> OCR-only detection (EasyOCR) + template sweep.
-   - **Human QA fallback:** `C:\Tools\iopaint\venv` with `iopaint==1.6.0` (archived project - own venv, pinned). Missing -> note the install target; rejects queue as manifest notes until it exists.
+   - **Human QA fallback:** IOPaint 1.6.0 under `%LOCALAPPDATA%\Python\pythoncore-3.11-64\python.exe` (verified live 2026-08-22). The old `C:\Tools\iopaint\venv` path was NEVER created - LEDGER 30 recorded that in 2026-07-16 and the string outlived the correction; do not restore it. Missing -> note the install target; rejects queue as manifest notes until it exists.
 
 ### 1. DETECT (per slug, on the current working image)
 
@@ -55,7 +55,7 @@ Any helper script authored here that spawns subprocesses MUST pass `creationflag
 
 ### 4. Human QA queue fallback (gate rejects + ambiguous detections)
 
-- Start the IOPaint web UI for hand-drawn masks: `C:\Tools\iopaint\venv\Scripts\iopaint start --model=lama --device=cuda --port=8080` and point the operator at `http://127.0.0.1:8080`.
+- Start the IOPaint web UI for hand-drawn masks: `& "$env:LOCALAPPDATA\Python\pythoncore-3.11-64\python.exe" -m iopaint start --model=lama --device=cuda --port=8080` and point the operator at `http://127.0.0.1:8080`. (Verified live 2026-08-22; the constant is `IOPAINT_LAUNCH` in `tools/lw_clean_iopaint.py`.)
 - Operator saves the hand-fixed result; adopt it via `... lw_pipeline.py save-working <slug> --adopt`. The G2 verify (section 3.3) still runs on adopted files - the outside-mask assertion uses the hand-drawn mask.
 
 ### 5. Submit for authorization

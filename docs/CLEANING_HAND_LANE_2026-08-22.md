@@ -10,7 +10,7 @@ why 80 remain rather than 87.
 This is the hand lane. Start the UI once:
 
 ```
-C:\Tools\iopaint\venv\Scripts\iopaint start --model=lama --device=cuda --port=8080
+& "$env:LOCALAPPDATA\Python\pythoncore-3.11-64\python.exe" -m iopaint start --model=lama --device=cuda --port=8080
 ```
 
 then open http://127.0.0.1:8080 and work a slug at a time. Re-entry per slug,

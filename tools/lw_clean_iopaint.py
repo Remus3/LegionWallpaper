@@ -333,6 +333,16 @@ FAINT_BRIGHT_THR = 42.0
 # fails too: the art's own crevices satisfy it at every reach, 30.9-34.4%).
 # Calibrated on n=3, so it is a tripwire and not a classifier - but it errs
 # toward REFUSING, and a refusal routes to a human, which is the safe direction.
+# The MANUAL lane's launch line, verified live 2026-08-22: IOPaint 1.6.0 under
+# pythoncore-3.11. `C:\Tools\iopaint\venv` was recorded as stale and
+# never-created back in LEDGER 30 (2026-07-16) and STILL shipped in two log lines
+# and a slash command, which cost the operator a failed launch. One constant now,
+# so the next drift is a one-line fix instead of a scavenger hunt.
+IOPAINT_LAUNCH = (
+    r'& "$env:LOCALAPPDATA\Python\pythoncore-3.11-64\python.exe" -m iopaint '
+    r"start --model=lama --device=cuda --port=8080")
+
+
 # The ceiling is LANE-INDEPENDENT. It was gated on the faint lane until the
 # 2026-08-22 operator review rejected the entire region lane in one sentence -
 # "the entirety of the cropped regions are being blurred out in the image" -
@@ -969,8 +979,7 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
         log(f"LW IOPAINT {slug}: MANUAL - {rec['reason']}")
         log(f"  before {_file_link(before_path)}")
         log(f"  mask   {_file_link(mask_path)}")
-        log(r"  lane: C:\Tools\iopaint\venv\Scripts\iopaint start --model=lama "
-            r"--device=cuda --port=8080  ->  http://127.0.0.1:8080")
+        log(f"  lane: {IOPAINT_LAUNCH}  ->  http://127.0.0.1:8080")
         return rec
 
     # The hold spans the LaMa load AND the inpaint: loading puts weights on the
@@ -1059,9 +1068,7 @@ def clean_slug(slug, image=None, region=None, cluster=None, chroma_thr=None,
                 f"{max(d['conf'] for d in resid):.4f}). The candidate is an "
                 f"improvement, not a clear; finish it in the manual IOPaint "
                 f"lane before approving.")
-            log(r"  lane: C:\Tools\iopaint\venv\Scripts\iopaint start "
-                r"--model=lama --device=cuda --port=8080  ->  "
-                r"http://127.0.0.1:8080")
+            log(f"  lane: {IOPAINT_LAUNCH}  ->  http://127.0.0.1:8080")
     # The sidecar is written LAST so it carries the outcome, not the intent -
     # a `residual` verdict is the forensics this file exists for.
     C.atomic_write_json(os.path.join(target, f"{slug}_iopaint.json"),
