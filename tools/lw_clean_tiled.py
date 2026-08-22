@@ -174,6 +174,89 @@ def tile_mask(mask, target_area, offset=0, stride_frac=1.0):
     return tiles
 
 
+def tiles_from_labels(labels, mark):
+    """One tile per labelled region the mark touches - boundaries ON contours.
+
+    The operator's rule, in their words: fit the mask "alongside LIGHT/DARK
+    borders, and also across them". A lattice ignores image structure, so every
+    pass re-imprints its own periodic boundary - measured as tick marks and a
+    dashed strip on 105-cleanup. A tile that stops at a contour puts its seam
+    where the picture already has one.
+    """
+    labels = np.asarray(labels)
+    mark = np.asarray(mark, dtype=bool)
+    if not mark.any():
+        return []
+    tiles = []
+    for lab in np.unique(labels[mark]):
+        sel = mark & (labels == lab)
+        bb = mask_bbox(sel)
+        if bb is None:
+            continue
+        x0, y0, x1, y1 = bb
+        tiles.append(Tile(y0=y0, x0=x0, y1=y1, x1=x1,
+                          mask=sel[y0:y1, x0:x1].copy()))
+    return tiles
+
+
+def _neighbour_labels(labels, region):
+    """Labels adjacent to the REGIONS the mark sits in, excluding those regions.
+
+    Adjacency is taken from the containing segments, not from the mark blob: a
+    credit line sits well inside one contour region, so dilating the glyphs
+    themselves finds only their own label and the reach finds nothing. The
+    operator reaches out of the region the text is on, into the next one along.
+    """
+    labels = np.asarray(labels)
+    own = set(np.unique(labels[region]).tolist())
+    own_region = np.isin(labels, list(own))
+    ring = _dilate1(own_region) & ~own_region
+    return [int(v) for v in np.unique(labels[ring]) if int(v) not in own]
+
+
+def extend_into_similar(img, labels, mark, max_labels=2, max_delta=18.0):
+    """Reach into neighbouring regions of MATCHING luminance, never across.
+
+    The operator: they go "beyond the text into similar-like areas that needs
+    used as the context to pull down into the area to be altered". The reach is
+    what supplies the fill its texture; crossing a contrast border instead drags
+    the wrong material in, which is the smearing this whole lane failed on.
+    """
+    labels = np.asarray(labels)
+    mark = np.asarray(mark, dtype=bool)
+    if not mark.any():
+        return mark.copy()
+    g = np.asarray(img, dtype=np.float32)
+    if g.ndim == 3:
+        g = g.mean(axis=2)
+    base = float(g[mark].mean())
+    out = mark.copy()
+    cands = []
+    for lab in _neighbour_labels(labels, mark):
+        sel = labels == lab
+        if not sel.any():
+            continue
+        delta = abs(float(g[sel].mean()) - base)
+        if delta <= max_delta:
+            cands.append((delta, lab, sel))
+    for _delta, _lab, sel in sorted(cands, key=lambda c: c[0])[:max(0, int(max_labels))]:
+        out |= sel
+    return out
+
+
+def segment_contours(img, target_area, compactness=8.0):
+    """Label map whose boundaries follow edge flow (SLIC, lazily imported).
+
+    skimage lives only in the lw-clean venv, so the import stays inside the
+    function and every pure consumer above is testable in CI.
+    """
+    from skimage.segmentation import slic
+    arr = np.asarray(img)
+    n = max(2, int(round(arr.shape[0] * arr.shape[1] / max(1.0, float(target_area)))))
+    return slic(arr, n_segments=n, compactness=compactness, start_label=0,
+                channel_axis=2)
+
+
 def crop_box(x0, y0, x1, y1, margin, width, height):
     """Context window around one tile, clamped to the frame."""
     return (max(0, int(x0) - margin), max(0, int(y0) - margin),
@@ -238,7 +321,7 @@ def build_plan(img, mark_mask, margin_ratio=MARGIN_RATIO,
 def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
               crop_margin=CROP_MARGIN, passes=DEFAULT_PASSES,
               min_pass_change=MIN_PASS_CHANGE, stride_frac=STRIDE_FRAC,
-              log=print):
+              labels=None, log=print):
     """Inpaint tile by tile over REPEATED staggered passes, committing as it goes.
 
     `inpaint(crop_rgb, crop_mask_u8) -> filled_rgb` is injected, so ordering,
@@ -268,8 +351,15 @@ def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
     for p in range(max(1, int(passes))):
         before = cur.copy()
         offset = (p * step) // max(1, int(passes))
-        for t in tile_mask(grown, plan["target_tile_area"], offset=offset,
-                           stride_frac=stride_frac):
+        if labels is not None:
+            # Contour mode: boundaries follow edge flow, so a pass leaves its
+            # seams on edges the picture already has. Re-segmenting per pass
+            # would be wasted work - the label map is geometry, not content.
+            pass_tiles = tiles_from_labels(labels, grown)
+        else:
+            pass_tiles = tile_mask(grown, plan["target_tile_area"], offset=offset,
+                                   stride_frac=stride_frac)
+        for t in pass_tiles:
             cx0, cy0, cx1, cy1 = crop_box(t.x0, t.y0, t.x1, t.y1, crop_margin,
                                           w, h)
             crop = cur[cy0:cy1, cx0:cx1]
@@ -325,6 +415,11 @@ def main(argv=None):
     ap.add_argument("--plan-out", help="write the plan JSON here")
     ap.add_argument("--margin-ratio", type=float, default=MARGIN_RATIO)
     ap.add_argument("--crop-margin", type=int, default=CROP_MARGIN)
+    ap.add_argument("--contours", action="store_true",
+                    help="tile on edge-following segments instead of a lattice")
+    ap.add_argument("--extend-labels", type=int, default=0,
+                    help="reach into N neighbouring regions of matching "
+                         "luminance to source the fill texture")
     ap.add_argument("--stride-frac", type=float, default=STRIDE_FRAC,
                     help="window overlap; 1.0 = abutting grid (leaves seams)")
     ap.add_argument("--passes", type=int, default=DEFAULT_PASSES,
@@ -347,9 +442,17 @@ def main(argv=None):
             _write_json(args.plan_out, plan)
         return 0
 
+    labels = None
+    if args.contours:
+        bb = mask_bbox(mark)
+        grad = local_gradient(img, bb) if bb else 0.0
+        labels = segment_contours(img, target_tile_area(grad))
+        if args.extend_labels:
+            mark = extend_into_similar(img, labels, mark,
+                                       max_labels=args.extend_labels)
     out, plan = run_tiled(img, mark, _lama_inpainter(), args.margin_ratio,
                           args.crop_margin, passes=args.passes,
-                          stride_frac=args.stride_frac)
+                          stride_frac=args.stride_frac, labels=labels)
     tmp = args.out + ".part"
     # format is explicit: PIL infers it from the extension, and the atomic
     # temp name ends in .part, which it cannot resolve.

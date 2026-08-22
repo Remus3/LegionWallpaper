@@ -304,3 +304,87 @@ def test_stride_is_clamped_so_it_cannot_stall():
     m = _band()
     tiles = T.tile_mask(m, target_area=2000, stride_frac=0.0001)
     assert 0 < len(tiles) < 100000
+
+
+# ------------------------------------------------- edge-aligned (operator v2)
+# The operator, on why their result has no seams where mine do: they fit the
+# mask "alongside LIGHT/DARK borders, and also across them", and they extend it
+# "beyond the text into similar-like areas that needs used as the context to
+# pull down into the area to be altered". A lattice ignores both - every pass
+# re-imprints its own periodic boundary, which is the tick-mark and dashed-strip
+# artifacting measured on 105-cleanup.
+#
+# So tiles come from a LABEL MAP whose boundaries follow image structure. The
+# segmentation itself is lazy (skimage, venv-only); everything below is pure and
+# takes an injected label array, so it runs in CI.
+def _labels_two_regions(h=60, w=120):
+    """Two luminance regions split by a diagonal - a light/dark border."""
+    yy, xx = np.mgrid[0:h, 0:w]
+    return np.where(xx > yy * 2, 1, 0).astype(np.int32)
+
+
+def test_tiles_follow_label_boundaries_not_a_lattice():
+    labels = _labels_two_regions()
+    mark = np.zeros(labels.shape, dtype=bool)
+    mark[25:35, 20:100] = True          # a band crossing the border
+    tiles = T.tiles_from_labels(labels, mark)
+    assert len(tiles) == 2              # one per region it crosses, not per cell
+    for t in tiles:
+        sub = np.zeros(labels.shape, dtype=bool)
+        sub[t.y0:t.y1, t.x0:t.x1] = t.mask
+        seen = set(np.unique(labels[sub]))
+        assert len(seen) == 1, "a tile must not straddle a light/dark border"
+
+
+def test_every_marked_pixel_is_covered_exactly_once():
+    labels = _labels_two_regions()
+    mark = np.zeros(labels.shape, dtype=bool)
+    mark[25:35, 20:100] = True
+    covered = np.zeros(labels.shape, dtype=np.int32)
+    for t in T.tiles_from_labels(labels, mark):
+        covered[t.y0:t.y1, t.x0:t.x1] += t.mask
+    assert np.array_equal(covered > 0, mark)
+    assert covered.max() == 1
+
+
+def test_a_label_the_mark_never_touches_is_left_alone():
+    labels = _labels_two_regions()
+    mark = np.zeros(labels.shape, dtype=bool)
+    mark[5:8, 100:110] = True           # entirely inside label 1
+    tiles = T.tiles_from_labels(labels, mark)
+    assert len(tiles) == 1
+
+
+def test_no_tiles_for_an_empty_mark():
+    assert T.tiles_from_labels(_labels_two_regions(),
+                               np.zeros((60, 120), dtype=bool)) == []
+
+
+def test_context_extension_reaches_into_the_most_similar_neighbour():
+    """'Pull down' the wanted texture: grow the mask into the neighbouring
+    region whose luminance matches, never into the contrasting one."""
+    img = np.zeros((60, 120, 3), dtype=np.uint8)
+    labels = np.zeros((60, 120), dtype=np.int32)
+    labels[:, 40:80] = 1
+    labels[:, 80:] = 2
+    img[:, :40] = 100          # like the mark's region
+    img[:, 40:80] = 105        # near-identical -> the one to pull from
+    img[:, 80:] = 240          # contrasting -> must NOT be pulled in
+    mark = np.zeros((60, 120), dtype=bool)
+    mark[20:40, 10:35] = True  # sits in label 0
+    grown = T.extend_into_similar(img, labels, mark, max_labels=1)
+    assert grown[:, 40:80].any(), "should reach into the matching neighbour"
+    assert not grown[:, 80:].any(), "must not reach across the contrast border"
+
+
+def test_context_extension_is_a_no_op_without_a_similar_neighbour():
+    img = np.zeros((40, 80, 3), dtype=np.uint8)
+    labels = np.zeros((40, 80), dtype=np.int32)
+    labels[:, 40:] = 1
+    img[:, :40] = 30
+    img[:, 40:] = 250                      # nothing similar to pull from
+    mark = np.zeros((40, 80), dtype=bool)
+    mark[10:20, 5:20] = True
+    grown = T.extend_into_similar(img, labels, mark, max_labels=1,
+                                  max_delta=20.0)
+    assert np.array_equal(grown, mark)
