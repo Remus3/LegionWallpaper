@@ -54,6 +54,18 @@ measurement, and the acceptance bar raised.
   contrast residue as a starting detector, and more LaMa fill variants before
   the healing brush is tried.
 
+- **LATE ADDITION - two more captures, and a constant of mine falsified.** The
+  operator hand-cleaned both `not_border` slugs (the bucket with no ground truth
+  at all): `dgk8f92-...` (583x112 block on busy art, 18 steps) and `209-cleanup`
+  (painted signature on a smooth panel, ONE stroke). changed/mask across the four
+  captures is 0.118 / 0.122 / 0.235 / 1.027 - it tracks the ITERATION COUNT, not
+  a margin, so the "8x margin invariant" reported earlier is WRONG and
+  `CONTEXT_RATIO = 5.0` is flagged in place to be derived per image. Second flaw:
+  `local_gradient` is measured on the MARKED frame, so a high-contrast mark
+  inflates its own busyness score (209 reads highest of the four on a smooth
+  panel) - track A fixes this. Step count is a property of the MARK, not a
+  parameter: 1 stroke vs 82.
+
 ---
 
 ## 2026-08-22 - clean-566 disposed gate-driven, cleaning scratch 566 -> 87
@@ -105,59 +117,3 @@ Operator-driven session, mostly pipeline throughput plus three shipped fixes.
   blanket-approve call, and whether `qa` stops at scratch with the named 13.
 - **Do NOT redo:** the 750px thumbnail `1000040081-...-375w-2x` FAIL is
   unfixable - DeviantArt's authoritative fetch returns the same 750x437 bytes.
-
----
-
-## 2026-08-16 - face realism shipped, face-key overturned, deformity cause found
-
-Commits `34d366a` `e132d00` `3f2b9bc` `b90b260` `ea05ef3`. LEDGER 116-120.
-
-- **SHIPPED: the splash-booru face-realism block** (116). Register moved from
-  0.153 BELOW the corpus ceiling to 0.011 below it, subject and margin both up,
-  sharpness held. Two tokenizer facts drove it: `photorealistic, 3d render` were
-  already INERT past the 77-token cut, and a naive insertion pushed
-  `text, signature, watermark` out of the window (fixed by priority ordering).
-- **OVERTURNED: the face-key result I reported** (119). I claimed 24/29 frames
-  "in the corpus band"; the operator's frame-by-frame verdict was ~6 acceptable
-  of 30. The band is NOT a quality gate. The operator named the mechanism
-  ("mascara like black line, blowing out colors") and it measured out exactly -
-  0.10-0.25 percent of each frame crushed to <= 8 levels, up to 113 levels of
-  darkening on Katarina. Fixed: shading-only correction, bounded movement, and
-  a zero-padding blur bug that biased the split. Per-champion bands replace the
-  Ahri-only global target (corpus default +16.9, not +24.3).
-- **CAUSE FOUND for the non-Ahri deformity** (120), nothing shipped: the POSE
-  STACK is responsible, not the realism block, and **the base knows these
-  champions** - a minimal prompt renders Miss Fortune canonical where the full
-  style gave a deformed figure in generic leather. `official splash art` summons
-  the splash title card and the text negative does not suppress it.
-- **OPERATOR DIRECTION for next session:** go with `canon` (minimal positive +
-  full protective negative) and try a text-specific negative to kill the title
-  card.
-- **Do NOT redo:** the base A/B (ADR-011 settled it), the face-key mechanism
-  investigation (three defects fixed and pinned), or the realism-block
-  attribution (exonerated by the norealism arm).
-
----
-
-## 2026-08-16 - the base flip REVERSED; similarity cannot pick a base
-
-LEDGER 115, ADR-011. Same day as ADR-010, and the reversal is the finding.
-
-- **Operator inspected every candidate frame** from all three arms. Animagine
-  holds League and corpus conventions on ALL of them. RealVisXL violates hand
-  conventions, weapon/tool canon and facial likeness. DreamShaper violates the
-  corpus look outright. Both are DROPPED as base candidates.
-- **The measure ranked the two failing bases FIRST.** CLIP corpus similarity is
-  global image statistics - register, palette, lighting - and is blind to hands,
-  weapon canon and likeness. It is a MEASURE and never selects a base. Do not
-  re-run a base A/B scored on it.
-- **My by-eye read was the load-bearing error.** I called the animagine frame
-  off-canon and the RealVis frame canonical from ONE frame each, conflating anime
-  register with off-canon - the same error the metric makes, reported as if it
-  corroborated the metric. Retracted in place in the evidence doc.
-- **Kept because still right:** `tools/lw_gen_medium.py`, the diffusers-folder
-  base loader, the gpu-mutex wiring, the weightless-checkout config pin fix.
-- **NEXT (operator):** more-real faces ON animagine, not uncanny. Prompt /
-  adapter / sampler on this base. Note the adapter ranking INVERTS on animagine
-  (plus-face 0.5 best; general 0.3 worse than control), so nothing from the
-  RealVis tuning transfers.
