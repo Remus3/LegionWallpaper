@@ -515,6 +515,113 @@ def run_tiled(img, mark_mask, inpaint, margin_ratio=MARGIN_RATIO,
     return cur, plan
 
 
+def coverage_at(step, steps, start=0.05):
+    """Fraction of the detected residue to treat at `step` of `steps`.
+
+    Measured off the operator's 82 masks: the share of residue they brush ramps
+    from ~2% at the first stroke to ~96% at the last. Early strokes barely move
+    the frame (after 40 of 82 steps it is still at 12.97 of 15.06 distance from
+    the final); the convergence is back-loaded, so the ramp is too.
+    """
+    n = max(1, int(steps))
+    k = min(max(0, int(step)), n - 1) if n > 1 else 0
+    if n == 1:
+        return 1.0
+    frac = start + (1.0 - start) * (k / float(n - 1))
+    return float(min(1.0, max(0.0, frac)))
+
+
+def select_residue(residue, fraction):
+    """Take a contiguous run of the residue along its own long axis.
+
+    The operator works a spot at a time and returns to it - they do not treat
+    every fragment in the frame at once. Selecting a CONTIGUOUS run reproduces
+    that; scattering the same pixel budget over the whole band would hand the
+    model many tiny disconnected holes instead of one workable area.
+    """
+    res = np.asarray(residue, dtype=bool)
+    if not res.any() or fraction >= 1.0:
+        return res.copy()
+    if fraction <= 0.0:
+        return np.zeros_like(res)
+    cols = np.nonzero(res.any(axis=0))[0]
+    rows = np.nonzero(res.any(axis=1))[0]
+    horizontal = (cols.max() - cols.min()) >= (rows.max() - rows.min())
+    axis_idx = cols if horizontal else rows
+    span = int(axis_idx.max() - axis_idx.min() + 1)
+    width = max(1, int(round(span * float(fraction))))
+    counts = res.sum(axis=0 if horizontal else 1)
+    # Densest window of that width: where the mark is most present.
+    csum = np.concatenate([[0], np.cumsum(counts)])
+    best, best_v = int(axis_idx.min()), -1
+    for s in range(int(axis_idx.min()), int(axis_idx.max()) - width + 2):
+        v = int(csum[s + width] - csum[s])
+        if v > best_v:
+            best_v, best = v, s
+    out = np.zeros_like(res)
+    if horizontal:
+        out[:, best:best + width] = res[:, best:best + width]
+    else:
+        out[best:best + width, :] = res[best:best + width, :]
+    return out
+
+
+# Only ~20% of each operator brush is residue; the rest is context they pull the
+# fill from. That is the multiplier a generated mask needs.
+CONTEXT_RATIO = 5.0
+
+
+def run_schedule(img, mark_mask, inpaint, steps=12, context_ratio=CONTEXT_RATIO,
+                 crop_margin=CROP_MARGIN, min_residue_px=64, log=print):
+    """Generate the operator's mask SCHEDULE and fill along it.
+
+    Each step: find what is left inside the original footprint, take a
+    contiguous run of it sized by the ramp, pad it to `context_ratio` times its
+    area, fill that with a tight crop, commit. Stop when nothing is left.
+
+    This is the piece the replay proved was missing: given the operator's own
+    masks our fill produces an accepted frame, so the whole remaining problem is
+    producing masks like theirs.
+    """
+    cur = np.array(img, dtype=np.uint8, copy=True)
+    footprint = np.asarray(mark_mask, dtype=bool)
+    reach = grow_to_ratio(footprint, MARGIN_RATIO * 2.0)
+    h, w = cur.shape[:2]
+    mask_px, residue_px = [], []
+    stopped_early = False
+    run = 0
+    for k in range(max(1, int(steps))):
+        res = residue_mask(cur, footprint)
+        residue_px.append(int(res.sum()))
+        if int(res.sum()) < int(min_residue_px):
+            stopped_early = True
+            log(f"LW SCHEDULE: residue down to {int(res.sum())} px - done")
+            break
+        sel = select_residue(res, coverage_at(k, steps))
+        mask = grow_to_ratio(sel, context_ratio) & reach
+        mask_px.append(int(mask.sum()))
+        bb = mask_bbox(mask)
+        if bb is None:
+            stopped_early = True
+            break
+        x0, y0, x1, y1 = crop_box(bb[0], bb[1], bb[2], bb[3], crop_margin, w, h)
+        crop = cur[y0:y1, x0:x1]
+        cmask = (mask[y0:y1, x0:x1].astype(np.uint8) * 255)
+        filled = np.asarray(inpaint(crop, cmask), dtype=np.uint8)
+        sel_px = cmask > 0
+        region = cur[y0:y1, x0:x1]
+        region[sel_px] = filled[sel_px]
+        cur[y0:y1, x0:x1] = region
+        run += 1
+        log(f"LW SCHEDULE: step {run}/{steps} residue={int(res.sum())} "
+            f"selected={int(sel.sum())} mask={int(mask.sum())}")
+    plan = {"steps_run": run, "stopped_early": stopped_early,
+            "mask_px_per_step": mask_px, "residue_px_per_step": residue_px,
+            "changed_px": int(np.any(cur != np.asarray(img, dtype=np.uint8),
+                                     axis=2).sum())}
+    return cur, plan
+
+
 def _lama_inpainter():
     """Lazily build the simple-lama callable (torch lands here, not at import)."""
     from simple_lama_inpainting import SimpleLama
@@ -540,6 +647,10 @@ def main(argv=None):
     ap.add_argument("--subdivide", type=float, default=0,
                     help="re-segment any region larger than N x the tile area "
                          "(0 = off)")
+    ap.add_argument("--schedule", type=int, default=0,
+                    help="run the operator's measured mask SCHEDULE for N steps "
+                         "(residue -> contiguous run -> context pad -> fill)")
+    ap.add_argument("--context-ratio", type=float, default=CONTEXT_RATIO)
     ap.add_argument("--target-residue", action="store_true",
                     help="later passes work only where the mark has not blended "
                          "out yet, instead of dilating everywhere")
@@ -570,6 +681,18 @@ def main(argv=None):
         plan = build_plan(img, mark, args.margin_ratio, args.stride_frac)
         plan.pop("grown")
         print(json.dumps(plan, indent=2)[:4000])
+        if args.plan_out:
+            _write_json(args.plan_out, plan)
+        return 0
+
+    if args.schedule:
+        out, plan = run_schedule(img, mark, _lama_inpainter(), steps=args.schedule,
+                                 context_ratio=args.context_ratio,
+                                 crop_margin=args.crop_margin)
+        tmp = args.out + ".part"
+        Image.fromarray(out).save(tmp, format="PNG")
+        os.replace(tmp, args.out)
+        print(json.dumps(plan, indent=2))
         if args.plan_out:
             _write_json(args.plan_out, plan)
         return 0

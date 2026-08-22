@@ -577,3 +577,62 @@ def test_targeting_stops_when_nothing_is_left(monkeypatch):
                              min_pass_change=0.0, log=lambda *_: None)
     assert plan["passes_run"] < 4
     assert plan["stopped_early"] is True
+
+
+# ------------------------------------------------------------ the schedule
+# Measured against the operator's 82 captured masks on 105-cleanup: the fraction
+# of detected residue they brush RAMPS from ~2% at step 1 to ~96% at step 82,
+# while only ~20% of each brush is residue (the rest is context). So a generator
+# needs a coverage ramp and a context multiplier, not a fixed mask.
+def test_coverage_ramps_from_a_small_start_to_near_total():
+    fracs = [T.coverage_at(k, 20) for k in range(20)]
+    assert fracs == sorted(fracs)
+    assert fracs[0] <= 0.10
+    assert fracs[-1] >= 0.90
+
+
+def test_coverage_is_bounded_either_side():
+    assert 0.0 < T.coverage_at(0, 1) <= 1.0
+    assert T.coverage_at(99, 5) == 1.0
+
+
+def test_selection_takes_a_contiguous_run_along_the_mark():
+    res = np.zeros((40, 400), dtype=bool)
+    res[18:22, 20:380] = True                 # a long band of residue
+    sel = T.select_residue(res, 0.25)
+    assert sel.sum() > 0
+    assert sel.sum() < res.sum()
+    xs = np.nonzero(sel.any(axis=0))[0]
+    assert xs.max() - xs.min() + 1 <= int(0.25 * 360) + 40   # one run, not scattered
+
+
+def test_full_coverage_selects_everything():
+    res = np.zeros((40, 400), dtype=bool)
+    res[18:22, 20:380] = True
+    assert np.array_equal(T.select_residue(res, 1.0), res)
+
+
+def test_selection_of_empty_residue_is_empty():
+    assert not T.select_residue(np.zeros((10, 10), dtype=bool), 0.5).any()
+
+
+def test_the_schedule_run_stops_when_the_residue_is_gone(monkeypatch):
+    img = _textured(120, 400, seed=41)
+    band = _band(h=120, w=400, y0=50, y1=62, x0=40, x1=360)
+    monkeypatch.setattr(T, "residue_mask",
+                        lambda *a, **k: np.zeros(img.shape[:2], dtype=bool))
+    _out, plan = T.run_schedule(img, band, lambda c, m: c, steps=10,
+                                log=lambda *_: None)
+    assert plan["steps_run"] < 10
+    assert plan["stopped_early"] is True
+
+
+def test_the_schedule_run_reports_its_masks_growing():
+    img = _textured(120, 400, seed=43)
+    band = _band(h=120, w=400, y0=50, y1=62, x0=40, x1=360)
+    img[54:58, 100:300] = 255                  # stubborn residue that never fills
+    _out, plan = T.run_schedule(img, band, lambda c, m: c, steps=5,
+                                log=lambda *_: None)
+    sizes = plan["mask_px_per_step"]
+    assert len(sizes) >= 2
+    assert sizes[-1] >= sizes[0]
