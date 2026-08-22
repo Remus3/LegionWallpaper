@@ -126,3 +126,29 @@ dilated mask covers too much frame to inpaint safely
 single box under the auto floor
 
 - `aurora-fanart-by-lulalakill-dlgo81i-pre`
+
+## Lane run 2026-08-22 - 85 of 87 have a candidate awaiting your eye
+
+Driven by `tools/lw_clean_lane.py`; every candidate sits in
+`ops/runtime/clean/<slug>/` and NOTHING has been approved or moved - the
+slugs are all still in `3.Cleaning Scratch`. Review sheets (1:1 before/after
+crops, open straight off disk):
+
+- `ops/runtime/clean/review_all87.html` - everything
+- `review_overlay.html` / `review_region.html` / `review_faint.html` - per lane
+
+The `overlay_score` shown on each row is PROVENANCE, not a verdict (LEDGER
+101-103: a frame can sit deep in the clean distribution with its credit line
+still legible at 1:1). Judge the pixels.
+
+| bucket | n | lane | cleaned | held |
+|---|---|---|---|---|
+| centre_overlay | 45 | overlay | 45 | 0 |
+| not_border | 27 | region | 27 | 0 |
+| faint_mark | 12 | faint (3 deferred to overlay) | 10 | 2 |
+| singletons | 3 | region | 3 | 0 |
+
+### Still needs a hand-drawn mask (IOPaint web UI)
+
+- `138-cleanup` - worker declined (no record): the mask it derives covers too much of the ROI to inpaint safely
+- `p2402-kda-evelynn-by-namakx-dgykw2q-pre` - worker declined (no record): the mask it derives covers too much of the ROI to inpaint safely
