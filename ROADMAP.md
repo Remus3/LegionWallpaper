@@ -19,14 +19,26 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   45 frames (outliers one 24px, one 30px, one scale 1.12) - worth a look, but it
   cannot explain a whole-bucket rejection. Verdicts and the four defect classes
   (A 17 / B 25 / C 1 / D 2) are in `docs/CLEAN_OVERLAY_REVIEW_2026-08-22.md`.
-  NEXT, and it is one operator question, not a build: the review sheet now shows
-  before / algebraic-only (no fill) / after (LaMa fill) per slug, so the operator
-  can say whether the UN-FILLED algebraic result is shippable. If it is, the
-  overlay lane drops LaMa entirely and ships a faithful, fill-free result; if the
-  mark still reads at 1:1 without the fill, the removal half needs to get stronger
-  before any fill question matters. Do NOT tune the fill before that answer.
-  Sheet: `ops/runtime/clean/review_overlay.html`. Nothing was approved; all 45
-  are still in `3.Cleaning Scratch`.
+  ANSWERED THE SAME DAY, against the fill hypothesis: the operator reviewed the
+  algebraic-only column too and passed exactly TWO frames (`32-cleanup`,
+  `9-cleanup`), both on the SIGNATURE only; the other 43 failed. So dropping LaMa
+  does not make the lane shippable - the REMOVAL is too weak, and fill tuning is
+  moot until that changes. Do NOT spend a pass on the fill.
+  WORSE, and this is the structural finding: the lane's own instrumentation
+  carries NO signal about the outcome. Every recorded field for the two passes
+  sits inside the failing distribution (score_before, score_after, gain, seed_px,
+  mask_px, coverage - table in the doc), and three FAILING frames fitted the same
+  shift (-1, 0) at scale 1.0 as both passes. The global gain 2.0 was grid-fitted
+  against the DETECTOR'S OWN post-removal score, and two operator reviews have now
+  falsified that score at both ends: it called all 45 clean when none were, and it
+  cannot separate the 2 acceptable frames from the 43 unacceptable. Any tuning loop
+  over it optimizes against a measure known to be blind - a stronger removal needs
+  a different objective anchored to something the eye agrees with.
+  OPEN FORK for the operator: keep investing in automated overlay removal (which
+  needs an eye-anchored calibration set to replace the falsified objective), or
+  route the whole centre_overlay bucket to hand IOPaint. Sheet:
+  `ops/runtime/clean/review_overlay.html`. Nothing was approved; all 45 are still
+  in `3.Cleaning Scratch`.
 
 
 - **clean-566-disposition - DONE 2026-08-22, gate-driven (operator call). 479 of

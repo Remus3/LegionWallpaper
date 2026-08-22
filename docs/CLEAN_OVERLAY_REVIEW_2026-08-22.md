@@ -90,3 +90,42 @@ does the mark still read at 1:1 without the fill?
 | 43 | `the-ruined-king-viego-by-vexxsoul-dm6j4mu-pre` | A |
 | 44 | `viego-the-king-by-slimshadywallpaper-dhawigh-pre` | B |
 | 45 | `viego-the-ruined-king-by-slimshadywallpaper-dgemoim-pre` | A |
+
+## Round 2, same day: the algebraic-only column was reviewed too - 2 of 45
+
+The operator reviewed the un-filled (algebraic-only) column and passed exactly
+two frames, both on the SIGNATURE only:
+
+- `32-cleanup`
+- `9-cleanup`
+
+All other 43 failed. That answers the question the three-column sheet was built
+to ask, and it answers it against the fill hypothesis: dropping LaMa does NOT
+make the lane shippable, because the removal itself is too weak. Fill tuning is
+moot until removal is stronger - do not spend a pass on it.
+
+## The lane's own instrumentation carries NO signal about the outcome
+
+Every recorded parameter for the two passing frames sits INSIDE the failing
+distribution - measured, not assumed:
+
+| field | pass (n=2) med/min/max | fail (n=43) med/min/max |
+|---|---|---|
+| score_before | 0.2528 / 0.2325 / 0.2731 | 0.2712 / 0.1508 / 0.6958 |
+| score_after | 0.0748 / 0.0645 / 0.0850 | 0.0647 / 0.0487 / 0.0942 |
+| gain | 2.0 / 2.0 / 2.0 | 2.0 / 2.0 / 2.0 |
+| seed_px | 17744 | 17778 / 17713 / 21127 |
+| mask_px | 34938 / 32195 / 37682 | 43455 / 28315 / 59519 |
+| mask coverage pct | 11.90 / 10.96 / 12.83 | 14.80 / 8.69 / 20.31 |
+
+Both passes fitted shift (-1, 0) at scale 1.0, but three FAILING frames fitted
+the same shift, so registration does not separate them either.
+
+The consequence is structural, not cosmetic: the single global gain (2.0) was
+fitted by grid search against the DETECTOR'S OWN post-removal score, and the
+operator's two reviews have now falsified that score as a proxy for correctness
+at both ends - it called all 45 clean when none were, and it cannot tell the two
+acceptable frames from the 43 unacceptable ones. Any further tuning loop that
+optimizes against it is optimizing against a measure known to be blind. A
+stronger removal needs a different objective with an anchor the eye agrees with.
+
