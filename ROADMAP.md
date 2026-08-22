@@ -6,22 +6,29 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
-- **clean-566-disposition - BLOCKED ON OPERATOR 2026-08-17. The whole corpus is
-  staged in `3.Cleaning Scratch` (566 slugs) and the read-only triage is DONE:
-  460 `clean` / 86 `qa` / 20 `auto`, so only 20 images actually need inpainting.**
-  The destructive half was deliberately NOT started. Two shapes were put to the
-  operator: (1) gate-driven - inpaint the 20 `auto`, approve the 460 `clean`
-  through to cleaning done, queue the 86 `qa` for the manual IOPaint lane; or
-  (2) blanket-approve all 566 to cleaning done, which reaches Pictures 1:1
-  fastest but records 106 undisposed marks as cleaned. Second open question:
-  does the `qa` bucket stop at cleaning scratch alongside the operator's 13
-  named `ref_*` slugs, or carry through. Triage rows are at
-  `scratchpad/clean_triage.jsonl` (ephemeral - re-run
-  `lw_clean_pass --all-scratch --dry-run --triage-out <path>` under the
-  lw-clean venv to regenerate; ~4 min, writes no pixels). Note the gate
-  independently landed 9 of the operator's 13 named slugs in `qa`, 8 of them on
-  `centre_overlay`, so eye and detector agree on most of that set. ADR-009 still
-  binds: ONE engine per submission, no automatic ladder.
+- **clean-566-disposition - DONE 2026-08-22, gate-driven (operator call). 479 of
+  566 slugs left `3.Cleaning Scratch`; 87 are held for the manual IOPaint lane.**
+  The operator chose shape (1): inpaint the `auto` bucket, approve the `clean`
+  bucket through to `4.Cleaning Done`, park `qa` in scratch. Triage regenerated
+  first and reproduced the 2026-08-17 split EXACTLY (460 `clean` / 86 `qa` / 20
+  `auto` over 566), so the disposition ran against a verified-current gate, not a
+  five-day-old file. Result: 460 `clean` approved, 19 of 20 `auto` inpainted
+  (simple-lama) and approved, 87 held (`259f` is the 20th `auto` - its inpaint
+  FAILED the G2 verify gate, so it fell to the queue rather than shipping a bad
+  edit, which is the gate working). `4.Cleaning Done` 6 -> 485, scratch 566 -> 87,
+  `needs_attention` 0. Driver is `tools/lw_clean_dispose.py` (+ 7 tests): it never
+  re-decides a verdict and never moves a slug itself - every transition goes
+  through `lw_pipeline`, so an ADR-008 / ADR-009 refusal is RECORDED and skipped,
+  never forced, and approvals are attributed `--actor tool:auto-approve` so the
+  rail can see a non-operator approver. The held set with per-slug reason is
+  `docs/cleaning_qa_queue_2026-08-22.md`: 45 `centre_overlay`, 27 `not_border`,
+  12 `faint_mark`, 1 each `watermark_ocr` / `area_too_large` / `low_conf`.
+  **OPEN REMAINDER:** the operator's 13 named `ref_*` slugs are recorded nowhere
+  in the repo (only the count survives), and the gate held 9 of them as `qa` - the
+  other 4 sit in the `clean` bucket and were approved with everything else. If
+  those 4 are named later the reopen route is `save-working --tool
+  operator-select` -> submit -> approve; there is no reverse stage transition.
+  ADR-009 still binds: ONE engine per submission, no automatic ladder.
 
 - **cleaning-detector-recall - the detector MISSES marks: 14 confirmed false
   negatives, ~12 percent of the `clean` verdicts - NEW 2026-08-11, measured.**

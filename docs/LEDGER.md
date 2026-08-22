@@ -27,6 +27,47 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+122. DONE **2026-08-22 (clean-566 disposition executed gate-driven: 479 of 566
+    slugs out of cleaning scratch, 87 held, and the driver refuses rather than
+    forces).** The operator answered the 2026-08-17 block with shape (1) -
+    inpaint the `auto` bucket, approve the `clean` bucket to `4.Cleaning Done`,
+    park `qa` in scratch for the manual IOPaint lane. **Premise VERIFIED before
+    anything destructive ran:** the triage file was ephemeral and gone, so it was
+    regenerated read-only under the lw-clean venv over all 566 slugs and
+    reproduced the five-day-old split EXACTLY - 460 `clean` / 86 `qa` / 20
+    `auto`, same reason histogram - so the disposition ran against a
+    verified-current gate rather than a stale record. **Built TDD RED-first:**
+    `tests/test_lw_clean_dispose.py` (7 tests) was authored before
+    `tools/lw_clean_dispose.py` and pins the two load-bearing properties - a `qa`
+    verdict NEVER produces a pipeline transition, and a non-zero rc
+    short-circuits the remaining steps so a refusal is RECORDED, never forced.
+    The driver re-decides nothing (the gate already did) and moves nothing
+    itself: every transition is an `lw_pipeline` subprocess, so the ADR-008
+    approval rail and the ADR-009 one-engine rule stay authoritative, and
+    approvals carry `--actor tool:auto-approve` so the rail sees a non-operator
+    approver instead of a forged operator. Import-clean on numpy + PIL + stdlib,
+    so the tests run in CI, not just under the venv. **Verified live, not
+    assumed:** a 5-slug `--dry-run` printed the exact argv triple, then a 2-slug
+    real probe (`100f`, `101-cleanup`) was confirmed in `4.Cleaning Done` before
+    the full run was launched (those two then read `failed / not in any scratch`
+    in the full result - expected, not a regression). Outcome over 566: 460
+    `clean` approved, 19 of 20 `auto` inpainted with simple-lama and approved, 87
+    queued. `4.Cleaning Done` 6 -> 485, `3.Cleaning Scratch` 566 -> 87,
+    `needs_attention` 0 after a fresh `scan`. **The 20th `auto` is the gate
+    working, not a failure:** `259f` inpainted, FAILED the G2 verify gate, and
+    fell to the QA queue instead of shipping a bad edit. Held set recorded with
+    per-slug reason in `docs/cleaning_qa_queue_2026-08-22.md`: 45
+    `centre_overlay` (the known recall root cause), 27 `not_border`, 12
+    `faint_mark`, 1 each `watermark_ocr` / `area_too_large` / `low_conf`.
+    **OPEN REMAINDER, stated rather than papered over:** the operator's 13 named
+    `ref_*` slugs exist nowhere in the repo - only the count and "9 landed in
+    `qa`" survive - so the other 4 were approved with the `clean` bucket. Naming
+    them later reopens via `save-working --tool operator-select` -> submit ->
+    approve; there is no reverse stage transition. **Do not redo:** the triage
+    regeneration costs ~4 min of detection over 566 images and writes no pixels,
+    but the disposition itself is NOT idempotent - a slug already moved fails
+    `save-working` with `not in any scratch`, which is the intended refusal.
+
 121. DONE **2026-08-17 (corpus drained to cleaning; Pictures reconciled 1:1 and
     de-duped; directed-crop override; Done-N pruned at the transition; two
     console-flash fixes; 2028026 + 6db5443 + d916f9a + 690ffb7).** Operator-driven

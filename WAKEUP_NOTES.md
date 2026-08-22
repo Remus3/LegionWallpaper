@@ -11,7 +11,33 @@
 
 ---
 
-## 2026-08-17 (latest) - corpus drained to cleaning, Pictures 1:1, two console-flash fixes
+## 2026-08-22 (latest) - clean-566 disposed gate-driven, cleaning scratch 566 -> 87
+
+Operator answered the standing block with shape (1) (gate-driven).
+
+- **Shipped:** `tools/lw_clean_dispose.py` + `tests/test_lw_clean_dispose.py`
+  (7 tests, TDD RED-first). The driver re-decides no verdict and moves no slug
+  itself - every transition is an `lw_pipeline` subprocess, so ADR-008 / ADR-009
+  refusals are RECORDED and skipped, never forced; approvals carry
+  `--actor tool:auto-approve`.
+- **Disposition:** triage regenerated read-only first and reproduced the
+  2026-08-17 split EXACTLY (460 clean / 86 qa / 20 auto over 566). Then 460
+  `clean` approved, 19 of 20 `auto` inpainted (simple-lama) + approved, 87 held.
+  `4.Cleaning Done` 6 -> 485, `3.Cleaning Scratch` 566 -> 87, needs_attention 0.
+- **`259f`** is the 20th auto: inpainted, FAILED the G2 verify gate, fell to the
+  QA queue. That is the gate working - do not "fix" it by relaxing verify.
+- **Held set** with per-slug reason: `docs/cleaning_qa_queue_2026-08-22.md`
+  (45 centre_overlay / 27 not_border / 12 faint_mark / 3 singletons).
+- **OPEN:** the operator's 13 named `ref_*` slugs are recorded NOWHERE in the
+  repo; the gate held 9 as `qa`, the other 4 were approved with the clean bucket.
+  Reopen route if named: `save-working --tool operator-select` -> submit ->
+  approve (no reverse stage transition exists).
+- **Do NOT redo:** the disposition is not idempotent - an already-moved slug
+  fails `save-working` with `not in any scratch`, which is the intended refusal.
+
+---
+
+## 2026-08-17 - corpus drained to cleaning, Pictures 1:1, two console-flash fixes
 
 Operator-driven session, mostly pipeline throughput plus three shipped fixes.
 
