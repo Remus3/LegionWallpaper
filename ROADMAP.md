@@ -6,6 +6,22 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 
 ## Open items - High priority
 
+- **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
+  accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the
+  current removal + fill stack; it is not a threshold problem.** Rounds: 45
+  centre_overlay with LaMa fill (0), the same 45 algebraic-only with no fill (2,
+  and only on the signature), 40 region/singleton/faint (0), and the 7 that
+  survived the shared coverage guard at 10.5-24.5% coverage (0). Three different
+  mask sources and both fill decisions land in the same place, which points at
+  the FILL being the wrong instrument for this corpus rather than at any single
+  mask or threshold. The only slugs that left the queue did so because the
+  DETECTOR was wrong and there was no mark (see clean-detector-false-positives).
+  The remaining 80 are staged for hand IOPaint with per-slug input, derived mask
+  and re-entry commands in `docs/CLEANING_HAND_LANE_2026-08-22.md`. Anything that
+  reopens the automated lane needs a NEW method and an eye-anchored objective -
+  the detector score is falsified as a proxy (LEDGER 101-103 plus these rounds).
+
+
 - **clean-detector-false-positives - the detector flags IN-ART content as a mark:
   7 named by the operator 2026-08-22. This OVERTURNS the standing "false positives
   are currently zero" claim - do not cite that line again without re-measuring.**

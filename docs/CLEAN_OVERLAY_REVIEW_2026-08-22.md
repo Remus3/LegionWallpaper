@@ -187,3 +187,28 @@ pixels intact, no inpainting, `--actor tool:auto-approve` so the ADR-008 rail
 sees a non-operator approver. 7 of 7 landed; `4.Cleaning Done` 485 -> 492,
 `3.Cleaning Scratch` 87 -> 80.
 
+## Round 4, and the end of it: the last 7 candidates fail too - 0 of 87 accepted
+
+The seven candidates that survived the shared coverage guard (diff and faint-diff
+masks, 10.5% to 24.5% coverage, all well under the ceiling) were reviewed and all
+failed. That closes the automated question for this queue:
+
+| round | lane | candidates | accepted |
+|---|---|---|---|
+| 1 | centre_overlay, LaMa fill | 45 | 0 |
+| 2 | centre_overlay, algebraic only | 45 | 2 on the signature only |
+| 3 | region 27 + singleton 3 + faint 10 | 40 | 0 |
+| 4 | the 7 that survived the coverage guard | 7 | 0 |
+
+**Zero automated candidates were accepted.** The only slugs that left the queue
+did so because the DETECTOR was wrong and there was nothing to remove.
+
+What this rules out, so it is not re-tried blind: the matte-inversion removal
+(too weak - leaves the `(c)`), the LaMa fill over any of these masks (blurs,
+smudges, misaligns lines crossing the boundary), and the diff-mask region lane
+even when its coverage is safely under the ceiling. Three different mask sources
+and two different fill decisions all land in the same place, which points at the
+FILL being the wrong instrument for this corpus rather than at any one mask.
+
+The remaining 80 go to the hand lane: `docs/CLEANING_HAND_LANE_2026-08-22.md`.
+
