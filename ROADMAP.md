@@ -7,100 +7,49 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
 ## Open items - High priority
 
 - **clean-zero-watermark - the acceptance standard is ZERO watermark; ghost,
-  banding and faint residue all FAIL (operator, 2026-08-22). NEXT SESSION: four
-  tracks in parallel.** This is stricter than anything measured so far and it
-  settles several arguments: a near-zero detector score does not pass, "much
-  reduced" does not pass, and today's best result (template + scheduled fill on
-  `105-cleanup` - logo gone, credit line down to a faint ghost) does NOT pass.
-  Where it stands, all measured: the FILL is solved (the operator accepted a
-  replay of their own masks through simple-lama, and it held on the harder slug);
-  the mask SCHEDULE is built and cleaned 105 from a derived footprint; DETECTION
-  is the open problem, and contrast-based measures are dead in both directions -
-  absolute fires on genuine art detail and damaged 107, relative misses the mark
-  because a semi-transparent line is not busier than the art. Only the
-  centre-overlay TEMPLATE works, and it covers 45 of the 80 slugs.
-  PRIMARY TRACK **CLOSED 2026-08-22, measured and falsified: the HEALING BRUSH
-  does NOT beat the fill we have.** It was built (`tools/lw_clean_heal.py`, pure
-  numpy, exemplar search + Poisson solve + two-sided gradient crossfade, 18
-  tests) and compared one-shot against LaMa on the union mask of all four
-  captures. Mean in-mask distance to the operator's accepted final:
-  105 15.45 untouched / 16.45 heal / **7.87 lama**; 107 23.50 / 26.68 /
-  **12.45**; 209 27.26 / 5.90 / **1.28**; dgk 49.89 / 5.61 / **2.38**. LaMa wins
-  on all four and the 1:1 sheets agree. Cause, and it is the corpus not the
-  tuning: League splash art is PAINTED, not textured, so no translation repeats
-  its content - the best source patch inside a 96px radius scores a ring RMSE of
-  26-38 against a ring detail of 6-38 on 105, i.e. it explains nothing. Both
-  fallbacks then fail: membrane is a blur (it lost the fabric on 105) and a
-  forced exemplar imports foreign structure (invented streaks on 105, ghost
-  shapes across the orb on 107). Evidence + the reusable bake-off harness:
-  `docs/CLEAN_HEAL_DECISION_2026-08-22.md`, `tools/lw_clean_fill_bakeoff.py`.
-  **So the FILL stays LaMa and mask generation is still the whole problem.**
-  The other four tracks are UNAFFECTED by that result - all four are mask-side -
-  and they are now the whole item. Operator-specified, framing is SPOT HEALING
-  not whole-image generation. **(A) is DONE 2026-08-22** - measured 15x better
-  than the incumbent against the operator's four finals (mean abs error on
-  busyness 221.3% -> 14.6%, worst 603% -> 27.8%), wired into `build_plan` and
-  the `subdivide_labels` gate, doc `docs/CLEAN_BEHIND_THE_MARK_2026-08-22.md`.
-  The tile-size rule was giving the two SMOOTHEST captures the 2000px minimum
-  stroke because their marks were the loudest thing in frame; 209 was cleaned by
-  the operator in ONE stroke. Bonus finding: the membrane estimate of what is
-  behind the mark is excellent on smooth art (dgk 49.89 -> 5.09 in-mask, against
-  LaMa's 2.38, pure numpy) and harmful on structured art (107 23.50 -> 35.71),
-  and the new unbiased busyness measure orders the four correctly - so the
-  statistic gates the estimate. NO threshold was fitted; n=4 cannot calibrate
-  one. **(B) is DONE 2026-08-22** - `tools/lw_clean_lines.py` predicts, from
-  readable art only, where a line entering the mark's boundary has to come out,
-  and probes the fill along that path. It separates erased from misaligned,
-  which is the defect that got 45 candidates rejected and which a contrast
-  measure passes. Against the four captures every verdict agrees with the label:
-  median ratio operator 0.934/1.151 and lama 0.909/1.131 versus heal 0.535/0.610
-  and the membrane blur 0.297/0.164, and 209 + dgk correctly report NO-EVIDENCE
-  (no lines cross those marks) instead of a false pass. Carried through the
-  schedule as a per-step record via `run_schedule(..., lines=True)`; it reports
-  and does not gate. Honest limits recorded: low recall (4 chords on 105, 1 on
-  107), and lowering `GRAD_MIN` to 3.0 manufactures a false alarm on the
-  operator's own accepted frame. Doc:
-  `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`. **(C) is DONE 2026-08-22** -
-  `tools/lw_clean_spot.py` heals one blob at a time and UNDOES a step that
-  breaks a line, judged before against after on the chords that step's context
-  touches. Against the four captures it costs nothing versus a one-shot fill
-  (in-mask distance 8.08 / 12.22 / 1.31 / 2.23 against 7.87 / 12.45 / 1.28 /
-  2.38) and buys rollback that fires on exactly the engine independently shown
-  to damage art at 1:1, on exactly the two slugs where lines cross the mark, and
-  never on the fills the operator accepted. Two mistakes of ours were caught by
-  running it on the captures rather than reasoning about it: growing a blob to
-  the track-A stroke target repainted 24x the mark on dgk (22.59 vs 2.38), and
-  even a 1.6x margin lost on all four - the mask handed in is already a brush
-  mask, so the default is now no margin at all. Splitting a blob into disjoint
-  stroke-sized pieces is off for the same reason: it starves the filler of
-  context (107 went 23.50 -> 23.08, i.e. barely cleaned), which is consistent
-  with the captures showing 30x OVERLAPPING strokes rather than a partition.
-  Doc: `docs/CLEAN_SPOT_ROLLBACK_2026-08-22.md`. **(D) is CLOSED 2026-08-22,
-  falsified on both halves.** The veil model `observed = alpha*colour +
-  (1-alpha)*content` was regressed against the operator's finals inside each
-  mask - the direct ground-truth test - and fits NONE of the four: R-squared
-  0.49-0.59 (105), 0.32-0.81 and self-contradicting across channels (107),
-  **0.00 with a fitted alpha of 2.23** on the painted signature (209), 0.04 on
-  the block logo (dgk). 209 is not a poor fit but no fit: an opaque mark's
-  pixels carry no information about what is under them, so there is nothing to
-  weaken. And where conditioning fires it makes the frame WORSE (105 15.45 ->
-  22.46, 107 23.50 -> 39.65) and a following fill worse still (105 8.08 ->
-  20.01) or unchanged (107). Built and kept as the instrument that proves the
-  negative, wired into nothing. Doc:
-  `docs/CLEAN_CONDITIONING_DECISION_2026-08-22.md`.
-  **All five tracks are now resolved: A and B and C shipped, E and D falsified.**
-  For reference, the four as originally specified were: (A) analyse the content BEHIND the mark, cropped, to
-  drive stroke placement - the schedule currently reads the marked frame to
-  decide how to treat the mark; (B) an overlap-muxed comparison layer carried
-  through the stepped processing so art LINES stay crisp and true to design,
-  giving a per-step check on whether a stroke broke a line; (C) spot healing per
-  blob with ROLLBACK, since the schedule currently commits every step
-  unconditionally; (D) opacity / hue / tone conditioning inside the region
-  between passes so the iterative fills converge. Plan + rules:
-  `docs/CLEAN_NEXT_SESSION_PLAN_2026-08-22.md`. Ground truth for validation is
-  the two hand-clean captures (128 labelled steps + two accepted finals) in
-  `ops/runtime/clean/handedits/` (gitignored).
-
+  banding and faint residue all FAIL (operator, 2026-08-22). All five tracks are
+  now RESOLVED; the detail lives in the decision docs, not here.** The bar is
+  stricter than anything measured before it and settles several arguments: a
+  near-zero detector score does not pass, "much reduced" does not pass, and
+  template + scheduled fill on `105-cleanup` - logo gone, credit line down to a
+  faint ghost - does NOT pass. No scalar is a verdict; the operator's eye on a
+  1:1 crop is the gate, and nothing leaves `3.Cleaning Scratch` on a metric.
+  - **E (healing brush) - FALSIFIED.** Built in full and beaten by the incumbent
+    LaMa fill on all four captures. Splash art is PAINTED, not textured, so no
+    translation repeats its content and the exemplar search has nothing to lock
+    onto. `docs/CLEAN_HEAL_DECISION_2026-08-22.md`, LEDGER 124.
+  - **A (analyse behind the mark) - DONE.** Busyness excluding the mark cut the
+    error against ground truth 15x (221.3% -> 14.6% mean). The rule had been
+    giving the two SMOOTHEST captures the minimum stroke because their marks
+    were the loudest thing in frame. `docs/CLEAN_BEHIND_THE_MARK_2026-08-22.md`,
+    LEDGER 125.
+  - **B (comparison layer) - DONE.** Predicts where a line entering the mark has
+    to come out and separates ERASED from MISALIGNED, which is the defect that
+    got 45 candidates rejected and which a contrast measure passes. Every
+    verdict agrees with the labels; abstains where no line crosses.
+    `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`, LEDGER 126.
+  - **C (spot heal with rollback) - DONE.** Per-blob healing costs nothing
+    against a one-shot fill and buys a rollback that fires on exactly the engine
+    shown to damage art at 1:1. `docs/CLEAN_SPOT_ROLLBACK_2026-08-22.md`,
+    LEDGER 127.
+  - **D (opacity / tone conditioning) - FALSIFIED.** The veil model fits none of
+    the four captures (R-squared 0.49 / 0.32-0.81 / 0.00 / 0.04; an opaque
+    painted signature carries no information about what is under it), and where
+    conditioning fires it makes the frame worse.
+    `docs/CLEAN_CONDITIONING_DECISION_2026-08-22.md`, LEDGER 128.
+  **Where it stands:** the FILL is settled on LaMa, now on an engine comparison
+  rather than a single-engine replay. Mask generation is the remaining problem -
+  see `clean-maskgen` below. **Corrected anchor:** the operator's brush is only
+  1.05 to 1.65x the pixels their clean actually changed, measured on all four
+  captures; this replaces the falsified "8x margin" and `CONTEXT_RATIO = 5.0`.
+  **Do NOT redo:** the healing brush as a fill; conditioning from ring
+  statistics; a pre-pass that writes into the region outside the rollback
+  envelope; growing a spot to the stroke target or splitting a blob into
+  disjoint stroke-sized pieces; lattice tiling; blanket mask escalation; or
+  absolute/relative contrast residue as a STARTING detector. Ground truth for
+  any future validation is the four hand-clean captures in
+  `ops/runtime/clean/handedits/` (gitignored) - and they are PARTIAL gold, see
+  `clean-maskgen`.
 
 - **clean-maskgen - the question was MIS-POSED, and half of it is now solved
   (2026-08-22).** The centre-overlay template scored recall 0.405 / 0.086
@@ -522,26 +471,6 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   `docs/CLEAN_DETECTOR_RECALL_2026-08-11.md`; census tool
   `tools/lw_clean_detector_probe.py --corpus firstdone`.
 
-- **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**
-  `scan --verify` reports 0 mismatches and 0 milestone files go unchecked; all
-  726 have a recorded hash that matches disk. A source replaced outside a
-  transition is now recorded with an appended REPLACE_SOURCE (the INTAKE hash is
-  never rewritten), `verify` resolves a file's expected hash from its LATEST
-  transition by timestamp, and a milestone is identified by slug + stage + phase
-  + version rather than by filename - so a replacement that changes container
-  format stays checked instead of going silent.
-  Kept here because two things must not be un-learned: (1) the ordering bug and
-  the extension blind spot were both found only by investigating a single noisy
-  row (vayne3) rather than clearing it - 9 of the original 32 mismatches were the
-  ordering bug and 9 more files were unverifiable entirely; (2) the backfill tool
-  REFUSES to run unscoped, which is what stopped an unexplained anomaly being
-  laundered into recorded history.
-  Do-not-redo: do NOT reintroduce filename keying anywhere that compares against
-  a manifest, and do NOT record a REPLACE_SOURCE for a drift nobody has explained
-  - that converts a finding into history.
-  Evidence: LEDGER 83 + 84; `docs/WIKI_SWAP_22_2026-08-01.md`.
-
-_Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
 
 - **gemini-removal - REVERSIBLE HALF LANDED 2026-08-02. The loop is Claude-only
   and self-adjudicating by default; the vendor is two config keys away.**
@@ -584,71 +513,6 @@ _Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-fli
   `tests/test_oracle_backend.py` (16 tests);
   `docs/OPERATOR_ANSWERS_2026-08-02.md`.
 
-- **rundash-instrumentation - DONE 2026-08-01; the spec has no open items.**
-  DONE 2026-08-01 (`0ee1c9e`): chips render VERIFIED / REFUTED / NOT OBSERVED
-  from an append-only per-slice verdict history written only through
-  `slice_orchestrator.py`. A REFUTE with no later CONFIRM renders REFUTED even
-  when the slice is `committed`; earlier refutations survive as `prior_refutes`.
-  ALSO DONE 2026-08-01 (LEDGER 65): the directive-history spine - `run_id`,
-  `cost_usd` and `session_id` now reach the file, the reader segments runs on a
-  real id with the cycle heuristic kept as the legacy fallback, and
-  `read_cycle_history` is wired into `/api/run`, which it never was.
-  ALSO DONE 2026-08-01 (LEDGER 66): the P1b Cycle History panel renders it, and
-  the cost boundary is enforced - `cost_usd` stays in the file for forensics and
-  is projected OUT of `/api/run`, because LEDGER 40 settles that Claude dollar
-  figures are notional and the spec rejects a cost panel outright.
-  ALSO DONE 2026-08-01 (LEDGER 69-70): the last four spec items plus one that
-  was not in the spec. `3e8ce6a` truth_gate persists a per-slice observation
-  with the OBSERVED counts; `1d3c2c5` joins the three run-id namespaces on
-  evidence only; `621e8d1` mirrors the fleet before Claude Code reaps it (136
-  agents / 35 sessions / back to 2026-07-03 on first run); `27b22c3` P4
-  Operator Queue + P5 Suite Trajectory; `71baedd` P6 Fleet History, which reads
-  the mirror nothing was reading.
-  Do-not-build without a real producer: P4's HELD column (no HELD substate
-  exists in `pipeline_state.json`) and its run-attributed "this run added N"
-  line (nothing attributes an image to a run). Both were scoped OUT
-  deliberately - inventing a source is worse than the gap.
-  Next: nothing in the spec. `truth_gate_blocking` stays false until a live run
-  has been observed, and `joined_sessions` on P6 stays 0 until a controller
-  cycle writes a `session_id` - the field is wired, it just has not run.
-  truth_gate DONE 2026-08-01 (LEDGER 68) - wired into the run flow, ADVISORY
-  until observed on a live run (`truth_gate_blocking` false); its first real
-  invocation found the gate's own suite command swept the whole tree and
-  manufactured a REFUSE on a green tree.
-  Do-not-redo: do NOT collapse `lw_httpd.parse_ts` and
-  `lw_rundash_state.parse_iso` - naive UTC vs naive LOCAL, 5h apart here, and
-  `loop_controller.py:303` writes naive LOCAL so `parse_iso` is correct.
-  Evidence: `docs/RUNDASH_SPEC_2026-08-01.md`; dashboard 127.0.0.1:8900.
-
-- **usm-halo-calibration - RESOLVED 2026-08-02. `USM_DEFAULT` is now
-  `(1.2, 35, 3)`, down from percent 70. The halo threshold was NOT touched.**
-  The missing axis got measured: fidelity per variant over all 17 gated batch20
-  slugs at 70 / 50 / 35 / none, ms_ssim + lpips + dists + ssim, 17/17 ok.
-  The result was not the expected trade-off curve - **every fidelity metric
-  improves monotonically as the mask weakens, worst case included** (at 35 vs
-  70: ms_ssim min 0.9985 vs 0.9952, lpips max 0.0137 vs 0.0437, dists max
-  0.0211 vs 0.0373). The mask was COSTING fidelity, not buying it. With halo
-  flags 7/17 -> 0/17 and the worst gated `lap_ratio` still 1.1399 over its 1.0
-  floor, usm35 wins on every axis at once.
-  The threshold stays at 0.05 deliberately: at usm35 nothing flags, so the line
-  stops mattering, and moving a ruler to fit a reading was the one axis ruled
-  out - it is the only change that improves the report without improving the
-  image.
-  Do-not-redo: dropping the mask entirely (6 of 16 gated slugs fall through the
-  `lap_ratio` hard floor); re-opening ADR-004 (the upscaler contributes almost
-  none of the halo - max 0.0062 with no mask); reading the synthetic step-edge
-  fixture as evidence about mask strength (`halo_pct` SATURATES there and reads
-  equal to no-mask at 35, which is why that test now pins the historical 70).
-  Read the fidelity numbers for what they are: FR self-comparison against the
-  conditioned source, so a weaker mask is closer to the source by construction.
-  They say the gate's own metrics improve, not that the image looks sharper -
-  `lap_ratio` is the sharpness side and is what stops the argument at 35.
-  Still open, and NOT implied by this change: the 288 already-approved
-  firstdones were produced at usm70 and are now on a different recipe from
-  anything produced after today. Reprocessing any of them is an operator call;
-  the 7 carrying a halo flag are the obvious candidates if it is taken up.
-  Evidence: `docs/USM_FIDELITY_CENSUS_2026-08-02.md` (+ the 2026-07-30 halo
-  census it reproduces to 4dp); `scratchpad/usm_fidelity_census.json`.
 
 - **ci-watchdog - `tools/ci_watchdog.py` WRITTEN and `LW-CIWatchdog` ARMED
   2026-08-02. Unproven on a real red main.**

@@ -1,5 +1,98 @@
 # LW session history archive
 
+## Settled ROADMAP items relocated 2026-08-22 (verbatim)
+
+Closed before the cleaning work and no longer informing a next
+session; moved out of `ROADMAP.md` to keep the per-session bootstrap
+cost down. Nothing here is open.
+
+- **manifest-hash-provenance - CLOSED 2026-08-01 (LEDGER 83 + 84). Nothing open.**
+  `scan --verify` reports 0 mismatches and 0 milestone files go unchecked; all
+  726 have a recorded hash that matches disk. A source replaced outside a
+  transition is now recorded with an appended REPLACE_SOURCE (the INTAKE hash is
+  never rewritten), `verify` resolves a file's expected hash from its LATEST
+  transition by timestamp, and a milestone is identified by slug + stage + phase
+  + version rather than by filename - so a replacement that changes container
+  format stays checked instead of going silent.
+  Kept here because two things must not be un-learned: (1) the ordering bug and
+  the extension blind spot were both found only by investigating a single noisy
+  row (vayne3) rather than clearing it - 9 of the original 32 mismatches were the
+  ordering bug and 9 more files were unverifiable entirely; (2) the backfill tool
+  REFUSES to run unscoped, which is what stopped an unexplained anomaly being
+  laundered into recorded history.
+  Do-not-redo: do NOT reintroduce filename keying anywhere that compares against
+  a manifest, and do NOT record a REPLACE_SOURCE for a drift nobody has explained
+  - that converts a finding into history.
+  Evidence: LEDGER 83 + 84; `docs/WIKI_SWAP_22_2026-08-01.md`.
+
+_Shipped/closed entries move to `docs/LEDGER.md` (append-only). Only open/in-flight work stays below, highest priority first. Sequencing for the next 2-4 weeks: `docs/ATTACK_PLAN.md`. Item grammar: id - title - state - next action - evidence link._
+
+- **rundash-instrumentation - DONE 2026-08-01; the spec has no open items.**
+  DONE 2026-08-01 (`0ee1c9e`): chips render VERIFIED / REFUTED / NOT OBSERVED
+  from an append-only per-slice verdict history written only through
+  `slice_orchestrator.py`. A REFUTE with no later CONFIRM renders REFUTED even
+  when the slice is `committed`; earlier refutations survive as `prior_refutes`.
+  ALSO DONE 2026-08-01 (LEDGER 65): the directive-history spine - `run_id`,
+  `cost_usd` and `session_id` now reach the file, the reader segments runs on a
+  real id with the cycle heuristic kept as the legacy fallback, and
+  `read_cycle_history` is wired into `/api/run`, which it never was.
+  ALSO DONE 2026-08-01 (LEDGER 66): the P1b Cycle History panel renders it, and
+  the cost boundary is enforced - `cost_usd` stays in the file for forensics and
+  is projected OUT of `/api/run`, because LEDGER 40 settles that Claude dollar
+  figures are notional and the spec rejects a cost panel outright.
+  ALSO DONE 2026-08-01 (LEDGER 69-70): the last four spec items plus one that
+  was not in the spec. `3e8ce6a` truth_gate persists a per-slice observation
+  with the OBSERVED counts; `1d3c2c5` joins the three run-id namespaces on
+  evidence only; `621e8d1` mirrors the fleet before Claude Code reaps it (136
+  agents / 35 sessions / back to 2026-07-03 on first run); `27b22c3` P4
+  Operator Queue + P5 Suite Trajectory; `71baedd` P6 Fleet History, which reads
+  the mirror nothing was reading.
+  Do-not-build without a real producer: P4's HELD column (no HELD substate
+  exists in `pipeline_state.json`) and its run-attributed "this run added N"
+  line (nothing attributes an image to a run). Both were scoped OUT
+  deliberately - inventing a source is worse than the gap.
+  Next: nothing in the spec. `truth_gate_blocking` stays false until a live run
+  has been observed, and `joined_sessions` on P6 stays 0 until a controller
+  cycle writes a `session_id` - the field is wired, it just has not run.
+  truth_gate DONE 2026-08-01 (LEDGER 68) - wired into the run flow, ADVISORY
+  until observed on a live run (`truth_gate_blocking` false); its first real
+  invocation found the gate's own suite command swept the whole tree and
+  manufactured a REFUSE on a green tree.
+  Do-not-redo: do NOT collapse `lw_httpd.parse_ts` and
+  `lw_rundash_state.parse_iso` - naive UTC vs naive LOCAL, 5h apart here, and
+  `loop_controller.py:303` writes naive LOCAL so `parse_iso` is correct.
+  Evidence: `docs/RUNDASH_SPEC_2026-08-01.md`; dashboard 127.0.0.1:8900.
+
+- **usm-halo-calibration - RESOLVED 2026-08-02. `USM_DEFAULT` is now
+  `(1.2, 35, 3)`, down from percent 70. The halo threshold was NOT touched.**
+  The missing axis got measured: fidelity per variant over all 17 gated batch20
+  slugs at 70 / 50 / 35 / none, ms_ssim + lpips + dists + ssim, 17/17 ok.
+  The result was not the expected trade-off curve - **every fidelity metric
+  improves monotonically as the mask weakens, worst case included** (at 35 vs
+  70: ms_ssim min 0.9985 vs 0.9952, lpips max 0.0137 vs 0.0437, dists max
+  0.0211 vs 0.0373). The mask was COSTING fidelity, not buying it. With halo
+  flags 7/17 -> 0/17 and the worst gated `lap_ratio` still 1.1399 over its 1.0
+  floor, usm35 wins on every axis at once.
+  The threshold stays at 0.05 deliberately: at usm35 nothing flags, so the line
+  stops mattering, and moving a ruler to fit a reading was the one axis ruled
+  out - it is the only change that improves the report without improving the
+  image.
+  Do-not-redo: dropping the mask entirely (6 of 16 gated slugs fall through the
+  `lap_ratio` hard floor); re-opening ADR-004 (the upscaler contributes almost
+  none of the halo - max 0.0062 with no mask); reading the synthetic step-edge
+  fixture as evidence about mask strength (`halo_pct` SATURATES there and reads
+  equal to no-mask at 35, which is why that test now pins the historical 70).
+  Read the fidelity numbers for what they are: FR self-comparison against the
+  conditioned source, so a weaker mask is closer to the source by construction.
+  They say the gate's own metrics improve, not that the image looks sharper -
+  `lap_ratio` is the sharpness side and is what stops the argument at 35.
+  Still open, and NOT implied by this change: the 288 already-approved
+  firstdones were produced at usm70 and are now on a different recipe from
+  anything produced after today. Reprocessing any of them is an operator call;
+  the 7 carrying a halo flag are the obvious candidates if it is taken up.
+  Evidence: `docs/USM_FIDELITY_CENSUS_2026-08-02.md` (+ the 2026-07-30 halo
+  census it reproduces to 4dp); `scratchpad/usm_fidelity_census.json`.
+
 Deep archive for content pruned from the living docs. Nothing here is ever
 rewritten - relocations are verbatim, newest batch first.
 
@@ -248,6 +341,242 @@ run used the ncnn fallback). **Next:** QA Session 2 - IJN primary path +
 recalibrate; then the recovery campaign (149 pending, 75 `niphrimit` `-pre`).
 **Queued:** artist-signature policy (watermarks on all Found originals);
 LongPathsEnabled (deferred).
+
+---
+
+## 2026-08-22 - track B DONE: the stack can finally see a broken line
+
+Third slice of the same session. E closed, A done, B now shipped.
+
+- **Shipped `tools/lw_clean_lines.py`** - the overlap-muxed comparison layer.
+  Built from readable art only, BEFORE any fill: mask-aware gradients find where
+  oriented structure meets the mark's boundary (one crossing per cluster, at its
+  magnitude-weighted centre, direction from the cluster's structure tensor so
+  the sign ambiguity is handled), then each crossing is paired with the one
+  facing it that agrees in direction, lies on its ray and whose segment actually
+  crosses the mark. Each pair is a CHORD - a prediction about a line that must
+  exist inside the fill. The probe answers both a step and a ridge and takes the
+  larger, and the expectation is the SAME probe taken on readable art at the
+  same line, so it is like for like.
+- **It separates ERASED from MISALIGNED**, which is the whole point: a frame
+  with the line present but 7px off has plenty of in-mask contrast and a
+  contrast measure passes it. That is the defect that got 45 candidates
+  rejected.
+- **Census vs the four captures, labels not derived from any measure** - median
+  ratio: 105 operator **0.934** / lama **0.909** vs heal 0.535 / behind 0.297;
+  107 operator **1.151** / lama **1.131** vs heal 0.610 / behind 0.164. Every
+  verdict agrees with the label. **209 and dgk produce ZERO chords** and report
+  `no-evidence` rather than a pass - correct, there are no lines crossing a
+  signature on a smooth panel or a block on soft snow.
+- **Wired:** `run_schedule(..., lines=True)` (CLI `--lines`) builds the layer
+  once and records a per-step verdict in the plan. It RECORDS, it does not gate:
+  acting on it is track C.
+- **Honest limits, recorded rather than buried:** low recall (4 chords on 105, 1
+  on 107); at `GRAD_MIN` 3.0 it picks up boundary structure that does not
+  continue and scores the operator's OWN accepted frame at 0.354, a false alarm,
+  so do not lower it without re-running the census; and the marked `original`
+  scores highest of all because the mark supplies its own contrast - this scores
+  FILLS, it is not a detector. `RAY_TOL` moved 6 -> 10 because it was the
+  binding constraint and inconsistent with the 30-degree angle tolerance beside
+  it; the ordering held on all twelve angle/ray combinations tried.
+- **Verified:** 15 new tests (RED confirmed first), full suite **2211 passed /
+  18 skipped**, ruff clean.
+  Doc: `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`.
+
+---
+
+## 2026-08-22 - track A DONE: the mark stops voting on its own treatment
+
+Second half of the same session, after track E was closed.
+
+- **The bug, re-measured live** (not carried from the doc): `local_gradient`
+  reads the MARKED frame, and `target_tile_area` is inverse, so a loud mark buys
+  itself the smallest strokes. Against the operator's four finals as truth:
+  105 3.684 vs 2.878 (+28%), 107 3.179 vs 2.907 (+9%), 209 7.754 vs 2.247
+  (**+245%**), dgk 5.467 vs 0.778 (**+603%**). The two SMOOTHEST captures both
+  hit the 2000px tile floor - and 209 is the one the operator cleaned in ONE
+  stroke, where the truth asks for 27805.
+- **Shipped `tools/lw_clean_behind.py`** plus the primitive inside
+  `lw_clean_tiled.local_gradient(..., exclude=)`: a first difference counts only
+  when BOTH endpoints are readable, so no masked value reaches the statistic
+  through either end of a gradient. With `exclude` unset it is bit-identical to
+  the estimator the tile-size anchors were fitted with, asserted in the suite.
+- **Census vs ground truth** (`tools/lw_clean_behind_census.py`): mean abs error
+  marked **221.3%** (worst 603%) -> excluded **14.6%** (worst 27.8%). 15x. The
+  membrane-on-the-estimate column scores 13.8% but is systematically LOW on all
+  four (a harmonic fill has no texture), which is why the estimate is NOT what
+  the statistic is taken on - predicted in the module before it was measured.
+- **Wired:** `build_plan` excludes the mark by default (it was already holding
+  the mask and simply not using it) and takes a `gradient=` override; the
+  SIBLING case `subdivide_labels` was found by grepping the same root cause and
+  fixed the same way - that gate reads a region OF the footprint, so it was
+  measuring the mark almost exclusively and subdividing flat art it exists to
+  leave whole. Both CLI paths pass the mark through.
+- **Unlooked-for second result:** the membrane estimate of the picture behind
+  the mark is EXCELLENT on smooth art and harmful on structured art - in-mask
+  distance to the operator's final: dgk 49.89 -> **5.09** (LaMa gets 2.38),
+  209 27.26 -> **1.95**, but 105 15.45 -> 14.67 and 107 23.50 -> **35.71**. The
+  new busyness measure orders all four correctly, so the statistic gates the
+  estimate. NO threshold fitted - four captures cannot calibrate one.
+- **Verified:** 14 new tests (RED confirmed first), full suite **2196 passed /
+  18 skipped**, ruff clean. Doc:
+  `docs/CLEAN_BEHIND_THE_MARK_2026-08-22.md`.
+- **Do NOT redo:** busyness on the marked frame anywhere in the stack; busyness
+  on the behind-the-mark estimate; fitting a trust threshold on these four.
+
+---
+
+## 2026-08-22 - track E built and FALSIFIED: the fill stays LaMa
+
+Single-track session on the operator's named PRIMARY track, the healing brush.
+Built it properly, measured it against ground truth, and it loses.
+
+- **Shipped `tools/lw_clean_heal.py`** - pure numpy + Pillow (no torch / cv2 /
+  scipy, runs in the fast CI lane): run-length union-find blob labelling, a
+  lossless grid tiling near the operator's measured median stroke area, an
+  exemplar search scored on the VALID annulus only (the mark never votes on its
+  own replacement, and no offset may read a still-marked pixel), a Poisson solve
+  by conjugate gradients with Dirichlet boundary, and TWO-SIDED guidance that
+  crossfades a source from each side of a thin mark in the gradient domain.
+  18 tests, `tests/test_lw_clean_heal.py`, including outside-mask identity,
+  determinism, seam-vs-paste, and a line-continuity test that encodes the exact
+  defect that got 45 candidates rejected. Mutation-checked: disabling the
+  exemplar path breaks the line test, so the suite is load-bearing.
+- **Also shipped:** `tools/lw_clean_fill_bakeoff.py` (the fair one-shot engine
+  comparison on the union of every captured mask), `tools/lw_clean_heal_compare.py`
+  (1:1 no-resample variant sheets for the operator's eye), and
+  `lw_clean_replay.py --engine {lama,heal}`.
+- **Result, one-shot mean in-mask distance to the operator's accepted final:**
+  105 untouched 15.45 / heal 16.45 / **lama 7.87**; 107 23.50 / 26.68 /
+  **12.45**; 209 27.26 / 5.90 / **1.28**; dgk 49.89 / 5.61 / **2.38**. LaMa wins
+  on all four, and the 1:1 sheets agree - the heal smears 105/107 and invents
+  streaks. On 105 and 107 it scores WORSE than leaving the watermark in.
+- **Why, and this is the keeper:** the corpus is PAINTED, not textured, so
+  nothing repeats under translation. Best source in a 96px radius scores ring
+  RMSE 26-38 against ring detail 6-38 on 105 - it explains nothing. Then both
+  fallbacks fail: membrane is a blur, a forced exemplar imports foreign
+  structure. The premise ("gradient blending preserves lines") is true and
+  useless here: it preserves the SOURCE's lines and the source is wrong.
+- **One real bug of mine, found and fixed mid-session:** the first decision rule
+  fell back to membrane whenever the exemplar looked poor, which on real art is
+  always - all 8 tiles on 105 took it and the fabric was lost. The rule is gone
+  and the measurement is recorded in the module so it is not re-added.
+- **Do NOT redo:** the healing brush as a fill. The code stays as a measured
+  negative result and as a working Poisson solver; the bake-off harness stays as
+  the honest way to compare any future fill.
+- **Where this leaves the item:** the FILL is settled (LaMa, and now on an
+  engine comparison rather than a single-engine replay). Mask generation is
+  still the entire open problem, and tracks A-D are all mask-side and untouched
+  by this. Decision doc: `docs/CLEAN_HEAL_DECISION_2026-08-22.md`.
+
+---
+
+## 2026-08-22 - cleaning: fill solved, detection open, bar set to ZERO
+
+Long operator-driven session. Two halves of the cleaning problem separated by
+measurement, and the acceptance bar raised.
+
+- **Disposed the 566-slug cleaning corpus gate-driven** (LEDGER 122): 460 clean
+  approved, 19 of 20 auto inpainted, 87 held. `4.Cleaning Done` 6 -> 485.
+- **Then the operator rejected ALL 87 automated candidates** over 4 review
+  rounds (45 overlay filled, the same 45 un-filled, 40 region/faint/singleton,
+  7 guard survivors). Zero accepted. Two real bugs of ours fell out: the 25%
+  mask-coverage guard was gated on `faint` so the region lane repainted a median
+  47.6% of its ROI, and 7 slugs were DETECTOR FALSE POSITIVES flagging in-art
+  text (approved unedited; the "false positives are zero" claim is overturned).
+- **The operator then hand-cleaned two slugs in IOPaint and captured all 128
+  steps.** That is the ground truth everything below rests on.
+  - per stroke: ~0.18% of frame (105) / 0.44% (107); LaMa changes ~12% of what
+    is brushed in BOTH captures; stroke size scales INVERSELY with local
+    gradient, exactly as the operator said.
+  - the strokes are not a sweep: 30x overlap, median pixel brushed 19 times,
+    median NEW area per stroke 3.0%, and 86% of convergence lands in the last 30
+    of 82 steps as the mask grows 55x.
+- **REPLAY of their masks through our fill: the operator PASSED it.** So the
+  FILL was never the problem - every rejection was a mask failure.
+- **Built the mask SCHEDULE** (residue -> contiguous run -> pad 5x -> tight crop
+  -> commit): cleaned 105 from a derived footprint, DAMAGED 107 (worse than
+  doing nothing) because its footprint covers real art.
+- **Detection is the open problem and contrast is dead both ways:** absolute
+  residue fires on art detail; relative residue (control-band calibrated) misses
+  the mark entirely - it reports NO excess on frames that still carry the
+  watermark, because a semi-transparent line is not busier than the art.
+- **Template + schedule** (`tools/lw_clean_overlay_schedule.py`) is the best
+  result: logo gone, art intact, credit line down to a faint ghost. Still FAILS
+  the new bar.
+- **NEW STANDARD:** zero watermark; ghost / banding / faint all fail. Next
+  session runs five tracks in parallel, PRIMARY being a **healing-brush fill**
+  (exemplar + gradient-domain Poisson blending, "like photoshops healing
+  brush") - deterministic, no hallucination, preserves lines by construction.
+  Plan: `docs/CLEAN_NEXT_SESSION_PLAN_2026-08-22.md`.
+- **Do NOT redo:** lattice tiling of any kind (it signs its own boundaries into
+  the result), blanket mask escalation (destroys art), absolute or relative
+  contrast residue as a starting detector, and more LaMa fill variants before
+  the healing brush is tried.
+
+- **LATE ADDITION - two more captures, and a constant of mine falsified.** The
+  operator hand-cleaned both `not_border` slugs (the bucket with no ground truth
+  at all): `dgk8f92-...` (583x112 block on busy art, 18 steps) and `209-cleanup`
+  (painted signature on a smooth panel, ONE stroke). changed/mask across the four
+  captures is 0.118 / 0.122 / 0.235 / 1.027 - it tracks the ITERATION COUNT, not
+  a margin, so the "8x margin invariant" reported earlier is WRONG and
+  `CONTEXT_RATIO = 5.0` is flagged in place to be derived per image. Second flaw:
+  `local_gradient` is measured on the MARKED frame, so a high-contrast mark
+  inflates its own busyness score (209 reads highest of the four on a smooth
+  panel) - track A fixes this. Step count is a property of the MARK, not a
+  parameter: 1 stroke vs 82.
+
+---
+
+## 2026-08-22 - clean-566 disposed gate-driven, cleaning scratch 566 -> 87
+
+Operator answered the standing block with shape (1) (gate-driven).
+
+- **Shipped:** `tools/lw_clean_dispose.py` + `tests/test_lw_clean_dispose.py`
+  (7 tests, TDD RED-first). The driver re-decides no verdict and moves no slug
+  itself - every transition is an `lw_pipeline` subprocess, so ADR-008 / ADR-009
+  refusals are RECORDED and skipped, never forced; approvals carry
+  `--actor tool:auto-approve`.
+- **Disposition:** triage regenerated read-only first and reproduced the
+  2026-08-17 split EXACTLY (460 clean / 86 qa / 20 auto over 566). Then 460
+  `clean` approved, 19 of 20 `auto` inpainted (simple-lama) + approved, 87 held.
+  `4.Cleaning Done` 6 -> 485, `3.Cleaning Scratch` 566 -> 87, needs_attention 0.
+- **`259f`** is the 20th auto: inpainted, FAILED the G2 verify gate, fell to the
+  QA queue. That is the gate working - do not "fix" it by relaxing verify.
+- **Held set** with per-slug reason: `docs/cleaning_qa_queue_2026-08-22.md`
+  (45 centre_overlay / 27 not_border / 12 faint_mark / 3 singletons).
+- **OPEN:** the operator's 13 named `ref_*` slugs are recorded NOWHERE in the
+  repo; the gate held 9 as `qa`, the other 4 were approved with the clean bucket.
+  Reopen route if named: `save-working --tool operator-select` -> submit ->
+  approve (no reverse stage transition exists).
+- **Do NOT redo:** the disposition is not idempotent - an already-moved slug
+  fails `save-working` with `not in any scratch`, which is the intended refusal.
+
+---
+
+## 2026-08-17 - corpus drained to cleaning, Pictures 1:1, two console-flash fixes
+
+Operator-driven session, mostly pipeline throughput plus three shipped fixes.
+
+- **Shipped:** `2028026` first-pass directed-crop override (`--crop-overrides`,
+  `anchored_crop_box`, named sides are a PERMISSION not a demand - horizontal
+  grants on a too-tall frame are dropped); `6db5443` Done-N folder is now pruned
+  AT the transition (supersedes the FM-02 retention half; verified per-slug
+  before delete, `PRUNE_SKIPPED` on anything unproven); `d916f9a` +
+  `690ffb7` two console-flash fixes - LW-CIWatchdog ran `python.exe` every 2 min
+  (now `pythonw.exe` + Hidden), LW-WeeklyHygiene had no `-WindowStyle Hidden`.
+  Suite 2058 passed / 18 skipped, ruff clean, CI green.
+- **Pipeline:** intaked 243 (225 `ref_*` restaged from `reference_pictures` +
+  18 new operator drops), first pass 242 PASS / 1 FAIL / 0 held, approved, all
+  staged to cleaning. `3.Cleaning Scratch` = **566**, `first_done` = 0,
+  `2.First Pass Done` fully drained by the new prune, 0 stale folders anywhere.
+- **Pictures = 555**, deduped to 0 duplicate-content pairs and 0 slugs with two
+  entries; every file is in the rotator deck, 0 orphans in the owed half.
+- **BLOCKED ON OPERATOR:** cleaning triage is DONE (566 rows: 460 clean / 86 qa
+  / 20 auto) but the destructive half was NOT run - awaiting the gate-driven vs
+  blanket-approve call, and whether `qa` stops at scratch with the named 13.
+- **Do NOT redo:** the 750px thumbnail `1000040081-...-375w-2x` FAIL is
+  unfixable - DeviantArt's authoritative fetch returns the same 750x437 bytes.
 
 ---
 
