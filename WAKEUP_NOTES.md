@@ -11,7 +11,45 @@
 
 ---
 
-## 2026-08-22 (latest) - track C DONE: one spot at a time, and undo what breaks
+## 2026-08-22 (latest) - track D CLOSED: the veil model does not fit these marks
+
+Fifth and last slice. All five tracks now resolved: A, B, C shipped; E and D
+falsified with evidence.
+
+- **Premise tested BEFORE building**, which is the whole story. The veil model
+  `observed = alpha*colour + (1-alpha)*content` was regressed against the
+  operator's finals inside each mask - with the content known that is a straight
+  line per channel, so R-squared answers "is this mark a veil at all". It fits
+  NONE of the four: 105 0.49/0.59/0.52, 107 0.61/0.32/0.81 (and self-
+  contradicting, three alphas 0.26/0.58/0.03 for one opacity), 209 **0.00** with
+  a fitted alpha of **2.23** which is not a physical opacity, dgk 0.04.
+- **209 is the clarifying case:** a painted signature is OPAQUE, so its pixels
+  carry no information about what is under them. There is nothing to weaken.
+- **Built it anyway** so the negative is proved rather than asserted, and
+  measured: where conditioning fires it makes the frame WORSE (105 15.45 ->
+  22.46, 107 23.50 -> 39.65); with a fill after it, 105 goes 8.08 -> 20.01 and
+  107 is simply overwritten (12.22 either way). Where the estimator is honest
+  (209, dgk) it abstains and does nothing. No cell helps.
+- **Design lesson that outlives the track:** on 105 the conditioned run held 1
+  of 2 blobs where the plain fill held none - the rollback worked, but the
+  conditioned damage STAYED, because the pre-pass wrote into the region outside
+  the rollback envelope. Any future pre-pass that writes into the mark must sit
+  INSIDE the snapshot.
+- **Two things worth keeping from it:** `fit_veil`, the ground-truth model test,
+  and the null measured from the ring's own two annuli - without that null the
+  estimator fired on ordinary unmarked art, the same failure already logged for
+  absolute contrast residue. Opacity is also estimated as ONE number now, since
+  it is one.
+- **Not wired into any lane** and should not be. The genuine veil case - the DA
+  centre overlay, 45 of 80 slugs - is already handled by the TEMPLATE pre-pass
+  in `lw_clean_iopaint`, and this census supports keeping it that way.
+- **Verified:** 16 new tests (RED confirmed first), full suite **2243 passed /
+  18 skipped**, ruff clean. Doc:
+  `docs/CLEAN_CONDITIONING_DECISION_2026-08-22.md`.
+
+---
+
+## 2026-08-22 - track C DONE: one spot at a time, and undo what breaks
 
 Fourth slice of the same session. E closed, A + B + C shipped.
 

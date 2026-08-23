@@ -27,6 +27,57 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+128. DONE **2026-08-22 (track D - conditioning CLOSED, falsified on both halves;
+   commit pending).** Premise TESTED BEFORE BUILDING, and that is the substance
+   of the item. Track D rests on the veil model `observed = alpha*colour +
+   (1-alpha)*content`, and the four captures test it directly because the
+   operator's accepted final IS the content behind the mark: with the content
+   known the relation is a straight line per channel and its R-squared says
+   whether the mark is a veil at all. MEASURED: 105-cleanup 0.49/0.59/0.52,
+   107-cleanup 0.61/0.32/0.81 with three mutually contradicting alphas
+   (0.26/0.58/0.03) for one supposed opacity, 209-cleanup 0.00/0.00/0.00 with a
+   fitted alpha of 2.23/1.91/1.71 which is not a physical opacity at all, and
+   dgk8f92 0.04/0.04/0.04. The model fits NONE of the four. 209 is the
+   clarifying case and it is not a poor fit but NO fit: a painted signature is
+   opaque, so its pixels carry no information about what is under them and there
+   is nothing to weaken. SHIPPED ANYWAY so the negative is proved rather than
+   asserted: `tools/lw_clean_condition.py` (pure numpy) with `estimate_veil`
+   from the readable ring alone, `apply_veil_inverse` writing only inside the
+   mark with the gain clamped, `auto_condition` per blob, and `fit_veil`, the
+   ground-truth regression, which needs the answer and so belongs to the census
+   and never to a lane; plus `tools/lw_clean_condition_census.py`. TWO REAL
+   CORRECTIONS made while building: opacity is estimated as ONE number rather
+   than three, because it is one - the veil's colour differs per channel and how
+   much of it there is does not; and a NULL measured from the ring's own inner
+   and outer annuli was added after the first estimator fired on ordinary
+   unmarked art, which is the same failure this repo already logged for absolute
+   contrast residue. The contrast loss must beat that null by 2x and the null is
+   measured per image, so it costs no constant. MEASURED EFFECT, in-mask
+   distance to the operator's final: 105 untouched 15.45 -> conditioned 22.46,
+   fill 8.08 -> condition-then-fill 20.01; 107 untouched 23.50 -> conditioned
+   39.65, fill 12.22 -> condition-then-fill 12.22 (the fill simply overwrites
+   it); 209 and dgk the estimator correctly abstains and nothing changes. There
+   is no cell where conditioning helps. DESIGN LESSON RECORDED, and it outlives
+   the track: on 105 the conditioned run held 1 of 2 blobs where the plain fill
+   held none - the track-C rollback worked, but the conditioned damage STAYED,
+   because the pre-pass wrote into the region OUTSIDE the rollback envelope. Any
+   future pre-pass that writes into the mark region must sit inside the
+   snapshot. NOT WIRED into any cleaning path and should not be; the genuine
+   veil case - the DeviantArt centre overlay, a real semi-transparent layer over
+   45 of the 80 queued slugs - is already handled by the TEMPLATE pre-pass in
+   `lw_clean_iopaint.overlay_prepass`, and this census supports keeping it,
+   since a template knows what the mark LOOKS like while a ring estimate has to
+   infer it from statistics these marks do not support. VERIFIED: 16 tests in
+   `tests/test_lw_clean_condition.py`, RED confirmed before implementing, all
+   holding the estimator to the model on synthetic art where the model is true
+   by construction - which is what proves the failure is the corpus and not a
+   broken estimator; full suite 2243 passed / 18 skipped; ruff clean. DOC SYNCS:
+   `docs/CLEAN_CONDITIONING_DECISION_2026-08-22.md`, ROADMAP (D closed; all five
+   tracks now resolved), WAKEUP_NOTES. DO NOT REDO: conditioning, tone-matching
+   or un-blending a mark region from ring statistics; reading a high fitted
+   alpha as evidence of a veil without its R-squared; or adding a pre-pass that
+   writes into the region outside the rollback envelope.
+
 127. DONE **2026-08-22 (track C - per-blob spot healing with rollback; commit
    pending).** SHIPPED `tools/lw_clean_spot.py`: each blob of the detector's own
    footprint is healed on its own and a step that breaks a line is UNDONE,

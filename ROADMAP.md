@@ -75,7 +75,21 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   stroke-sized pieces is off for the same reason: it starves the filler of
   context (107 went 23.50 -> 23.08, i.e. barely cleaned), which is consistent
   with the captures showing 30x OVERLAPPING strokes rather than a partition.
-  Doc: `docs/CLEAN_SPOT_ROLLBACK_2026-08-22.md`. D remains: (A) analyse the content BEHIND the mark, cropped, to
+  Doc: `docs/CLEAN_SPOT_ROLLBACK_2026-08-22.md`. **(D) is CLOSED 2026-08-22,
+  falsified on both halves.** The veil model `observed = alpha*colour +
+  (1-alpha)*content` was regressed against the operator's finals inside each
+  mask - the direct ground-truth test - and fits NONE of the four: R-squared
+  0.49-0.59 (105), 0.32-0.81 and self-contradicting across channels (107),
+  **0.00 with a fitted alpha of 2.23** on the painted signature (209), 0.04 on
+  the block logo (dgk). 209 is not a poor fit but no fit: an opaque mark's
+  pixels carry no information about what is under them, so there is nothing to
+  weaken. And where conditioning fires it makes the frame WORSE (105 15.45 ->
+  22.46, 107 23.50 -> 39.65) and a following fill worse still (105 8.08 ->
+  20.01) or unchanged (107). Built and kept as the instrument that proves the
+  negative, wired into nothing. Doc:
+  `docs/CLEAN_CONDITIONING_DECISION_2026-08-22.md`.
+  **All five tracks are now resolved: A and B and C shipped, E and D falsified.**
+  For reference, the four as originally specified were: (A) analyse the content BEHIND the mark, cropped, to
   drive stroke placement - the schedule currently reads the marked frame to
   decide how to treat the mark; (B) an overlap-muxed comparison layer carried
   through the stepped processing so art LINES stay crisp and true to design,
