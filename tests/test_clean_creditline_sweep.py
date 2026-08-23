@@ -33,3 +33,21 @@ def test_a_percentile_outside_the_range_is_refused():
         except (ValueError, SystemExit):
             continue
         raise AssertionError(f"accepted {bad!r}")
+
+
+def test_first_quiet_is_the_thinnest_mask_the_reader_stops_reading():
+    rows = [{"pct": 88.0, "still_reads": [{"text": "X"}]},
+            {"pct": 80.0, "still_reads": [{"text": "X"}]},
+            {"pct": 70.0, "still_reads": []},
+            {"pct": 60.0, "still_reads": []}]
+    assert SW.first_quiet(rows) == 70.0
+
+
+def test_first_quiet_is_none_when_every_cell_still_reads():
+    assert SW.first_quiet([{"pct": 88.0, "still_reads": [{"text": "X"}]}]) is None
+
+
+def test_the_sweep_takes_more_than_one_slug():
+    args = SW.build_parser().parse_args(["--slug", "a", "--slug", "b"])
+    assert args.slug == ["a", "b"]
+    assert SW.build_parser().parse_args([]).slug is None, "defaulted in main"

@@ -64,52 +64,88 @@ def label_for(pct, rec):
             f"{'reads' if rec['still_reads'] else 'quiet'}")
 
 
-def main(argv=None):
-    from PIL import Image
+def sweep_one(slug, path, pcts, reader, fill, out_dir, pad=CL.PAD):
+    """Every percentile on one slug, off the untouched frame, stacked at 1:1."""
     import lw_clean_replay as R
-    from lw_clean_creditline_census import initial_of
-    Image.MAX_IMAGE_PIXELS = None
-
-    ap = argparse.ArgumentParser(prog="lw_clean_creditline_sweep")
-    ap.add_argument("--slug", default="259f")
-    ap.add_argument("--scratch", default=SCRATCH)
-    ap.add_argument("--out", default=OUT)
-    ap.add_argument("--pcts", default=PCTS)
-    ap.add_argument("--pad", type=int, default=CL.PAD)
-    ap.add_argument("--cpu", action="store_true")
-    args = ap.parse_args(argv)
-
-    pcts = parse_pcts(args.pcts)
-    path = initial_of(args.scratch, args.slug)
-    if not path:
-        raise SystemExit(f"no cleaning initial for {args.slug}")
-    out_dir = os.path.join(args.out, args.slug)
-    os.makedirs(out_dir, exist_ok=True)
-
-    reader = CL._reader(gpu=not args.cpu)
-    fill = SPOT._lama()
     img = R.load_rgb(path)
     hits = CL.detect(img, reader)
     if not hits:
-        raise SystemExit(f"no credit line read on {args.slug}")
-
+        print(f"{slug}: no credit line read - skipped")
+        return None
+    os.makedirs(out_dir, exist_ok=True)
     rows, variants = [], [("untouched", path)]
     for pct in pcts:
-        out, rec = RUN.run_one(img, hits, fill, pad=args.pad, glyph_pct=pct)
+        out, rec = RUN.run_one(img, hits, fill, pad=pad, glyph_pct=pct)
         rec["still_reads"] = [{"text": a["text"], "conf": a["conf"]}
                               for a in CL.detect(out, reader)]
         rec["pct"] = pct
         rec["out"] = RUN._write_png(out, os.path.join(out_dir, f"p{pct:g}.png"))
         rows.append({k: v for k, v in rec.items() if k != "steps"})
         variants.append((label_for(pct, rec), rec["out"]))
-        print(label_for(pct, rec))
-
+        print(f"  {label_for(pct, rec)}")
     window = RUN.crop_box_from_hits([{"box": rows[0]["box"]}], img.shape)
-    sheet = os.path.join(out_dir, f"{args.slug}_glyphpct_sweep.png")
+    sheet = os.path.join(out_dir, f"{slug}_glyphpct_sweep.png")
     SHEET.build(variants, window, sheet)
-    RUN._write_json({"slug": args.slug, "source": path, "rows": rows},
-                    os.path.join(out_dir, "sweep.json"))
-    print(f"\nwrote {sheet}")
+    rec = {"slug": slug, "source": path, "sheet": sheet, "rows": rows}
+    RUN._write_json(rec, os.path.join(out_dir, "sweep.json"))
+    return rec
+
+
+def first_quiet(rows):
+    """The thinnest mask whose output the reader no longer reads.
+
+    A floor, not a verdict. 259f goes quiet at p70 with the line still plainly
+    legible on the sheet, so this marks where to START looking, never where to
+    stop.
+    """
+    for r in rows:
+        if not r["still_reads"]:
+            return r["pct"]
+    return None
+
+
+def build_parser():
+    ap = argparse.ArgumentParser(prog="lw_clean_creditline_sweep")
+    ap.add_argument("--slug", action="append",
+                    help="repeatable; defaults to 259f")
+    ap.add_argument("--scratch", default=SCRATCH)
+    ap.add_argument("--out", default=OUT)
+    ap.add_argument("--pcts", default=PCTS)
+    ap.add_argument("--pad", type=int, default=CL.PAD)
+    ap.add_argument("--cpu", action="store_true")
+    return ap
+
+
+def main(argv=None):
+    from PIL import Image
+    from lw_clean_creditline_census import initial_of
+    Image.MAX_IMAGE_PIXELS = None
+
+    args = build_parser().parse_args(argv)
+    pcts = parse_pcts(args.pcts)
+    slugs = args.slug or ["259f"]
+    reader = CL._reader(gpu=not args.cpu)
+    fill = SPOT._lama()
+
+    done = []
+    for slug in slugs:
+        path = initial_of(args.scratch, slug)
+        if not path:
+            print(f"{slug}: no cleaning initial - skipped")
+            continue
+        print(f"=== {slug}")
+        rec = sweep_one(slug, path, pcts, reader, fill,
+                        os.path.join(args.out, slug), pad=args.pad)
+        if rec:
+            done.append(rec)
+            print(f"  first quiet at p{first_quiet(rec['rows'])}")
+
+    summary = {"pcts": pcts,
+               "slugs": [{"slug": r["slug"], "sheet": r["sheet"],
+                          "first_quiet": first_quiet(r["rows"]),
+                          "rows": r["rows"]} for r in done]}
+    print("\nwrote " + RUN._write_json(summary,
+                                       os.path.join(args.out, "sweep.json")))
     return 0
 
 

@@ -137,6 +137,46 @@ now a flag so that can be swept without a code change. The smear class wants the
 fill to stop being re-applied over its own output at all. Neither reaches the
 zero bar.
 
+## The glyph-percentile sweep, on all ten still-reading slugs (2026-08-23)
+
+`tools/lw_clean_creditline_sweep.py`, seven percentiles per slug off the
+UNTOUCHED initial so mask thickness is the only variable, stacked at 1:1 in
+`ops/runtime/clean/creditline/sweep/<slug>/`. A LOWER percentile is a THICKER
+mask. No score and no winner: none of these ten is a hand-clean capture, so
+there is no ground truth and the eye picks.
+
+**There is no percentile that clears all ten**, and three of them are not
+cleared by ANY percentile (akali-godly-deer, miss-fortune-by-stellastria,
+aatrox-the-darkin-blade).
+
+**The knob is not monotone, and the reason is the rollback.** Thickening the
+mask merges the strokes into fewer, larger blobs, and a larger blob is more
+likely to cross a line the comparison layer is protecting - so it gets reverted
+whole. Blobs healed / held, thin to thick:
+
+    akali          17/0   15/2   2/1   3/1   1/1   0/1   1/1
+    aatrox         20/1   11/0   3/1   1/1   0/1   0/1   0/1
+    miss-fortune    4/1    1/1   1/1   1/1   0/1   0/1   0/1
+
+At the thick end those frames come back UNTOUCHED: nothing is healed and one
+blob is held. More mask buys less cleaning, not more. `still_reads` is
+non-monotone for the same reason - aatrox goes quiet at p80 and reads again at
+every thicker setting below it.
+
+**Reader-quiet overstates removal by about one step.** Two slugs demonstrate it
+directly: 259f is called quiet at p70 with the line plainly legible on the sheet
+and is eye-clean at p60; viego-the-ruined-king is called quiet at p80 with a
+clear ghost still standing and is eye-clean at p70. This is the documented
+warning caught in the act, and it puts the three slugs the second round called
+"fixed" under the same suspicion.
+
+So the sweep answers its question and closes it: **the percentile is not the
+lever for the never-quiet class.** The remaining lever is the granularity of the
+rollback - it reverts a whole blob, so the part of a fill that broke nothing dies
+with the part that did. Splitting a blob into disjoint stroke-sized pieces is on
+the standing do-not-redo list, which leaves scoping the REVERT rather than the
+mask. Untested.
+
 ## Where to look
 
 `ops/runtime/clean/creditline/run/REVIEW.md` - sheets, worst first.
