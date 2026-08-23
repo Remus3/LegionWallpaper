@@ -62,20 +62,36 @@ def crop_box_from_hits(hits, shape, pad=CROP_PAD):
 
 
 def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
-            log=None):
-    """Read box -> glyph mask -> per-blob heal. Returns the frame and a record."""
+            log=None, extra_box=None, glyph_pct=CL.GLYPH_PCT):
+    """Read box -> glyph mask -> per-blob heal. Returns the frame and a record.
+
+    `extra_box` is a region to work whether or not it reads - a later round
+    re-opening what an earlier one recorded. It is unioned with the read boxes
+    before the glyphs are picked out, so one heal covers both.
+    """
     img = np.asarray(img, dtype=np.uint8)
     rec = {"box": None, "box_px": 0, "mask_px": 0, "blobs": 0,
            "committed": 0, "held": 0, "n_chords": 0, "status": "no-hit",
            "steps": []}
-    if not hits:
+    box = np.zeros(img.shape[:2], dtype=bool)
+    if hits:
+        rec["box"] = [min(r["box"][0] for r in hits),
+                      min(r["box"][1] for r in hits),
+                      max(r["box"][2] for r in hits),
+                      max(r["box"][3] for r in hits)]
+        box |= CL.mask_from_hits(img.shape, hits, pad=pad)
+    if extra_box is not None:
+        box |= np.asarray(extra_box, dtype=bool)
+        ys, xs = np.nonzero(extra_box)
+        if ys.size:
+            e = [int(xs.min()), int(ys.min()), int(xs.max()) + 1,
+                 int(ys.max()) + 1]
+            rec["box"] = e if rec["box"] is None else [
+                min(rec["box"][0], e[0]), min(rec["box"][1], e[1]),
+                max(rec["box"][2], e[2]), max(rec["box"][3], e[3])]
+    if not box.any():
         return img.copy(), rec
-    rec["box"] = [min(r["box"][0] for r in hits),
-                  min(r["box"][1] for r in hits),
-                  max(r["box"][2] for r in hits),
-                  max(r["box"][3] for r in hits)]
-    box = CL.mask_from_hits(img.shape, hits, pad=pad)
-    mask = box if box_shape else CL.glyph_mask(img, box)
+    mask = box if box_shape else CL.glyph_mask(img, box, pct=glyph_pct)
     rec["box_px"] = int(box.sum())
     rec["mask_px"] = int(mask.sum())
     out, plan = SPOT.run_spot_heal(img, mask, inpaint, rollback=rollback,
@@ -83,6 +99,31 @@ def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
     for key in ("blobs", "committed", "held", "n_chords", "status", "steps"):
         rec[key] = plan[key]
     return out, rec
+
+
+def source_for(slug, scratch, input_dir=None):
+    """The frame this round works on: a previous round's output, or the initial."""
+    from lw_clean_creditline_census import initial_of
+    if input_dir:
+        prev = os.path.join(input_dir, f"{slug}_creditline.png")
+        if os.path.exists(prev):
+            return prev
+    return initial_of(scratch, slug)
+
+
+def box_mask_from_plan(plan, shape, pad=CL.PAD, band=CL.BAND):
+    """Re-open the box a previous round recorded, whether or not it still reads.
+
+    The reader is the only thing that puts a mask on the frame, and it only
+    finds what still READS - a ghost that fails the operator's bar sits under
+    its floor. A second round that re-detected would therefore walk past exactly
+    the frames a first round half-cleaned. It works the recorded box instead and
+    re-derives the glyphs from the frame as it now stands.
+    """
+    box = (plan or {}).get("box")
+    if not box:
+        return None
+    return CL.mask_from_hits(shape, [{"box": list(box)}], pad=pad, band=band)
 
 
 def review_order(rows):
@@ -140,11 +181,7 @@ def _write_json(obj, path):
     return path
 
 
-def main(argv=None):
-    from PIL import Image
-    import lw_clean_replay as R
-    Image.MAX_IMAGE_PIXELS = None
-
+def build_parser():
     ap = argparse.ArgumentParser(prog="lw_clean_creditline_run")
     ap.add_argument("--scratch", default=SCRATCH)
     ap.add_argument("--out", default=OUT)
@@ -155,7 +192,24 @@ def main(argv=None):
     ap.add_argument("--box", action="store_true",
                     help="fill the solid read box (measured worse)")
     ap.add_argument("--cpu", action="store_true")
-    args = ap.parse_args(argv)
+    ap.add_argument("--input-dir",
+                    help="work a previous round's outputs instead of the "
+                         "cleaning initials")
+    ap.add_argument("--plans-from",
+                    help="re-open the boxes a previous round recorded, so a "
+                         "line that no longer READS is still worked")
+    ap.add_argument("--glyph-pct", type=float, default=CL.GLYPH_PCT)
+    ap.add_argument("--pad", type=int, default=CL.PAD,
+                    help="pad around a read box, in pixels")
+    return ap
+
+
+def main(argv=None):
+    from PIL import Image
+    import lw_clean_replay as R
+    Image.MAX_IMAGE_PIXELS = None
+
+    args = build_parser().parse_args(argv)
 
     from lw_clean_creditline_census import initial_of
     slugs = args.slug or sorted(os.listdir(args.scratch))
@@ -165,27 +219,41 @@ def main(argv=None):
 
     rows = []
     for slug in slugs:
-        path = initial_of(args.scratch, slug)
+        origin = initial_of(args.scratch, slug)
+        path = source_for(slug, args.scratch, args.input_dir)
         if not path:
             continue
+        prior = None
+        if args.plans_from:
+            pp = os.path.join(args.plans_from, f"{slug}_plan.json")
+            if os.path.exists(pp):
+                with open(pp, encoding="utf-8") as fh:
+                    prior = json.load(fh)
         t0 = time.time()
         img = R.load_rgb(path)
         hits = CL.detect(img, reader)
-        if not hits:
+        extra = box_mask_from_plan(prior, img.shape, pad=args.pad)
+        if not hits and extra is None:
             continue
         out, rec = run_one(img, hits, fill, box_shape=args.box,
-                           rollback=not args.no_rollback)
+                           rollback=not args.no_rollback, extra_box=extra,
+                           glyph_pct=args.glyph_pct)
         rec.update(slug=slug, source=path, n_hits=len(hits),
-                   text=hits[0]["text"], conf=hits[0]["conf"])
+                   text=hits[0]["text"] if hits else None,
+                   conf=hits[0]["conf"] if hits else None,
+                   reopened=extra is not None)
         rec["out"] = _write_png(out, os.path.join(args.out,
                                                   f"{slug}_creditline.png"))
         after = CL.detect(out, reader)
         rec["still_reads"] = [{"text": a["text"], "conf": a["conf"]}
                               for a in after]
-        window = crop_box_from_hits(hits, img.shape)
+        window = crop_box_from_hits([{"box": rec["box"]}], img.shape)
         rec["sheet"] = os.path.join(args.out, f"{slug}_sheet.png")
-        SHEET.build([("untouched", path), ("cleaned", rec["out"])], window,
-                    rec["sheet"])
+        variants = [("untouched", origin or path)]
+        if path != (origin or path):
+            variants.append(("previous round", path))
+        variants.append(("cleaned", rec["out"]))
+        SHEET.build(variants, window, rec["sheet"])
         rec["seconds"] = round(time.time() - t0, 1)
         _write_json(rec, os.path.join(args.out, f"{slug}_plan.json"))
         rows.append({k: v for k, v in rec.items() if k != "steps"})

@@ -78,3 +78,51 @@ def test_the_index_links_every_sheet_and_states_no_verdict(tmp_path):
     assert "[a_sheet.png](a_sheet.png)" in body
     assert "FAIL" in body
     assert "pass" not in body.lower().split("proves")[0]
+
+
+def test_round_two_reads_the_previous_output_when_there_is_one(tmp_path):
+    scratch = tmp_path / "scratch" / "a"
+    scratch.mkdir(parents=True)
+    (scratch / "a_cleaninitial.png").write_bytes(b"")
+    prev = tmp_path / "r1"
+    prev.mkdir()
+    assert RUN.source_for("a", str(tmp_path / "scratch"), None).endswith(
+        "a_cleaninitial.png")
+    assert RUN.source_for("a", str(tmp_path / "scratch"), str(prev)).endswith(
+        "a_cleaninitial.png"), "no previous output means the initial"
+    (prev / "a_creditline.png").write_bytes(b"")
+    assert RUN.source_for("a", str(tmp_path / "scratch"), str(prev)).endswith(
+        "a_creditline.png")
+
+
+def test_a_second_round_works_the_box_the_first_round_worked(tmp_path):
+    """The reader only finds what still READS; a ghost is under its floor.
+
+    So round two does not re-detect for its region - it re-opens the box round
+    one recorded and re-derives the glyph mask from the frame as it now stands.
+    A slug whose line has gone quiet still gets looked at.
+    """
+    plan = {"box": [1029, 983, 1561, 1017]}
+    m = RUN.box_mask_from_plan(plan, (1440, 2560), pad=0)
+    assert m[983:1017, 1029:1561].all()
+    assert not m[:983].any()
+    assert m.sum() == (1017 - 983) * (1561 - 1029)
+
+
+def test_no_recorded_box_means_no_second_round(tmp_path):
+    assert RUN.box_mask_from_plan({}, (10, 10)) is None
+    assert RUN.box_mask_from_plan({"box": None}, (10, 10)) is None
+
+
+def test_every_option_the_run_loop_reads_is_on_the_parser():
+    """A missing --pad crashed a whole round after the models had loaded.
+
+    argparse fails at ATTRIBUTE time, deep in the loop, so the parser and the
+    loop have to be checked against each other rather than trusted.
+    """
+    args = RUN.build_parser().parse_args([])
+    for name in ("scratch", "out", "slug", "limit", "no_rollback", "box",
+                 "cpu", "input_dir", "plans_from", "glyph_pct", "pad"):
+        assert hasattr(args, name), name
+    assert args.pad == 20
+    assert args.input_dir is None

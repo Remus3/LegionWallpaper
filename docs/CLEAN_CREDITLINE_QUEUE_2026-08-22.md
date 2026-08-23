@@ -101,6 +101,42 @@ a blob from commit to revert and changed whether the mark survived. Any future
 tuning of the glyph constants will move rollback verdicts as a side effect, so
 the two have to be swept together rather than one at a time.
 
+## Round two, on operator instruction (2026-08-23)
+
+The operator looked at the round-one sheets and asked for another round. Round
+two works round one's OUTPUT and re-opens the box round one recorded, so a line
+that has gone quiet is still attacked - the reader only finds what still READS,
+and a ghost sits under its floor, so a re-detecting second round would walk past
+exactly the frames a first round half-cleaned.
+
+`--input-dir` + `--plans-from`, output in `ops/runtime/clean/creditline/run2/`.
+Sheets carry three rows: untouched, previous round, cleaned.
+
+By the diagnostic it improves. 13 slugs still reading becomes 10; 3 go quiet
+(276f, evelynn-by-pebano1, queen-of-the-saltwind); none that were quiet start
+reading again; held blobs 16 -> 14.
+
+**At 1:1 it trades text for smear, and it degrades frames that were already
+done.** Four looked at:
+
+- `evelynn-by-pebano1-dmc9764-pre` - one of the three that went quiet. The text
+  is gone and a visible wash band stands where it was; the magenta filigree that
+  crossed the line is destroyed. The read went away because the art did.
+- `105-cleanup` - had nothing left to read after round one. Round two ran anyway,
+  on the re-opened box, and the frame comes back softer: washed edges on the
+  green shapes and the tan strokes below.
+- `266f` - the leftover glyph stubs are gone, and the ornamental divider under
+  the tagline and the diagonal gold lines to the right have lost more of
+  themselves.
+- `259f` - unchanged. Still fully legible. Another pass of the same mask picks up
+  nothing, which is what a mask that is too thin does twice.
+
+So a blanket second round is not the answer, and the two failures want different
+things. The 259f class wants a THICKER mask, not another pass - `--glyph-pct` is
+now a flag so that can be swept without a code change. The smear class wants the
+fill to stop being re-applied over its own output at all. Neither reaches the
+zero bar.
+
 ## Where to look
 
 `ops/runtime/clean/creditline/run/REVIEW.md` - sheets, worst first.
