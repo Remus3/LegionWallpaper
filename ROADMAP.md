@@ -60,7 +60,22 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   and does not gate. Honest limits recorded: low recall (4 chords on 105, 1 on
   107), and lowering `GRAD_MIN` to 3.0 manufactures a false alarm on the
   operator's own accepted frame. Doc:
-  `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`. C and D remain: (A) analyse the content BEHIND the mark, cropped, to
+  `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`. **(C) is DONE 2026-08-22** -
+  `tools/lw_clean_spot.py` heals one blob at a time and UNDOES a step that
+  breaks a line, judged before against after on the chords that step's context
+  touches. Against the four captures it costs nothing versus a one-shot fill
+  (in-mask distance 8.08 / 12.22 / 1.31 / 2.23 against 7.87 / 12.45 / 1.28 /
+  2.38) and buys rollback that fires on exactly the engine independently shown
+  to damage art at 1:1, on exactly the two slugs where lines cross the mark, and
+  never on the fills the operator accepted. Two mistakes of ours were caught by
+  running it on the captures rather than reasoning about it: growing a blob to
+  the track-A stroke target repainted 24x the mark on dgk (22.59 vs 2.38), and
+  even a 1.6x margin lost on all four - the mask handed in is already a brush
+  mask, so the default is now no margin at all. Splitting a blob into disjoint
+  stroke-sized pieces is off for the same reason: it starves the filler of
+  context (107 went 23.50 -> 23.08, i.e. barely cleaned), which is consistent
+  with the captures showing 30x OVERLAPPING strokes rather than a partition.
+  Doc: `docs/CLEAN_SPOT_ROLLBACK_2026-08-22.md`. D remains: (A) analyse the content BEHIND the mark, cropped, to
   drive stroke placement - the schedule currently reads the marked frame to
   decide how to treat the mark; (B) an overlap-muxed comparison layer carried
   through the stepped processing so art LINES stay crisp and true to design,

@@ -27,6 +27,65 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+127. DONE **2026-08-22 (track C - per-blob spot healing with rollback; commit
+   pending).** SHIPPED `tools/lw_clean_spot.py`: each blob of the detector's own
+   footprint is healed on its own and a step that breaks a line is UNDONE,
+   judged by the track-B chords that step's context actually touches, before
+   against after. No residue detector is used to start - contrast residue is on
+   the standing do-not-redo list as a starting detector and the footprint is
+   what the detector already decided. TWO ROLLBACK TRIGGERS, either fires: a
+   chord intact before the step and broken after, or the median chord ratio
+   retaining less than `KEEP_FRACTION` of its pre-step value. The second exists
+   for a physical reason found while building - a semi-transparent mark
+   ATTENUATES the lines under it, so the pre-step frame is often already below
+   the intact bar and no intact-to-broken transition can occur. Retention
+   measured on the two captures carrying chords: operator 0.947/0.937 and lama
+   0.922/0.921 (both accepted) versus heal 0.543/0.496 and membrane 0.301/0.133
+   (both rejected at 1:1); 0.75 sits mid-gap, 1.2x below the worst accepted and
+   1.4x above the best rejected. That is EIGHT observations and it is stated in
+   the module rather than hidden - tolerable only because a rollback trigger is
+   recoverable (the mark stays, the slug stays in the hand queue) while an
+   approval gate is not. TWO MISTAKES OF OURS, both caught by running the thing
+   on the captures instead of reasoning about it: (1) the first version grew
+   each blob until its area matched the track-A `target_tile_area`, which is a
+   straight misreading - the target is how big a STROKE should be, not how much
+   margin a spot needs - and on dgk8f92 (soft snow, gradient 0.778, a 40000px
+   target against ~2300px blobs) it repainted 24x the mark and scored 22.59
+   against the operator's final where a one-shot fill scores 2.38, the same
+   misreading in a different costume as the falsified CONTEXT_RATIO = 5.0;
+   (2) with the target moved to the split, a 1.6x margin remained, taken from
+   209-cleanup's brush bbox against its DETECTOR BOX - a different question,
+   since the mask handed to this runner is already a brush mask. Swept against
+   the operator's finals (in-mask distance, LaMa): 105 untouched 15.45 /
+   one-shot 7.87 / m=1.0 8.08 / m=1.6 15.20 / m=3.0 15.38; 107 23.50 / 12.45 /
+   12.22 / 36.04 / 23.50; 209 27.26 / 1.28 / 1.31 / 3.58 / 5.50; dgk 49.89 /
+   2.38 / 2.23 / 5.23 / 21.41. m=1.0 matches or beats the one-shot on all four
+   and every larger margin is monotonically worse, so the default is now NO
+   margin, with the knob kept for the derived-mask case this table does not
+   answer. SPLITTING IS OFF by default for the same reason: disjoint
+   stroke-sized pieces starve the filler of context - on 107 it produced 34
+   spots, all committed, and moved the frame 23.50 -> 23.08, barely cleaning -
+   which is consistent with what the captures show, since the operator's strokes
+   OVERLAP 30x and the median stroke re-covers 97% of ground already brushed. A
+   disjoint partition is a different process wearing the same clothes. RESULT:
+   spot-lama 8.08 / 12.22 / 1.31 / 2.23 against the one-shot's 7.87 / 12.45 /
+   1.28 / 2.38 - per-blob healing costs nothing and buys rollback - and the
+   rollback held 1 of 2 blobs on 105 and 1 of 1 on 107 for the track-E healing
+   brush while never firing on lama, i.e. it fires on exactly the engine
+   independently shown to damage art at 1:1, on exactly the two slugs where
+   lines cross the mark. HONEST LIMITS RECORDED: rollback protects LINES only -
+   209 and dgk have no chords, so it abstains and commits whatever the engine
+   gives, and damage to smooth art is invisible to it; and with one chord it
+   protects very little, demonstrated by margin 1.6 on 107 landing at 36.04,
+   worse than leaving the watermark in, with the single chord holding. VERIFIED:
+   16 tests in `tests/test_lw_clean_spot.py`, RED confirmed before implementing;
+   full suite 2227 passed / 18 skipped; ruff clean. DOC SYNCS:
+   `docs/CLEAN_SPOT_ROLLBACK_2026-08-22.md`, ROADMAP (C marked done, D remains),
+   WAKEUP_NOTES. DO NOT REDO: growing a spot to the stroke target, adding a
+   margin to a mask that is already a brush mask, or splitting a blob into
+   disjoint stroke-sized pieces - all three are measured worse, on all four
+   captures.
+
 126. DONE **2026-08-22 (track B - the overlap-muxed comparison layer; commit
    pending).** Premise VERIFIED: 45 of 45 automated candidates were rejected for
    one stated reason, lines from outside the matte do not re-align, and nothing
