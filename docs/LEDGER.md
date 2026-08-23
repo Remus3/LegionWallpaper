@@ -27,6 +27,80 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+129. DONE **2026-08-22 (mask generation - the question was mis-posed, and the
+   credit line is now readable; commit pending).** Premise CORRECTED, and the
+   correction is the item. The centre-overlay template scored recall 0.405 on
+   105-cleanup and 0.086 on 107-cleanup against the operator's brush masks, and
+   every attempt to tune it made things worse: a sweep of four alpha thresholds
+   by three dilations landed at or below "do nothing" end to end on both slugs,
+   and a coherence pass (close, then fill each blob's bbox) was worse still,
+   with BIGGER masks scoring worse than smaller ones. Bigger being worse is
+   impossible for a mask that is merely too small, so the mask had to be
+   misplaced; rendering it over the frame settled it in one look. **The template
+   finds the DA LOGO and the operator cleans the CREDIT LINE** - different marks
+   in different places - so every recall number was scoring a logo detector
+   against a credit-line gold standard, and the hand-clean captures are PARTIAL
+   gold: 105's capture leaves a real, correctly-detected logo untouched. WHY the
+   template cannot find the line: it is a median over 19 frames from mixed
+   uploaders and the line carries the uploader's name (SLIMSHADYWALLPAPER on
+   105, SMALLTAVERNWALLPAPER on 107), so the variable text averages out of the
+   stack while the logo, identical everywhere, survives. GROUPING WAS TRIED
+   FIRST and does not rescue it: frames genuinely do group by uploader (the
+   top-ranked pairs by high-pass correlation are exactly same-uploader pairs,
+   and 37 of 81 slugs carry `-by-<uploader>-` in the filename), but a
+   leave-one-out template built from each frame's nearest neighbours scored
+   0.43-0.54 on 105 against the global 0.405 - group sizes run 1 to 7 and a
+   median over three to five frames does not cancel the art. SHIPPED
+   `tools/lw_clean_creditline.py` plus `tools/lw_clean_creditline_census.py`:
+   the credit line is TEXT, so it is read. easyocr was already in the stack and
+   found nothing at full-frame scale on a semi-transparent line; shown the
+   layout BAND (both captures put the line at y ~0.69, centred), enhanced two
+   ways and unioned (neither wins on both - 105 reads best off the high-pass at
+   0.725 against 0.184 stretched, 107 off the stretch at 0.745 against 0.378),
+   with reads JOINED INTO LINES before verification (easyocr splits 107's line
+   into `SMALLTAVERNWALLPAPERDEVIAN` + `ARTGOM` and neither half carries the
+   host) and approximate substring matching free at both ends (observed reads
+   include DEVIANTAR, DEVIANFART and DEMIANTAR), it reads both captures and
+   correctly reads nothing on the painted signature. THE HIT VERIFIES ITSELF -
+   the string contains DEVIANTART - which is the property no contrast measure
+   has and the reason this is not the falsified residue detector renamed.
+   MEASURED: covers 0.9995 of the operator's own brush on 105; box precision
+   0.50 / 0.79; a readable line on 39 of the 80 queued slugs; and 1 of 119
+   sampled operator-APPROVED-CLEAN frames fired - `230-cleanup`, reading
+   `SMALLTANERNXDEVIANTART CAM` twice over, which reads like a real smalltavernx
+   credit line on a frame approved as clean and is therefore a question for the
+   operator's eye rather than a proven false positive; the negative set was
+   sampled rather than assumed precisely because "false positives are zero" was
+   overturned once already. THE BOX IS THE RIGHT PLACE AND THE WRONG SHAPE:
+   handed the solid read box the proven fill broke a line and track C's rollback
+   reverted the entire step (frame 15.454 against 15.454 untouched), because the
+   box is 42328 px where the operator's stroke-shaped mask is 21184. So it is
+   narrowed to the GLYPHS by thresholding the high-pass INSIDE the verified box
+   - which is not the global contrast residue this repo falsified, since that
+   measure had to decide WHETHER a mark was present while this one already knows
+   and only has to decide which pixels it lands on. End to end on 105: untouched
+   15.45, solid box 15.45 (reverted), glyphs at p88 grow 4 **11.56** committed
+   with 0 of 7 spots held, the operator's own brush 8.08 - the first derived mask
+   that meaningfully cleans the slug without breaking a line, closing 55% of the
+   gap. The two glyph constants are ONE slug choosing one of nine swept cells and
+   are labelled a starting point rather than a calibration in the module.
+   CORRECTED ANCHOR, worth more than the tool: the operator's brush is only 1.05
+   to 1.65x the pixels their clean actually changed, measured on all four
+   captures - this replaces the falsified "8x margin" and the `CONTEXT_RATIO =
+   5.0` derived from it. STILL OPEN: 107-class AREA marks where the line is only
+   part of what the operator brushed (best 22.3 against 23.5 untouched), the logo
+   itself (detected, but no capture shows the operator removing one), and the 41
+   queued slugs with no readable line - the painted signatures and block logos of
+   the `not_border` bucket. VERIFIED: 22 tests in
+   `tests/test_lw_clean_creditline.py` with the reader injected so easyocr never
+   enters CI, RED confirmed before implementing; full suite 2265 passed / 18
+   skipped; ruff clean. DOC SYNCS: `docs/CLEAN_MASKGEN_2026-08-22.md`, ROADMAP
+   (new clean-maskgen item), WAKEUP_NOTES. DO NOT REDO: scoring a logo detector
+   against a credit-line gold mask or reading the hand-clean captures as complete
+   masks for their frames; tuning the centre-overlay matte to find the credit
+   line, since the text is not in it and cannot be; or building per-uploader
+   templates from groups of three to seven frames.
+
 128. DONE **2026-08-22 (track D - conditioning CLOSED, falsified on both halves;
    commit pending).** Premise TESTED BEFORE BUILDING, and that is the substance
    of the item. Track D rests on the veil model `observed = alpha*colour +

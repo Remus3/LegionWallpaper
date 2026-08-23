@@ -1,0 +1,233 @@
+"""Tests for tools/lw_clean_creditline.py - reading the DA credit line.
+
+The mask-generation finding of 2026-08-22: the centre-overlay template locates
+the DA LOGO well (correlation 0.75, and the rendered mask sits on it) but never
+the CREDIT LINE, because the template is a median over mixed uploaders and the
+line carries the uploader's name - SLIMSHADYWALLPAPER on 105, SMALLTAVERNWALLPAPER
+on 107 - so the text averages out of the stack while the logo survives.
+
+The credit line is text, so it is read rather than thresholded. What makes that
+different in kind from the residue detectors already falsified is that the hit
+VERIFIES ITSELF: the string contains DEVIANTART.
+
+The reader is injected here, so easyocr never enters CI. The garbled strings
+below are the actual reads observed on the two gold captures.
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+import lw_clean_creditline as CL  # noqa: E402
+
+
+class FakeReader:
+    """easyocr's readtext contract, with scripted answers."""
+
+    def __init__(self, per_call):
+        self.per_call = list(per_call)
+        self.calls = 0
+
+    def readtext(self, img, detail=1):
+        self.calls += 1
+        i = min(self.calls - 1, len(self.per_call) - 1)
+        return self.per_call[i]
+
+
+def _frame(h=1440, w=2560):
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+    v = 110.0 + 30.0 * np.sin(yy / 40.0) * np.cos(xx / 55.0)
+    return np.clip(np.dstack([v, v * 0.95, v * 0.9]), 0, 255).astype(np.uint8)
+
+
+def _box(x0, y0, x1, y1):
+    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+
+
+# ------------------------------------------------- the self-verifying string
+def test_the_garbled_reads_from_both_gold_captures_are_accepted():
+    for text in ("SLMSHADYWAALPAPERDEVIANTAR",
+                 "SMALLTAVERNWALLPAPERDEVIANFARTcON",
+                 "SLZMSHADYWAALPAPERDEMIANTAR",
+                 "SMALLTAVERNWALLPAPERDEVIAN ARTGOM"):
+        assert CL.looks_like_credit(text), text
+
+
+def test_half_a_read_is_not_enough_on_its_own():
+    """easyocr splits 107's line, and neither half carries the host. This is
+    why the reads are joined into a line BEFORE they are verified."""
+    assert not CL.looks_like_credit("SMALLTAVERNWALLPAPERDEVIAN")
+    assert not CL.looks_like_credit("ARTGOM")
+
+
+def test_art_text_is_not_mistaken_for_a_credit_line():
+    for text in ("LEAGUE OF LEGENDS", "RIOT GAMES", "SEASON 2024",
+                 "ARCANE", "", "DEV", "COM"):
+        assert not CL.looks_like_credit(text), text
+
+
+def test_a_read_too_short_to_carry_the_host_is_rejected():
+    assert not CL.looks_like_credit("DEVIANT")
+
+
+def test_the_match_is_a_window_not_a_whole_string_comparison():
+    """The read is a run-on of the uploader and the host."""
+    assert CL.looks_like_credit("SOMEVERYLONGUPLOADERNAMEDEVIANTARTCOM")
+
+
+# --------------------------------------------------------------- geometry
+def test_the_band_is_where_both_captures_put_the_line():
+    y0, y1 = CL.band_slice(1440)
+    assert y0 <= 962 and y1 >= 1031, "105's line must be inside the band"
+    assert y0 <= 982 and y1 >= 1019, "107's line must be inside the band"
+
+
+def test_a_read_is_mapped_back_into_frame_coordinates():
+    img = _frame()
+    y0, _y1 = CL.band_slice(img.shape[0])
+    reader = FakeReader([[(_box(100, 30, 500, 70), "XWALLPAPERDEVIANTARTCOM",
+                           0.7)]])
+    hits = CL.detect(img, reader)
+    assert len(hits) == 1
+    bx = hits[0]["box"]
+    assert bx[0] == 100 and bx[2] == 501
+    assert bx[1] == y0 + 30 and bx[3] == y0 + 71
+
+
+def test_reads_that_are_not_credit_lines_are_dropped():
+    img = _frame()
+    reader = FakeReader([[(_box(10, 10, 90, 40), "LEAGUE OF LEGENDS", 0.9)]])
+    assert CL.detect(img, reader) == []
+
+
+def test_both_enhancements_are_offered_to_the_reader():
+    """Neither wins on both captures, so both are run."""
+    img = _frame()
+    reader = FakeReader([[]])
+    CL.detect(img, reader)
+    assert reader.calls == 2
+
+
+def test_the_same_line_found_by_both_views_is_one_hit():
+    img = _frame()
+    one = [(_box(100, 30, 500, 70), "XWALLPAPERDEVIANTARTCOM", 0.7)]
+    two = [(_box(102, 31, 503, 71), "XWALLPAPERDEVIANTAR", 0.6)]
+    assert len(CL.detect(img, FakeReader([one, two]))) == 1
+
+
+def test_a_low_confidence_read_can_be_filtered_out():
+    img = _frame()
+    reader = FakeReader([[(_box(100, 30, 500, 70), "XWALLPAPERDEVIANTARTCOM",
+                           0.2)]])
+    assert CL.detect(img, reader, min_conf=0.5) == []
+
+
+# ------------------------------------------------------------------- mask
+def test_the_mask_pads_the_read_the_way_the_operator_brushes_it():
+    img = _frame()
+    hits = [{"box": [1029, 983, 1492, 1016], "text": "x", "conf": 0.7,
+             "view": "highpass"}]
+    m = CL.mask_from_hits(img.shape, hits)
+    ys, xs = np.nonzero(m)
+    assert xs.min() == 1029 - CL.PAD and xs.max() + 1 == 1492 + CL.PAD
+    assert ys.min() == 983 - CL.PAD and ys.max() + 1 == 1016 + CL.PAD
+
+
+def test_the_mask_never_leaves_the_band():
+    img = _frame()
+    y0, y1 = CL.band_slice(img.shape[0])
+    hits = [{"box": [10, y0, 200, y1], "text": "x", "conf": 0.7, "view": "hp"}]
+    m = CL.mask_from_hits(img.shape, hits, pad=200)
+    ys, _xs = np.nonzero(m)
+    assert ys.min() >= y0 and ys.max() < y1
+
+
+def test_no_hits_means_no_mask_rather_than_a_frame_sized_one():
+    img = _frame()
+    m = CL.mask_from_hits(img.shape, [])
+    assert not m.any()
+
+
+def test_reads_split_across_one_line_are_joined_before_verifying():
+    img = _frame()
+    reader = FakeReader([[(_box(100, 30, 480, 70), "SMALLTAVERNWALLPAPERDEVIAN",
+                           0.7),
+                          (_box(490, 31, 560, 69), "ARTGOM", 0.5)], []])
+    hits = CL.detect(img, reader)
+    assert len(hits) == 1
+    assert hits[0]["parts"] == 2
+    assert "ARTGOM" in hits[0]["text"]
+    assert hits[0]["box"][0] == 100 and hits[0]["box"][2] == 561
+
+
+def test_two_lines_both_land_in_the_mask():
+    img = _frame()
+    hits = [{"box": [100, 900, 300, 930], "text": "a", "conf": 0.7, "view": "h"},
+            {"box": [800, 960, 1200, 1000], "text": "b", "conf": 0.7,
+             "view": "h"}]
+    m = CL.mask_from_hits(img.shape, hits)
+    assert m[900:930, 100:300].all() and m[960:1000, 800:1200].all()
+
+
+def test_detection_is_deterministic():
+    img = _frame()
+    hits = [(_box(100, 30, 500, 70), "XWALLPAPERDEVIANTARTCOM", 0.7)]
+    a = CL.detect(img, FakeReader([hits]))
+    b = CL.detect(img, FakeReader([hits]))
+    assert a == b
+
+
+def test_the_enhancements_are_readable_images():
+    img = _frame()
+    y0, y1 = CL.band_slice(img.shape[0])
+    views = CL.enhancements(img[y0:y1])
+    assert len(views) == 2
+    for _name, v in views:
+        assert v.dtype == np.uint8 and v.shape == (y1 - y0, img.shape[1], 3)
+
+
+# --------------------------------------------------- narrowing to the glyphs
+def _with_text(img, y0, y1, x0, x1, stride=9):
+    """Bright thin strokes inside a band - stand-ins for glyphs."""
+    out = img.copy()
+    out[y0:y1, x0:x1:stride] = 245
+    out[y0:y1, x0 + 1:x1:stride] = 245
+    return out
+
+
+def test_the_glyph_mask_stays_inside_the_verified_box():
+    img = _frame()
+    box = np.zeros(img.shape[:2], dtype=bool)
+    box[960:1010, 900:1500] = True
+    g = CL.glyph_mask(_with_text(img, 970, 1000, 950, 1450), box)
+    assert not (g & ~box).any()
+
+
+def test_the_glyph_mask_finds_the_strokes_and_drops_the_gaps():
+    img = _with_text(_frame(), 970, 1000, 950, 1450)
+    box = np.zeros(img.shape[:2], dtype=bool)
+    box[960:1010, 900:1500] = True
+    g = CL.glyph_mask(img, box)
+    assert 0 < int(g.sum()) < int(box.sum()), "a slab is the wrong shape"
+    strokes = np.zeros_like(box)
+    strokes[970:1000, 950:1450:9] = True
+    assert (g & strokes).sum() > 0.5 * strokes.sum()
+
+
+def test_the_glyph_mask_is_a_no_op_on_an_empty_box():
+    img = _frame()
+    empty = np.zeros(img.shape[:2], dtype=bool)
+    assert not CL.glyph_mask(img, empty).any()
+
+
+def test_growing_the_glyph_mask_only_ever_adds():
+    img = _with_text(_frame(), 970, 1000, 950, 1450)
+    box = np.zeros(img.shape[:2], dtype=bool)
+    box[960:1010, 900:1500] = True
+    tight = CL.glyph_mask(img, box, grow=2)
+    wide = CL.glyph_mask(img, box, grow=6)
+    assert int(wide.sum()) > int(tight.sum())
+    assert (tight & ~wide).sum() == 0

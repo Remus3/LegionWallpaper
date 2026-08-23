@@ -102,6 +102,32 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   `ops/runtime/clean/handedits/` (gitignored).
 
 
+- **clean-maskgen - the question was MIS-POSED, and half of it is now solved
+  (2026-08-22).** The centre-overlay template scored recall 0.405 / 0.086
+  against the two gold brush masks and every attempt to tune it made things
+  worse - bigger masks scored worse than smaller ones, which is impossible for a
+  mask that is merely too small. Rendering it over the frame settled it: **the
+  template finds the DA LOGO; the operator cleans the CREDIT LINE.** Different
+  marks, different places, and every recall number was scoring a logo detector
+  against a credit-line gold standard. So the hand-clean captures are PARTIAL
+  gold. The template cannot find the line because it is a median over mixed
+  uploaders and the line carries the uploader's name (SLIMSHADYWALLPAPER on 105,
+  SMALLTAVERNWALLPAPER on 107), so the text averages out while the logo
+  survives; per-uploader neighbour templates were tried and do NOT help at group
+  sizes of 3 to 7. SHIPPED `tools/lw_clean_creditline.py`: the line is TEXT, so
+  it is read - easyocr shown the layout band, enhanced two ways and unioned,
+  reads joined into lines before verification, approximate substring matching -
+  and the hit VERIFIES ITSELF because the string contains DEVIANTART, which no
+  contrast measure can do. Measured: covers 0.9995 of the operator's brush on
+  105, finds a line on **39 of 80** queued slugs, fires on 1 of 119
+  approved-clean frames (`230-cleanup`, which reads like a real credit line and
+  is a question for the eye). The solid box is the right place and the wrong
+  shape - it breaks a line and the rollback reverts it - so it is narrowed to
+  the glyphs inside the verified box, giving **11.56 on 105 against 15.45
+  untouched and the operator's own 8.08**, committed with 0 of 7 spots held.
+  Still open: 107-class AREA marks, the logo itself, and the 41 slugs with no
+  readable line. Doc: `docs/CLEAN_MASKGEN_2026-08-22.md`.
+
 - **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
   accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the
   current removal + fill stack; it is not a threshold problem.** Rounds: 45
