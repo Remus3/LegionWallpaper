@@ -11,7 +11,48 @@
 
 ---
 
-## 2026-08-22 (latest) - track A DONE: the mark stops voting on its own treatment
+## 2026-08-22 (latest) - track B DONE: the stack can finally see a broken line
+
+Third slice of the same session. E closed, A done, B now shipped.
+
+- **Shipped `tools/lw_clean_lines.py`** - the overlap-muxed comparison layer.
+  Built from readable art only, BEFORE any fill: mask-aware gradients find where
+  oriented structure meets the mark's boundary (one crossing per cluster, at its
+  magnitude-weighted centre, direction from the cluster's structure tensor so
+  the sign ambiguity is handled), then each crossing is paired with the one
+  facing it that agrees in direction, lies on its ray and whose segment actually
+  crosses the mark. Each pair is a CHORD - a prediction about a line that must
+  exist inside the fill. The probe answers both a step and a ridge and takes the
+  larger, and the expectation is the SAME probe taken on readable art at the
+  same line, so it is like for like.
+- **It separates ERASED from MISALIGNED**, which is the whole point: a frame
+  with the line present but 7px off has plenty of in-mask contrast and a
+  contrast measure passes it. That is the defect that got 45 candidates
+  rejected.
+- **Census vs the four captures, labels not derived from any measure** - median
+  ratio: 105 operator **0.934** / lama **0.909** vs heal 0.535 / behind 0.297;
+  107 operator **1.151** / lama **1.131** vs heal 0.610 / behind 0.164. Every
+  verdict agrees with the label. **209 and dgk produce ZERO chords** and report
+  `no-evidence` rather than a pass - correct, there are no lines crossing a
+  signature on a smooth panel or a block on soft snow.
+- **Wired:** `run_schedule(..., lines=True)` (CLI `--lines`) builds the layer
+  once and records a per-step verdict in the plan. It RECORDS, it does not gate:
+  acting on it is track C.
+- **Honest limits, recorded rather than buried:** low recall (4 chords on 105, 1
+  on 107); at `GRAD_MIN` 3.0 it picks up boundary structure that does not
+  continue and scores the operator's OWN accepted frame at 0.354, a false alarm,
+  so do not lower it without re-running the census; and the marked `original`
+  scores highest of all because the mark supplies its own contrast - this scores
+  FILLS, it is not a detector. `RAY_TOL` moved 6 -> 10 because it was the
+  binding constraint and inconsistent with the 30-degree angle tolerance beside
+  it; the ordering held on all twelve angle/ray combinations tried.
+- **Verified:** 15 new tests (RED confirmed first), full suite **2211 passed /
+  18 skipped**, ruff clean.
+  Doc: `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`.
+
+---
+
+## 2026-08-22 - track A DONE: the mark stops voting on its own treatment
 
 Second half of the same session, after track E was closed.
 

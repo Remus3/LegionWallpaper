@@ -27,6 +27,62 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+126. DONE **2026-08-22 (track B - the overlap-muxed comparison layer; commit
+   pending).** Premise VERIFIED: 45 of 45 automated candidates were rejected for
+   one stated reason, lines from outside the matte do not re-align, and nothing
+   in the repo could measure it - every gate here counts how much a region
+   changed or how loud it is. SHIPPED `tools/lw_clean_lines.py`: mask-aware
+   gradients (central differences that fall back to one-sided rather than read a
+   masked pixel) find where oriented structure meets the mark's boundary, each
+   cluster yields ONE crossing at its magnitude-weighted centre with a direction
+   taken from the cluster's structure tensor (which resolves the sign ambiguity
+   that averaging raw gradient directions cannot), and each crossing is paired
+   with the one facing it that agrees in direction, lies on its ray and whose
+   connecting segment actually crosses the mark. Each pair becomes a cubic
+   through both points leaving each along its own direction - a CHORD, a
+   prediction about a line that has to exist inside the filled region. The probe
+   answers both shapes real art uses, a step and a ridge, and takes the larger;
+   the expectation is the SAME probe taken on readable art at the same line just
+   outside the mark, so measured and expected are like for like; and a 1.5px
+   alignment tolerance is allowed because art curves. KEY PROPERTY, and the
+   reason this exists: it separates ERASED from MISALIGNED. A frame with the
+   line present but 7px off carries plenty of in-mask contrast and any contrast
+   measure passes it, which is how the rejected candidates got through.
+   MEASURED (`tools/lw_clean_lines_census.py`), layer built ONCE per capture
+   from the marked frame and every variant scored against those same chords,
+   labels not derived from any measure: median ratio 105 operator 0.934 / lama
+   0.909 vs heal 0.535 / membrane 0.297 (intact fraction 1.00 / 1.00 / 0.75 /
+   0.25), 107 operator 1.151 / lama 1.131 vs heal 0.610 / membrane 0.164. Every
+   verdict agrees with the label. 209 and dgk produce ZERO chords and report
+   `no-evidence` rather than a pass - correct, since a painted signature on a
+   smooth panel and a block on soft snow have no lines crossing them to break,
+   and that is precisely the distinction a scalar gate cannot make. WIRED:
+   `lw_clean_tiled.run_schedule(..., lines=True)` and CLI `--lines` build the
+   layer once from the pre-fill frame and record a per-step verdict in the plan
+   (`n_chords`, `lines_per_step`); it RECORDS and does not gate - acting on the
+   verdict is track C, and nothing approves a candidate on a scalar here
+   (LEDGER 101-103). HONEST LIMITS RECORDED: low recall (4 chords on 105, 1 on
+   107, 0 on the other two) so this is evidence for a per-step decision rather
+   than a frame-level verdict; at `GRAD_MIN` 3.0 the layer picks up weak
+   boundary structure that does not actually continue and scores the operator's
+   OWN accepted frame at 0.354, a false alarm, so the 6.0 default must not be
+   lowered without re-running the census; and the marked `original` scores
+   highest of all variants because the mark supplies its own contrast along the
+   predicted path - this scores FILLS and is not a detector. PARAMETER CHANGE
+   with its evidence: `RAY_TOL` 6 -> 10, because at 6 it was the binding
+   constraint and inconsistent with the 30-degree angle tolerance beside it (30
+   degrees over a ~70px span admits far more lateral offset than 6px); raising
+   it doubles the chords found on 105 and the ordering held on all twelve
+   (angle 30/45/60, ray 6/10) combinations tried, with the angle constraint
+   never binding. VERIFIED: 15 tests in `tests/test_lw_clean_lines.py`, RED
+   confirmed before implementing, including a property test that wrecks every
+   pixel under the mark and requires the built layer to come out identical, the
+   misaligned-line test, and three schedule-integration tests; full suite 2211
+   passed / 18 skipped; ruff clean. DOC SYNCS: `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`, ROADMAP
+   (B marked done, C and D remain), WAKEUP_NOTES. DO NOT REDO: lowering
+   `GRAD_MIN` below 6.0 without re-running the census, or reading this layer as
+   a detector or an approval gate.
+
 125. DONE **2026-08-22 (track A - the art BEHIND the mark; commit pending).**
    Premise VERIFIED live, not carried from the doc: `lw_clean_tiled.local_gradient`
    measures busyness on the frame that still carries the mark and

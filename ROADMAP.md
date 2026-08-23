@@ -48,7 +48,19 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   LaMa's 2.38, pure numpy) and harmful on structured art (107 23.50 -> 35.71),
   and the new unbiased busyness measure orders the four correctly - so the
   statistic gates the estimate. NO threshold was fitted; n=4 cannot calibrate
-  one. B, C and D remain: (A) analyse the content BEHIND the mark, cropped, to
+  one. **(B) is DONE 2026-08-22** - `tools/lw_clean_lines.py` predicts, from
+  readable art only, where a line entering the mark's boundary has to come out,
+  and probes the fill along that path. It separates erased from misaligned,
+  which is the defect that got 45 candidates rejected and which a contrast
+  measure passes. Against the four captures every verdict agrees with the label:
+  median ratio operator 0.934/1.151 and lama 0.909/1.131 versus heal 0.535/0.610
+  and the membrane blur 0.297/0.164, and 209 + dgk correctly report NO-EVIDENCE
+  (no lines cross those marks) instead of a false pass. Carried through the
+  schedule as a per-step record via `run_schedule(..., lines=True)`; it reports
+  and does not gate. Honest limits recorded: low recall (4 chords on 105, 1 on
+  107), and lowering `GRAD_MIN` to 3.0 manufactures a false alarm on the
+  operator's own accepted frame. Doc:
+  `docs/CLEAN_COMPARISON_LAYER_2026-08-22.md`. C and D remain: (A) analyse the content BEHIND the mark, cropped, to
   drive stroke placement - the schedule currently reads the marked frame to
   decide how to treat the mark; (B) an overlap-muxed comparison layer carried
   through the stepped processing so art LINES stay crisp and true to design,

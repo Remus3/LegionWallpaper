@@ -702,7 +702,7 @@ CONTEXT_RATIO = 5.0
 
 def run_schedule(img, mark_mask, inpaint, steps=12, context_ratio=CONTEXT_RATIO,
                  crop_margin=CROP_MARGIN, min_residue_px=64, relative=False,
-                 excess_stop=EXCESS_STOP, log=print):
+                 excess_stop=EXCESS_STOP, lines=False, log=print):
     """Generate the operator's mask SCHEDULE and fill along it.
 
     Each step: find what is left inside the original footprint, take a
@@ -712,12 +712,24 @@ def run_schedule(img, mark_mask, inpaint, steps=12, context_ratio=CONTEXT_RATIO,
     This is the piece the replay proved was missing: given the operator's own
     masks our fill produces an accepted frame, so the whole remaining problem is
     producing masks like theirs.
+
+    `lines` carries the track-B comparison layer through the steps: the chords
+    are predicted ONCE, from the art around the mark before anything is filled,
+    and every step is scored against those same chords. It RECORDS, it does not
+    gate - acting on the verdict is track C, and no candidate is approved on a
+    scalar here.
     """
     cur = np.array(img, dtype=np.uint8, copy=True)
     footprint = np.asarray(mark_mask, dtype=bool)
     reach = grow_to_ratio(footprint, MARGIN_RATIO * 2.0)
     h, w = cur.shape[:2]
     mask_px, residue_px = [], []
+    chords, line_layer, line_steps = None, None, []
+    if lines:
+        import lw_clean_lines as LINES
+        line_layer = _dilate1(_dilate1(_dilate1(footprint)))
+        chords = LINES.build_layer(cur, line_layer)
+        log(f"LW SCHEDULE: comparison layer has {len(chords)} chords")
     stopped_early = False
     run = 0
     excess = []
@@ -757,10 +769,19 @@ def run_schedule(img, mark_mask, inpaint, steps=12, context_ratio=CONTEXT_RATIO,
         region[sel_px] = filled[sel_px]
         cur[y0:y1, x0:x1] = region
         run += 1
+        note = ""
+        if chords:
+            import lw_clean_lines as LINES
+            sc = LINES.score(cur, line_layer, chords)
+            line_steps.append({k: v for k, v in sc.items() if k != "chords"})
+            note = (f" lines={sc['verdict']} "
+                    f"median_ratio={sc['median_ratio']}")
         log(f"LW SCHEDULE: step {run}/{steps} residue={int(res.sum())} "
-            f"selected={int(sel.sum())} mask={int(mask.sum())}")
+            f"selected={int(sel.sum())} mask={int(mask.sum())}{note}")
     plan = {"steps_run": run, "stopped_early": stopped_early,
             "excess_per_step": excess,
+            "n_chords": 0 if chords is None else len(chords),
+            "lines_per_step": line_steps,
             "mask_px_per_step": mask_px, "residue_px_per_step": residue_px,
             "changed_px": int(np.any(cur != np.asarray(img, dtype=np.uint8),
                                      axis=2).sum())}
@@ -817,6 +838,9 @@ def main(argv=None):
     ap.add_argument("--passes", type=int, default=DEFAULT_PASSES,
                     help="staggered repeat passes over the mark (measured: the "
                          "operator re-brushes every pixel many times)")
+    ap.add_argument("--lines", action="store_true",
+                    help="carry the track-B comparison layer through the "
+                         "schedule and record a per-step line verdict")
     ap.add_argument("--dry-run", action="store_true",
                     help="plan only: no GPU, no pixels")
     args = ap.parse_args(argv)
@@ -839,7 +863,8 @@ def main(argv=None):
                                  context_ratio=args.context_ratio,
                                  crop_margin=args.crop_margin,
                                  relative=args.relative,
-                                 excess_stop=args.excess_stop)
+                                 excess_stop=args.excess_stop,
+                                 lines=args.lines)
         tmp = args.out + ".part"
         Image.fromarray(out).save(tmp, format="PNG")
         os.replace(tmp, args.out)
