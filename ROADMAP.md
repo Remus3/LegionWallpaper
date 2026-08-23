@@ -37,7 +37,18 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   **So the FILL stays LaMa and mask generation is still the whole problem.**
   The other four tracks are UNAFFECTED by that result - all four are mask-side -
   and they are now the whole item. Operator-specified, framing is SPOT HEALING
-  not whole-image generation: (A) analyse the content BEHIND the mark, cropped, to
+  not whole-image generation. **(A) is DONE 2026-08-22** - measured 15x better
+  than the incumbent against the operator's four finals (mean abs error on
+  busyness 221.3% -> 14.6%, worst 603% -> 27.8%), wired into `build_plan` and
+  the `subdivide_labels` gate, doc `docs/CLEAN_BEHIND_THE_MARK_2026-08-22.md`.
+  The tile-size rule was giving the two SMOOTHEST captures the 2000px minimum
+  stroke because their marks were the loudest thing in frame; 209 was cleaned by
+  the operator in ONE stroke. Bonus finding: the membrane estimate of what is
+  behind the mark is excellent on smooth art (dgk 49.89 -> 5.09 in-mask, against
+  LaMa's 2.38, pure numpy) and harmful on structured art (107 23.50 -> 35.71),
+  and the new unbiased busyness measure orders the four correctly - so the
+  statistic gates the estimate. NO threshold was fitted; n=4 cannot calibrate
+  one. B, C and D remain: (A) analyse the content BEHIND the mark, cropped, to
   drive stroke placement - the schedule currently reads the marked frame to
   decide how to treat the mark; (B) an overlap-muxed comparison layer carried
   through the stepped processing so art LINES stay crisp and true to design,

@@ -284,7 +284,7 @@ def extend_into_similar(img, labels, mark, max_labels=2, max_delta=18.0):
 
 
 def subdivide_labels(img, labels, max_area, segmenter=None,
-                     min_gradient=None):
+                     min_gradient=None, exclude=None):
     """Re-segment any region larger than `max_area`, hierarchically.
 
     A single large low-gradient region hands the model a fill area with the mark
@@ -317,7 +317,11 @@ def subdivide_labels(img, labels, max_area, segmenter=None,
         bb = mask_bbox(region)
         x0, y0, x1, y1 = bb
         crop = img[y0:y1, x0:x1]
-        if min_gradient is not None and local_gradient(img, bb, pad=0) < min_gradient:
+        # `exclude` is the mark: this gate reads a region OF the footprint, so
+        # without it the measure is taken almost entirely on the mark and the
+        # gate subdivides flat art it was written to leave whole (track A).
+        if (min_gradient is not None
+                and local_gradient(img, bb, pad=0, exclude=exclude) < min_gradient):
             out[region] = nxt
             nxt += 1
             continue
@@ -353,11 +357,22 @@ def crop_box(x0, y0, x1, y1, margin, width, height):
             min(int(width), int(x1) + margin), min(int(height), int(y1) + margin))
 
 
-def local_gradient(img, box, pad=24):
+def local_gradient(img, box, pad=24, exclude=None):
     """Mean absolute first difference around `box` - the busyness measure.
 
     Same estimator used to fit the tile-size anchors, so the calibration and the
-    runtime probe cannot drift apart.
+    runtime probe cannot drift apart: with `exclude` unset this is bit-identical
+    to the version those anchors were fitted with.
+
+    `exclude` drops a mask's pixels from the statistic. A difference is counted
+    only when BOTH its endpoints are readable, so no excluded value reaches the
+    result through either end of a gradient. This matters because the caller is
+    usually asking "how busy is the art I am about to fill", holding a frame
+    that still carries the mark: measured on the four hand-clean captures the
+    unexcluded answer is wrong by 221% on average and 603% at worst, and it
+    slams the two SMOOTHEST images into the minimum tile size because their
+    marks are the loudest thing in frame. Policy (halo dilation, widening a
+    window the mark fills) lives in `lw_clean_behind`.
     """
     x0, y0, x1, y1 = box
     h, w = img.shape[:2]
@@ -370,8 +385,15 @@ def local_gradient(img, box, pad=24):
         g = g.mean(axis=2)
     if g.shape[0] < 3 or g.shape[1] < 3:
         return 0.0
-    gx = float(np.abs(np.diff(g, axis=1)).mean())
-    gy = float(np.abs(np.diff(g, axis=0)).mean())
+    dx = np.abs(np.diff(g, axis=1))
+    dy = np.abs(np.diff(g, axis=0))
+    if exclude is None or not np.any(exclude):
+        return (float(dx.mean()) + float(dy.mean())) / 2.0
+    valid = ~np.asarray(exclude, dtype=bool)[y0:y1, x0:x1]
+    okx = valid[:, :-1] & valid[:, 1:]
+    oky = valid[:-1, :] & valid[1:, :]
+    gx = float(dx[okx].mean()) if okx.any() else 0.0
+    gy = float(dy[oky].mean()) if oky.any() else 0.0
     return (gx + gy) / 2.0
 
 
@@ -384,15 +406,23 @@ def mask_bbox(mask):
 
 
 def build_plan(img, mark_mask, margin_ratio=MARGIN_RATIO,
-               stride_frac=STRIDE_FRAC):
+               stride_frac=STRIDE_FRAC, gradient=None):
     """Decide the whole decomposition BEFORE any pixel is written.
 
     Returned as data so a dry run can be reviewed, logged and diffed against the
     operator's own captures without spending the GPU.
+
+    The busyness that sets the tile size EXCLUDES the mark by default (track A).
+    Pass `gradient` to override it with a policy-computed value - see
+    `lw_clean_behind.local_gradient_behind`, which also dilates for the mark's
+    halo and widens a window the mark fills.
     """
     mark = np.asarray(mark_mask, dtype=bool)
     bbox = mask_bbox(mark)
-    grad = local_gradient(img, bbox) if bbox else 0.0
+    if gradient is not None:
+        grad = float(gradient)
+    else:
+        grad = local_gradient(img, bbox, exclude=mark) if bbox else 0.0
     area = target_tile_area(grad)
     grown = grow_to_ratio(mark, margin_ratio)
     tiles = tile_mask(grown, area, stride_frac=stride_frac)
@@ -821,14 +851,15 @@ def main(argv=None):
     labels = None
     if args.contours:
         bb = mask_bbox(mark)
-        grad = local_gradient(img, bb) if bb else 0.0
+        grad = local_gradient(img, bb, exclude=mark) if bb else 0.0
         area = target_tile_area(grad)
         labels = segment_contours(img, area)
         if args.subdivide:
             # A region bigger than one brush-sized tile still hides the mark in
             # its own context; split it before any fill happens.
             labels = subdivide_labels(img, labels, max_area=area * args.subdivide,
-                                      min_gradient=args.subdivide_min_gradient)
+                                      min_gradient=args.subdivide_min_gradient,
+                                      exclude=mark)
         if args.extend_labels:
             mark = extend_into_similar(img, labels, mark,
                                        max_labels=args.extend_labels)

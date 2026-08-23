@@ -11,7 +11,48 @@
 
 ---
 
-## 2026-08-22 (latest) - track E built and FALSIFIED: the fill stays LaMa
+## 2026-08-22 (latest) - track A DONE: the mark stops voting on its own treatment
+
+Second half of the same session, after track E was closed.
+
+- **The bug, re-measured live** (not carried from the doc): `local_gradient`
+  reads the MARKED frame, and `target_tile_area` is inverse, so a loud mark buys
+  itself the smallest strokes. Against the operator's four finals as truth:
+  105 3.684 vs 2.878 (+28%), 107 3.179 vs 2.907 (+9%), 209 7.754 vs 2.247
+  (**+245%**), dgk 5.467 vs 0.778 (**+603%**). The two SMOOTHEST captures both
+  hit the 2000px tile floor - and 209 is the one the operator cleaned in ONE
+  stroke, where the truth asks for 27805.
+- **Shipped `tools/lw_clean_behind.py`** plus the primitive inside
+  `lw_clean_tiled.local_gradient(..., exclude=)`: a first difference counts only
+  when BOTH endpoints are readable, so no masked value reaches the statistic
+  through either end of a gradient. With `exclude` unset it is bit-identical to
+  the estimator the tile-size anchors were fitted with, asserted in the suite.
+- **Census vs ground truth** (`tools/lw_clean_behind_census.py`): mean abs error
+  marked **221.3%** (worst 603%) -> excluded **14.6%** (worst 27.8%). 15x. The
+  membrane-on-the-estimate column scores 13.8% but is systematically LOW on all
+  four (a harmonic fill has no texture), which is why the estimate is NOT what
+  the statistic is taken on - predicted in the module before it was measured.
+- **Wired:** `build_plan` excludes the mark by default (it was already holding
+  the mask and simply not using it) and takes a `gradient=` override; the
+  SIBLING case `subdivide_labels` was found by grepping the same root cause and
+  fixed the same way - that gate reads a region OF the footprint, so it was
+  measuring the mark almost exclusively and subdividing flat art it exists to
+  leave whole. Both CLI paths pass the mark through.
+- **Unlooked-for second result:** the membrane estimate of the picture behind
+  the mark is EXCELLENT on smooth art and harmful on structured art - in-mask
+  distance to the operator's final: dgk 49.89 -> **5.09** (LaMa gets 2.38),
+  209 27.26 -> **1.95**, but 105 15.45 -> 14.67 and 107 23.50 -> **35.71**. The
+  new busyness measure orders all four correctly, so the statistic gates the
+  estimate. NO threshold fitted - four captures cannot calibrate one.
+- **Verified:** 14 new tests (RED confirmed first), full suite **2196 passed /
+  18 skipped**, ruff clean. Doc:
+  `docs/CLEAN_BEHIND_THE_MARK_2026-08-22.md`.
+- **Do NOT redo:** busyness on the marked frame anywhere in the stack; busyness
+  on the behind-the-mark estimate; fitting a trust threshold on these four.
+
+---
+
+## 2026-08-22 - track E built and FALSIFIED: the fill stays LaMa
 
 Single-track session on the operator's named PRIMARY track, the healing brush.
 Built it properly, measured it against ground truth, and it loses.

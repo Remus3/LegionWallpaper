@@ -27,6 +27,57 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+125. DONE **2026-08-22 (track A - the art BEHIND the mark; commit pending).**
+   Premise VERIFIED live, not carried from the doc: `lw_clean_tiled.local_gradient`
+   measures busyness on the frame that still carries the mark and
+   `target_tile_area` is inverse, so a loud mark buys itself the smallest
+   strokes. Re-probed against the operator's four accepted finals as ground
+   truth (their cleaned frame IS the art behind the mark): 105 marked 3.684 vs
+   true 2.878 (+28%), 107 3.179 vs 2.907 (+9%), 209 7.754 vs 2.247 (+245%), dgk
+   5.467 vs 0.778 (+603%) - and the two SMOOTHEST captures are the two driven
+   into the 2000px tile floor, 209 being the one the operator cleaned in ONE
+   stroke where the truth asks for 27805. SHIPPED `tools/lw_clean_behind.py`
+   (policy: 3px halo dilation, window widening when the mark fills the probe,
+   and `behind_image` - a membrane/harmonic estimate of the picture under the
+   mark) and the primitive inside `lw_clean_tiled.local_gradient(..., exclude=)`,
+   where a first difference is counted only when BOTH endpoints are readable so
+   no masked value reaches the statistic through either end of a gradient; with
+   `exclude` unset it stays bit-identical to the estimator the tile-size anchors
+   were fitted with, which is asserted in the suite so the calibration cannot
+   drift. WIRED: `build_plan` now excludes the mark by default (it was already
+   holding the mask and simply not using it) and gained a `gradient=` override;
+   the SIBLING case was found by grepping the same root cause -
+   `subdivide_labels`'s `min_gradient` gate reads a region OF the footprint, so
+   without the exclusion it measured the mark almost exclusively and subdivided
+   the flat art it exists to leave whole - and both `--contours` CLI paths now
+   pass the mark through. MEASURED (`tools/lw_clean_behind_census.py`): mean
+   absolute error against truth marked 221.3% (worst 603.0%) -> excluded 14.6%
+   (worst 27.8%), a 15x reduction. The membrane-on-the-estimate column scores
+   13.8% but is systematically LOW on all four captures (-3.6% to -20.6%),
+   because a harmonic fill has no texture - predicted in the module BEFORE it
+   was measured, and the reason the estimate is deliberately not what the
+   statistic is taken on. Its slightly better average was NOT adopted: a
+   one-parameter correction fitted on four points and scored on the same four is
+   circular, and this repo has a standing rule about small-corpus confounds.
+   Honest limit recorded: `excluded` loses to the incumbent on 107 (+25.9% vs
+   +9.3%) because its 84k px mask leaves only busy mechanical armour readable
+   around it, so the art beside the mark is genuinely not the art under it.
+   SECOND, UNLOOKED-FOR RESULT: the membrane estimate is an excellent picture of
+   what is behind the mark on smooth art and harmful on structured art - in-mask
+   distance to the operator's final goes dgk 49.89 -> 5.09 (LaMa 2.38, and
+   visually indistinguishable at 1:1), 209 27.26 -> 1.95, but 105 15.45 -> 14.67
+   and 107 23.50 -> 35.71 - and the new unbiased busyness measure orders all four
+   correctly, so the statistic gates the estimate. NO trust threshold was fitted;
+   four captures order but cannot calibrate. VERIFIED: 14 new tests in
+   `tests/test_lw_clean_behind.py`, RED confirmed before implementing
+   (ModuleNotFoundError), including a property test that wrecks every pixel under
+   the mask and requires the measure not to move at all; full suite 2196 passed /
+   18 skipped; ruff clean on all four touched files. DOC SYNCS:
+   `docs/CLEAN_BEHIND_THE_MARK_2026-08-22.md`, ROADMAP (A marked done, B/C/D
+   remain), WAKEUP_NOTES. DO NOT REDO: busyness taken on the marked frame
+   anywhere in the cleaning stack, busyness taken on the behind-the-mark
+   estimate, or a trust threshold fitted on these four captures.
+
 124. DONE **2026-08-22 (track E built and FALSIFIED - the healing brush does not
    beat the fill we have; commit pending).** Premise CORRECTED: the operator's
    named PRIMARY track for the zero-residue cleaning work was a healing-brush
