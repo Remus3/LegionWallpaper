@@ -19,19 +19,25 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   absolute fires on genuine art detail and damaged 107, relative misses the mark
   because a semi-transparent line is not busier than the art. Only the
   centre-overlay TEMPLATE works, and it covers 45 of the 80 slugs.
-  PRIMARY TRACK, named by the operator: **a HEALING BRUSH fill** - "like
-  photoshops healing brush". That is exemplar + GRADIENT-DOMAIN (Poisson)
-  blending, not learned inpainting, and it retro-explains every piece of
-  guidance they gave: gradient-domain blending preserves the source's gradients
-  so LINES stay crisp and continue (the exact defect that got 45 candidates
-  rejected), the seam vanishes by construction rather than by a model guessing,
-  "reach into similar-like areas to pull down into the area" IS source-patch
-  selection, and it is deterministic so "phantom/incorrect context" cannot
-  appear. Classical, no model, pure-numpy feasible on small blobs. Try this
-  BEFORE more LaMa variants: LaMa was validated as adequate against frames
-  accepted at the OLD bar, and the bar is now zero residue.
-  The other four tracks, operator-specified, framing is SPOT HEALING not
-  whole-image generation: (A) analyse the content BEHIND the mark, cropped, to
+  PRIMARY TRACK **CLOSED 2026-08-22, measured and falsified: the HEALING BRUSH
+  does NOT beat the fill we have.** It was built (`tools/lw_clean_heal.py`, pure
+  numpy, exemplar search + Poisson solve + two-sided gradient crossfade, 18
+  tests) and compared one-shot against LaMa on the union mask of all four
+  captures. Mean in-mask distance to the operator's accepted final:
+  105 15.45 untouched / 16.45 heal / **7.87 lama**; 107 23.50 / 26.68 /
+  **12.45**; 209 27.26 / 5.90 / **1.28**; dgk 49.89 / 5.61 / **2.38**. LaMa wins
+  on all four and the 1:1 sheets agree. Cause, and it is the corpus not the
+  tuning: League splash art is PAINTED, not textured, so no translation repeats
+  its content - the best source patch inside a 96px radius scores a ring RMSE of
+  26-38 against a ring detail of 6-38 on 105, i.e. it explains nothing. Both
+  fallbacks then fail: membrane is a blur (it lost the fabric on 105) and a
+  forced exemplar imports foreign structure (invented streaks on 105, ghost
+  shapes across the orb on 107). Evidence + the reusable bake-off harness:
+  `docs/CLEAN_HEAL_DECISION_2026-08-22.md`, `tools/lw_clean_fill_bakeoff.py`.
+  **So the FILL stays LaMa and mask generation is still the whole problem.**
+  The other four tracks are UNAFFECTED by that result - all four are mask-side -
+  and they are now the whole item. Operator-specified, framing is SPOT HEALING
+  not whole-image generation: (A) analyse the content BEHIND the mark, cropped, to
   drive stroke placement - the schedule currently reads the marked frame to
   decide how to treat the mark; (B) an overlap-muxed comparison layer carried
   through the stepped processing so art LINES stay crisp and true to design,

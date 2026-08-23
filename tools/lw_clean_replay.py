@@ -26,8 +26,12 @@ import json
 import os
 import re
 
+import sys
+
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -93,6 +97,19 @@ def _lama():
     return _fn
 
 
+def _heal():
+    """The healing-brush fill (track E) behind the same crop-in/crop-out API."""
+    import lw_clean_heal as HEAL
+
+    def _fn(crop_rgb, crop_mask_u8):
+        out, _info = HEAL.heal(crop_rgb, crop_mask_u8 > 127)
+        return out
+    return _fn
+
+
+ENGINES = {"lama": _lama, "heal": _heal}
+
+
 def replay(initial, masks, outs, inpaint, out_jsonl, log=print):
     """Apply each captured mask in order; diff our result against theirs."""
     # .copy(): PIL's asarray view is read-only, and the replay writes in place.
@@ -141,11 +158,14 @@ def main(argv=None):
     ap.add_argument("--name-contains",
                     help="only files whose name contains this (captures for "
                          "different slugs share iteration numbers)")
+    ap.add_argument("--engine", choices=sorted(ENGINES), default="lama",
+                    help="fill engine under test (default: lama)")
     args = ap.parse_args(argv)
 
     masks, outs = collect(args.capture, args.name_contains)
-    print(f"masks={len(masks)} outputs={len(outs)}")
-    cur, rows = replay(args.initial, masks, outs, _lama(), args.out)
+    print(f"masks={len(masks)} outputs={len(outs)} engine={args.engine}")
+    cur, rows = replay(args.initial, masks, outs, ENGINES[args.engine](),
+                       args.out)
     if args.final_png:
         tmp = args.final_png + ".part"
         Image.fromarray(cur).save(tmp, format="PNG")

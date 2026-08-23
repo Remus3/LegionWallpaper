@@ -27,6 +27,59 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+124. DONE **2026-08-22 (track E built and FALSIFIED - the healing brush does not
+   beat the fill we have; commit pending).** Premise CORRECTED: the operator's
+   named PRIMARY track for the zero-residue cleaning work was a healing-brush
+   fill ("like photoshops healing brush" - exemplar texture plus
+   gradient-domain/Poisson blending), to be tried BEFORE any further LaMa
+   variant. It was built in full and it loses on every ground-truth capture.
+   SHIPPED `tools/lw_clean_heal.py` (pure numpy + Pillow, no torch/cv2/scipy so
+   it runs in the fast CI lane): 8-connected run-length union-find blob
+   labelling, a provably lossless grid tiling near the operator's measured
+   median stroke area, an exemplar search scored on the VALID annulus only with
+   a hard refusal of any offset whose shifted patch would read a still-marked
+   pixel, a Poisson solve by conjugate gradients with Dirichlet boundary
+   conditions, two-sided guidance that crossfades one source from each side of a
+   thin mark in the GRADIENT domain, and a membrane fallback for the smooth
+   case. Tests written first: `tests/test_lw_clean_heal.py`, 18 passing,
+   covering the hard outside-mask identity assertion, determinism, membrane
+   exactness on a harmonic field, exemplar exactness on a repeating one, seam
+   size against a naive paste with a deliberately mismatched source, a
+   border-touching hole, the never-source-from-the-mark rule, and a
+   line-continuity test encoding the exact defect that got 45 candidates
+   rejected. Mutation-checked (disable the exemplar path and the line test
+   fails), so the suite is load-bearing rather than decorative. ALSO SHIPPED
+   `tools/lw_clean_fill_bakeoff.py` (one-shot engine comparison on the union of
+   every captured mask, which is the fair question the 82-step replay cannot
+   ask), `tools/lw_clean_heal_compare.py` (1:1 no-resample variant sheets for
+   the operator's eye), and `--engine {lama,heal}` on `lw_clean_replay.py`.
+   MEASURED, mean in-mask distance to the operator's accepted final, one-shot,
+   lower better: 105-cleanup untouched 15.45 / heal 16.45 / lama 7.87;
+   107-cleanup 23.50 / 26.68 / 12.45; 209-cleanup 27.26 / 5.90 / 1.28; dgk8f92
+   49.89 / 5.61 / 2.38. LaMa wins on all four and the 1:1 sheets agree; on 105
+   and 107 the heal scores WORSE than leaving the watermark in place, which no
+   engine-family bias explains. CAUSE, and it is the corpus not the tuning:
+   splash art is PAINTED, not textured, so no translation repeats its content -
+   the best source patch in a 96px radius scores a ring RMSE of 26-38 against a
+   ring detail of 6-38 on 105, i.e. it explains nothing - and both remaining
+   answers then fail, membrane as a blur and a forced exemplar as imported
+   foreign structure. ONE REAL BUG OF OURS, found and fixed mid-run: the first
+   decision rule fell back to membrane whenever the exemplar match was poor,
+   which on real art is always, so all 8 tiles on 105 took it and the fabric was
+   lost; the rule was removed and the measurement recorded in the module so it
+   is not re-added. VERIFIED: `pytest tests/test_lw_clean_heal.py
+   tests/test_lw_clean_replay.py tests/test_lw_clean_tiled.py` = 83 passed;
+   ruff clean on all five touched files; `py_compile` on every new tool. DOC
+   SYNCS: `docs/CLEAN_HEAL_DECISION_2026-08-22.md` (evidence + caveat that the
+   metric flatters LaMa, and why the conclusion holds anyway), ROADMAP
+   clean-zero-watermark item amended to record the closed primary track, and
+   WAKEUP_NOTES. DO NOT REDO: the healing brush as a fill. The code stays as a
+   measured negative result and as a working Poisson solver, and the bake-off
+   harness stays as the honest way to compare any future fill. WHERE IT LEAVES
+   THE ITEM: the FILL is settled on LaMa, now on an engine comparison rather
+   than a single-engine replay, and mask generation is still the entire open
+   problem - tracks A-D are all mask-side and are untouched by this result.
+
 123. DONE **2026-08-22 (the cleaning problem split in two by measurement: the
     FILL was never at fault, DETECTION is; bar raised to zero residue).** Commits
     `737a160` `8c0a67c` `486b5f5` `0f7bab3` `a68aa77` `8a3fcae` `5e9c691`

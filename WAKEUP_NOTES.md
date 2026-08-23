@@ -11,7 +11,52 @@
 
 ---
 
-## 2026-08-22 (latest) - cleaning: fill solved, detection open, bar set to ZERO
+## 2026-08-22 (latest) - track E built and FALSIFIED: the fill stays LaMa
+
+Single-track session on the operator's named PRIMARY track, the healing brush.
+Built it properly, measured it against ground truth, and it loses.
+
+- **Shipped `tools/lw_clean_heal.py`** - pure numpy + Pillow (no torch / cv2 /
+  scipy, runs in the fast CI lane): run-length union-find blob labelling, a
+  lossless grid tiling near the operator's measured median stroke area, an
+  exemplar search scored on the VALID annulus only (the mark never votes on its
+  own replacement, and no offset may read a still-marked pixel), a Poisson solve
+  by conjugate gradients with Dirichlet boundary, and TWO-SIDED guidance that
+  crossfades a source from each side of a thin mark in the gradient domain.
+  18 tests, `tests/test_lw_clean_heal.py`, including outside-mask identity,
+  determinism, seam-vs-paste, and a line-continuity test that encodes the exact
+  defect that got 45 candidates rejected. Mutation-checked: disabling the
+  exemplar path breaks the line test, so the suite is load-bearing.
+- **Also shipped:** `tools/lw_clean_fill_bakeoff.py` (the fair one-shot engine
+  comparison on the union of every captured mask), `tools/lw_clean_heal_compare.py`
+  (1:1 no-resample variant sheets for the operator's eye), and
+  `lw_clean_replay.py --engine {lama,heal}`.
+- **Result, one-shot mean in-mask distance to the operator's accepted final:**
+  105 untouched 15.45 / heal 16.45 / **lama 7.87**; 107 23.50 / 26.68 /
+  **12.45**; 209 27.26 / 5.90 / **1.28**; dgk 49.89 / 5.61 / **2.38**. LaMa wins
+  on all four, and the 1:1 sheets agree - the heal smears 105/107 and invents
+  streaks. On 105 and 107 it scores WORSE than leaving the watermark in.
+- **Why, and this is the keeper:** the corpus is PAINTED, not textured, so
+  nothing repeats under translation. Best source in a 96px radius scores ring
+  RMSE 26-38 against ring detail 6-38 on 105 - it explains nothing. Then both
+  fallbacks fail: membrane is a blur, a forced exemplar imports foreign
+  structure. The premise ("gradient blending preserves lines") is true and
+  useless here: it preserves the SOURCE's lines and the source is wrong.
+- **One real bug of mine, found and fixed mid-session:** the first decision rule
+  fell back to membrane whenever the exemplar looked poor, which on real art is
+  always - all 8 tiles on 105 took it and the fabric was lost. The rule is gone
+  and the measurement is recorded in the module so it is not re-added.
+- **Do NOT redo:** the healing brush as a fill. The code stays as a measured
+  negative result and as a working Poisson solver; the bake-off harness stays as
+  the honest way to compare any future fill.
+- **Where this leaves the item:** the FILL is settled (LaMa, and now on an
+  engine comparison rather than a single-engine replay). Mask generation is
+  still the entire open problem, and tracks A-D are all mask-side and untouched
+  by this. Decision doc: `docs/CLEAN_HEAL_DECISION_2026-08-22.md`.
+
+---
+
+## 2026-08-22 - cleaning: fill solved, detection open, bar set to ZERO
 
 Long operator-driven session. Two halves of the cleaning problem separated by
 measurement, and the acceptance bar raised.
