@@ -51,6 +51,22 @@ def initial_of(root, slug):
     return None
 
 
+def approved_of(root, slug):
+    """The frame the operator APPROVED, and only that frame.
+
+    The first run of this census asked `initial_of` for its negatives, which
+    hands back `<slug>_cleaninitial.png` - the frame passed INTO cleaning, mark
+    and all. So the one slug that fired (`230-cleanup`) was reading a mark that
+    was still there, and the 118 quiet frames were not evidence of precision
+    either. Re-read against `_cleandone`, 230-cleanup comes back with no hits.
+
+    A done slug missing its approved frame is skipped and counted, never
+    downgraded to the input: a silent fallback is the whole bug.
+    """
+    p = os.path.join(root, slug, f"{slug}_cleandone.png")
+    return p if os.path.exists(p) else None
+
+
 def brush_of(folder, nc):
     masks, outs = R.collect(os.path.join(HANDEDITS, folder), nc)
     b = None
@@ -125,15 +141,19 @@ def main(argv=None):
 
     print("\n=== negatives (operator-approved clean) ===")
     slugs = sorted(os.listdir(DONE))[:args.negatives]
+    skipped = 0
     for slug in slugs:
-        p = initial_of(DONE, slug)
+        p = approved_of(DONE, slug)
         if not p:
+            skipped += 1
             continue
         hits = CL.detect(R.load_rgb(p), reader)
         rec["negatives"].append({"slug": slug, "n": len(hits),
                                  "text": hits[0]["text"] if hits else None})
+    rec["negatives_skipped"] = skipped
     fp = [r for r in rec["negatives"] if r["n"]]
-    print(f"  {len(fp)} of {len(rec['negatives'])} approved-clean slugs fired")
+    print(f"  {len(fp)} of {len(rec['negatives'])} approved-clean slugs fired "
+          f"({skipped} skipped with no _cleandone frame)")
     for r in fp[:10]:
         print(f"    {r['slug']}: {r['text']}")
 

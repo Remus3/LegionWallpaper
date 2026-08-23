@@ -68,14 +68,39 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   reads joined into lines before verification, approximate substring matching -
   and the hit VERIFIES ITSELF because the string contains DEVIANTART, which no
   contrast measure can do. Measured: covers 0.9995 of the operator's brush on
-  105, finds a line on **39 of 80** queued slugs, fires on 1 of 119
-  approved-clean frames (`230-cleanup`, which reads like a real credit line and
-  is a question for the eye). The solid box is the right place and the wrong
+  105 and finds a line on **39 of 80** queued slugs. The precision half of that
+  census was measured WRONG and is CORRECTED below: it read `_cleaninitial` out
+  of `4.Cleaning Done`, the frame going INTO cleaning, so the single fire
+  (`230-cleanup`) was a mark that was still there and the 118 quiet frames were
+  not evidence either. Against `_cleandone`, 230-cleanup reads nothing. The solid
+  box is the right place and the wrong
   shape - it breaks a line and the rollback reverts it - so it is narrowed to
   the glyphs inside the verified box, giving **11.56 on 105 against 15.45
   untouched and the operator's own 8.08**, committed with 0 of 7 spots held.
   Still open: 107-class AREA marks, the logo itself, and the 41 slugs with no
   readable line. Doc: `docs/CLEAN_MASKGEN_2026-08-22.md`.
+
+- **clean-creditline-queue - the lane ran on all 39 slugs and REDUCES without
+  finishing; 13 of 39 still read a credit line in their own output and 16 held a
+  blob (2026-08-22).** First run of the whole chain on the whole queue and the
+  first output put in front of an eye, via `tools/lw_clean_creditline_run.py`
+  (detect -> glyph mask -> per-blob heal with rollback -> re-read -> 1:1 sheet).
+  Sheets, worst first: `ops/runtime/clean/creditline/run/REVIEW.md`. Two things
+  the eye and the numbers found. **266f: the lane ERASED ARTWORK** - the poster's
+  own gold `PRECISION IS PERFECTION` shares a row with `VEXXSOUL.DEVIANTART`, the
+  joined box handed the filler 1228px, and the rollback stayed silent because
+  flat text over flat ground breaks no chord. **The 259f class: still plainly
+  legible at 1:1** after 9 committed blobs, because `GLYPH_PCT = 88` is tuned on
+  one slug and lands on a fraction of the strokes over bright busy art. That is
+  the sweep to widen next, and it has to be swept TOGETHER with the rollback: a
+  0.36 percent mask change on 105 (79px of 22075) flipped a blob to revert and
+  left a readable line. **Do NOT redo:** narrowing the mask below the read
+  line's own bounding box. Splitting parts on horizontal gaps does not touch 266f
+  (easyocr returns the tagline and the credit as ONE read) and halves the mask on
+  261f / 286f / dark-cosmic-ahri, whose credit lines arrive in gapped pieces;
+  unioning the part boxes is the same mistake smaller. 266f wants a discriminator
+  INSIDE the box - the overlay is achromatic where the tagline is saturated gold.
+  Doc: `docs/CLEAN_CREDITLINE_QUEUE_2026-08-22.md`.
 
 - **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
   accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the

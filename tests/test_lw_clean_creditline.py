@@ -15,6 +15,7 @@ below are the actual reads observed on the two gold captures.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -231,3 +232,81 @@ def test_growing_the_glyph_mask_only_ever_adds():
     wide = CL.glyph_mask(img, box, grow=6)
     assert int(wide.sum()) > int(tight.sum())
     assert (tight & ~wide).sum() == 0
+
+
+# --------------------------------------------------------- census image choice
+def _touch(root, slug, *names):
+    os.makedirs(os.path.join(root, slug), exist_ok=True)
+    for n in names:
+        open(os.path.join(root, slug, n), "wb").close()
+
+
+def test_the_negative_set_reads_the_approved_output_not_the_clean_input(tmp_path):
+    """The precision question is about the frame the operator APPROVED.
+
+    The first census read `_cleaninitial` out of `4.Cleaning Done` - the frame
+    handed TO cleaning, which still carries its mark - so `230-cleanup` firing
+    there was never a false positive, and the 118 quiet frames said nothing
+    about precision either. The negative set has to read `_cleandone`.
+    """
+    import lw_clean_creditline_census as CEN
+    root = str(tmp_path)
+    _touch(root, "230-cleanup", "230-cleanup_cleaninitial.png",
+           "230-cleanup_cleandone.png")
+    got = CEN.approved_of(root, "230-cleanup")
+    assert got.endswith("230-cleanup_cleandone.png")
+
+
+def test_a_done_slug_without_an_approved_frame_is_skipped_not_downgraded(tmp_path):
+    import lw_clean_creditline_census as CEN
+    root = str(tmp_path)
+    _touch(root, "nope", "nope_cleaninitial.png", "nope_firstinitial.png")
+    assert CEN.approved_of(root, "nope") is None
+
+
+# ------------------------------------------------- masking only the credit run
+def test_group_lines_keeps_every_part_box():
+    """Reading joins parts; masking has to be able to take them apart again."""
+    reads = [((100, 200, 300, 240), "SMALLTAVERNWALLPAPERDEVIAN", 0.7),
+             ((305, 201, 380, 239), "ARTCOM", 0.6)]
+    lines = CL.group_lines(reads)
+    assert len(lines) == 1
+    assert lines[0]["boxes"] == [[100, 200, 300, 240], [305, 201, 380, 239]]
+
+
+def test_the_gap_between_two_reads_of_one_line_is_masked_too():
+    """MEASURED 2026-08-22: every narrower rule than the line box lost the mark.
+
+    Splitting on gaps dropped the run that did not itself spell the host - 261f
+    `SLIMSNAD=` 87px left of `APERDEVIAN`, 286f `PEBANOL` 67px left of `MIANTART
+    COM` - halving the mask and leaving the credit line on the frame. Unioning
+    the part boxes withholds only the gaps, which on 105 is 79px of 22075, and
+    that was still enough to flip a blob to revert and leave a readable line.
+    """
+    line = CL.group_lines([
+        ((1029, 981, 1171, 1013), "SLIMSNAD=", 0.8),
+        ((1258, 984, 1425, 1011), "APERDEVIANTART", 0.6),
+    ])[0]
+    m = CL.mask_from_hits((1440, 2560), [line], pad=0)
+    assert m[981:1013, 1029:1171].all()
+    assert m[984:1011, 1258:1425].all()
+    assert m[990:1005, 1180:1250].all(), "the gap between the reads is the mark"
+
+
+def test_the_mask_covers_every_part_of_the_line():
+    """266f is not solvable by cutting up reads - see credit_boxes.
+
+    easyocr returns `P E R F E C T I g WExXsou_DEVIANT}` as ONE read spanning
+    the poster's gold tagline AND the credit line, so no partition separates
+    them. The mask takes the whole line and 266f stays an open failure for the
+    eye, wanting a discriminator inside the box rather than a better split.
+    """
+    line = CL.group_lines([
+        ((10, 20, 60, 40), "PRECISION IS PERFECTION", 0.6),
+        ((200, 20, 260, 40), "XDEVIANTARTCOM", 0.5),
+    ])[0]
+    m = CL.mask_from_hits((100, 300), [line], pad=0, band=(0.0, 1.0))
+    assert m[20:40, 10:60].all()
+    assert m[20:40, 200:260].all()
+
+

@@ -194,9 +194,39 @@ def group_lines(reads, overlap=0.5):
         out.append({"box": [int(v) for v in ln["box"]],
                     "text": " ".join(str(t) for _b, t, _c in parts),
                     "conf": round(float(max(c for _b, _t, c in parts)), 4),
-                    "parts": len(parts)})
+                    "parts": len(parts),
+                    "boxes": [[int(v) for v in b] for b, _t, _c in parts],
+                    "texts": [str(t) for _b, t, _c in parts]})
     out.sort(key=lambda r: (r["box"][1], r["box"][0]))
     return out
+
+
+def _credit_span(line):
+    """The pixels of a verified line: its whole bounding box, gaps included.
+
+    Two narrower rules were tried on 2026-08-22 and both MEASURED WORSE, so the
+    whole span stands and this records why.
+
+    Splitting the parts wherever a gap opened wider than the row is tall was
+    written for 266f, where the poster's own gold tagline `PRECISION IS
+    PERFECTION` shares a row with `VEXXSOUL.DEVIANTART` and the fill erased the
+    artwork. It did not touch that case - easyocr returns
+    `P E R F E C T I g WExXsou_DEVIANT}` as ONE read spanning both, so no
+    partition of the parts can separate them - and it broke three slugs that had
+    been working, because the credit line itself arrives in gapped pieces (261f
+    `SLIMSNAD=` + 87px + `APERDEVIAN`; 286f `PEBANOL` + 67px + `MIANTART COM`;
+    dark-cosmic `EFIANOIDEV` + 76px + `MART ART OM OM`). Dropping the piece that
+    does not itself spell the host halves the mask and leaves the mark.
+
+    Unioning the PARTS instead of taking the line's bounding box is the milder
+    version of the same mistake: it withholds the gaps between reads. On 105 that
+    is 79 mask pixels out of 22075, and it was enough to flip a blob from commit
+    to revert and leave a readable line on the frame.
+
+    266f needs a discriminator INSIDE the box - the credit overlay is achromatic
+    where the tagline is saturated gold - not a different way of cutting up reads.
+    """
+    return [list(line["box"])]
 
 
 def detect(img, reader, band=BAND, min_conf=0.0):
@@ -223,9 +253,9 @@ def mask_from_hits(shape, hits, pad=PAD, band=BAND):
     mask = np.zeros((h, w), dtype=bool)
     by0, by1 = band_slice(h, band)
     for rec in hits:
-        x0, y0, x1, y1 = rec["box"]
-        mask[max(by0, y0 - pad):min(by1, y1 + pad),
-             max(0, x0 - pad):min(w, x1 + pad)] = True
+        for x0, y0, x1, y1 in _credit_span(rec):
+            mask[max(by0, y0 - pad):min(by1, y1 + pad),
+                 max(0, x0 - pad):min(w, x1 + pad)] = True
     return mask
 
 
