@@ -59,12 +59,14 @@ def parse_pcts(text):
 
 def label_for(pct, rec):
     """What the row is, in the three numbers that explain it."""
+    part = f", {rec['partial']} partial" if rec.get("partial") else ""
     return (f"p{pct:g}  mask={rec['mask_px']}  "
-            f"{rec['committed']} healed, {rec['held']} held  "
+            f"{rec['committed']} healed, {rec['held']} held{part}  "
             f"{'reads' if rec['still_reads'] else 'quiet'}")
 
 
-def sweep_one(slug, path, pcts, reader, fill, out_dir, pad=CL.PAD):
+def sweep_one(slug, path, pcts, reader, fill, out_dir, pad=CL.PAD,
+              scoped=False):
     """Every percentile on one slug, off the untouched frame, stacked at 1:1."""
     import lw_clean_replay as R
     img = R.load_rgb(path)
@@ -75,7 +77,8 @@ def sweep_one(slug, path, pcts, reader, fill, out_dir, pad=CL.PAD):
     os.makedirs(out_dir, exist_ok=True)
     rows, variants = [], [("untouched", path)]
     for pct in pcts:
-        out, rec = RUN.run_one(img, hits, fill, pad=pad, glyph_pct=pct)
+        out, rec = RUN.run_one(img, hits, fill, pad=pad, glyph_pct=pct,
+                               scoped=scoped)
         rec["still_reads"] = [{"text": a["text"], "conf": a["conf"]}
                               for a in CL.detect(out, reader)]
         rec["pct"] = pct
@@ -113,6 +116,7 @@ def build_parser():
     ap.add_argument("--pcts", default=PCTS)
     ap.add_argument("--pad", type=int, default=CL.PAD)
     ap.add_argument("--cpu", action="store_true")
+    ap.add_argument("--scoped-revert", action="store_true")
     return ap
 
 
@@ -135,7 +139,8 @@ def main(argv=None):
             continue
         print(f"=== {slug}")
         rec = sweep_one(slug, path, pcts, reader, fill,
-                        os.path.join(args.out, slug), pad=args.pad)
+                        os.path.join(args.out, slug), pad=args.pad,
+                        scoped=args.scoped_revert)
         if rec:
             done.append(rec)
             print(f"  first quiet at p{first_quiet(rec['rows'])}")

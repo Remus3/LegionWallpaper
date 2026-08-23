@@ -52,6 +52,12 @@ import lw_clean_tiled as T  # noqa: E402
 # The brush stops at the mark's visible edge; its soft skirt is still mark.
 HALO = 3
 
+# Radii a scoped revert tries, smallest first. Not a calibration: the band grows
+# until the ordinary verdict passes on the candidate, so the schedule only sets
+# how finely that search is stepped. The last one is large enough that reaching
+# it on a stroke-sized blob means the whole blob, which is the old behaviour.
+REVERT_RADII = (4, 8, 16, 32)
+
 # Margin a piece is given, as a multiple of its own area.
 #
 # The first version of this module grew each blob until its area matched
@@ -170,6 +176,72 @@ def relevant_chords(chords, region):
     return keep
 
 
+def band_around(chords, shape, radius):
+    """Everything within `radius` of these chords' predicted paths."""
+    h, w = int(shape[0]), int(shape[1])
+    m = np.zeros((h, w), dtype=bool)
+    for c in chords:
+        pts = np.asarray(c.path, dtype=float)
+        yi = np.clip(np.rint(pts[:, 0]).astype(int), 0, h - 1)
+        xi = np.clip(np.rint(pts[:, 1]).astype(int), 0, w - 1)
+        m[yi, xi] = True
+    return HEAL._dilate(m, int(radius)) if radius > 0 else m
+
+
+def _damaged(before, after, chords, layer_mask, region):
+    """The chords this step cost something, by either rule the verdict uses.
+
+    Not just intact -> broken. Measured over the queue's own reverts, the two
+    rules fire in the same order of magnitude - 9 broke a line and 12 lost
+    strength - so scoping only the first would leave most reverts whole.
+    """
+    mine = relevant_chords(chords, region)
+    if not mine:
+        return []
+    b = LINES.score(before, layer_mask, mine)
+    a = LINES.score(after, layer_mask, mine)
+    if b["n_chords"] == 0 or a["n_chords"] == 0:
+        return []
+    was = {tuple(r["p0"] + r["p1"]): r["ratio"] for r in b["chords"]}
+    worse = {tuple(r["p0"] + r["p1"]) for r in a["chords"]
+             if r["ratio"] < was.get(tuple(r["p0"] + r["p1"]), r["ratio"])}
+    return [c for c in mine if tuple(list(c.p0) + list(c.p1)) in worse]
+
+
+def scoped_revert(before, after, chords, layer_mask, region,
+                  radii=REVERT_RADII):
+    """Undo only the neighbourhood of the lines this step broke.
+
+    A revert is all-or-nothing today, and that is what makes a thicker mask
+    clean LESS rather than more: thickening merges the strokes into one blob,
+    one chord across it breaks, and the whole fill dies with it - measured on
+    akali-godly-deer, aatrox and miss-fortune, which come back UNTOUCHED at
+    p40 (0 healed, 1 held). The stretch of mark with no line near it was never
+    the problem and does not need to be given back.
+
+    The radius is not a constant to guess at: the band GROWS until the existing
+    verdict passes on the candidate, and if it takes the whole region then this
+    was a whole revert all along. Returns (frame, band, reason), or three Nones
+    when no radius saves the lines - a strength-loss revert has no broken chord
+    to scope to and always lands there.
+    """
+    hurt = _damaged(before, after, chords, layer_mask, region)
+    if not hurt:
+        return None, None, None
+    region = np.asarray(region, dtype=bool)
+    for r in radii:
+        band = band_around(hurt, region.shape, r) & region
+        if not band.any() or int(band.sum()) >= int(region.sum()):
+            continue
+        cand = after.copy()
+        cand[band] = before[band]
+        action, _reason, _mb, _ma, _n = _verdict(before, cand, chords,
+                                                 layer_mask, region)
+        if action == "commit":
+            return cand, band, f"scoped to {r}px around the damaged line"
+    return None, None, None
+
+
 def _verdict(before, after, chords, layer_mask, region):
     """Did this step turn an intact line into a broken one?"""
     mine = relevant_chords(chords, region)
@@ -197,12 +269,17 @@ def _verdict(before, after, chords, layer_mask, region):
 
 def run_spot_heal(img, mark_mask, inpaint, rollback=True,
                   margin=MARGIN_RATIO_SPOT, split=False,
-                  crop_margin=CROP_MARGIN, log=None):
-    """Heal each blob of the mark on its own, undoing what breaks a line."""
+                  crop_margin=CROP_MARGIN, log=None, scoped=False):
+    """Heal each blob of the mark on its own, undoing what breaks a line.
+
+    `scoped` is opt-in and off by default, so nothing already measured moves
+    until it is asked for. With it on, a step that breaks a line gives back only
+    the band around that line instead of the whole blob - see scoped_revert.
+    """
     img = np.asarray(img, dtype=np.uint8)
     mark = np.asarray(mark_mask, dtype=bool)
     cur = img.copy()
-    plan = {"blobs": 0, "committed": 0, "held": 0, "n_chords": 0,
+    plan = {"blobs": 0, "committed": 0, "held": 0, "partial": 0, "n_chords": 0,
             "steps": [], "status": "clean"}
     if not mark.any():
         return cur, plan
@@ -233,12 +310,24 @@ def run_spot_heal(img, mark_mask, inpaint, rollback=True,
                                                  layer_mask, ctx)
         else:
             action, reason, mb, ma, n = "commit", "rollback off", None, None, 0
+        reverted_px = 0
+        if action == "revert" and scoped:
+            cand, band, why = scoped_revert(before, cur, chords, layer_mask,
+                                            ctx)
+            if cand is not None:
+                cur = cand
+                reverted_px = int(band.sum())
+                action, reason = "partial", why
         if action == "revert":
             cur = before
             plan["held"] += 1
+            reverted_px = int(ctx.sum())
+        elif action == "partial":
+            plan["partial"] += 1
         else:
             plan["committed"] += 1
         rec = {"i": i, "blob_px": int(blob.sum()), "mask_px": int(ctx.sum()),
+               "reverted_px": reverted_px,
                "blob_bbox": list(T.mask_bbox(blob)),
                "gradient_behind": round(float(grad), 4),
                "target_area": round(float(target), 1),
@@ -250,7 +339,9 @@ def run_spot_heal(img, mark_mask, inpaint, rollback=True,
                 f"{rec['blob_px']} mask={rec['mask_px']} "
                 f"grad={rec['gradient_behind']} chords={n} "
                 f"{mb} -> {ma}")
-    plan["status"] = "held" if plan["held"] else "clean"
+    # A partial leaves mark on the frame on purpose, so it is no more "clean"
+    # than a hold is: the slug stays in the queue either way.
+    plan["status"] = "held" if plan["held"] or plan["partial"] else "clean"
     return cur, plan
 
 

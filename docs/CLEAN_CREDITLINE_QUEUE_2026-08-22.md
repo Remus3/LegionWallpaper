@@ -177,6 +177,46 @@ with the part that did. Splitting a blob into disjoint stroke-sized pieces is on
 the standing do-not-redo list, which leaves scoping the REVERT rather than the
 mask. Untested.
 
+## Scoping the revert, not the mask (2026-08-23)
+
+The percentile sweep pointed at the rollback: a revert is all-or-nothing, so
+thickening the mask merges strokes into one blob, one damaged line kills the
+whole fill, and three slugs came back untouched at the thick end. So the revert
+was scoped instead.
+
+`scoped_revert()` in `tools/lw_clean_spot.py`, opt-in behind `--scoped-revert`
+so nothing already measured moves. A step that fails the verdict gives back only
+the band around the lines it damaged; the band GROWS - 4, 8, 16, 32px - until
+the ORDINARY verdict passes on the candidate, so there is no new threshold to
+calibrate, and if no radius saves the lines the whole blob is reverted as before.
+A partial counts as not-clean: the slug stays in the queue.
+
+One correction the data forced: scoping only the "broke a line" rule would have
+missed most reverts. Over the queue's own steps the two rules fire 9 broke to 12
+lost-strength, so a chord counts as damaged if its ratio dropped at all.
+
+**It is a step change, and it says the percentile was never the lever.** On the
+three slugs that no percentile could clear, plus 259f, every held blob became a
+partial or a commit - `held` is 0 in all 28 cells - and:
+
+- `259f` is clean at the INCUMBENT p88, where the unscoped lane left the line
+  fully legible at every percentile it was given. Two small stubs survive p88 and
+  p80; p70 and below look clean.
+- `miss-fortune-by-stellastria` was cleared by no percentile at all. Scoped, the
+  whole line is gone from p88; an `S` ghost survives to p60 and is gone by p50.
+- `aatrox-the-darkin-blade` goes quiet at every percentile, against p80 only.
+
+**And it costs what the rollback was buying.** On `akali-godly-deer` the line
+does go, but from p60 down a hard-edged blocky smear stands where the bodysuit
+strap was, and a `(c)` ghost survives at the left. The whole revert used to throw
+that fill away. The comparison layer had no chord on the strap, so scoping had
+nothing to protect it with - which makes the next question chord COVERAGE, not
+revert granularity.
+
+So: keep it opt-in. It is the difference between clean and uncleanable on three
+slugs and it damages a fourth, and the eye decides per slug, not a flag.
+Evidence: `ops/runtime/clean/creditline/sweep_scoped/<slug>/`.
+
 ## Where to look
 
 `ops/runtime/clean/creditline/run/REVIEW.md` - sheets, worst first.

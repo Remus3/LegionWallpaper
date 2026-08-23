@@ -62,7 +62,8 @@ def crop_box_from_hits(hits, shape, pad=CROP_PAD):
 
 
 def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
-            log=None, extra_box=None, glyph_pct=CL.GLYPH_PCT):
+            log=None, extra_box=None, glyph_pct=CL.GLYPH_PCT,
+            scoped=False):
     """Read box -> glyph mask -> per-blob heal. Returns the frame and a record.
 
     `extra_box` is a region to work whether or not it reads - a later round
@@ -71,7 +72,8 @@ def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
     """
     img = np.asarray(img, dtype=np.uint8)
     rec = {"box": None, "box_px": 0, "mask_px": 0, "blobs": 0,
-           "committed": 0, "held": 0, "n_chords": 0, "status": "no-hit",
+           "committed": 0, "held": 0, "partial": 0, "n_chords": 0,
+           "status": "no-hit",
            "steps": []}
     box = np.zeros(img.shape[:2], dtype=bool)
     if hits:
@@ -95,8 +97,9 @@ def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
     rec["box_px"] = int(box.sum())
     rec["mask_px"] = int(mask.sum())
     out, plan = SPOT.run_spot_heal(img, mask, inpaint, rollback=rollback,
-                                   log=log)
-    for key in ("blobs", "committed", "held", "n_chords", "status", "steps"):
+                                   log=log, scoped=scoped)
+    for key in ("blobs", "committed", "held", "partial", "n_chords", "status",
+                "steps"):
         rec[key] = plan[key]
     return out, rec
 
@@ -201,6 +204,9 @@ def build_parser():
     ap.add_argument("--glyph-pct", type=float, default=CL.GLYPH_PCT)
     ap.add_argument("--pad", type=int, default=CL.PAD,
                     help="pad around a read box, in pixels")
+    ap.add_argument("--scoped-revert", action="store_true",
+                    help="give back only the band around a line a fill "
+                         "damaged, instead of the whole blob")
     return ap
 
 
@@ -237,7 +243,8 @@ def main(argv=None):
             continue
         out, rec = run_one(img, hits, fill, box_shape=args.box,
                            rollback=not args.no_rollback, extra_box=extra,
-                           glyph_pct=args.glyph_pct)
+                           glyph_pct=args.glyph_pct,
+                           scoped=args.scoped_revert)
         rec.update(slug=slug, source=path, n_hits=len(hits),
                    text=hits[0]["text"] if hits else None,
                    conf=hits[0]["conf"] if hits else None,

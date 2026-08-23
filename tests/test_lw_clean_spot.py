@@ -261,3 +261,71 @@ def test_an_empty_mark_is_a_no_op():
     assert np.array_equal(out, truth)
     assert plan["blobs"] == 0
     assert plan["status"] == "clean"
+
+
+# ------------------------------------------------------- scoped revert (opt-in)
+def test_a_scoped_revert_keeps_the_part_of_the_fill_that_broke_nothing():
+    """The blob is wide; the diagonal only crosses its left end.
+
+    A whole-blob revert throws away the fill everywhere, including the stretch
+    of mark that had no line near it, which is how a thicker mask ends up
+    cleaning LESS: merge the strokes into one blob and one broken chord kills
+    the lot. Scoping the revert to the neighbourhood of the lines that actually
+    broke keeps the rest.
+    """
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    marked = _marked(truth, mark)
+    out, plan = S.run_spot_heal(marked, mark, _erase, scoped=True)
+    step = plan["steps"][0]
+    assert step["action"] == "partial"
+    assert plan["partial"] == 1
+    assert plan["held"] == 0
+    assert 0 < step["reverted_px"] < step["mask_px"]
+    assert not np.array_equal(out, marked), "the far end of the fill stands"
+    on_line = [(y, y - 10) for y in range(42, 50)]
+    assert all(np.array_equal(out[y, x], marked[y, x]) for y, x in on_line),         "the line's own band is put back"
+    assert np.array_equal(out[44, 100], np.array([210, 210, 210], np.uint8)),         "the far end, with no line near it, keeps the fill"
+
+
+def test_a_partial_still_stops_the_slug_leaving_the_queue():
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    _out, plan = S.run_spot_heal(_marked(truth, mark), mark, _erase, scoped=True)
+    assert plan["status"] == "held", "mark left on the frame is not clean"
+
+
+def test_scoping_declines_when_the_step_damaged_no_line():
+    """The fallback contract: no damaged chord, nothing to scope to.
+
+    A revert on the strength rule with no chord that measurably lost anything
+    has no neighbourhood to give back, and the caller must revert whole rather
+    than invent one.
+    """
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    marked = _marked(truth, mark)
+    layer = S.HEAL._dilate(mark, S.HALO)
+    chords = S.LINES.build_layer(marked, layer)
+    frame, band, why = S.scoped_revert(marked, marked, chords, layer, mark)
+    assert (frame, band, why) == (None, None, None)
+
+
+def test_scoping_is_off_by_default():
+    """The measured behaviour does not change until it is asked for."""
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    marked = _marked(truth, mark)
+    out, plan = S.run_spot_heal(marked, mark, _erase)
+    assert plan["steps"][0]["action"] == "revert"
+    assert plan["partial"] == 0
+    assert np.array_equal(out, marked)
+
+
+def test_the_band_follows_the_chord_and_not_the_blob():
+    class _C:
+        path = np.array([[50.0, float(x)] for x in range(50, 61)])
+    band = S.band_around([_C()], (100, 100), radius=3)
+    assert band[50, 50] and band[50, 60]
+    assert band[47, 55] and not band[46, 55]
+    assert not band[50, 70]
