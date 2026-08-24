@@ -11,7 +11,37 @@
 
 ---
 
-## 2026-08-22 (latest) - mask generation: the question was MIS-POSED
+## 2026-08-23 (latest) - the queue run, and the revert was the lever
+
+Five commits: 363d9e5, 4a7c047, c993009, 4dbe017, 89f55ae. Suite 2293/18, ruff
+clean.
+
+- **Ran the chain on the whole queue and looked at it.** 39 of 80 slugs carry a
+  readable line; 16 held a blob, 13 still read one in their own output. The lane
+  REDUCES and does not finish. Sheets: `ops/runtime/clean/creditline/run/`.
+- **266f: the lane erased artwork** (the poster's gold tagline shares a row with
+  the credit). Two narrower masking rules were built for it and BOTH measured
+  worse; both reverted, record in `_credit_span`.
+- **Second round (operator asked):** 13 reading -> 10, but at 1:1 it trades text
+  for smear and degrades frames already done. No blanket second round.
+- **GLYPH_PCT sweep (operator asked):** no cell clears all ten, three clear at
+  none, because thickening merges strokes into one blob the rollback reverts
+  whole. Knob closed.
+- **`scoped_revert()` is the lever.** Band around the damaged lines, grown until
+  the ordinary verdict passes. 259f clean at the INCUMBENT p88; miss-fortune
+  clears at last; held 0 in all 28 cells. OPT-IN: on akali it smears the strap,
+  because the layer has no chord there. **Next: chord COVERAGE.**
+- **Reader-quiet overstates removal by one step** - caught twice. `still_reads`
+  silence is never evidence.
+- **OPEN, not fixed: C: is FULL.** `%LOCALAPPDATA%\Temp\claude` = 185.6 GB of
+  never-cleaned session scratchpads (Clockspeed 133.1, one LW session 34.0,
+  RC 16.4). That is the black desktop - Windows wrote a 0-byte
+  TranscodedWallpaper while SPI reported success - and it turned one suite run
+  RED on temp exhaustion. Deletion commands handed to the operator; not run.
+
+---
+
+## 2026-08-22 - mask generation: the question was MIS-POSED
 
 Went after the standing open problem. The finding is not a tuning result.
 
@@ -95,43 +125,3 @@ falsified with evidence.
 - **Verified:** 16 new tests (RED confirmed first), full suite **2243 passed /
   18 skipped**, ruff clean. Doc:
   `docs/CLEAN_CONDITIONING_DECISION_2026-08-22.md`.
-
----
-
-## 2026-08-22 - track C DONE: one spot at a time, and undo what breaks
-
-Fourth slice of the same session. E closed, A + B + C shipped.
-
-- **Shipped `tools/lw_clean_spot.py`**: each blob of the mark is its own heal,
-  judged by the track-B chords its context touches, and a step that breaks a
-  line is UNDONE. Two triggers: a chord going intact -> broken, or the median
-  ratio retaining less than 0.75 of its pre-step value.
-- **The second trigger exists for a physical reason** found while building: a
-  semi-transparent mark ATTENUATES the lines under it, so the pre-step frame is
-  often already below the intact bar and no intact -> broken transition can ever
-  occur. Retention measured: operator 0.947/0.937 and lama 0.922/0.921 (both
-  accepted) against heal 0.543/0.496 and membrane 0.301/0.133 (both rejected).
-  0.75 is mid-gap and calibrated on EIGHT observations - stated, not hidden, and
-  tolerable only because a rollback is recoverable and an approval is not.
-- **Two mistakes of mine, both caught by running it on the captures:**
-  (1) the first version grew each blob to the track-A stroke target - that
-  target is stroke SIZE, not margin - and dgk repainted 24x its mark, scoring
-  22.59 where a one-shot fill scores 2.38; (2) even a 1.6x margin lost on all
-  four, because the mask handed in is ALREADY a brush mask, so the 209 anchor
-  (brush vs DETECTOR BOX) does not apply. Swept: m=1.0 beats m=1.6 and m=3.0 on
-  every capture. Default is now no margin.
-- **Splitting a blob into disjoint stroke-sized pieces is OFF** for the same
-  reason - it starves the filler of context (107 produced 34 spots, all
-  committed, and moved 23.50 -> 23.08, barely cleaning at all). Consistent with
-  the captures: the operator's strokes OVERLAP 30x and re-cover 97% of ground
-  already brushed. A partition is a different process wearing the same clothes.
-- **Result:** spot-lama 8.08 / 12.22 / 1.31 / 2.23 against the one-shot's
-  7.87 / 12.45 / 1.28 / 2.38 - per-blob costs nothing and buys rollback. The
-  rollback held 1 of 2 blobs on 105 and 1 of 1 on 107 for the healing-brush
-  engine, and never fired on lama.
-- **Honest limits:** rollback protects LINES only - on 209 and dgk there are no
-  chords so it abstains and commits whatever the engine gives; and with one
-  chord it protects very little (at margin 1.6 on 107 the frame went to 36.04,
-  worse than untouched, and the single chord held).
-- **Verified:** 16 new tests (RED confirmed first), full suite **2227 passed /
-  18 skipped**, ruff clean. Doc: `docs/CLEAN_SPOT_ROLLBACK_2026-08-22.md`.

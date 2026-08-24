@@ -94,13 +94,29 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   one slug and lands on a fraction of the strokes over bright busy art. That is
   the sweep to widen next, and it has to be swept TOGETHER with the rollback: a
   0.36 percent mask change on 105 (79px of 22075) flipped a blob to revert and
-  left a readable line. **Do NOT redo:** narrowing the mask below the read
-  line's own bounding box. Splitting parts on horizontal gaps does not touch 266f
-  (easyocr returns the tagline and the credit as ONE read) and halves the mask on
-  261f / 286f / dark-cosmic-ahri, whose credit lines arrive in gapped pieces;
-  unioning the part boxes is the same mistake smaller. 266f wants a discriminator
-  INSIDE the box - the overlay is achromatic where the tagline is saturated gold.
-  Doc: `docs/CLEAN_CREDITLINE_QUEUE_2026-08-22.md`.
+  left a readable line.
+  **Then three answers, 2026-08-23 (4a7c047, c993009, 4dbe017, 89f55ae).** A
+  second round on the outputs improves the diagnostic (13 reading -> 10) and at
+  1:1 trades text for SMEAR, degrading frames that were already done - so no
+  blanket second round. The percentile is NOT the lever: no cell of a seven-wide
+  sweep clears all ten still-reading slugs and three clear at none, because
+  thickening merges strokes into one blob the rollback then reverts whole (akali,
+  aatrox and miss-fortune come back UNTOUCHED at p40). **Scoping the REVERT is
+  the lever** - give back only the band around the lines a fill damaged, grown
+  until the ordinary verdict passes - and it puts 259f clean at the INCUMBENT p88
+  and clears miss-fortune, which no percentile could. It is opt-in
+  (`--scoped-revert`) because it costs what the rollback was buying: on akali a
+  blocky smear stands where the bodysuit strap was, the layer having no chord
+  there. **NEXT: chord COVERAGE**, not revert granularity.
+  **Reader-quiet overstates removal by about one step** - 259f reads quiet at p70
+  with the line plainly legible, viego at p80 with a ghost standing - so
+  `still_reads` silence is never evidence and the three slugs round two called
+  fixed inherit the doubt.
+  **Do NOT redo:** any mask narrower than the read line's own bounding box
+  (both variants measured worse), a blanket second round, or the GLYPH_PCT sweep
+  for the never-quiet class. 266f wants a discriminator INSIDE the box - the
+  overlay is achromatic where the tagline is saturated gold. Numbers and the
+  reasoning for each: `docs/CLEAN_CREDITLINE_QUEUE_2026-08-22.md`.
 
 - **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
   accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the

@@ -27,6 +27,60 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+130. DONE **2026-08-23 (the credit-line lane, end to end on the queue, and the
+   revert that was the real lever; 363d9e5, 4a7c047, c993009, 4dbe017, 89f55ae).**
+   Ran the 2026-08-22 chain on the whole queue for the first time and put 1:1
+   crops in front of the operator. `tools/lw_clean_creditline_run.py` (new):
+   detect -> glyph mask -> per-blob heal with rollback -> re-read the output ->
+   a sheet, untouched above and cleaned below, plus a worst-first `REVIEW.md`.
+   39 of 80 queued slugs carry a readable line; all 39 ran; 16 held a blob and
+   13 still read a credit line in their own output. The lane REDUCES and does
+   not finish. Premise CORRECTED twice by measurement rather than argument.
+   (1) The reader's negatives census was reading `_cleaninitial` out of
+   `4.Cleaning Done` - the frame going INTO cleaning - so the single fire
+   (`230-cleanup`) was never a false positive and the 118 quiet frames were not
+   evidence either; `approved_of()` now takes `_cleandone` only and skips rather
+   than downgrading, and 230-cleanup reads nothing on its approved frame. That
+   answers the open question without needing the eye. (2) On 266f the lane
+   ERASED ARTWORK - the poster's gold `PRECISION IS PERFECTION` shares a row with
+   `VEXXSOUL.DEVIANTART` - and BOTH narrower masking rules built for it measured
+   WORSE and were reverted: gap-splitting cannot separate a tagline and a credit
+   that easyocr returns as ONE read, and it halves the mask on 261f / 286f /
+   dark-cosmic-ahri; unioning part boxes withholds only the gaps, 79px of 22075
+   on 105, and that alone flipped a blob to revert and left a readable line.
+   `_credit_span` carries the record. Operator then asked for a second round
+   (concern raised, instruction reaffirmed, proceeded): it works the previous
+   output and re-opens the recorded box rather than re-detecting, improves the
+   diagnostic 13 -> 10, and at 1:1 trades text for smear while degrading frames
+   already done. Operator then asked for the GLYPH_PCT sweep:
+   `tools/lw_clean_creditline_sweep.py` over seven percentiles x ten slugs found
+   NO cell that clears all ten and three that clear at none, because thickening
+   merges strokes into one blob the rollback reverts whole - akali, aatrox and
+   miss-fortune return UNTOUCHED at p40 (0 healed, 1 held). The knob is closed.
+   The lever is `scoped_revert()`: give back only the band around the lines a
+   fill damaged, grown 4/8/16/32px until the ORDINARY verdict passes, whole
+   revert if none does - no new threshold. Scoped over the same cells, `held` is
+   0 in all 28, 259f is clean at the INCUMBENT p88 where the unscoped lane
+   cleared it at no percentile, and miss-fortune clears from p88. It stays
+   OPT-IN (`--scoped-revert`) because on akali it costs what the rollback bought:
+   a blocky smear where the bodysuit strap was, the comparison layer having no
+   chord there - so NEXT is chord COVERAGE, not revert granularity. Standing
+   caution proven twice in the act: reader-quiet overstates removal by about one
+   step (259f quiet at p70 with the line legible, viego at p80 with a ghost), so
+   `still_reads` silence is never evidence. Verified: 26 new tests, full suite
+   **2293 passed / 18 skipped** re-run fresh at wrap, ruff clean, ASCII clean.
+   Docs: `docs/CLEAN_CREDITLINE_QUEUE_2026-08-22.md`, ROADMAP
+   `clean-creditline-queue`. Parser-vs-loop guards added after a missing `--pad`
+   killed a whole round at attribute time, mid-run, after the models had loaded.
+   SEPARATE, UNFIXED: the Legion C: drive is full - `%LOCALAPPDATA%\Temp\claude`
+   holds **185.6 GB** of never-cleaned Claude Code session scratchpads
+   (C--Clockspeed 133.1, one C--LegionWallpaper session 34.0 with a whole copy of
+   the model tree, C--Riot-Commander 16.4). That, not the rotator, is the black
+   desktop: Windows wrote a 0-byte `TranscodedWallpaper` while
+   `SystemParametersInfoW` still reported success. It also turned one full-suite
+   run RED (2 failed / 65 errors) purely on temp-dir exhaustion. Deletion left to
+   the operator.
+
 129. DONE **2026-08-22 (mask generation - the question was mis-posed, and the
    credit line is now readable; commit pending).** Premise CORRECTED, and the
    correction is the item. The centre-overlay template scored recall 0.405 on
