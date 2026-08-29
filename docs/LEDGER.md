@@ -27,6 +27,53 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+132. DONE **2026-08-29 (the blind remainder was two populations, and the stub's
+   reach was the one lever left; dac7872, cb1475f, 827e688, d37be63, d61e382).**
+   Premise CORRECTED: the hand-off said 116 steps carry neither chord nor stub -
+   that was the pre-run FORECAST; reproducing all 39 recorded plans exactly
+   (chords, stubs, blobs, mask px, 0 mismatches) the run leaves 125, and they
+   are two different facts under one name. 54 steps (25,618 px) have not one
+   ring pixel clearing GRAD_MIN, corroborated by `gradient_behind` - a measure
+   that never reads that ring - at 0.59 median against 2.11 for the rest: no
+   line enters, so no line can be broken and the rollback is unemployed rather
+   than blind. Shipped `lw_clean_lines.hot_band()` (one definition, reuses
+   GRAD_MIN, `boundary_crossings` refactored onto it) and a `surround`
+   flat/lines field on every step; no verdict moves, and 0 of the 232 evidenced
+   steps read flat. TDD RED-first on both new behaviours. The other 71 lose a
+   line the layer SAW: 101 crossings to a blocked expectation, 26 to a stub ray
+   that missed, 13 to the self-check. Swept the stub expectation reach with
+   chords held fixed (incumbent cell reproduces the recorded run exactly):
+   `STUB_REACH` 6 -> 10 keeps self-check survival identical at 91.6 percent,
+   takes 6 steps and 16,521 px - 56 percent of the blind-with-a-line area.
+   Acceptance on a full queue re-run (run_stubs4): committed 320 / held 37 both
+   unchanged, no-evidence 125 -> 119, still_reads 13 with NO slug moving,
+   105-cleanup 11.562 byte-identical. `STUB_LEN` swept and CLOSED - 12px wins
+   (125 blind vs 132 at 20px, 135 at 30px) because a longer ray breaks its own
+   straight-line assumption and the self-check drops it. The remaining 65
+   decomposed stage by stage: 36 have no expectation obtainable, 15 mixed, 11
+   have every nearby line entering the letter NEXT DOOR or running alongside, 3
+   have no cluster; `MAX_CROSSINGS` and the structure tensor drop NOTHING (0 and
+   0, measured - was asserted). FALSIFIED, do not redo: a derived expectation
+   from the crossing's own strength is within 25 percent of the probe only 46.8
+   percent of the time (p10 0.63, p90 2.19) and `expected` is the denominator of
+   every ratio. REFUSED on evidence: reach 20 clears the stated acceptance bar
+   but its entire corpus effect is 531 px of credit line put back on two frames,
+   334 of it on the one the operator called nearly perfect. NEW: `--stubs` with
+   `--scoped-revert` run together for the first time (every prior run had one or
+   the other; run_stubs4 carries partial=0) - held 37 -> 2, partial 0 -> 33,
+   pixels given back 283,190 -> 25,553, reads 13 -> 2, 105 unchanged. NOT a
+   clean sweep and the run proves the standing rule: dark-cosmic-ahri was
+   reader-SILENT carrying an almost untouched mark and READS after the scoped
+   fill removed most of it. Both lanes stay OPT-IN; the eye has seen neither.
+   Also shipped `lw_ports.FORBIDDEN` + `owner_of()` - the operator's six-project
+   registry (RM 8770-8789, LL 8810-8819 reserved wide against a stated
+   expansion, DS 8860-8879, RC 2999 + 8888-8895, CS 8920-8939) with the old
+   "cite the block, never someone else's port" rule now ENFORCED rather than
+   written down: block boundaries only, and the guard test allows exactly those.
+   Verified: suite 2323 passed / 18 skipped, ruff clean, hygiene 10 passed,
+   drift_guard 0 breaches, CI green on d61e382. Docs:
+   `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md` + ROADMAP.
+
 131. DONE **2026-08-29 (chord coverage: the pairing had no headroom, so spend
    the lone crossings; d9861e9, 0184089, 30e98cd).** The roadmap's standing
    NEXT. `_verdict` can only judge a fill where the comparison layer put a
