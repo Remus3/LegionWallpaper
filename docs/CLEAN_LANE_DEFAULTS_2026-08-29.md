@@ -134,6 +134,13 @@ not a claim that the lane is finished.
 - `tools/lw_clean_lane_compare.py` + `tests/test_lw_clean_lane_compare.py`.
 - `stubs` untouched: still `False`, still `--stubs`.
 
+Two census tools call `run_spot_heal` with no `scoped` argument
+(`lw_clean_condition_census.py:94-95`, `lw_clean_creditline_census.py:114`) and
+therefore inherit the new default. That is intended - a census should measure
+what the lane actually does - but any figure recorded from either of them BEFORE
+2026-08-29 was measured under the whole revert and does not compare directly
+against a fresh run.
+
 ## Do not redo
 
 - Do not re-open `--scoped-revert` on the akali smear. It is byte-identical with
