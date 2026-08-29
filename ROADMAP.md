@@ -117,6 +117,41 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   for the never-quiet class. 266f wants a discriminator INSIDE the box - the
   overlay is achromatic where the tagline is saturated gold. Numbers and the
   reasoning for each: `docs/CLEAN_CREDITLINE_QUEUE_2026-08-22.md`.
+  **Chord COVERAGE is DONE 2026-08-29 (d9861e9, 0184089, 30e98cd) - see
+  `clean-chord-coverage` below.**
+
+- **clean-chord-coverage - DONE 2026-08-29, and the lever the name implies was
+  falsified on the way (d9861e9, 0184089, 30e98cd).** The rollback could only
+  judge a fill where the layer put a chord, and over the 39 recorded queue plans
+  it mostly could not: 269 of 357 steps (75.4 percent) and 47.6 percent of every
+  repainted pixel committed on `no-evidence`, which is an unconditional commit.
+  **Do NOT redo the `GRAD_MIN` sweep, and do not spend a pass on `_expected_at`
+  or the greedy pairing:** solving both filter losses perfectly moves blind
+  steps only 269 -> 235, and LOWERING `GRAD_MIN` makes coverage WORSE (239 at
+  3.0, 252 at 2.0, against 235 at the incumbent 6.0) because
+  `boundary_crossings` dilates the hot pixels and takes one centroid per blob,
+  so a lower floor MERGES neighbouring crossings into fewer and mushier ones.
+  The cause is structural - the mask is a field of letters, a chord needs two
+  crossings on the SAME small blob, and the corpus supplies about one, so the
+  layer discards 93 percent of its own evidence by construction. Shipped
+  `build_stubs()`: a lone crossing predicts a RAY, weaker on purpose (one
+  anchor, so ERASED only and never MISALIGNED, which is the akali failure) and
+  proven against its own untouched frame before use. Measured end state:
+  no-evidence 269 -> 125, held 21 -> 37, still_reads 13 -> 13 with NO slug
+  moving either way, 105-cleanup back to 11.562 against the hand-clean gold and
+  byte-identical to the incumbent. Two verdict bugs the run found were in
+  `_verdict`, not the stubs: pooling the medians let 825 stubs silence NINE
+  chord reverts, and the broken-line ANY-rule let ONE stub revert 105 on a fill
+  that was measurably moving toward the operator's own result. Both fixed, no
+  new constant. **STILL OPT-IN** (`stubs=False`, `--stubs`) - the numbers say go
+  and the eye has not seen it. Sheets:
+  `ops/runtime/clean/creditline/run_stubs3/`.
+  **Open remainder:** 116 steps carry neither chord nor stub - blobs with no
+  line entering them the layer can see, which no pairing or threshold reaches
+  and which would need a different mechanism. And the stub self-check is ONE
+  ratio that cannot separate a DRIFTED line from an ATTENUATED one, so the
+  `centre_overlay` veil bucket would pay far more than this glyph lane's 79 of
+  1,103. Doc: `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md`.
 
 - **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
   accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the

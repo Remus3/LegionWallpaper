@@ -27,6 +27,57 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+131. DONE **2026-08-29 (chord coverage: the pairing had no headroom, so spend
+   the lone crossings; d9861e9, 0184089, 30e98cd).** The roadmap's standing
+   NEXT. `_verdict` can only judge a fill where the comparison layer put a
+   chord, and over the 39 recorded queue plans it mostly could not: 269 of 357
+   steps (75.4 percent) and 47.6 percent of every repainted pixel committed on
+   reason `no-evidence`, an unconditional commit. akali-godly-deer, whose
+   smeared strap is why `--scoped-revert` is opt-in, carried 4 chords over 17
+   blobs. **Both obvious levers falsified BEFORE building:** a perfect solution
+   to both of the pairing's filter losses moves blind steps 269 -> 235 (12.6
+   percent of the gap), and lowering `GRAD_MIN` makes coverage WORSE - 239 at
+   3.0, 252 at 2.0 against 235 at the incumbent 6.0, because
+   `boundary_crossings` dilates hot pixels and takes one centroid per blob, so a
+   lower floor MERGES crossings into fewer and mushier ones. DO NOT redo the
+   `GRAD_MIN` sweep. Cause is structural: the mask is a field of letters, a
+   chord needs two crossings on the same small blob, the corpus supplies about
+   one, and the layer discards 93 percent of its own evidence by construction.
+   **Shipped `lw_clean_lines.build_stubs()`** - a lone crossing predicts a RAY
+   (weaker: one anchor, so ERASED only, never MISALIGNED, which is exactly the
+   akali failure), each proven against its own untouched source frame before
+   use, reaching 153 of the 269 blind steps, 4.5x the entire pairing ceiling.
+   Chords 95/102 survive that self-check at median ratio 1.082, stubs 1,024 of
+   1,103 at 1.019; 825 ship after excluding crossings chords already spent.
+   `Chord` gains `kind` (appended at the end with a default per the dataclass
+   rule); `score()` rows carry it; `build_layer` is now a wrapper over a shared
+   `_layer()` and reproduces the chord count of all 39 recorded plans, 0
+   mismatches. **Two verdict bugs the queue run found, both in `_verdict` and
+   neither in the stubs.** (1) It took the median over ALL relevant evidence, so
+   825 stubs outvoted the chords: NINE reverts silenced, including both of
+   259f's and one reading "lines lost 73 percent". Fixed by judging the pools
+   SEPARATELY, revert from either standing. (2) The broken-line ANY-rule let a
+   single stub act alone: measured against the only hand-clean gold, the stub
+   that reverted 105-cleanup step 0 on "broke 1 of 17 lines" took the frame from
+   11.562 back to 15.329 against 15.454 untouched - it blocked a fill that was
+   moving TOWARD the operator's result, giving back the whole 55 percent of the
+   gap the lane had closed. Fixed by restricting the stub pool to the strength
+   median, which is already a consensus; NO new constant, `KEEP_FRACTION`
+   reused. **Final measured state:** no-evidence 269 -> 125, held 21 -> 37,
+   still_reads 13 -> 13 with NO slug changing in either direction, 105 back to
+   11.562 byte-identical to stubs-off, 146 steps decided by a stub (16 reverts),
+   and the only two chord-covered verdict changes are consensus reverts (280f
+   step 4, seraphine step 3). TDD RED-first throughout (13 + 3 + 2 tests, each
+   run failing before implementation). Suite 2311 passed / 18 skipped, ruff
+   clean, drift_guard 0 breaches. **Still OPT-IN** (`stubs=False`, `--stubs`) -
+   the numbers say go but the operator's eye has not seen the lane; sheets in
+   `ops/runtime/clean/creditline/run_stubs3/`. **Stated limits:** the self-check
+   is one ratio and cannot separate a DRIFTED line from an ATTENUATED one, so a
+   veil lane would pay far more than this glyph lane's 79 of 1,103 (pinned by
+   its own test); and 116 steps remain blind, carrying neither chord nor stub,
+   which no pairing or threshold reaches. Doc:
+   `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md`.
+
 130. DONE **2026-08-23 (the credit-line lane, end to end on the queue, and the
    revert that was the real lever; 363d9e5, 4a7c047, c993009, 4dbe017, 89f55ae).**
    Ran the 2026-08-22 chain on the whole queue for the first time and put 1:1

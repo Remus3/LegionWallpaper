@@ -11,7 +11,41 @@
 
 ---
 
-## 2026-08-23 (latest) - the queue run, and the revert was the lever
+## 2026-08-29 (latest) - chord coverage, and two verdict bugs it exposed
+
+Three commits: d9861e9, 0184089, 30e98cd. Suite 2311/18, ruff clean,
+drift_guard 0 breaches.
+
+- **Measured the blind spot before touching anything.** 269 of 357 steps (75.4
+  percent) and 47.6 percent of repainted pixels commit on `no-evidence`. akali
+  carries 4 chords over 17 blobs.
+- **Both obvious levers falsified.** Perfect pairing recovers only 34 of 269.
+  **Lowering GRAD_MIN makes coverage WORSE** (239 at 3.0, 252 at 2.0 vs 235) -
+  the clustering merges crossings. DO NOT redo that sweep.
+- **Shipped `build_stubs()`.** A lone crossing predicts a RAY: 153 of 269 blind
+  steps reached, 4.5x the pairing ceiling. Self-proven against its own untouched
+  frame (stubs 1,024/1,103 at median 1.019; chords 95/102 at 1.082). 825 ship.
+- **Bug 1, found by the run:** `_verdict` pooled all evidence into one median,
+  so 825 stubs silenced NINE chord reverts including both of 259f's. Fixed:
+  pools judged separately, revert from either stands.
+- **Bug 2, found by the GOLD:** the broken-line ANY-rule let ONE stub revert
+  105-cleanup step 0, taking it from 11.562 back to 15.329 against 15.454
+  untouched - it blocked a fill measurably moving TOWARD the operator's result.
+  Fixed: stub pool keeps only the strength median (a consensus). No new knob.
+- **End state:** no-evidence 269 -> 125, held 21 -> 37, still_reads 13 -> 13
+  with NO slug moving either way, 105 back to 11.562 byte-identical to
+  stubs-off. 146 steps decided by a stub, 16 reverts.
+- **STILL OPT-IN.** The eye has not seen this lane. Sheets:
+  `ops/runtime/clean/creditline/run_stubs3/`.
+- **NEXT: the 116 steps carrying neither chord nor stub** - no line enters them
+  that the layer can see, so no pairing or threshold reaches them. Needs a
+  different mechanism; none proposed on this evidence.
+- **OPEN, carried forward: C: is FULL.** 185.6 GB in `%LOCALAPPDATA%\Temp\claude`.
+  Commands handed to the operator 2026-08-23, still not run.
+
+---
+
+## 2026-08-23 - the queue run, and the revert was the lever
 
 Five commits: 363d9e5, 4a7c047, c993009, 4dbe017, 89f55ae. Suite 2293/18, ruff
 clean.
@@ -87,41 +121,3 @@ Went after the standing open problem. The finding is not a tuning result.
   itself, and the 41 slugs with no readable line.
 - **Verified:** 22 new tests, full suite **2265 passed / 18 skipped**, ruff
   clean. Doc: `docs/CLEAN_MASKGEN_2026-08-22.md`.
-
----
-
-## 2026-08-22 - track D CLOSED: the veil model does not fit these marks
-
-Fifth and last slice. All five tracks now resolved: A, B, C shipped; E and D
-falsified with evidence.
-
-- **Premise tested BEFORE building**, which is the whole story. The veil model
-  `observed = alpha*colour + (1-alpha)*content` was regressed against the
-  operator's finals inside each mask - with the content known that is a straight
-  line per channel, so R-squared answers "is this mark a veil at all". It fits
-  NONE of the four: 105 0.49/0.59/0.52, 107 0.61/0.32/0.81 (and self-
-  contradicting, three alphas 0.26/0.58/0.03 for one opacity), 209 **0.00** with
-  a fitted alpha of **2.23** which is not a physical opacity, dgk 0.04.
-- **209 is the clarifying case:** a painted signature is OPAQUE, so its pixels
-  carry no information about what is under them. There is nothing to weaken.
-- **Built it anyway** so the negative is proved rather than asserted, and
-  measured: where conditioning fires it makes the frame WORSE (105 15.45 ->
-  22.46, 107 23.50 -> 39.65); with a fill after it, 105 goes 8.08 -> 20.01 and
-  107 is simply overwritten (12.22 either way). Where the estimator is honest
-  (209, dgk) it abstains and does nothing. No cell helps.
-- **Design lesson that outlives the track:** on 105 the conditioned run held 1
-  of 2 blobs where the plain fill held none - the rollback worked, but the
-  conditioned damage STAYED, because the pre-pass wrote into the region outside
-  the rollback envelope. Any future pre-pass that writes into the mark must sit
-  INSIDE the snapshot.
-- **Two things worth keeping from it:** `fit_veil`, the ground-truth model test,
-  and the null measured from the ring's own two annuli - without that null the
-  estimator fired on ordinary unmarked art, the same failure already logged for
-  absolute contrast residue. Opacity is also estimated as ONE number now, since
-  it is one.
-- **Not wired into any lane** and should not be. The genuine veil case - the DA
-  centre overlay, 45 of 80 slugs - is already handled by the TEMPLATE pre-pass
-  in `lw_clean_iopaint`, and this census supports keeping it that way.
-- **Verified:** 16 new tests (RED confirmed first), full suite **2243 passed /
-  18 skipped**, ruff clean. Doc:
-  `docs/CLEAN_CONDITIONING_DECISION_2026-08-22.md`.
