@@ -146,9 +146,20 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   new constant. **STILL OPT-IN** (`stubs=False`, `--stubs`) - the numbers say go
   and the eye has not seen it. Sheets:
   `ops/runtime/clean/creditline/run_stubs3/`.
-  **Open remainder:** 116 steps carry neither chord nor stub - blobs with no
-  line entering them the layer can see, which no pairing or threshold reaches
-  and which would need a different mechanism. And the stub self-check is ONE
+  **The remainder, measured 2026-08-29 (dac7872 and the reach commit):** 116 was
+  a forecast; the run leaves 125, and they are TWO populations. 54 steps
+  (25,618 px) have not one ring pixel clearing `GRAD_MIN` - flat art, agreed by
+  an independent measure that never reads that ring (`gradient_behind` 0.59
+  median against 2.11) - so there is no line to lose and the rollback is not
+  blind there, it is unemployed. `hot_band()` names it and every step now
+  records `surround` as flat or lines; no verdict moves. The other 71 lose a
+  line the layer DID see: 101 crossings to a blocked expectation, 26 to a stub
+  ray that missed, 13 to the self-check. Raising the STUB expectation reach 6
+  -> 10 (`STUB_REACH`, chords untouched at `EXPECT_REACH`) takes 65 of them:
+  self-check survival identical at 91.6 percent, `still_reads` 13 with no slug
+  moving either way, 105-cleanup still 11.562. `STUB_LEN` swept and CLOSED -
+  12px wins, longer rays fail their own self-check. **Still open:** 65 steps
+  with a line the layer sees and cannot spend, and the stub self-check is ONE
   ratio that cannot separate a DRIFTED line from an ATTENUATED one, so the
   `centre_overlay` veil bucket would pay far more than this glyph lane's 79 of
   1,103. Doc: `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md`.

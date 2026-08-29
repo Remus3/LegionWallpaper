@@ -387,3 +387,44 @@ def test_the_hot_band_reads_no_masked_pixel():
     mask = _band()
     img = _line_img(only_outside=mask)
     assert not (L.hot_band(img, mask) & mask).any()
+
+
+# ------------------------------------------------- the expectation's reach
+def _blocked_expectation(h=200, w=300, y=100):
+    """A line running into the mark, with a NEIGHBOURING glyph beside it.
+
+    This is the credit-line lane's actual shape: the mask is a field of
+    letters, so the probe that walks back out of one blob to measure what the
+    line looks like lands in the next one. Over the 39-slug queue this is where
+    101 of the crossings near a blind step are lost.
+    """
+    img = np.full((h, w, 3), 210, dtype=np.uint8)
+    yy, _xx = np.mgrid[0:h, 0:w]
+    img[np.abs(yy - y) <= 1.5] = 30
+    mask = np.zeros((h, w), dtype=bool)
+    mask[:, 240:] = True                      # the blob being filled
+    mask[y - 6:y + 7, 232:238] = True         # the letter next door
+    return img, mask
+
+
+def test_a_neighbouring_glyph_blocks_the_expectation_and_reach_recovers_it():
+    """The stub lever the pairing measurement never covered.
+
+    A chord needs an expectation at BOTH ends, which is why walking further
+    was judged not worth it there. A stub needs ONE.
+    """
+    img, mask = _blocked_expectation()
+
+    def blocked_side(stubs):
+        """Stubs starting on the far side of the letter next door."""
+        return [c for c in stubs if c.p0[1] > 238.0]
+
+    assert blocked_side(L.build_stubs(img, mask, reach=L.EXPECT_REACH)) == []
+    assert blocked_side(L.build_stubs(img, mask, reach=L.STUB_REACH))
+
+
+def test_the_pairing_reach_is_left_where_it_was_measured():
+    """Chords are NOT re-tuned here: their ceiling was 34 steps of 269."""
+    img, mask = _blocked_expectation()
+    assert L.build_layer(img, mask) == L.build_layer(img, mask)
+    assert L.EXPECT_REACH == 6.0 and L.STUB_REACH == 10.0

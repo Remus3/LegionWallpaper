@@ -338,3 +338,113 @@ lane. Sheets: `ops/runtime/clean/creditline/run_stubs3/`.
 them at all that the layer can see, and no amount of pairing or thresholding
 reaches them - a different mechanism would be needed, and this document does not
 propose one.
+
+## The remainder, measured: it was two populations wearing one name
+
+_Same 39 plans, reproduced exactly - chords, stubs, blobs and mask px match
+every one, 0 mismatches. 116 was the pre-run FORECAST; the run itself leaves
+**125**._
+
+| | steps | masked px | band max grad, median | `gradient_behind`, median |
+|---|---|---|---|---|
+| **flat** - no ring pixel clears `GRAD_MIN` | **54** | 25,618 | 2.2 | **0.59** |
+| **blind** - a line is in the band | **71** | 29,447 | 22.6 | 2.11 |
+| (all 357 steps, for scale) | 357 | - | - | 2.31 |
+
+`gradient_behind` is the corroboration that matters: it is measured by a
+different module, from the picture BEHIND the mark, and it never reads the ring
+the first column is computed from. Both say the same thing about the same 54
+blobs. Flat art, flat surround.
+
+**So half the remainder is not a hole.** A rollback exists to stop a fill
+destroying readable art. Where no line enters the blob there is no line to
+break, and reverting would only put the mark back - strictly worse than a fill
+that at most left residue. Those 54 steps commit today, and committing is the
+right answer; the plan simply could not say whether a step was unwatched or had
+nothing to watch.
+
+`no-evidence` was that conflation. `lw_clean_lines.hot_band()` now exposes the
+pixels the crossings are already made from - the same `GRAD_MIN`, one
+definition, so no second threshold can drift away from it - `boundary_crossings`
+is refactored onto it against ground truth, and every step records `surround` as
+`flat` or `lines`. It moves no verdict. 0 of the 232 evidenced steps read flat,
+which is the consistency check the field has to pass.
+
+### The 71 that ARE a hole
+
+They lose their evidence in the STUB path, and to levers that were swept for
+chord PAIRS and never for stubs:
+
+| where the evidence went | crossings near the 71 |
+|---|---|
+| `_expected_at` returned `None` | 101 |
+| a stub exists, its 12px ray missed the blob | 26 |
+| the stub failed its own self-check | 13 |
+| spent by a chord whose path left the step | 3 |
+
+The reach curve in this document was measured over chord PAIRS, where both ends
+must find an expectation and the doc's own caution applies twice. A stub needs
+ONE. And `STUB_LEN = 12.0` is labelled in the source as never swept - "one value
+that produced a measured result". Neither is the falsified `GRAD_MIN` lever.
+
+## The stub's expectation reach: swept, shipped, and it cost nothing
+
+The reach curve earlier in this document was measured over chord PAIRS, where
+both ends must find an expectation. A STUB needs one. Swept over the same 39
+slugs with the chords held fixed, scoring blind steps and the self-check
+survival rate together - the incumbent cell reproduces the recorded run exactly
+(825 stubs, 125 blind, 55,065 px), so the harness is faithful:
+
+| reach | stubs kept | self-check pass | blind steps | blind px |
+|---|---|---|---|---|
+| 6 (incumbent) | 825 | 91.6 percent | 125 | 55,065 |
+| **10 (shipped)** | **912** | **91.6 percent** | **119** | **38,544** |
+| 14 | 957 | 91.6 percent | 118 | 38,217 |
+| 20 | 1,004 | 91.2 percent | 113 | 36,509 |
+| 30 | 1,056 | 90.9 percent | 107 | 35,126 |
+
+10 is where the price is zero. The survival rate does not move at all, so the
+87 crossings it admits are as reliable by the layer's own check as the 825
+already in, and they reach the BIG blobs: 6 more steps but 16,521 px, 56 percent
+of everything that was being filled with a line in the band and no evidence. The
+tail is not taken - an expectation measured 30px away is a weak prediction of
+the line where the mark crosses it, and `expected` is the denominator of every
+ratio the verdict reads. `EXPECT_REACH = 6.0` still governs chords, whose own
+ceiling was measured at 34 steps and left alone.
+
+### `STUB_LEN` is swept too, and the incumbent WINS - do not redo it
+
+| stub length | blind steps (at reach 6) | self-check pass |
+|---|---|---|
+| **12 (incumbent)** | **125** | **91.6 percent** |
+| 20 | 132 | 88.6 percent |
+| 30 | 135 | 84.4 percent |
+
+A longer ray reaches further and breaks its own straight-line assumption, so the
+self-check drops it, and the net is LESS coverage. Same ordering at every reach.
+The one knob the last pass shipped un-swept is now swept and closed.
+
+### The run: same inputs, one lever
+
+| | run_stubs3 (reach 6) | run_stubs4 (reach 10) |
+|---|---|---|
+| steps | 357 | 357 |
+| committed / held | 320 / 37 | 320 / 37 |
+| stubs | 825 | **912** |
+| `no-evidence` | 125 | **119** (54 of them FLAT) |
+| slugs still reading a credit line | 13 | 13, and **not one slug moved either way** |
+| `105-cleanup` against the operator's final | 11.562 | **11.562** |
+
+Eight steps changed what the plan says. Six are `no-evidence` becoming "a stub
+says lines held" - coverage, same action. Two are action flips and they go in
+OPPOSITE directions: `bayonetta-dm7iirw` step 0 revert -> commit (the wider stub
+pool's median no longer reads a 29 percent loss) and `dark-cosmic-ahri` step 0
+commit -> revert (new stubs find a 25 percent one). That is what more evidence
+should do, and it is why the held count is unchanged rather than monotone. The
+chord pool is untouched by any of it - a stub still may not soften a chord's
+verdict, and still may not fire the any-rule alone.
+
+So after this pass the 357 steps stand as: 238 judged, 54 flat with no line to
+lose, and **65 genuinely blind** - down from 269 at the start of the day, and
+from 116 as forecast at the start of this pass. Sheets:
+`ops/runtime/clean/creditline/run_stubs4/`, worst first in `REVIEW.md`.

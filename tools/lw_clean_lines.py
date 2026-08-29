@@ -100,12 +100,43 @@ INTACT_FRACTION = 0.8
 # boundary can offer thousands.
 MAX_CROSSINGS = 200
 
+# How far back along its own line the expectation probe may walk, looking for
+# readable art to measure. 6.0 is the incumbent and it governs CHORDS, whose
+# pairing ceiling was measured and found not worth moving.
+EXPECT_REACH = 6.0
+
+# The same walk for a STUB, which needs ONE expectation where a pair needs two.
+# Swept over the 39-slug credit-line queue, chords held fixed, scoring blind
+# steps and the self-check survival rate together:
+#
+#   reach   stubs kept   self-check pass   blind steps   blind px
+#      6         825          91.6              125       55,065
+#     10         912          91.6              119       38,544
+#     14         957          91.6              118       38,217
+#     20        1004          91.2              113       36,509
+#     30        1056          90.9              107       35,126
+#
+# 10 is where the price is zero: the survival rate does not move at all, so the
+# 87 crossings it admits are as reliable by the layer's own check as the ones
+# already in. It buys 6 steps and 16,521 px - 56 percent of the pixels that
+# were being filled with a line in the band and no evidence, because the steps
+# it reaches are the big blobs. The tail beyond is NOT taken: an expectation
+# measured 30px away is a weak prediction of the line where the mark crosses
+# it, and `expected` is the DENOMINATOR of every ratio the verdict reads.
+STUB_REACH = 10.0
+
 # How far a STUB follows its crossing's ray into the mark, and at what spacing.
 # 12px is what the coverage measurement was taken at: it crosses a credit-line
 # glyph (20-40px on this corpus) without running the length of the whole band,
 # and it is far enough that a fill which flattens the letter cannot hide inside
 # it. It has NOT been swept - it is one value that produced a measured result,
 # and it is labelled as such.
+# SWEPT 2026-08-29 and the incumbent WINS - do not redo it. At reach 6, 12px
+# leaves 125 steps blind, 20px leaves 132 and 30px leaves 135, and the same
+# ordering holds at every reach. A longer ray reaches further but breaks its own
+# straight-line assumption, so the self-check drops it: 91.6 percent of stubs
+# survive at 12px, 88.6 at 20 and 84.4 at 30. Length trades reliability for
+# reach and loses.
 STUB_LEN = 12.0
 STUB_STEP = 1.0
 
@@ -336,12 +367,14 @@ def _readable(mask, p, tangent, offset=PROBE_OFFSET, tol=ALIGN_TOL):
     return True
 
 
-def _expected_at(lum, mask, p, d):
+def _expected_at(lum, mask, p, d, reach=EXPECT_REACH):
     """The same probe, taken on readable art at this line, just outside it."""
-    for s in (2.0, 3.0, 4.0, 5.0, 6.0):
+    s = 2.0
+    while s <= reach + 1e-9:
         q = (p[0] - s * d[0], p[1] - s * d[1])
         if _readable(mask, q, d):
             return _aligned_response(lum, q, d)
+        s += 1.0
     return None
 
 
@@ -387,7 +420,7 @@ def build_layer(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN):
 
 
 def build_stubs(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN,
-                length=STUB_LEN, step=STUB_STEP):
+                length=STUB_LEN, step=STUB_STEP, reach=STUB_REACH):
     """Rays from the crossings no chord could claim - and each one is checked.
 
     A chord needs two crossings on the same piece of mark. Over the 39-slug
@@ -413,12 +446,13 @@ def build_stubs(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN,
     _chords, crossings, used, lum = _layer(img, mask, band_width, grad_min)
     if lum is None:
         return []
+    reach = float(reach)
     n = max(int(round(length / step)) + 1, 3)
     out = []
     for i, (p, d, _s) in enumerate(crossings):
         if i in used:
             continue
-        expected = _expected_at(lum, mask, p, d)
+        expected = _expected_at(lum, mask, p, d, reach)
         if expected is None:
             continue
         path = np.array([[p[0] + k * step * d[0], p[1] + k * step * d[1]]
