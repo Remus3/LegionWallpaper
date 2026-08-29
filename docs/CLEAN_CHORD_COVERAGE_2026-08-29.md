@@ -546,3 +546,50 @@ tried on it is now either shipped or falsified: `GRAD_MIN` (worse), pairing
 and the reach tail (not free). What is left is not a threshold. It would need
 an expectation the probe cannot take - a different measurement of what the line
 looks like where the mark covers it - and nothing in this corpus supplies one.
+
+## The two opt-in lanes run TOGETHER, which had never been done
+
+`scoped_revert` (2026-08-23) and `build_stubs` (this document) were built for
+different halves of the same problem - one makes a revert cheaper, the other
+makes reverts possible where the layer was blind - and every recorded run had
+exactly one of them on. `run_stubs4` carries `partial = 0`, so the pairing was
+untested. Run over the queue with both:
+
+| | run_stubs4 (stubs only) | **stubs + scoped** |
+|---|---|---|
+| held - whole blobs undone | 37 | **2** |
+| partial - band around the damaged line | 0 | **33** |
+| pixels given back | 283,190 | **25,553** |
+| committed steps | 320 | 322 |
+| slugs the reader still finds a line in | 13 | **2** |
+| `105-cleanup` against the operator's final | 11.562 | **11.562** |
+
+The lane KEEPS 257,637 px of fill it was throwing away, a 91 percent cut in
+what a revert costs, and every surviving revert scoped to the SMALLEST band in
+the ladder (4px). 19 of 39 frames differ, 313,107 px in total.
+
+On `dark-cosmic-ahri`, the frame the operator reported as barely changed: step
+0 goes from 7,815 px undone to **835**, step 2 (a chord revert at 73 percent
+strength loss, the strong kind) from 2,716 to 866, step 10 from 90 to 89.
+
+### Two readings this run does NOT support
+
+**Reads 13 -> 2 is not a clean sweep, and this run demonstrates the standing
+rule better than any argument for it.** `dark-cosmic-ahri` was SILENT in
+`run_stubs4` while carrying an almost untouched mark - the biggest blob had
+been reverted whole - and it READS in the scoped run after most of that mark
+came off. Reader silence is not evidence of removal, in either direction. The
+two that still read are `akali-godly-deer` and `dark-cosmic-ahri`; the other
+eleven need the eye at 1:1, not the reader's word.
+
+**Four steps changed verdict for a reason that is not the rollback.** Three
+reverts became plain commits (`soraka` 3, `meramora` 3, `queen-of-the-saltwind`
+5) and one commit became a partial (`276f` 7). A partial leaves a different
+frame behind than a whole revert does, so every later step in that slug is
+judging different pixels. Expected, and worth stating so it is not read as
+instability.
+
+Both flags remain OPT-IN and nothing about the default changes here. This is
+the strongest configuration measured so far and it has still never been looked
+at: `ops/runtime/clean/creditline/run_stubs_scoped/REVIEW.md`, worst first,
+which puts `akali` and `ahri` at the top.

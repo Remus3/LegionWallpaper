@@ -175,7 +175,19 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   shipped or falsified, and the stub self-check is ONE
   ratio that cannot separate a DRIFTED line from an ATTENUATED one, so the
   `centre_overlay` veil bucket would pay far more than this glyph lane's 79 of
-  1,103. Doc: `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md`.
+  1,103.
+  **`--stubs` and `--scoped-revert` were then run TOGETHER for the first time
+  (every recorded run had exactly one of them on, `run_stubs4` carries
+  partial=0):** held 37 -> 2, partial 0 -> 33, pixels given back 283,190 ->
+  25,553 (a 91 percent cut, every surviving revert at the smallest 4px band),
+  slugs the reader still finds a line in 13 -> 2, 105-cleanup unchanged at
+  11.562. `dark-cosmic-ahri` step 0 goes from 7,815 px undone to 835. NOT a
+  clean sweep and the run proves the standing rule: ahri was reader-SILENT in
+  `run_stubs4` while carrying an almost untouched mark and READS after the
+  scoped fill removed most of it. Both flags stay opt-in; the eye is the bar and
+  has not seen either lane. Sheets:
+  `ops/runtime/clean/creditline/run_stubs_scoped/REVIEW.md`.
+  Doc: `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md`.
 
 - **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
   accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the
