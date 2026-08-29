@@ -474,3 +474,34 @@ def test_a_stub_can_still_revert_a_step_the_chords_passed():
     _o2, with_ = S.run_spot_heal(img, mark, _dim(slice(50, 200)), stubs=True)
     assert with_["held"] == 1
     assert "stub" in with_["steps"][0]["reason"]
+
+
+def test_one_broken_stub_among_many_does_not_revert_the_blob():
+    """Checked against the only hand-clean gold there is, and it said no.
+
+    On 105-cleanup a stub reverted step 0 on "broke 1 of 17 lines". Measured
+    against the operator's accepted final, the fill it blocked scored 11.73
+    where doing nothing scores 15.61 - it was moving the frame TOWARD the hand
+    result, and the hold gave back the whole 55 percent of the gap the lane had
+    closed. The broken-line rule is an ANY-rule: fine for chords, which are few
+    and anchored at both ends, and wrong for stubs, where a blob carries
+    seventeen individually unreliable predictors and one of them misfiring is
+    ordinary. A stub may speak in aggregate; it may never act alone.
+    """
+    img = _pool_art()
+    mark = _pool_mark(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _dim(slice(55, 66), k=0.15),
+                                 stubs=True)
+    assert plan["n_stubs"] == 6
+    assert plan["held"] == 0, "one broken stub is not evidence on its own"
+
+
+def test_stubs_losing_strength_together_still_revert():
+    """The other half: consensus is exactly what a stub pool is good for."""
+    img = _pool_art()
+    mark = _pool_mark(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _dim(slice(50, 200), k=0.5),
+                                 stubs=True)
+    assert plan["held"] == 1
+    assert "stub" in plan["steps"][0]["reason"]
+    assert "strength" in plan["steps"][0]["reason"]

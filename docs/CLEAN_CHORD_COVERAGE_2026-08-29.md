@@ -274,3 +274,67 @@ answerable against the gold, and it is the next thing to settle - a stub that
 holds the reference slug for nothing would undo the whole case for the default.
 
 Sheets for the eye: `ops/runtime/clean/creditline/run_stubs2/`.
+## Checked against the gold, and the first answer was wrong
+
+105-cleanup is the only slug with a hand-clean capture, so the flagged
+regression was answerable rather than a matter of opinion. Metric is the lane's
+own: mean per-pixel max-channel distance to the operator's accepted final, over
+the operator's own brush. It reproduces the published figures exactly (15.454
+against 15.45, 11.562 against 11.56), so the harness is faithful.
+
+| | over the brush | over the held blob |
+|---|---|---|
+| untouched | 15.454 | 15.607 |
+| lane, stubs off | 11.562 | 11.727 |
+| lane, stubs on (any-break rule) | **15.329** | **15.609** |
+| the operator's own fill | 0.000 (theirs scored 8.08) | - |
+
+The stub reverted step 0 on `broke 1 of 17 lines`, and the fill it blocked was
+moving the frame TOWARD the hand result. It was blocking cleaning, not damage,
+and it gave back the entire 55 percent of the gap the lane had closed on the one
+slug that can be checked. 20,487 of the 20,609 px it held came back identical to
+untouched.
+
+**Root cause, structural rather than a threshold.** The broken-line rule is an
+ANY-rule: one item going intact -> broken reverts the step. That is right for
+chords, which are few and anchored at both ends. It is wrong for stubs, where a
+blob carries seventeen or more individually unreliable predictors and one of
+them misfiring is ordinary. Four of the five chord-covered flips were
+single-stub breaks (105 1 of 17, viego 1 of 17, kai-sa 1 of 11, 280f 1 of 1).
+It is the same defect as the median dilution, running the other way: first weak
+evidence was allowed to outvote strong, then a single weak vote was allowed to
+act alone.
+
+**Fix, and it needs no new constant:** the stub pool keeps only the strength
+rule, which is a median and therefore already a consensus. A stub may speak
+together with the others; it may never act alone. `KEEP_FRACTION` is reused as
+is.
+
+## Where it landed
+
+| | recorded run | with stubs |
+|---|---|---|
+| steps | 357 | 357 |
+| `no-evidence` | 269 | **125** |
+| committed | 336 | 320 |
+| held | 21 | **37** |
+| slugs still reading a credit line | 13 | **13** |
+
+105 back to **11.562**, byte-identical to the stubs-off result. No slug's
+`still_reads` changed in either direction. Only two chord-covered steps changed
+verdict and both are consensus reverts a stub pool found (`280f` step 4 and
+`seraphine` step 3, "lines lost 32 / 31 percent of their strength"). 146 steps
+had their verdict decided by a stub, 16 of them reverts.
+
+So: **144 steps that were being filled unwatched are now watched, 16 more blobs
+are protected, and it costs nothing measurable** - not on the reference slug,
+not in what the reader can still find. Still opt-in: the numbers say go, but the
+acceptance bar here is the operator's eye on a 1:1 crop and it has not seen this
+lane. Sheets: `ops/runtime/clean/creditline/run_stubs3/`.
+
+### What is still blind
+
+116 steps carry neither a chord nor a stub. They are blobs with no line entering
+them at all that the layer can see, and no amount of pairing or thresholding
+reaches them - a different mechanism would be needed, and this document does not
+propose one.

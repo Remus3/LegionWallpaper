@@ -242,8 +242,26 @@ def scoped_revert(before, after, chords, layer_mask, region,
     return None, None, None
 
 
-def _pool_verdict(before, after, layer_mask, mine, label=""):
-    """The verdict ONE kind of evidence gives, or None when it has none."""
+def _pool_verdict(before, after, layer_mask, mine, label="",
+                  break_rule=True):
+    """The verdict ONE kind of evidence gives, or None when it has none.
+
+    `break_rule` is the ANY-rule - one item going from intact to broken
+    reverts the step. It is right for chords, which are few and anchored at
+    both ends, and wrong for stubs: a blob carries seventeen or more of
+    them, each individually unreliable, so one misfiring is ordinary rather
+    than evidence. Checked against the only hand-clean gold in the corpus -
+    on 105-cleanup a stub reverted step 0 on "broke 1 of 17 lines", and the
+    fill it blocked scored 11.73 against the operator's accepted final
+    where doing nothing scores 15.61. It was blocking cleaning, not damage,
+    and it gave back the whole 55 percent of the gap the lane had closed on
+    the one slug that can be checked.
+
+    So a stub pool keeps only the strength rule, which is a median and
+    therefore already a consensus. A stub may speak together with the
+    others; it may never act alone. No new constant: this reuses
+    KEEP_FRACTION.
+    """
     if not mine:
         return None
     b = LINES.score(before, layer_mask, mine)
@@ -254,7 +272,7 @@ def _pool_verdict(before, after, layer_mask, mine, label=""):
     broke = [k for k, r in
              ((tuple(r["p0"] + r["p1"]), r) for r in a["chords"])
              if was.get(k) and not r["intact"]]
-    if broke:
+    if broke and break_rule:
         return ("revert", f"{label}broke {len(broke)} of {b['n_chords']} lines",
                 b["median_ratio"], a["median_ratio"], b["n_chords"])
     lost = 1.0 - a["median_ratio"] / max(b["median_ratio"], 1e-9)
@@ -278,14 +296,16 @@ def _verdict(before, after, chords, layer_mask, region):
     The broken-line rule is an any-rule and cannot be diluted; the strength rule
     is a median and can be, by weaker evidence that simply outnumbers it.
 
-    So a stub may only ADD a verdict of its own. It never softens a chord's.
+    So a stub may only ADD a verdict of its own. It never softens a chord's, and
+    it never fires the any-rule either - see _pool_verdict on why one broken
+    stub among seventeen is not evidence.
     """
     mine = relevant_chords(chords, region)
     weak = [c for c in mine if getattr(c, "kind", "chord") == "stub"]
     strong = [c for c in mine if getattr(c, "kind", "chord") != "stub"]
     v_strong = _pool_verdict(before, after, layer_mask, strong)
     v_weak = _pool_verdict(before, after, layer_mask, weak,
-                           label="a stub says ")
+                           label="a stub says ", break_rule=False)
     for v in (v_strong, v_weak):
         if v is not None and v[0] == "revert":
             return v
