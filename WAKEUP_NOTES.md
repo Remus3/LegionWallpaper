@@ -37,9 +37,14 @@ Commits: f49102f + this one. Suite 2331 passed / 18 skipped, ruff clean.
   accepted), and `tools/lw_clean_lane_compare.py` - every configuration in one
   column at 1:1, cropped to what differs. Strips:
   `ops/runtime/clean/creditline/lanes/REVIEW.md`.
-- **NEXT: nothing is queued on this lane.** Every code lever on coverage is
-  shipped or falsified and both defaults are now settled. The ~35 genuinely
-  blind steps need a measurement the probe cannot take.
+- **NEXT: the operator's eye over the queue AS IT NOW SHIPS.** No code lever
+  is left - every one is shipped or falsified and both defaults are settled -
+  so the next move is a per-slug disposition, not another sweep. The run under
+  the shipping default already exists: `run_scoped/REVIEW.md`, 37 clean by the
+  plan, 1 held (`inkshadow-kai-sa`), 2 still reading (`akali`, `ahri`), and
+  nobody has looked at those 39 sheets. Approve what clears zero-residue into
+  `4.Cleaning Done`; send the rest to the manual IOPaint lane. The ~35
+  genuinely blind steps need a measurement the probe cannot take.
 - **C: HIT 100 PERCENT MID-SESSION and truncated `tools/lw_clean_spot.py` to 0
   bytes** (restored from git, nothing lost). 118 of the 119 GB under
   `%LOCALAPPDATA%\Temp\claude` is `C--Clockspeed`, not LW. This is now a
