@@ -242,29 +242,57 @@ def scoped_revert(before, after, chords, layer_mask, region,
     return None, None, None
 
 
-def _verdict(before, after, chords, layer_mask, region):
-    """Did this step turn an intact line into a broken one?"""
-    mine = relevant_chords(chords, region)
+def _pool_verdict(before, after, layer_mask, mine, label=""):
+    """The verdict ONE kind of evidence gives, or None when it has none."""
     if not mine:
-        return "commit", "no-evidence", None, None, 0
+        return None
     b = LINES.score(before, layer_mask, mine)
     a = LINES.score(after, layer_mask, mine)
     if b["n_chords"] == 0 or a["n_chords"] == 0:
-        return "commit", "no-evidence", b["median_ratio"], a["median_ratio"], 0
+        return None
     was = {tuple(r["p0"] + r["p1"]): r["intact"] for r in b["chords"]}
     broke = [k for k, r in
              ((tuple(r["p0"] + r["p1"]), r) for r in a["chords"])
              if was.get(k) and not r["intact"]]
     if broke:
-        return ("revert", f"broke {len(broke)} of {b['n_chords']} lines",
+        return ("revert", f"{label}broke {len(broke)} of {b['n_chords']} lines",
                 b["median_ratio"], a["median_ratio"], b["n_chords"])
     lost = 1.0 - a["median_ratio"] / max(b["median_ratio"], 1e-9)
     if a["median_ratio"] < b["median_ratio"] * KEEP_FRACTION:
         return ("revert",
-                f"lines lost {round(100 * lost)} percent of their strength",
+                f"{label}lines lost {round(100 * lost)} percent of their "
+                f"strength",
                 b["median_ratio"], a["median_ratio"], b["n_chords"])
-    return "commit", "lines held", b["median_ratio"], a["median_ratio"], \
-        b["n_chords"]
+    return ("commit", f"{label}lines held", b["median_ratio"],
+            a["median_ratio"], b["n_chords"])
+
+
+def _verdict(before, after, chords, layer_mask, region):
+    """Did this step turn an intact line into a broken one?
+
+    Chords and stubs are judged SEPARATELY, and a revert from either stands.
+    Pooling them into one median was measured to be wrong: over the 39-slug
+    queue, 825 stubs entering the same median silenced NINE reverts the chords
+    alone had fired - including both of 259f's, the slug scoped_revert was
+    proven on, and one that had read "lines lost 73 percent of their strength".
+    The broken-line rule is an any-rule and cannot be diluted; the strength rule
+    is a median and can be, by weaker evidence that simply outnumbers it.
+
+    So a stub may only ADD a verdict of its own. It never softens a chord's.
+    """
+    mine = relevant_chords(chords, region)
+    weak = [c for c in mine if getattr(c, "kind", "chord") == "stub"]
+    strong = [c for c in mine if getattr(c, "kind", "chord") != "stub"]
+    v_strong = _pool_verdict(before, after, layer_mask, strong)
+    v_weak = _pool_verdict(before, after, layer_mask, weak,
+                           label="a stub says ")
+    for v in (v_strong, v_weak):
+        if v is not None and v[0] == "revert":
+            return v
+    for v in (v_strong, v_weak):
+        if v is not None:
+            return v
+    return "commit", "no-evidence", None, None, 0
 
 
 def run_spot_heal(img, mark_mask, inpaint, rollback=True,

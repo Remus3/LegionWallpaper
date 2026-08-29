@@ -403,3 +403,74 @@ def test_a_mark_that_attenuates_its_line_costs_the_stub_and_that_is_a_LIMIT():
     _out, plan = S.run_spot_heal(_marked(img, mark), mark, _erase, stubs=True)
     assert plan["n_stubs"] == 0
     assert [s["reason"] for s in plan["steps"]] == ["no-evidence"]
+
+
+# ------------------------------------------------- chords outrank stubs
+def _pool_art(h=200, w=300):
+    """One line straight through the mark, six that stop inside it.
+
+    The one that crosses gives a CHORD; the six that stop give STUBS, and both
+    pools are relevant to the same step. This is the situation the first stubs
+    run got wrong.
+    """
+    a = np.full((h, w, 3), 210, dtype=np.uint8)
+    yy, xx = np.mgrid[0:h, 0:w]
+    a[np.abs(yy - 20) <= 1.5] = 30
+    for y in (60, 80, 100, 120, 140, 160):
+        a[(np.abs(yy - y) <= 1.5) & (xx <= 175)] = 30
+    return a
+
+
+def _pool_mark(shape, x0=150, x1=200):
+    m = np.zeros(shape[:2], dtype=bool)
+    m[:, x0:x1] = True
+    return m
+
+
+def _dim(rows, k=0.6):
+    """A fill that costs those rows some contrast and leaves the rest alone.
+
+    Deliberately partial: it must fail the strength rule, which is a MEDIAN
+    over the evidence, rather than the broken-line rule, which is an any-rule
+    and cannot be diluted.
+    """
+    def _fn(crop_rgb, crop_mask_u8):
+        out = crop_rgb.astype(np.float64)
+        out[rows] = k * out[rows] + (1.0 - k) * 210.0
+        return out.astype(np.uint8)
+    return _fn
+
+
+def test_a_stub_never_outvotes_a_chord_that_says_revert():
+    """Measured over the 39-slug queue: pooling them silenced NINE reverts.
+
+    Both of 259f's went with it - the slug scoped_revert was proven on - along
+    with one that had recorded "lines lost 73 percent of their strength". A
+    stub is weaker evidence and may only ADD a verdict, never dilute one.
+    """
+    img = _pool_art()
+    mark = _pool_mark(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _dim(slice(0, 40)), stubs=True)
+    assert plan["n_chords"] == 1 and plan["n_stubs"] == 6
+    assert plan["held"] == 1, "the chord said revert and it stands"
+    assert "strength" in plan["steps"][0]["reason"]
+
+
+def test_the_chord_verdict_does_not_move_when_stubs_are_added():
+    img = _pool_art()
+    mark = _pool_mark(img.shape)
+    _o1, without = S.run_spot_heal(img, mark, _dim(slice(0, 40)))
+    _o2, with_ = S.run_spot_heal(img, mark, _dim(slice(0, 40)), stubs=True)
+    assert ([s["action"] for s in without["steps"]]
+            == [s["action"] for s in with_["steps"]])
+
+
+def test_a_stub_can_still_revert_a_step_the_chords_passed():
+    """The other half of the same run: 4 steps the chords had let through."""
+    img = _pool_art()
+    mark = _pool_mark(img.shape)
+    _o1, without = S.run_spot_heal(img, mark, _dim(slice(50, 200)))
+    assert without["held"] == 0, "the chord's own line is untouched"
+    _o2, with_ = S.run_spot_heal(img, mark, _dim(slice(50, 200)), stubs=True)
+    assert with_["held"] == 1
+    assert "stub" in with_["steps"][0]["reason"]

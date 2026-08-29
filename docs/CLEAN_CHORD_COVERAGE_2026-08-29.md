@@ -216,3 +216,61 @@ A stub also cannot see MISALIGNED, only ERASED. That is the akali failure and it
 is the one the rollback was built for, but it means stub-covered steps are
 guarded more weakly than chord-covered ones, and `kind` on every scored row is
 what lets a caller act on that.
+## The run, and the bug it found - which was not in the stubs
+
+First `--stubs` pass over the queue against the recorded run, same inputs, the
+flag the only difference. Coverage landed where it was forecast:
+
+```
+no-evidence      269 -> 125   (144 steps gained evidence, forecast 153)
+evidence         chords 102, stubs 825
+```
+
+But 13 steps that ALREADY had chords changed verdict, and **nine of them flipped
+revert -> commit**. Both of 259f's went, the slug `scoped_revert` was proven on,
+along with one that had read "lines lost 73 percent of their strength".
+
+The cause was in `_verdict`, not in the stubs. It took the median ratio over all
+relevant evidence, so 825 stubs entering the same median outvoted the chords
+that were reverting: a step with two chords saying "lost 73 percent" and twenty
+stubs saying "fine" came out committed. The broken-line rule is an ANY-rule and
+cannot be diluted; the strength rule is a MEDIAN and can be, by weaker evidence
+that merely outnumbers it. Every one of the nine sat on the strength rule.
+
+**Fix: the two pools are judged separately and a revert from either stands.** A
+stub may only ADD a verdict, never soften a chord's. `_pool_verdict()` per kind,
+stub reasons prefixed `a stub says ` so the plan records which evidence decided.
+
+Re-run with that in place:
+
+| | recorded run | with stubs |
+|---|---|---|
+| steps | 357 | 357 |
+| `no-evidence` | 269 | **125** |
+| committed | 336 | 307 |
+| held | 21 | **50** |
+| slugs still reading a credit line | 13 | **16** |
+
+All nine dilution flips are gone. The five remaining changes on chord-covered
+steps are ALL commit -> revert - purely additive, stubs catching damage the
+chords missed, and each names the stub that decided it. 149 steps in total had
+their verdict decided by a stub.
+
+### The price, stated plainly
+
+29 more blobs are held, and **three more slugs still read their credit line**
+(`ashe`, `syndra`, `inkshadow-kai-sa`, against `soraka` going quiet). A hold
+leaves the mark standing, so the lane cleans LESS than it did. That is the
+rollback working as designed - "the mark surviving is recoverable; art destroyed
+under it is not" - and against the zero-watermark bar none of these frames were
+shippable either way. But it is a cost, not a free win.
+
+**Flag for the eye, and it is the important one: `105-cleanup` regressed.** It
+went reads 0 -> 1, held 0 -> 1, on `a stub says broke 1 of 17 lines`. 105 is the
+one slug with a hand-clean capture to check against, and the lane's headline
+number (11.56 against 15.45 untouched and the operator's own 8.08) was measured
+there. Whether that stub is protecting art or merely blocking a good fill is
+answerable against the gold, and it is the next thing to settle - a stub that
+holds the reference slug for nothing would undo the whole case for the default.
+
+Sheets for the eye: `ops/runtime/clean/creditline/run_stubs2/`.
