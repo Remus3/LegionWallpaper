@@ -269,24 +269,36 @@ def _verdict(before, after, chords, layer_mask, region):
 
 def run_spot_heal(img, mark_mask, inpaint, rollback=True,
                   margin=MARGIN_RATIO_SPOT, split=False,
-                  crop_margin=CROP_MARGIN, log=None, scoped=False):
+                  crop_margin=CROP_MARGIN, log=None, scoped=False,
+                  stubs=False):
     """Heal each blob of the mark on its own, undoing what breaks a line.
 
     `scoped` is opt-in and off by default, so nothing already measured moves
     until it is asked for. With it on, a step that breaks a line gives back only
     the band around that line instead of the whole blob - see scoped_revert.
+
+    `stubs` is opt-in for the same reason and answers a different question:
+    whether the step can see anything AT ALL. Measured over the 39-slug queue,
+    269 of 357 steps carry no chord and commit whatever the filler returns; a
+    stub reaches 153 of them. It is weaker evidence - one anchor, so erasure
+    only - and it is proven against its own source frame before use. See
+    lw_clean_lines.build_stubs.
     """
     img = np.asarray(img, dtype=np.uint8)
     mark = np.asarray(mark_mask, dtype=bool)
     cur = img.copy()
     plan = {"blobs": 0, "committed": 0, "held": 0, "partial": 0, "n_chords": 0,
-            "steps": [], "status": "clean"}
+            "n_stubs": 0, "steps": [], "status": "clean"}
     if not mark.any():
         return cur, plan
 
     layer_mask = HEAL._dilate(mark, HALO)
     chords = LINES.build_layer(img, layer_mask)
     plan["n_chords"] = len(chords)
+    if stubs:
+        extra = LINES.build_stubs(img, layer_mask)
+        plan["n_stubs"] = len(extra)
+        chords = chords + extra
     spots = plan_spots(img, mark, margin=margin, split=split)
     plan["blobs"] = len(spots)
     h, w = cur.shape[:2]

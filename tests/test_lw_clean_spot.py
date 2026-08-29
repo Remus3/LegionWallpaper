@@ -329,3 +329,77 @@ def test_the_band_follows_the_chord_and_not_the_blob():
     assert band[50, 50] and band[50, 60]
     assert band[47, 55] and not band[46, 55]
     assert not band[50, 70]
+
+
+# --------------------------------------------------------------------- stubs
+def _edge_art(h=200, w=300, y=100):
+    """A stroke running into a mark that reaches the frame edge.
+
+    One crossing, so no chord can ever be built - the shape 269 of 357 real
+    fill steps have, and the reason they commit with no evidence at all.
+    """
+    img = np.full((h, w, 3), 210, dtype=np.uint8)
+    yy, _xx = np.mgrid[0:h, 0:w]
+    img[np.abs(yy - y) <= 1.5] = 30
+    return img
+
+
+def _edge_blob(shape, x0=240):
+    m = np.zeros(shape[:2], dtype=bool)
+    m[:, x0:] = True
+    return m
+
+
+def test_a_blind_step_commits_an_erasing_fill_when_stubs_are_off():
+    """The defect, pinned: no chord means no evidence means commit."""
+    img = _edge_art()
+    mark = _edge_blob(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _erase)
+    assert plan["n_chords"] == 0
+    assert [s["reason"] for s in plan["steps"]] == ["no-evidence"]
+    assert plan["committed"] == 1 and plan["held"] == 0
+
+
+def test_a_stub_makes_the_same_step_hold():
+    img = _edge_art()
+    mark = _edge_blob(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _erase, stubs=True)
+    assert plan["n_stubs"] >= 1
+    assert plan["held"] == 1
+    assert plan["steps"][0]["reason"] != "no-evidence"
+
+
+def test_a_stub_does_not_hold_a_fill_that_kept_the_line():
+    """It has to distinguish, not just refuse everything it can now see."""
+    img = _edge_art()
+    mark = _edge_blob(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _keep, stubs=True)
+    assert plan["n_stubs"] >= 1
+    assert plan["held"] == 0 and plan["committed"] == 1
+
+
+def test_stubs_are_off_unless_asked_for():
+    """Nothing already measured moves until the eye has seen this lane."""
+    img = _edge_art()
+    mark = _edge_blob(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _erase)
+    assert plan["n_stubs"] == 0
+
+
+def test_a_mark_that_attenuates_its_line_costs_the_stub_and_that_is_a_LIMIT():
+    """Stated, not hidden: the self-check cannot tell attenuation from drift.
+
+    A semi-transparent mark dims the line under it, so the ray reads weak on
+    the source frame and the stub is dropped as a bad predictor even though its
+    geometry was right. Measured over the 39-slug credit-line queue the cost is
+    small - 1,024 of 1,103 stubs survive, median ratio 1.019, against 95 of 102
+    chords - because that lane's marks are painted glyphs rather than a veil.
+    A veil lane (the centre_overlay bucket) would pay much more, and would need
+    a check that separates the two failures instead of one ratio that conflates
+    them.
+    """
+    img = _edge_art()
+    mark = _edge_blob(img.shape)
+    _out, plan = S.run_spot_heal(_marked(img, mark), mark, _erase, stubs=True)
+    assert plan["n_stubs"] == 0
+    assert [s["reason"] for s in plan["steps"]] == ["no-evidence"]

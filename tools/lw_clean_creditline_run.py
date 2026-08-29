@@ -63,7 +63,7 @@ def crop_box_from_hits(hits, shape, pad=CROP_PAD):
 
 def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
             log=None, extra_box=None, glyph_pct=CL.GLYPH_PCT,
-            scoped=False):
+            scoped=False, stubs=False):
     """Read box -> glyph mask -> per-blob heal. Returns the frame and a record.
 
     `extra_box` is a region to work whether or not it reads - a later round
@@ -97,9 +97,9 @@ def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
     rec["box_px"] = int(box.sum())
     rec["mask_px"] = int(mask.sum())
     out, plan = SPOT.run_spot_heal(img, mask, inpaint, rollback=rollback,
-                                   log=log, scoped=scoped)
-    for key in ("blobs", "committed", "held", "partial", "n_chords", "status",
-                "steps"):
+                                   log=log, scoped=scoped, stubs=stubs)
+    for key in ("blobs", "committed", "held", "partial", "n_chords", "n_stubs",
+                "status", "steps"):
         rec[key] = plan[key]
     return out, rec
 
@@ -207,6 +207,9 @@ def build_parser():
     ap.add_argument("--scoped-revert", action="store_true",
                     help="give back only the band around a line a fill "
                          "damaged, instead of the whole blob")
+    ap.add_argument("--stubs", action="store_true",
+                    help="also judge a step by lone crossings, so a blob no "
+                         "chord spans is not filled unwatched")
     return ap
 
 
@@ -244,7 +247,7 @@ def main(argv=None):
         out, rec = run_one(img, hits, fill, box_shape=args.box,
                            rollback=not args.no_rollback, extra_box=extra,
                            glyph_pct=args.glyph_pct,
-                           scoped=args.scoped_revert)
+                           scoped=args.scoped_revert, stubs=args.stubs)
         rec.update(slug=slug, source=path, n_hits=len(hits),
                    text=hits[0]["text"] if hits else None,
                    conf=hits[0]["conf"] if hits else None,

@@ -35,6 +35,13 @@ A small alignment tolerance is allowed because real art curves; it is far below
 the misalignment the eye objects to, so "nearly right" still passes and "a line,
 somewhere" does not.
 
+A chord needs a crossing on BOTH sides of the mark, and the credit-line corpus
+mostly does not supply one: over 39 queued slugs, 1,566 crossings become 102
+chords and 269 of 357 fill steps end up with no evidence at all. So a lone
+crossing is spent too, as a STUB - a ray rather than a path. It is weaker on
+purpose (one anchor, so erased only, never misaligned) and it is proven against
+the frame it was built from before it is allowed to say anything.
+
 This module REPORTS. It is not a gate: no candidate is approved or rejected on a
 scalar here (LEDGER 101-103), and the operator's eye remains the acceptance bar.
 
@@ -93,16 +100,31 @@ INTACT_FRACTION = 0.8
 # boundary can offer thousands.
 MAX_CROSSINGS = 200
 
+# How far a STUB follows its crossing's ray into the mark, and at what spacing.
+# 12px is what the coverage measurement was taken at: it crosses a credit-line
+# glyph (20-40px on this corpus) without running the length of the whole band,
+# and it is far enough that a fill which flattens the letter cannot hide inside
+# it. It has NOT been swept - it is one value that produced a measured result,
+# and it is labelled as such.
+STUB_LEN = 12.0
+STUB_STEP = 1.0
+
 
 @dataclass
 class Chord:
-    """A predicted line through the mark, made from readable art only."""
+    """A predicted line through the mark, made from readable art only.
+
+    `kind` is "chord" when both ends are anchored and "stub" when only one is.
+    A stub cannot see MISALIGNED - it has no far side to be wrong about - so a
+    caller that cares about the difference has to be able to ask.
+    """
     p0: tuple
     d0: tuple
     p1: tuple
     d1: tuple
     expected: float
     path: np.ndarray = field(repr=False, default=None)
+    kind: str = "chord"
 
 
 # --------------------------------------------------------------- the gradient
@@ -300,11 +322,11 @@ def _expected_at(lum, mask, p, d):
 
 
 # ------------------------------------------------------------------- the layer
-def build_layer(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN):
-    """Chords predicted from the art around the mark. Reads no masked pixel."""
+def _layer(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN):
+    """The pairing pass. Returns (chords, crossings, indices spent, luma)."""
     mask = np.asarray(mask, dtype=bool)
     if not mask.any():
-        return []
+        return [], [], set(), None
     lum = _luma(img)
     crossings = boundary_crossings(img, mask, band_width, grad_min)
 
@@ -332,7 +354,62 @@ def build_layer(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN):
                             expected=0.5 * (e0 + e1),
                             path=_hermite(p0, d0, p1, d1)))
     chords.sort(key=lambda c: (c.p0, c.p1))
-    return chords
+    return chords, crossings, used, lum
+
+
+def build_layer(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN):
+    """Chords predicted from the art around the mark. Reads no masked pixel."""
+    return _layer(img, mask, band_width, grad_min)[0]
+
+
+def build_stubs(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN,
+                length=STUB_LEN, step=STUB_STEP):
+    """Rays from the crossings no chord could claim - and each one is checked.
+
+    A chord needs two crossings on the same piece of mark. Over the 39-slug
+    credit-line queue the corpus supplies about ONE per glyph blob, so the
+    pairing pass turns 1,566 crossings into 102 chords and 269 of 357 fill
+    steps commit with no evidence at all. Solving both of the pairing's own
+    filter losses perfectly recovers 34 of those steps; spending the lone
+    crossings instead reaches 153. That is the whole reason this exists.
+
+    A stub is strictly weaker than a chord. With no far-side anchor it cannot
+    tell a line that MOVED from a line that is where it should be, so it
+    answers only the erased question - which is the failure the rollback was
+    already built to catch.
+
+    It also assumes the line runs STRAIGHT, and art curves. So every stub is
+    scored against the frame it was built from, where the only correct answer
+    is intact, and one that cannot predict its own source is dropped. A stub
+    that fails there would do nothing but manufacture reverts on fills that did
+    no harm; this is the same shape as the credit-line reader verifying itself
+    on the string DEVIANTART - the evidence carries its own check.
+    """
+    mask = np.asarray(mask, dtype=bool)
+    _chords, crossings, used, lum = _layer(img, mask, band_width, grad_min)
+    if lum is None:
+        return []
+    n = max(int(round(length / step)) + 1, 3)
+    out = []
+    for i, (p, d, _s) in enumerate(crossings):
+        if i in used:
+            continue
+        expected = _expected_at(lum, mask, p, d)
+        if expected is None:
+            continue
+        path = np.array([[p[0] + k * step * d[0], p[1] + k * step * d[1]]
+                         for k in range(n)], dtype=np.float64)
+        out.append(Chord(p0=(round(p[0], 3), round(p[1], 3)), d0=d,
+                         p1=(round(float(path[-1][0]), 3),
+                             round(float(path[-1][1]), 3)), d1=d,
+                         expected=expected, path=path, kind="stub"))
+    if not out:
+        return []
+    proven = {tuple(r["p0"] + r["p1"])
+              for r in score(img, mask, out)["chords"] if r["intact"]}
+    out = [c for c in out if tuple(list(c.p0) + list(c.p1)) in proven]
+    out.sort(key=lambda c: (c.p0, c.p1))
+    return out
 
 
 def measure_chord(img, mask, chord):
@@ -370,6 +447,7 @@ def score(img, mask, chords):
                      "expected": round(c.expected, 3),
                      "measured": round(measured, 3),
                      "ratio": round(ratio, 4),
+                     "kind": getattr(c, "kind", "chord"),
                      "intact": bool(ratio >= PASS_RATIO)})
     if not rows:
         return {"n_chords": 0, "median_ratio": None, "intact_fraction": None,

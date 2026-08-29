@@ -254,3 +254,114 @@ def test_the_layer_is_off_unless_asked_for():
     _out, plan = T.run_schedule(_marked(truth, mask), mask, _keep, steps=2)
     assert plan["n_chords"] == 0
     assert plan["lines_per_step"] == []
+
+
+# ------------------------------------------------------------------- stubs
+def _stroke(h=160, w=240, y=80, width=1.5):
+    """A dark horizontal stroke on a light field."""
+    a = np.full((h, w, 3), 210, dtype=np.uint8)
+    yy, _xx = np.mgrid[0:h, 0:w]
+    a[np.abs(yy - y) <= width] = 30
+    return a
+
+
+def _curved_stroke(h=160, w=240, k=0.08):
+    """The same stroke, bending away from its own tangent."""
+    a = np.full((h, w, 3), 210, dtype=np.uint8)
+    yy, xx = np.mgrid[0:h, 0:w]
+    a[np.abs(yy - (80 + k * (xx - 150) ** 2)) <= 1.5] = 30
+    return a
+
+
+def _edge_mask(h=160, w=240, x0=150):
+    """A mark running to the frame edge.
+
+    A line entering it never comes out, so there is exactly one crossing and no
+    chord can ever be built - the shape the credit-line corpus is full of.
+    """
+    m = np.zeros((h, w), dtype=bool)
+    m[:, x0:] = True
+    return m
+
+
+def test_a_lone_crossing_yields_no_chord_but_does_yield_a_stub():
+    """The layer discards 93 percent of its own evidence.
+
+    Measured over the 39-slug credit-line queue: 1,566 crossings become 102
+    chords, because a chord needs TWO crossings on the SAME small glyph blob
+    and the corpus supplies about one per blob. That is why 269 of 357 fill
+    steps commit with no evidence at all - and why a lone crossing, which
+    predicts a ray rather than a path, has to be worth something.
+    """
+    img, mask = _stroke(), _edge_mask()
+    assert L.build_layer(img, mask) == []
+    stubs = L.build_stubs(img, mask)
+    assert len(stubs) == 1
+    assert stubs[0].kind == "stub"
+    assert stubs[0].expected > 0
+
+
+def test_a_stub_sees_the_fill_erase_the_line():
+    """ERASED is what a stub is for - the akali smear, not misalignment."""
+    img, mask = _stroke(), _edge_mask()
+    stubs = L.build_stubs(img, mask)
+    rec = L.score(_erased(img, mask), mask, stubs)
+    assert rec["n_chords"] == 1
+    assert rec["verdict"] == "broken"
+
+
+def test_a_stub_passes_the_frame_it_was_built_from():
+    img, mask = _stroke(), _edge_mask()
+    rec = L.score(img, mask, L.build_stubs(img, mask))
+    assert rec["n_chords"] == 1
+    assert rec["verdict"] == "intact"
+
+
+def test_a_stub_that_cannot_predict_its_own_frame_is_never_built():
+    """A stub assumes the line runs straight and real art curves.
+
+    A chord survives curvature because it is anchored at both ends; a stub is
+    not, so it has to prove itself on the UNTOUCHED frame, where the only
+    correct answer is intact. One that fails there would do nothing but
+    manufacture reverts on fills that did no harm.
+    """
+    img, mask = _curved_stroke(), _edge_mask()
+    assert L.boundary_crossings(img, mask), "the crossing is still found"
+    assert L.build_stubs(img, mask) == []
+
+
+def test_a_gently_curving_line_still_keeps_its_stub():
+    """"Nearly right" has to keep passing, or the check throws away the corpus.
+
+    The layer already allows a small drift because real art curves; the
+    self-check has to inherit that and reject only a line that has genuinely
+    left its own tangent.
+    """
+    img, mask = _curved_stroke(k=0.02), _edge_mask()
+    assert len(L.build_stubs(img, mask)) == 1
+
+
+def test_a_stub_never_re_spends_a_crossing_a_chord_already_used():
+    """Otherwise one line would vote twice on the same fill."""
+    img, mask = _line_img(), _band()
+    chords = L.build_layer(img, mask)
+    assert chords
+    used = {c.p0 for c in chords} | {c.p1 for c in chords}
+    for s in L.build_stubs(img, mask):
+        assert s.p0 not in used
+
+
+def test_building_stubs_does_not_disturb_the_chords():
+    img, mask = _line_img(), _band()
+    before = [(c.p0, c.p1, c.expected) for c in L.build_layer(img, mask)]
+    L.build_stubs(img, mask)
+    after = [(c.p0, c.p1, c.expected) for c in L.build_layer(img, mask)]
+    assert before == after
+    assert all(c.kind == "chord" for c in L.build_layer(img, mask))
+
+
+def test_a_scored_row_says_which_kind_of_evidence_it_came_from():
+    """A stub cannot see misalignment, so a caller has to be able to tell."""
+    img, mask = _stroke(), _edge_mask()
+    rec = L.score(img, mask, L.build_stubs(img, mask))
+    assert [r["kind"] for r in rec["chords"]] == ["stub"]
