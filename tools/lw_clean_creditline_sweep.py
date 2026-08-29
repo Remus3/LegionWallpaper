@@ -116,7 +116,13 @@ def build_parser():
     ap.add_argument("--pcts", default=PCTS)
     ap.add_argument("--pad", type=int, default=CL.PAD)
     ap.add_argument("--cpu", action="store_true")
-    ap.add_argument("--scoped-revert", action="store_true")
+    ap.add_argument("--scoped-revert", action="store_true",
+                    help="accepted and ignored - scoped is the default since "
+                         "the 2026-08-29 verdict; use --no-scoped-revert to "
+                         "hand back the whole blob")
+    ap.add_argument("--no-scoped-revert", action="store_true",
+                    help="hand back the WHOLE blob when a fill breaks a line, "
+                         "the pre-2026-08-29 behaviour")
     return ap
 
 
@@ -140,7 +146,7 @@ def main(argv=None):
         print(f"=== {slug}")
         rec = sweep_one(slug, path, pcts, reader, fill,
                         os.path.join(args.out, slug), pad=args.pad,
-                        scoped=args.scoped_revert)
+                        scoped=not args.no_scoped_revert)
         if rec:
             done.append(rec)
             print(f"  first quiet at p{first_quiet(rec['rows'])}")

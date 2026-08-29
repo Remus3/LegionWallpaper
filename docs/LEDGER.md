@@ -27,6 +27,57 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+133. DONE **2026-08-29 (the two cleaning lanes get a verdict each: scoped ON,
+   stubs opt-in; commits TBD).** Operator verdict, one per lane, on the two
+   opt-in cleaning flags. **Premise CORRECTED before deciding:** the pair run
+   `run_stubs_scoped` was being read as the strongest configuration measured,
+   but it was compared against a missing control - **`--scoped-revert` ALONE
+   had never been run over the queue**, so the 2x2 lacked its fourth cell and
+   the pair was credited with everything scoped does by itself. Ran that cell
+   (39 slugs, exit 0, `ops/runtime/clean/creditline/run_scoped/`). Measure is
+   the mark HANDED BACK - mask px ending byte-identical to the untouched frame,
+   which is exactly what a revert restores - over 970,042 mask px: whole revert
+   272,893 (28.13 percent) / `--stubs` 285,870 (29.47) / **`--scoped-revert`
+   17,508 (1.80)** / both 29,474 (3.04); held blobs 21 / 37 / **1** / 2; slugs
+   the reader still finds a line in 13 / 13 / **2** / 2. Scoped is not worse
+   than the whole revert on ANY of the 39 and cannot be - the band is a subset
+   of the blob AND `scoped_revert()` only takes a band the ORDINARY verdict
+   passes on. Stubs improves NONE of the 39 and regresses four (`107-cleanup`
+   3 -> 2,202 px alone, 275 paired: clean becomes a legible `(c) SMALL`;
+   aidraw, inkshadow-kai-sa, viego-the-king). **The stated blocker for scoped
+   is dead:** `akali-godly-deer` commits all 17 blobs with 0 held / 0 partial
+   in every configuration and its output PNG is byte-identical across all four,
+   so the blocky strap smear is the FILL's and is in today's default output -
+   the objection came from the p40/p80 percentile-sweep cells, not the shipped
+   percentile. **Gold re-measured live** off the 82-mask capture (not carried
+   forward): `105-cleanup` 11.562 against 15.454 untouched under all four,
+   because its output is one sha (`ec11b139aec7dc85`) - no held blob for either
+   flag to change. TDD RED-first: the default-flip test failed `- partial /
+   + revert` before the flip, 1 failed / 34 passed, then green. Shipped
+   `run_spot_heal(..., scoped=True)`, `--no-scoped-revert` on both credit-line
+   runners and the spot CLI (the existing `--no-rollback` convention) with
+   `--scoped-revert` still ACCEPTED so every command recorded in this ledger
+   still runs, and `tools/lw_clean_lane_compare.py` +
+   `tests/test_lw_clean_lane_compare.py` (every configuration in one column at
+   1:1, cropped to the pixels that differ). Four stub pool-verdict tests pinned
+   to `scoped=False` - they are specs on WHICH POOL decided, not on how much a
+   revert hands back. **Integration-verified, not asserted:** a no-flag run of
+   `seraphine` reproduces `run_scoped`'s plan exactly (same 9 actions, same 372
+   reverted px); the images differ by 1,611 px at max abs 1 level, which is
+   LaMa GPU non-determinism. Suite 2331 passed / 18 skipped; one unrelated
+   failure (`test_lw_usm_halo_probe.py::test_worker_spandrel_branch_produces_both_variants`,
+   a CUDA OOM from another process on the box) passes 40/40 on re-run in
+   isolation and the file has zero references to the changed modules. Doc:
+   `docs/CLEAN_LANE_DEFAULTS_2026-08-29.md`; strips
+   `ops/runtime/clean/creditline/lanes/REVIEW.md`. **Do NOT redo:** re-opening
+   scoped on the akali smear (byte-identical with and without the flag),
+   reading the pair run as the strongest configuration, or defaulting stubs ON
+   on the coverage argument alone (144 steps of coverage, and its only measured
+   effect on the deliverable is negative). **OPEN, unrelated and now urgent:**
+   C: hit 100 percent DURING this session and a file write truncated
+   `tools/lw_clean_spot.py` to 0 bytes (restored from git, no loss); 118 GB of
+   the 119 GB under `%LOCALAPPDATA%\Temp\claude` is `C--Clockspeed`.
+
 132. DONE **2026-08-29 (the blind remainder was two populations, and the stub's
    reach was the one lever left; dac7872, cb1475f, 827e688, d37be63, d61e382).**
    Premise CORRECTED: the hand-off said 116 steps carry neither chord nor stub -

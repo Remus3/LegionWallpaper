@@ -205,8 +205,12 @@ def build_parser():
     ap.add_argument("--pad", type=int, default=CL.PAD,
                     help="pad around a read box, in pixels")
     ap.add_argument("--scoped-revert", action="store_true",
-                    help="give back only the band around a line a fill "
-                         "damaged, instead of the whole blob")
+                    help="accepted and ignored - scoped is the default since "
+                         "the 2026-08-29 verdict; use --no-scoped-revert to "
+                         "hand back the whole blob")
+    ap.add_argument("--no-scoped-revert", action="store_true",
+                    help="hand back the WHOLE blob when a fill breaks a line, "
+                         "the pre-2026-08-29 behaviour")
     ap.add_argument("--stubs", action="store_true",
                     help="also judge a step by lone crossings, so a blob no "
                          "chord spans is not filled unwatched")
@@ -247,7 +251,8 @@ def main(argv=None):
         out, rec = run_one(img, hits, fill, box_shape=args.box,
                            rollback=not args.no_rollback, extra_box=extra,
                            glyph_pct=args.glyph_pct,
-                           scoped=args.scoped_revert, stubs=args.stubs)
+                           scoped=not args.no_scoped_revert,
+                           stubs=args.stubs)
         rec.update(slug=slug, source=path, n_hits=len(hits),
                    text=hits[0]["text"] if hits else None,
                    conf=hits[0]["conf"] if hits else None,

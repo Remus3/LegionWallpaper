@@ -180,10 +180,16 @@ def test_the_context_is_recorded_per_step_with_the_gradient_it_came_from():
 
 # --------------------------------------------------------------- rollback
 def test_a_step_that_breaks_a_line_is_undone():
+    """The whole-blob revert, still reachable with `scoped=False`.
+
+    It stopped being the default on 2026-08-29 (operator verdict), because over
+    the 39-slug credit-line queue it left 28.13 percent of the mask carrying the
+    mark back, against 1.80 percent for the scoped band.
+    """
     truth = _art()
     mark = _blob(truth.shape, 40, 52, 10, 120)     # the diagonal crosses this
     marked = _marked(truth, mark)
-    out, plan = S.run_spot_heal(marked, mark, _erase)
+    out, plan = S.run_spot_heal(marked, mark, _erase, scoped=False)
     assert plan["steps"][0]["action"] == "revert"
     assert plan["held"] == 1
     assert plan["status"] == "held"
@@ -239,7 +245,7 @@ def test_one_bad_blob_does_not_roll_back_a_good_one():
     good = _blob(truth.shape, 150, 162, 200, 260)      # no line crosses this
     bad = _blob(truth.shape, 40, 52, 10, 120)          # the diagonal does
     marked = _marked(truth, good | bad)
-    _out, plan = S.run_spot_heal(marked, good | bad, _erase)
+    _out, plan = S.run_spot_heal(marked, good | bad, _erase, scoped=False)
     actions = {tuple(s["blob_bbox"]): s["action"] for s in plan["steps"]}
     assert set(actions.values()) == {"commit", "revert"}
 
@@ -263,7 +269,7 @@ def test_an_empty_mark_is_a_no_op():
     assert plan["status"] == "clean"
 
 
-# ------------------------------------------------------- scoped revert (opt-in)
+# ------------------------------------------------ scoped revert (the default)
 def test_a_scoped_revert_keeps_the_part_of_the_fill_that_broke_nothing():
     """The blob is wide; the diagonal only crosses its left end.
 
@@ -311,12 +317,34 @@ def test_scoping_declines_when_the_step_damaged_no_line():
     assert (frame, band, why) == (None, None, None)
 
 
-def test_scoping_is_off_by_default():
-    """The measured behaviour does not change until it is asked for."""
+def test_scoping_is_ON_by_default_since_the_operator_verdict():
+    """Default flipped 2026-08-29 on the operator's eye over the whole queue.
+
+    Measured over all 39 credit-line slugs, mask pixels that end byte-identical
+    to the untouched frame - the mark handed back - fall from 272,893 (28.13
+    percent) to 17,508 (1.80 percent); held blobs 21 -> 1; slugs the reader
+    still finds a line in 13 -> 2. No slug is worse than the whole revert on
+    any of the 39, and `105-cleanup` scores 11.562 against 15.454 untouched
+    either way - the output PNG is byte-identical. A band is always a subset of
+    the blob it replaces AND the ordinary verdict has to pass on the scoped
+    candidate, so it cannot hand back more mark than the whole revert did.
+    """
     truth = _art()
     mark = _blob(truth.shape, 40, 52, 10, 120)
     marked = _marked(truth, mark)
     out, plan = S.run_spot_heal(marked, mark, _erase)
+    assert plan["steps"][0]["action"] == "partial"
+    assert plan["partial"] == 1
+    assert plan["held"] == 0
+    assert not np.array_equal(out, marked), "the far end of the fill stands"
+
+
+def test_the_whole_revert_is_one_argument_away():
+    """The flip is a default, not a removal - `scoped=False` still reverts."""
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    marked = _marked(truth, mark)
+    out, plan = S.run_spot_heal(marked, mark, _erase, scoped=False)
     assert plan["steps"][0]["action"] == "revert"
     assert plan["partial"] == 0
     assert np.array_equal(out, marked)
@@ -363,7 +391,9 @@ def test_a_blind_step_commits_an_erasing_fill_when_stubs_are_off():
 def test_a_stub_makes_the_same_step_hold():
     img = _edge_art()
     mark = _edge_blob(img.shape)
-    _out, plan = S.run_spot_heal(img, mark, _erase, stubs=True)
+    # `scoped=False`: this is a spec on WHICH POOL decided, not on how
+    # much a revert gives back. Scoped is the default since 2026-08-29.
+    _out, plan = S.run_spot_heal(img, mark, _erase, stubs=True, scoped=False)
     assert plan["n_stubs"] >= 1
     assert plan["held"] == 1
     assert plan["steps"][0]["reason"] != "no-evidence"
@@ -450,7 +480,10 @@ def test_a_stub_never_outvotes_a_chord_that_says_revert():
     """
     img = _pool_art()
     mark = _pool_mark(img.shape)
-    _out, plan = S.run_spot_heal(img, mark, _dim(slice(0, 40)), stubs=True)
+    # `scoped=False`: this is a spec on WHICH POOL decided, not on how
+    # much a revert gives back. Scoped is the default since 2026-08-29.
+    _out, plan = S.run_spot_heal(img, mark, _dim(slice(0, 40)), stubs=True,
+                                 scoped=False)
     assert plan["n_chords"] == 1 and plan["n_stubs"] == 6
     assert plan["held"] == 1, "the chord said revert and it stands"
     assert "strength" in plan["steps"][0]["reason"]
@@ -469,9 +502,13 @@ def test_a_stub_can_still_revert_a_step_the_chords_passed():
     """The other half of the same run: 4 steps the chords had let through."""
     img = _pool_art()
     mark = _pool_mark(img.shape)
-    _o1, without = S.run_spot_heal(img, mark, _dim(slice(50, 200)))
+    # `scoped=False`: this is a spec on WHICH POOL decided, not on how
+    # much a revert gives back. Scoped is the default since 2026-08-29.
+    _o1, without = S.run_spot_heal(img, mark, _dim(slice(50, 200)),
+                                   scoped=False)
     assert without["held"] == 0, "the chord's own line is untouched"
-    _o2, with_ = S.run_spot_heal(img, mark, _dim(slice(50, 200)), stubs=True)
+    _o2, with_ = S.run_spot_heal(img, mark, _dim(slice(50, 200)), stubs=True,
+                                 scoped=False)
     assert with_["held"] == 1
     assert "stub" in with_["steps"][0]["reason"]
 
@@ -500,8 +537,10 @@ def test_stubs_losing_strength_together_still_revert():
     """The other half: consensus is exactly what a stub pool is good for."""
     img = _pool_art()
     mark = _pool_mark(img.shape)
+    # `scoped=False`: this is a spec on WHICH POOL decided, not on how
+    # much a revert gives back. Scoped is the default since 2026-08-29.
     _out, plan = S.run_spot_heal(img, mark, _dim(slice(50, 200), k=0.5),
-                                 stubs=True)
+                                 stubs=True, scoped=False)
     assert plan["held"] == 1
     assert "stub" in plan["steps"][0]["reason"]
     assert "strength" in plan["steps"][0]["reason"]

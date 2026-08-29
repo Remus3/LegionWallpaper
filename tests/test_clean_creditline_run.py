@@ -122,7 +122,36 @@ def test_every_option_the_run_loop_reads_is_on_the_parser():
     """
     args = RUN.build_parser().parse_args([])
     for name in ("scratch", "out", "slug", "limit", "no_rollback", "box",
-                 "cpu", "input_dir", "plans_from", "glyph_pct", "pad"):
+                 "cpu", "input_dir", "plans_from", "glyph_pct", "pad",
+                 "scoped_revert", "no_scoped_revert", "stubs"):
         assert hasattr(args, name), name
     assert args.pad == 20
     assert args.input_dir is None
+
+
+def test_the_lane_defaults_are_the_2026_08_29_verdict():
+    """scoped ON, stubs OFF - the operator's verdict, one per lane.
+
+    Measured over all 39 credit-line slugs by the mark HANDED BACK (mask px
+    ending byte-identical to the untouched frame): whole revert 272,893 px
+    (28.13 percent), scoped 17,508 (1.80), stubs alone 285,870 (29.47), stubs
+    on top of scoped 29,474 (3.04). Scoped is no worse than the whole revert on
+    any of the 39; stubs improves none of them and regresses four, one of which
+    (107-cleanup) goes from clean to a legible credit line. `105-cleanup`
+    scores 11.562 against 15.454 untouched under every one of the four.
+    """
+    args = RUN.build_parser().parse_args([])
+    assert args.no_scoped_revert is False, "scoped is the default"
+    assert args.stubs is False, "stubs stays opt-in"
+
+
+def test_the_whole_revert_is_still_reachable_from_the_command_line():
+    args = RUN.build_parser().parse_args(["--no-scoped-revert"])
+    assert args.no_scoped_revert is True
+
+
+def test_the_old_scoped_revert_flag_is_still_accepted():
+    """Recorded commands in the ledger and the docs must keep running."""
+    args = RUN.build_parser().parse_args(["--scoped-revert"])
+    assert args.scoped_revert is True
+    assert args.no_scoped_revert is False

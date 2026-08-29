@@ -1,5 +1,34 @@
 # LW session history archive
 
+## 2026-08-23 - the queue run, and the revert was the lever
+
+Five commits: 363d9e5, 4a7c047, c993009, 4dbe017, 89f55ae. Suite 2293/18, ruff
+clean.
+
+- **Ran the chain on the whole queue and looked at it.** 39 of 80 slugs carry a
+  readable line; 16 held a blob, 13 still read one in their own output. The lane
+  REDUCES and does not finish. Sheets: `ops/runtime/clean/creditline/run/`.
+- **266f: the lane erased artwork** (the poster's gold tagline shares a row with
+  the credit). Two narrower masking rules were built for it and BOTH measured
+  worse; both reverted, record in `_credit_span`.
+- **Second round (operator asked):** 13 reading -> 10, but at 1:1 it trades text
+  for smear and degrades frames already done. No blanket second round.
+- **GLYPH_PCT sweep (operator asked):** no cell clears all ten, three clear at
+  none, because thickening merges strokes into one blob the rollback reverts
+  whole. Knob closed.
+- **`scoped_revert()` is the lever.** Band around the damaged lines, grown until
+  the ordinary verdict passes. 259f clean at the INCUMBENT p88; miss-fortune
+  clears at last; held 0 in all 28 cells. OPT-IN: on akali it smears the strap,
+  because the layer has no chord there. **Next: chord COVERAGE.**
+- **Reader-quiet overstates removal by one step** - caught twice. `still_reads`
+  silence is never evidence.
+- **OPEN, not fixed: C: is FULL.** `%LOCALAPPDATA%\Temp\claude` = 185.6 GB of
+  never-cleaned session scratchpads (Clockspeed 133.1, one LW session 34.0,
+  RC 16.4). That is the black desktop - Windows wrote a 0-byte
+  TranscodedWallpaper while SPI reported success - and it turned one suite run
+  RED on temp exhaustion. Deletion commands handed to the operator; not run.
+
+
 ## Settled ROADMAP items relocated 2026-08-22 (verbatim)
 
 Closed before the cleaning work and no longer informing a next

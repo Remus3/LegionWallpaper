@@ -184,10 +184,35 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   11.562. `dark-cosmic-ahri` step 0 goes from 7,815 px undone to 835. NOT a
   clean sweep and the run proves the standing rule: ahri was reader-SILENT in
   `run_stubs4` while carrying an almost untouched mark and READS after the
-  scoped fill removed most of it. Both flags stay opt-in; the eye is the bar and
-  has not seen either lane. Sheets:
+  scoped fill removed most of it. Sheets:
   `ops/runtime/clean/creditline/run_stubs_scoped/REVIEW.md`.
   Doc: `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md`.
+  **VERDICT 2026-08-29, operator, one per lane: `--scoped-revert` DEFAULTS ON,
+  `--stubs` STAYS OPT-IN.** The pair was being compared against a missing
+  control - `--scoped-revert` ALONE had never been run over the queue, so the
+  2x2 lacked its fourth cell and the pair was credited with everything scoped
+  does by itself. Measure is the mark HANDED BACK (mask px ending
+  byte-identical to untouched, which is what a revert restores): whole revert
+  272,893 px (28.13 percent) / stubs 285,870 (29.47) / **scoped 17,508 (1.80)**
+  / both 29,474 (3.04); held blobs 21 / 37 / **1** / 2; slugs still reading
+  13 / 13 / **2** / 2. Scoped is not worse than the whole revert on ANY of the
+  39 and cannot be (the band is a subset of the blob AND the ordinary verdict
+  must pass on it). Stubs improves NONE of the 39 and regresses four, one of
+  which (`107-cleanup`) goes from clean to a legible `(c) SMALL`. `105-cleanup`
+  is 11.562 against 15.454 untouched under all four - one sha, nothing for
+  either flag to change. **The stated blocker for scoped is dead:** akali
+  commits all 17 blobs with 0 held / 0 partial in every configuration and its
+  output is byte-identical across all four, so the blocky strap smear is the
+  FILL's and is in today's default; the objection came from the p40/p80 sweep
+  cells, not the shipped percentile. Shipped: `scoped=True` default,
+  `--no-scoped-revert` (the `--no-rollback` convention) on both runners and the
+  spot CLI with `--scoped-revert` still accepted so recorded commands run, and
+  `tools/lw_clean_lane_compare.py` (every configuration in one column at 1:1,
+  cropped to what differs). **Do NOT redo:** re-opening scoped on the akali
+  smear, reading the pair run as the strongest configuration, or defaulting
+  stubs ON on the coverage argument alone. Strips:
+  `ops/runtime/clean/creditline/lanes/REVIEW.md`.
+  Doc: `docs/CLEAN_LANE_DEFAULTS_2026-08-29.md`.
 
 - **clean-automated-lane-closed - 0 of 87 automated cleaning candidates were
   accepted by the operator across 4 review rounds, 2026-08-22. STOP tuning the

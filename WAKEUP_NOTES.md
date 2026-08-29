@@ -7,11 +7,47 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12), and the 2026-08-12 QA-lane precision-census session (pruned 2026-08-12), and the 2026-08-12 veil-ring session (pruned 2026-08-13), and the 2026-08-12 clean-retry-degrades/one-engine session + the 2026-08-12 bare-pytest-wrong-tree session (both pruned 2026-08-16) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12), and the 2026-08-12 QA-lane precision-census session (pruned 2026-08-12), and the 2026-08-12 veil-ring session (pruned 2026-08-13), and the 2026-08-12 clean-retry-degrades/one-engine session + the 2026-08-12 bare-pytest-wrong-tree session (both pruned 2026-08-16), and the 2026-08-23 queue-run/revert-lever session (pruned 2026-08-29) - keep the last 3.
 
 ---
 
-## 2026-08-29 (latest, second session) - the blind remainder, split and spent
+## 2026-08-29 (latest) - a verdict per lane, and the control that was missing
+
+Commits: f49102f + this one. Suite 2331 passed / 18 skipped, ruff clean.
+
+- **The pair was measured against the wrong control.** `--scoped-revert` ALONE
+  had never been run over the queue - the 2x2 had three cells - so the pair was
+  being credited with everything scoped does by itself. Ran the fourth cell:
+  `ops/runtime/clean/creditline/run_scoped/`.
+- **Measure that decides a default: the mark HANDED BACK** (mask px ending
+  byte-identical to untouched, which is what a revert restores). Whole revert
+  272,893 px (28.13 percent) / stubs 285,870 (29.47) / **scoped 17,508 (1.80)**
+  / both 29,474 (3.04). Held blobs 21 / 37 / **1** / 2. Still reading 13 / 13 /
+  **2** / 2.
+- **OPERATOR VERDICT: `--scoped-revert` DEFAULTS ON, `--stubs` STAYS OPT-IN.**
+  Scoped is no worse than the whole revert on any of the 39 and cannot be.
+  Stubs improves none and regresses four; `107-cleanup` goes clean -> legible
+  `(c) SMALL`.
+- **The akali blocker is dead.** All 17 blobs commit, 0 held / 0 partial, output
+  byte-identical across all four configurations. The strap smear is the FILL's
+  and ships in today's default; the objection came from the p40/p80 sweep cells.
+- **105-cleanup 11.562 against 15.454 untouched under all four** - one sha,
+  re-measured live off the 82-mask capture.
+- Shipped `scoped=True`, `--no-scoped-revert` (with `--scoped-revert` still
+  accepted), and `tools/lw_clean_lane_compare.py` - every configuration in one
+  column at 1:1, cropped to what differs. Strips:
+  `ops/runtime/clean/creditline/lanes/REVIEW.md`.
+- **NEXT: nothing is queued on this lane.** Every code lever on coverage is
+  shipped or falsified and both defaults are now settled. The ~35 genuinely
+  blind steps need a measurement the probe cannot take.
+- **C: HIT 100 PERCENT MID-SESSION and truncated `tools/lw_clean_spot.py` to 0
+  bytes** (restored from git, nothing lost). 118 of the 119 GB under
+  `%LOCALAPPDATA%\Temp\claude` is `C--Clockspeed`, not LW. This is now a
+  correctness risk, not just housekeeping.
+
+---
+
+## 2026-08-29 (second session) - the blind remainder, split and spent
 
 Five commits: dac7872, cb1475f, 827e688, d37be63, d61e382. Suite 2323/18, ruff
 clean, drift_guard 0 breaches, CI green.
@@ -77,33 +113,3 @@ drift_guard 0 breaches.
   different mechanism; none proposed on this evidence.
 - **OPEN, carried forward: C: is FULL.** 185.6 GB in `%LOCALAPPDATA%\Temp\claude`.
   Commands handed to the operator 2026-08-23, still not run.
-
----
-
-## 2026-08-23 - the queue run, and the revert was the lever
-
-Five commits: 363d9e5, 4a7c047, c993009, 4dbe017, 89f55ae. Suite 2293/18, ruff
-clean.
-
-- **Ran the chain on the whole queue and looked at it.** 39 of 80 slugs carry a
-  readable line; 16 held a blob, 13 still read one in their own output. The lane
-  REDUCES and does not finish. Sheets: `ops/runtime/clean/creditline/run/`.
-- **266f: the lane erased artwork** (the poster's gold tagline shares a row with
-  the credit). Two narrower masking rules were built for it and BOTH measured
-  worse; both reverted, record in `_credit_span`.
-- **Second round (operator asked):** 13 reading -> 10, but at 1:1 it trades text
-  for smear and degrades frames already done. No blanket second round.
-- **GLYPH_PCT sweep (operator asked):** no cell clears all ten, three clear at
-  none, because thickening merges strokes into one blob the rollback reverts
-  whole. Knob closed.
-- **`scoped_revert()` is the lever.** Band around the damaged lines, grown until
-  the ordinary verdict passes. 259f clean at the INCUMBENT p88; miss-fortune
-  clears at last; held 0 in all 28 cells. OPT-IN: on akali it smears the strap,
-  because the layer has no chord there. **Next: chord COVERAGE.**
-- **Reader-quiet overstates removal by one step** - caught twice. `still_reads`
-  silence is never evidence.
-- **OPEN, not fixed: C: is FULL.** `%LOCALAPPDATA%\Temp\claude` = 185.6 GB of
-  never-cleaned session scratchpads (Clockspeed 133.1, one LW session 34.0,
-  RC 16.4). That is the black desktop - Windows wrote a 0-byte
-  TranscodedWallpaper while SPI reported success - and it turned one suite run
-  RED on temp exhaustion. Deletion commands handed to the operator; not run.

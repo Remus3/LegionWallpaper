@@ -317,15 +317,25 @@ def _verdict(before, after, chords, layer_mask, region):
 
 def run_spot_heal(img, mark_mask, inpaint, rollback=True,
                   margin=MARGIN_RATIO_SPOT, split=False,
-                  crop_margin=CROP_MARGIN, log=None, scoped=False,
+                  crop_margin=CROP_MARGIN, log=None, scoped=True,
                   stubs=False):
     """Heal each blob of the mark on its own, undoing what breaks a line.
 
-    `scoped` is opt-in and off by default, so nothing already measured moves
-    until it is asked for. With it on, a step that breaks a line gives back only
-    the band around that line instead of the whole blob - see scoped_revert.
+    `scoped` is ON by default since 2026-08-29 (operator verdict over the whole
+    39-slug credit-line queue). A step that breaks a line gives back only the
+    band around that line instead of the whole blob - see scoped_revert. What
+    settled it was the mark HANDED BACK: mask pixels ending byte-identical to
+    the untouched frame fall from 272,893 (28.13 percent) to 17,508 (1.80
+    percent), held blobs 21 -> 1, slugs the reader still finds a line in 13 ->
+    2, and not one of the 39 is worse than the whole revert. It cannot be, by
+    construction: the band is a subset of the blob, and the ordinary verdict
+    still has to pass on the scoped candidate before it is taken. `scoped=False`
+    is the old whole-blob revert, one argument away.
 
-    `stubs` is opt-in for the same reason and answers a different question:
+    `stubs` STAYS opt-in - the same verdict, the other way: measured worse on
+    removal alone (29.47 percent handed back against 28.13) AND on top of scoped
+    (3.04 against 1.80), improving no slug of the 39. It answers a different
+    question:
     whether the step can see anything AT ALL. Measured over the 39-slug queue,
     269 of 357 steps carry no chord and commit whatever the filler returns; a
     stub reaches 153 of them. It is weaker evidence - one anchor, so erasure
@@ -446,6 +456,10 @@ def main(argv=None):
                          "on large-area marks - see the module notes)")
     ap.add_argument("--engine", choices=("lama", "heal", "membrane"),
                     default="lama")
+    ap.add_argument("--no-scoped-revert", action="store_true",
+                    help="hand back the whole blob when a fill breaks a line, "
+                         "instead of the band around that line (scoped is the "
+                         "default since the 2026-08-29 verdict)")
     args = ap.parse_args(argv)
 
     with Image.open(args.image) as im:
@@ -464,7 +478,8 @@ def main(argv=None):
             return HEAL.poisson_fill(crop_rgb, crop_mask_u8 > 127, offset=None)
 
     out, plan = run_spot_heal(rgb, mark, fn, rollback=not args.no_rollback,
-                              margin=args.margin, split=args.split, log=print)
+                              margin=args.margin, split=args.split, log=print,
+                              scoped=not args.no_scoped_revert)
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     tmp = args.out + ".part"
     Image.fromarray(out).save(tmp, format="PNG")
