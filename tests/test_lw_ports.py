@@ -114,9 +114,11 @@ def test_the_scan_covers_both_authored_trees():
 
 
 def test_registry_names_no_foreign_port():
-    # Red Moon's guard greps its own source for foreign port numbers, so writing
-    # another project's literals here would trip a sibling repo's test. Cite a
-    # block, never someone else's port.
+    # The rule was "cite the block, never someone else's port" and it STANDS: a
+    # sibling's service port has no business in this file. Its block BOUNDARIES
+    # do - they are what lets LW prove disjointness without reading five other
+    # trees - so the guard allows exactly the numbers FORBIDDEN declares and
+    # nothing else.
     low, high = lw_ports.LW_BLOCK
     tree = ast.parse((TOOLS / "lw_ports.py").read_text(encoding="utf-8"))
     # AST, not a regex over the text: prose legitimately contains four-digit
@@ -125,4 +127,49 @@ def test_registry_names_no_foreign_port():
         if isinstance(node, ast.Constant) and isinstance(node.value, int):
             port = node.value
             if 1024 <= port <= 65535:
-                assert low <= port <= high, f"foreign port literal {port}"
+                assert low <= port <= high or port in _declared_boundaries(), (
+                    f"foreign port literal {port}")
+
+
+def _declared_boundaries():
+    return {n for blocks in lw_ports.FORBIDDEN.values()
+            for block in blocks for n in block}
+
+
+# ------------------------------------------------------- the neighbours
+def test_forbidden_names_every_neighbour_block():
+    """Six projects share Legion, not the three this file was written for."""
+    assert set(lw_ports.FORBIDDEN) == {"RM", "LL", "DS", "RC", "CS"}
+    for code, blocks in lw_ports.FORBIDDEN.items():
+        assert blocks, code
+        for low, high in blocks:
+            assert 1024 <= low <= high <= 65535, code
+
+
+def test_no_neighbour_block_touches_ours():
+    low, high = lw_ports.LW_BLOCK
+    for code, blocks in lw_ports.FORBIDDEN.items():
+        for a, b in blocks:
+            assert b < low or a > high, f"{code} overlaps LW"
+
+
+def test_neighbour_blocks_do_not_overlap_each_other():
+    seen = []
+    for code, blocks in sorted(lw_ports.FORBIDDEN.items()):
+        for a, b in blocks:
+            for other, (c, d) in seen:
+                assert b < c or a > d, f"{code} overlaps {other}"
+            seen.append((code, (a, b)))
+
+
+def test_owner_of_answers_for_ours_for_theirs_and_for_neither():
+    assert lw_ports.owner_of(lw_ports.RUNDASH) == "LW"
+    assert lw_ports.owner_of(lw_ports.LW_BLOCK[1]) == "LW"
+    assert lw_ports.owner_of(lw_ports.FORBIDDEN["RC"][0][0]) == "RC"
+    assert lw_ports.owner_of(9999) is None
+
+
+def test_next_free_can_only_hand_out_one_of_ours():
+    port = lw_ports.next_free()
+    assert lw_ports.in_block(port)
+    assert lw_ports.owner_of(port) == "LW"
