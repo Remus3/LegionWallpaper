@@ -158,8 +158,21 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   -> 10 (`STUB_REACH`, chords untouched at `EXPECT_REACH`) takes 65 of them:
   self-check survival identical at 91.6 percent, `still_reads` 13 with no slug
   moving either way, 105-cleanup still 11.562. `STUB_LEN` swept and CLOSED -
-  12px wins, longer rays fail their own self-check. **Still open:** 65 steps
-  with a line the layer sees and cannot spend, and the stub self-check is ONE
+  12px wins, longer rays fail their own self-check. **The 65 were then decomposed stage by stage** (same
+  plans, shipped layer): 11 have every nearby line entering the letter NEXT
+  DOOR or running alongside, 3 have no cluster at all, 15 are mixed, and 36 have
+  a line oriented into them with no expectation obtainable - of the 366
+  crossings still missing one, 162 (44 percent) are never readable out to 40px
+  because the probe's 9px swath does not fit. `MAX_CROSSINGS` and the structure
+  tensor drop NOTHING (0 and 0, measured, was asserted). A derived expectation
+  from the crossing's own strength is FALSIFIED - within 25 percent of the probe
+  only 46.8 percent of the time, and `expected` is the denominator of every
+  ratio - do not redo it. Reach 20 clears the acceptance bar (reads 13 unmoved,
+  105 still 11.562) and is NOT shipped: it buys 6 steps for two more held blobs
+  and a 20px-distant denominator, so it wants an eye, not a sweep -
+  `ops/runtime/clean/creditline/run_reach20/`. **Still open:** about 35 steps
+  where a line enters and could be measured, with every threshold lever now
+  shipped or falsified, and the stub self-check is ONE
   ratio that cannot separate a DRIFTED line from an ATTENUATED one, so the
   `centre_overlay` veil bucket would pay far more than this glyph lane's 79 of
   1,103. Doc: `docs/CLEAN_CHORD_COVERAGE_2026-08-29.md`.

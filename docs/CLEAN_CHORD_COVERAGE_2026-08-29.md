@@ -448,3 +448,101 @@ So after this pass the 357 steps stand as: 238 judged, 54 flat with no line to
 lose, and **65 genuinely blind** - down from 269 at the start of the day, and
 from 116 as forecast at the start of this pass. Sheets:
 `ops/runtime/clean/creditline/run_stubs4/`, worst first in `REVIEW.md`.
+
+## Going after the 65: where the last evidence is lost, stage by stage
+
+Same 39 plans, the shipped reach-10 layer, every stage of the funnel
+instrumented per blind step - 65 steps, 12,926 px:
+
+| clusters near a blind step | count |
+|---|---|
+| no expectation, even at reach 10 | 72 |
+| a stub exists, its ray entered another blob | 35 |
+| `_orient_into` returned `None` - the line runs ALONGSIDE the mark | 20 |
+| failed the self-check | 15 |
+| spent by a chord whose path left the step | 2 |
+| dropped by `MAX_CROSSINGS` | **0** |
+| degenerate structure tensor | **0** |
+
+`MAX_CROSSINGS` never binds on any of the 39 slugs. That was asserted in the
+first funnel and is now measured.
+
+By step, which is what decides whether a step is a hole at all:
+
+| | steps | px |
+|---|---|---|
+| **no expectation anywhere** - a line enters, oriented into the blob, and nothing readable can be found to calibrate it | **36** | 8,157 |
+| mixed / self-check | 15 | 2,098 |
+| every nearby line enters a NEIGHBOUR letter or runs alongside | 11 | 2,359 |
+| no cluster of any kind near | 3 | 312 |
+
+So 14 of the 65 are the same kind of fact as the flat 54: nothing of this
+blob's own to see. The hole is 36 steps, plus some of the 15.
+
+### The crossing's own gradient cannot stand in for the probe - REFUSED
+
+The obvious way to manufacture an expectation where the probe cannot reach is
+to derive it from the crossing's own strength, which is free. Calibrated over
+the 1,200 crossings that have both:
+
+| `expected / strength` | value |
+|---|---|
+| median | 1.834 |
+| p10 / p90 | 0.836 / 2.923 |
+| IQR | 1.324 - 2.355 |
+
+Fitting the median constant, a derived expectation lands within 25 percent of
+the probe's value **46.8 percent** of the time (p10 0.627, p90 2.193). It is a
+different operator on a different footprint - `_response` takes the larger of a
+step and a ridge answer with an alignment search, the cluster carries one max
+gradient magnitude - and they do not track. `expected` is the DENOMINATOR of
+every ratio the verdict reads and the strength rule fires at `KEEP_FRACTION`
+0.75, so a denominator wrong by 2x manufactures and silences reverts at will.
+**Do not redo this.**
+
+### The reach lever is not exhausted, and the rest of it is NOT taken
+
+Of the 366 crossings still without an expectation at reach 10, **162 (44
+percent) are never readable out to 40px**: the probe's own 9px swath does not
+fit anywhere along that line, so no walk can help them. The other 204 recover
+at median 20px - 49 by 14, 105 by 20, 166 by 30.
+
+Reach 20 was run over the whole queue as evidence, and it passes the stated
+acceptance bar:
+
+| | run_stubs4 (reach 10, shipped) | run_reach20 (evidence only) |
+|---|---|---|
+| `no-evidence` | 119 | **113** |
+| blind with a line | 65 | **59** |
+| committed / held | 320 / 37 | 318 / **39** |
+| slugs still reading | 13 | 13, none moved |
+| `105-cleanup` | 11.562 | **11.562** |
+
+**It is still not shipped.** The prize is 6 steps and about 1,200 px. What it
+costs is two more held blobs - the lane cleaning LESS, each hold leaving a mark
+standing - bought with an expectation measured 20px away along a curving line,
+which is precisely the weak-denominator objection this document raised against
+the pairing tail. The self-check does not price that risk either: it scores the
+ray on a frame where the MARK still supplies the contrast, so it cannot
+validate the expectation's correctness, only its plausibility before the fill.
+Reach 10 was taken because its price was measurably ZERO; reach 20's is not,
+and a knob that trades cleaning for coverage wants the operator's eye, not a
+sweep. The run is kept at `ops/runtime/clean/creditline/run_reach20/` so the
+comparison can be looked at rather than re-measured.
+
+### What the 357 steps are, at the end of this
+
+| | steps |
+|---|---|
+| judged by a chord or a stub | 238 |
+| flat - no line in the ring at all | 54 |
+| a line, but it belongs to the letter next door or runs alongside | 11 |
+| no cluster near, or no expectation obtainable in principle (44 percent of the misses) | ~19 |
+| **a line enters, could be measured, and is not** | **~35** |
+
+That last row is the whole remaining hole, and every lever this document has
+tried on it is now either shipped or falsified: `GRAD_MIN` (worse), pairing
+(34-step ceiling), `STUB_LEN` (worse), the derived expectation (46.8 percent),
+and the reach tail (not free). What is left is not a threshold. It would need
+an expectation the probe cannot take - a different measurement of what the line
+looks like where the mark covers it - and nothing in this corpus supplies one.
