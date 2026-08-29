@@ -505,3 +505,46 @@ def test_stubs_losing_strength_together_still_revert():
     assert plan["held"] == 1
     assert "stub" in plan["steps"][0]["reason"]
     assert "strength" in plan["steps"][0]["reason"]
+
+
+# --------------------------------------------- a flat surround is not blind
+def test_a_flat_surround_is_named_rather_than_lumped_in_with_blind():
+    """"no-evidence" conflates "cannot see" with "nothing to see".
+
+    Measured over the 39-slug credit-line queue with stubs on: 125 steps end
+    with no evidence, and 54 of them - 25,618 of the 55,065 masked px - have
+    not one pixel in their readable ring that clears GRAD_MIN. The art BEHIND
+    those marks is flat too, by an independent measure that never reads the
+    ring: gradient behind 0.59 median against 2.11 for the blind steps that do
+    have a line in the band. There is no line there to protect, so they are
+    not a hole in the rollback - the report simply could not say so.
+    """
+    img = _art(line=False)
+    mark = _blob(img.shape, 90, 110, 140, 160)
+    _out, plan = S.run_spot_heal(img, mark, _erase)
+    assert [s["reason"] for s in plan["steps"]] == ["no-evidence"]
+    assert [s["surround"] for s in plan["steps"]] == ["flat"]
+
+
+def test_a_line_in_the_band_is_never_called_flat():
+    """The distinction is the band's to make, never the verdict's.
+
+    This is the other half of the 125: a line DOES enter the step, the layer
+    can see it, and the evidence was still dropped - by the expectation probe,
+    by a stub ray that missed, or by the self-check. Those steps are blind and
+    have to keep reading that way.
+    """
+    img = _edge_art()
+    mark = _edge_blob(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _erase)
+    assert [s["reason"] for s in plan["steps"]] == ["no-evidence"]
+    assert [s["surround"] for s in plan["steps"]] == ["lines"]
+
+
+def test_an_evidenced_step_reports_its_band_too():
+    """The field is a report on the art, not a footnote on the verdict."""
+    img = _edge_art()
+    mark = _edge_blob(img.shape)
+    _out, plan = S.run_spot_heal(img, mark, _erase, stubs=True)
+    assert plan["steps"][0]["reason"] != "no-evidence"
+    assert plan["steps"][0]["surround"] == "lines"

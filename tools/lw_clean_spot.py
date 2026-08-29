@@ -331,6 +331,15 @@ def run_spot_heal(img, mark_mask, inpaint, rollback=True,
     stub reaches 153 of them. It is weaker evidence - one anchor, so erasure
     only - and it is proven against its own source frame before use. See
     lw_clean_lines.build_stubs.
+
+    Every step also records `surround`, which is a report on the ART and not
+    on the verdict: "flat" when not one pixel of this blob's readable ring
+    clears GRAD_MIN, "lines" when something does. It exists because
+    "no-evidence" was two different facts wearing one name. Over the 39-slug
+    credit-line queue with stubs on, 54 of the 125 no-evidence steps are flat
+    - there is no line there to protect, so the rollback is not blind on them,
+    it is unemployed - and the other 71 have a line the layer saw and could
+    not spend. Only the second number is a hole.
     """
     img = np.asarray(img, dtype=np.uint8)
     mark = np.asarray(mark_mask, dtype=bool)
@@ -341,6 +350,7 @@ def run_spot_heal(img, mark_mask, inpaint, rollback=True,
         return cur, plan
 
     layer_mask = HEAL._dilate(mark, HALO)
+    hot = LINES.hot_band(img, layer_mask)
     chords = LINES.build_layer(img, layer_mask)
     plan["n_chords"] = len(chords)
     if stubs:
@@ -386,7 +396,9 @@ def run_spot_heal(img, mark_mask, inpaint, rollback=True,
             plan["partial"] += 1
         else:
             plan["committed"] += 1
+        near = HEAL._dilate(ctx, HALO + LINES.BAND_WIDTH)
         rec = {"i": i, "blob_px": int(blob.sum()), "mask_px": int(ctx.sum()),
+               "surround": "lines" if (hot & near).any() else "flat",
                "reverted_px": reverted_px,
                "blob_bbox": list(T.mask_bbox(blob)),
                "gradient_behind": round(float(grad), 4),

@@ -365,3 +365,25 @@ def test_a_scored_row_says_which_kind_of_evidence_it_came_from():
     img, mask = _stroke(), _edge_mask()
     rec = L.score(img, mask, L.build_stubs(img, mask))
     assert [r["kind"] for r in rec["chords"]] == ["stub"]
+
+
+# ------------------------------------------------ flat band vs a blind one
+def test_hot_band_is_exactly_what_the_crossings_are_made_from():
+    """One definition of "a line enters here", shared by both readers.
+
+    A caller that wants to know whether the layer COULD have seen anything
+    must not re-invent the test with a second constant beside GRAD_MIN.
+    """
+    mask = _band()
+    assert not L.hot_band(_flat(), mask).any()
+    assert L.boundary_crossings(_flat(), mask) == []
+    img = _line_img()
+    assert L.hot_band(img, mask).any()
+    assert L.boundary_crossings(img, mask)
+
+
+def test_the_hot_band_reads_no_masked_pixel():
+    """Same trap track A found: the mark must not vote on its own surround."""
+    mask = _band()
+    img = _line_img(only_outside=mask)
+    assert not (L.hot_band(img, mask) & mask).any()

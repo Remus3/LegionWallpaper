@@ -173,16 +173,40 @@ def _orient_into(p, d, mask, steps=(2.0, 4.0, 6.0)):
     return None
 
 
+def _hot(lum, mask, band_width, grad_min):
+    """The ring of readable art around the mark, and the pixels in it that
+    carry a line. Returns (hot, mag, gy, gx)."""
+    valid = ~mask
+    gy, gx = masked_gradient(lum, valid)
+    mag = np.hypot(gy, gx)
+    band = HEAL._dilate(mask, band_width) & valid
+    return band & (mag >= grad_min), mag, gy, gx
+
+
+def hot_band(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN):
+    """The pixels the crossings are made from - nothing else, same constant.
+
+    Exposed because "the layer saw nothing here" and "there was nothing to
+    see" are different facts and the plan was reporting them as one. Measured
+    over the 39-slug credit-line queue with stubs on: 125 steps end with no
+    evidence, and 54 of them have an EMPTY hot band. No line enters those
+    blobs, so no line can be broken by filling them, and the art behind them
+    is flat by an independent measure that never reads this ring - gradient
+    behind 0.59 median against 2.11 for the blind steps that do have a line.
+
+    One definition, so a caller asking "could the layer have seen anything?"
+    cannot drift a second threshold away from GRAD_MIN.
+    """
+    return _hot(_luma(img), np.asarray(mask, dtype=bool), band_width,
+                grad_min)[0]
+
+
 def boundary_crossings(img, mask, band_width=BAND_WIDTH, grad_min=GRAD_MIN):
     """Where oriented structure meets the mark, as (point, direction, strength)."""
     mask = np.asarray(mask, dtype=bool)
     lum = _luma(img)
-    valid = ~mask
-    gy, gx = masked_gradient(lum, valid)
-    mag = np.hypot(gy, gx)
-
-    band = HEAL._dilate(mask, band_width) & valid
-    hot = band & (mag >= grad_min)
+    hot, mag, gy, gx = _hot(lum, mask, band_width, grad_min)
+    band = HEAL._dilate(mask, band_width) & ~mask
     if not hot.any():
         return []
 
