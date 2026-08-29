@@ -28,7 +28,7 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 ---
 
 133. DONE **2026-08-29 (the two cleaning lanes get a verdict each: scoped ON,
-   stubs opt-in; commits TBD).** Operator verdict, one per lane, on the two
+   stubs opt-in; f49102f, 94db5d0).** Operator verdict, one per lane, on the two
    opt-in cleaning flags. **Premise CORRECTED before deciding:** the pair run
    `run_stubs_scoped` was being read as the strongest configuration measured,
    but it was compared against a missing control - **`--scoped-revert` ALONE
