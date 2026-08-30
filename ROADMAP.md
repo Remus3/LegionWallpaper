@@ -168,13 +168,53 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   OBVIOUS overstates it. The comparable evidence is pixel measurement:
   painted-edge loss rose 1.065x under the wider mask, and invented-bright
   artifacts stayed flat at 1.00x.
-  **Two MORE coverage modes the re-run exposed, both still open:** the mask
-  truncates on the RIGHT too (`viego-the-ruined-king` stops at x577 leaving the
-  trailing `COM` fully intact; `261f` stops at x499 leaving `ART.C` untreated),
-  and it leaves HOLES mid-line (`syndra-dlsfckr` keeps `R`, `X` and a partial `D`
-  inside the covered span). `left_extent` fixed one end of a three-ended problem;
-  a right-edge measurement is the obvious next lever and the machinery already
-  exists.
+  **The two MORE coverage modes the re-run exposed were both measured
+  2026-08-30 and BOTH framings were wrong. See
+  `docs/CLEAN_CREDITLINE_EDGES_2026-08-30.md`.**
+  - **RIGHT-edge truncation is real on 4 of 39, not 2** - `viego-the-ruined-king`
+    (must reach 52px past the box), `261f` (117), `aidraw-...-watercolornessie`
+    (56) and `266f` (152, and it is the known detection failure). `syndra-dlsfckr`
+    is NOT one; its `.COM` is fully covered.
+  - **A right-edge WALK is FALSIFIED - do NOT retry it.** Five rule families,
+    60+ configurations over all 39: the `left_extent` mirror, a band-calibrated
+    walk, a walk-only ink map at lower beta, a leading-row guard, a geodesic
+    `escaped_ink` strip, and an edge-adjacency gate. No cell reaches 4 of 4
+    without moving more than half the controls, and nothing reaches 3 of 4 for
+    less than a control p90 of 57px of mask growth INTO ARTWORK. Also dead: a
+    `.COM` suffix predicate on the read text (too garbled - `105-cleanup` reads
+    `EOM OM` with a correct edge) and glyph-pitch extrapolation from the read
+    length (`261f` normalises to 18 chars for 25 glyphs). `easyocr` re-run on all
+    four returns NO read right of the box, so there is nothing discarded to
+    re-attach, and `local_ink` cannot see the tails at all (0-2 ink rows per
+    column against 100-137 in-box) because they are faint for the same reason
+    OCR dropped them. **The ends are not mirror images:** the left neighbour is
+    the `(c)` ring, ONE compact 17-34px object in the line's own leading, which
+    is why one hop describes it; the right neighbour is more of the SAME text in
+    several glyphs, and the repeated hops it needs are exactly what walks into
+    art. Reading those tails needs a text-specific measure (stroke periodicity
+    on the baseline, or a glyph model), not another threshold.
+  - **The mid-line HOLES are not a mask failure at all.** Inside the mark's own
+    measured row band the shipped mask's gaps on `syndra-dlsfckr` are median 2px,
+    **max 3px** - nothing to close - and `escaped_ink` reaches 0 px inside the
+    read box on 37 of 39 (the two exceptions are the documented band-clipped
+    pair). The `R`, `X` and partial `D` come back because the SCOPED REVERT hands
+    them back: 1048 mask pixels end byte-identical and they sit exactly on those
+    glyphs, where the corridor follows an art edge crossing the line. That is the
+    known 1.80-percent handback cost of the 2026-08-29 default; what was never
+    asked is WHERE it lands.
+  - **Shipped instead (no pixel moves):** `handed_back_px` per step and
+    `handed_back` per plan / lane record / run summary / `REVIEW.md`, sorted
+    above the repaint width. It is NOT `reverted_px` - a commit hands back
+    whatever the filler returned unchanged and `reverted_px` is 0 there by
+    definition. Queue total over the recorded 39: **18,835 px**.
+  - **Do NOT redo:** local stroke contrast at the handed-back pixels as a
+    legibility gate. It splits the queue cleanly and measures the wrong thing -
+    `259f` keeps 84.6 percent with a CLEAN output because the corridor restored
+    an art streak. Overlap with the glyph selection does not separate them either
+    (`syndra` 19.8 percent, `259f` 26.7, `akali` 48.7).
+  - **The operator's call:** refusing a corridor that hands a legible letter back
+    falls through to a WHOLE revert today (28.13 percent handed back against
+    1.80). Making refusal mean COMMIT instead is one line plus a lane re-run.
 
 - **clean-fill-damage - the fill destroys artwork because the MASK contains
   artwork; FIRST CUT SHIPPED 2026-08-30 (88e1ac7, LEDGER 139), and the remainder

@@ -204,3 +204,53 @@ def test_reopening_a_recorded_box_measures_its_left_edge_too():
     seeing = RUN.box_mask_from_plan(plan, img.shape[:2], img=img)
     assert np.nonzero(seeing)[1].min() < np.nonzero(blind)[1].min()
     assert int(seeing.sum()) > int(blind.sum())
+
+
+def test_run_one_carries_the_mark_handed_back():
+    """The heal counts it; the lane record has to carry it or nobody sees it.
+
+    A frame can pass every field the plan already reports - committed, no held
+    blob, `still_reads` empty - and still hand a legible letter back, which is
+    what `syndra-...-dlsfckr` does under the shipping default. The count lives
+    in `lw_clean_spot`; this is the wire to the sheets and the index.
+    """
+    rng = np.random.default_rng(0)
+    img = rng.integers(0, 255, (200, 300, 3), dtype=np.uint8)
+    hits = [_hit(100, 120, 180, 140)]
+
+    def keep(crop_rgb, _crop_mask_u8):
+        return crop_rgb
+
+    _out, rec = RUN.run_one(img, hits, keep)
+    assert rec["handed_back"] == rec["mask_px"], "a fill that changes nothing"
+    assert rec["handed_back"] == sum(s["handed_back_px"] for s in rec["steps"])
+
+
+def test_review_order_puts_the_frame_that_handed_most_mark_back_first():
+    """Mark returned to the frame outranks mask size in the review queue.
+
+    `still_reads` is near-blind - it fired on 2 of 39 slugs where the eye read
+    a line on 28 - and `held` misses a `partial`. Mark handed back is measured
+    per pixel and needs no reader, so it sorts ahead of the repaint width.
+    """
+    rows = [{"slug": "wide", "still_reads": [], "held": 0, "mask_px": 9000,
+             "handed_back": 0},
+            {"slug": "gave-back", "still_reads": [], "held": 0, "mask_px": 100,
+             "handed_back": 1048}]
+    assert [r["slug"] for r in RUN.review_order(rows)] == ["gave-back", "wide"]
+
+
+def test_review_order_still_works_on_a_row_from_an_older_run():
+    rows = [{"slug": "old", "still_reads": [], "held": 0, "mask_px": 5}]
+    assert [r["slug"] for r in RUN.review_order(rows)] == ["old"]
+
+
+def test_the_index_shows_the_mark_handed_back(tmp_path):
+    summary = {"n": 1, "held": 0, "still_reads": 0,
+               "rows": [{"slug": "a", "still_reads": [], "held": 0,
+                         "mask_px": 5, "handed_back": 1048,
+                         "sheet": str(tmp_path / "a_sheet.png")}]}
+    body = open(RUN.write_index(summary, str(tmp_path / "REVIEW.md")),
+                encoding="utf-8").read()
+    assert "handed back" in body.lower()
+    assert "1048" in body

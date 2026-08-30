@@ -27,6 +27,74 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+140. DONE **2026-08-30 (the right edge is falsified and the mid-line holes
+   were the revert, not the mask; docs + `handed_back` wiring).** The hand-off
+   asked to mirror `left_extent` to the RIGHT edge and close the mid-line holes.
+   Measured, **both framings were wrong.** Every number is rebuilt from the 39
+   recorded boxes against their source frames; the rebuild reproduces the
+   recorded `mask_px` on 39 of 39 at `reach=0`, which is the pre-`escaped_ink`
+   lane those outputs were made with. **Premise CORRECTED (scope):** right-edge
+   truncation is real on **4** of 39, not the 2 named - `viego-the-ruined-king`
+   (must reach 52px past the box), `261f` (117), `aidraw-...-watercolornessie`
+   (56), `266f` (152) - and `syndra-dlsfckr`, named as a right-edge case, is not
+   one at all. **The right-edge walk is FALSIFIED:** five rule families, 60+
+   configurations over all 39 (the `left_extent` mirror, band-calibrated,
+   walk-only ink at beta 1.2-1.8, a leading-row guard, a geodesic `escaped_ink`
+   strip, an edge-adjacency gate). Nothing reaches 4 of 4 without moving more
+   than half the 35 controls, and nothing reaches 3 of 4 for less than a control
+   p90 of 57px of mask growth INTO ARTWORK, on the lane whose other open defect
+   is that the fill destroys artwork. Two facts close it: `easyocr` re-run on all
+   four truncated frames with both enhancements, BEFORE `looks_like_credit`
+   filters anything, returns exactly one line each and **not one read** right of
+   the box, so there is no discarded `COM` to re-attach; and `local_ink` cannot
+   see the tails (0-2 ink rows per column past x1 against 100-137 in-box) because
+   they are faint for the same reason OCR dropped them. **Why the ends are not
+   mirrors** (the load-bearing point): the left neighbour is the `(c)` ring, ONE
+   compact 17-34px object alone in the line's leading, which `LEFT_HOPS = 1`
+   describes exactly; the right neighbour is more of the SAME text arriving as
+   several glyphs, and the repeated hops needed to reach it are precisely the
+   freedom that steps into art. **Premise CORRECTED (holes):** the mask does NOT
+   leave them. Inside the mark's own measured row band the shipped mask's gaps on
+   `syndra-dlsfckr` are median 2px / max 3px over 29 runs, and the LEDGER 139
+   escape promise re-verified on HEAD holds at 0 px inside the read box on 37 of
+   39 (exceptions the documented band-clipped `281-cleanup` 107px and
+   `akali-godly-deer` 615px). The `R`, `X` and partial `D` come back because the
+   SCOPED REVERT hands them back - 1048 mask pixels end byte-identical to the
+   source and, rendered, sit exactly on those two glyphs, where the 4px corridor
+   follows an art edge crossing the line. That is the known, operator-ratified
+   1.80-percent handback of the 2026-08-29 default; nobody had asked WHERE it
+   lands. **Shipped, and it moves no pixel:** `handed_back_px` per step and
+   `handed_back` per plan, lane record, run summary and `REVIEW.md`, sorted above
+   the repaint width and below `held` - mask pixels a step left BYTE-IDENTICAL to
+   the frame it started from, which is the mark returned to the frame and what
+   the zero-residue bar is about. It is NOT `reverted_px`: a COMMIT hands back
+   whatever the filler returned unchanged while `reverted_px` is 0 there by
+   definition, and `syndra-dlsfckr` reported `partial ... reverted_px=967` and
+   looked clean. Queue total over the recorded 39: **18,835 px**. It is a report,
+   deliberately not a verdict - the docstring says so. **FALSIFIED and recorded
+   so nobody retries them:** a `.COM` suffix predicate on the read text (too
+   garbled - `105-cleanup` reads `EOM OM`, `245f` `AT.COP`, `281-cleanup` `CTM`,
+   `aatrox` `cpM`, all with correct right edges); glyph-pitch extrapolation from
+   the read length (`261f` normalises to 18 characters for 25 true glyphs); and
+   local stroke contrast at the handed-back pixels as a LEGIBILITY gate - it
+   splits the queue 72-104 percent against 3-60 percent and measures the wrong
+   thing, because `259f` keeps 84.6 percent with a clean output where the
+   corridor restored an art streak, and glyph-selection overlap does not separate
+   them either (`syndra` 19.8 percent, `259f` 26.7, `akali` 48.7). So the
+   ROADMAP's standing point holds: a ship gate here still needs a legibility
+   measure. **Verified:** 8 tests, all four written RED first and observed
+   failing on `KeyError`; suite **2408 passed / 18 skipped, exit 0** on a fresh
+   full run (128s, nothing deselected) against a 2400/18 baseline plus the 8 new;
+   ruff clean repo-wide; `drift_guard` 0 breaches. **No backfill needed and that
+   is a decision, not an oversight:** the field was absent, never wrong, and
+   `review_order` is pinned by a test to sort a row written before it existed;
+   the 39 recorded plans are stale for an unrelated recorded reason (they predate
+   `88e1ac7`), so what they need is a re-run, not a field patch. **The operator's
+   call:** refusing a corridor that hands a legible letter back falls through to
+   a WHOLE revert today (28.13 percent against 1.80); making refusal mean COMMIT
+   is one line plus a lane re-run. Detail:
+   `docs/CLEAN_CREDITLINE_EDGES_2026-08-30.md`.
+
 139. DONE **2026-08-30 (the fill was destroying artwork because the MASK
    contained artwork; 88e1ac7, and the queue re-run 47903a2 that exposed it).**
    After the ring fix, a flag-only vision pass over the re-run called collateral

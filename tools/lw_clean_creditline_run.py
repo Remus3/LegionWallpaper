@@ -73,7 +73,7 @@ def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
     img = np.asarray(img, dtype=np.uint8)
     rec = {"box": None, "box_px": 0, "mask_px": 0, "blobs": 0,
            "committed": 0, "held": 0, "partial": 0, "n_chords": 0,
-           "status": "no-hit",
+           "handed_back": 0, "status": "no-hit",
            "steps": []}
     box = np.zeros(img.shape[:2], dtype=bool)
     if hits:
@@ -99,7 +99,7 @@ def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
     out, plan = SPOT.run_spot_heal(img, mask, inpaint, rollback=rollback,
                                    log=log, scoped=scoped, stubs=stubs)
     for key in ("blobs", "committed", "held", "partial", "n_chords", "n_stubs",
-                "status", "steps"):
+                "handed_back", "status", "steps"):
         rec[key] = plan[key]
     return out, rec
 
@@ -136,13 +136,21 @@ def box_mask_from_plan(plan, shape, pad=CL.PAD, band=CL.BAND, img=None):
 
 
 def review_order(rows):
-    """Worst first: still reading, then held blobs, then the widest repaint.
+    """Worst first: still reading, held blobs, mark handed back, widest repaint.
 
     The operator looks at sheets in the order most likely to find a failure,
     because the bar is zero residue and a single bad frame settles the lane.
+
+    Mark handed back sits above the repaint width because it is measured and
+    the two fields above it are not enough on their own: `still_reads` is
+    near-blind (it fired on 2 of 39 slugs where the eye read a line on 28), and
+    `held` counts whole reverts, so a `partial` that gave two letters back
+    reads as a clean frame. Rows written before the field existed sort as 0,
+    which is their old position.
     """
     return sorted(rows, key=lambda r: (-len(r.get("still_reads") or []),
                                        -int(r.get("held") or 0),
+                                       -int(r.get("handed_back") or 0),
                                        -int(r.get("mask_px") or 0),
                                        str(r.get("slug"))))
 
@@ -156,13 +164,16 @@ def write_index(summary, path):
            f"{summary.get('still_reads', 0)} still reading a credit line.", "",
            "Acceptance is the eye on the 1:1 crop: ghost, banding and faint all",
            "FAIL. `still_reads` is diagnostic - a read afterwards proves failure,",
-           "silence proves nothing.", "",
-           "| # | slug | held | reads again | mask px | sheet |",
-           "|---|------|------|-------------|---------|-------|"]
+           "silence proves nothing. `handed back` is mask pixels left",
+           "byte-identical to the untouched frame - the mark returned to the",
+           "frame - and it is measured, not read.", "",
+           "| # | slug | held | reads again | handed back | mask px | sheet |",
+           "|---|------|------|-------------|-------------|---------|-------|"]
     for i, r in enumerate(rows, 1):
         sheet = os.path.basename(str(r.get("sheet") or ""))
         out.append(f"| {i} | {r.get('slug')} | {r.get('held')} | "
-                   f"{len(r.get('still_reads') or [])} | {r.get('mask_px')} | "
+                   f"{len(r.get('still_reads') or [])} | "
+                   f"{int(r.get('handed_back') or 0)} | {r.get('mask_px')} | "
                    f"[{sheet}]({sheet}) |")
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     tmp = path + ".part"
@@ -279,20 +290,22 @@ def main(argv=None):
         _write_json(rec, os.path.join(args.out, f"{slug}_plan.json"))
         rows.append({k: v for k, v in rec.items() if k != "steps"})
         print(f"{slug}: blobs={rec['blobs']} held={rec['held']} "
-              f"mask={rec['mask_px']}px still_reads={len(after)} "
-              f"{rec['seconds']}s")
+              f"mask={rec['mask_px']}px back={rec['handed_back']}px "
+              f"still_reads={len(after)} {rec['seconds']}s")
         if args.limit and len(rows) >= args.limit:
             break
 
     summary = {"scratch": args.scratch, "n": len(rows),
                "held": sum(1 for r in rows if r["held"]),
                "still_reads": sum(1 for r in rows if r["still_reads"]),
+               "handed_back": sum(int(r.get("handed_back") or 0) for r in rows),
                "rows": rows}
     print("\nwrote " + _write_json(summary, os.path.join(args.out,
                                                         "run_summary.json")))
     print("wrote " + write_index(summary, os.path.join(args.out, "REVIEW.md")))
     print(f"{summary['n']} slugs cleaned, {summary['held']} with a held blob, "
-          f"{summary['still_reads']} still reading a credit line")
+          f"{summary['still_reads']} still reading a credit line, "
+          f"{summary['handed_back']}px of mark handed back")
     return 0
 
 

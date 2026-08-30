@@ -350,12 +350,29 @@ def run_spot_heal(img, mark_mask, inpaint, rollback=True,
     - there is no line there to protect, so the rollback is not blind on them,
     it is unemployed - and the other 71 have a line the layer saw and could
     not spend. Only the second number is a hole.
+
+    Every step also records `handed_back_px`, and the plan totals it: mask
+    pixels this step left BYTE-IDENTICAL to the frame it started from. That is
+    the mark returned to the frame, which is the quantity the zero-residue bar
+    is about, and until now no consumer of the plan could see it. It is NOT
+    `reverted_px`, which counts the corridor a scoped revert restored:
+    - a COMMIT hands back whatever the filler returned unchanged, and
+      `reverted_px` is 0 on every committed step by definition;
+    - a PARTIAL hands back the corridor AND anything else the fill did not
+      move, and the corridor lands on the mark's own glyphs - measured on the
+      39-slug credit-line queue, `syndra-...-dlsfckr` returns 1048 px sitting
+      exactly on the `R` and the `X`, the two letters its output still reads,
+      while the step reported `partial ... reverted_px=967` and looked fine.
+    Recording it changes no pixel. It is a report, deliberately not a verdict:
+    what to DO about a corridor that saves an art line by handing a legible
+    letter back is an operator trade (art line against zero residue) and it
+    needs a legibility measure, which nothing here has yet.
     """
     img = np.asarray(img, dtype=np.uint8)
     mark = np.asarray(mark_mask, dtype=bool)
     cur = img.copy()
     plan = {"blobs": 0, "committed": 0, "held": 0, "partial": 0, "n_chords": 0,
-            "n_stubs": 0, "steps": [], "status": "clean"}
+            "n_stubs": 0, "handed_back": 0, "steps": [], "status": "clean"}
     if not mark.any():
         return cur, plan
 
@@ -406,10 +423,12 @@ def run_spot_heal(img, mark_mask, inpaint, rollback=True,
             plan["partial"] += 1
         else:
             plan["committed"] += 1
+        handed = int((ctx & (cur == before).all(axis=2)).sum())
+        plan["handed_back"] += handed
         near = HEAL._dilate(ctx, HALO + LINES.BAND_WIDTH)
         rec = {"i": i, "blob_px": int(blob.sum()), "mask_px": int(ctx.sum()),
                "surround": "lines" if (hot & near).any() else "flat",
-               "reverted_px": reverted_px,
+               "reverted_px": reverted_px, "handed_back_px": handed,
                "blob_bbox": list(T.mask_bbox(blob)),
                "gradient_behind": round(float(grad), 4),
                "target_area": round(float(target), 1),

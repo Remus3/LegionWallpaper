@@ -587,3 +587,62 @@ def test_an_evidenced_step_reports_its_band_too():
     _out, plan = S.run_spot_heal(img, mark, _erase, stubs=True)
     assert plan["steps"][0]["reason"] != "no-evidence"
     assert plan["steps"][0]["surround"] == "lines"
+
+
+# ------------------------------------------------- the mark handed back
+
+def test_a_step_records_the_mark_it_handed_back():
+    """`reverted_px` counts the corridor; it does not count the MARK returned.
+
+    Measured on the 39-slug credit-line queue under the shipping default: the
+    scoped corridor lands on the credit line's own glyphs. On
+    `syndra-...-dlsfckr` 1048 mask pixels come back byte-identical and they sit
+    exactly on the `R` and the `X`, which are the two letters the output still
+    reads. The step reported `partial ... reverted_px=967` and nothing in the
+    plan said any mark had survived, so a zero-residue failure was invisible to
+    every consumer of the plan.
+    """
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    marked = _marked(truth, mark)
+    out, plan = S.run_spot_heal(marked, mark, _erase, scoped=True)
+    step = plan["steps"][0]
+    assert step["action"] == "partial"
+    back = (out == marked).all(axis=2) & _blob(truth.shape, 40, 52, 10, 120)
+    assert step["handed_back_px"] == int(back.sum())
+    assert 0 < step["handed_back_px"] < step["mask_px"]
+
+
+def test_a_committed_step_records_the_mark_the_fill_left_untouched():
+    """A commit can hand mark back too, and that was never counted.
+
+    `reverted_px` is 0 on every committed step by definition, so a fill that
+    returns its input unchanged - or returns one stretch of it unchanged -
+    reads as a clean commit in the plan while the mark is still on the frame.
+    """
+    truth = _art(line=False)
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    marked = _marked(truth, mark)
+    out, plan = S.run_spot_heal(marked, mark, _keep)
+    step = plan["steps"][0]
+    assert step["action"] == "commit"
+    assert step["reverted_px"] == 0
+    assert step["handed_back_px"] == step["mask_px"]
+    assert np.array_equal(out, marked)
+
+
+def test_the_plan_totals_the_mark_handed_back():
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    _out, plan = S.run_spot_heal(_marked(truth, mark), mark, _erase)
+    assert plan["handed_back"] == sum(s["handed_back_px"] for s in plan["steps"])
+    assert plan["handed_back"] > 0
+
+
+def test_a_whole_revert_hands_back_the_whole_blob():
+    truth = _art()
+    mark = _blob(truth.shape, 40, 52, 10, 120)
+    _out, plan = S.run_spot_heal(_marked(truth, mark), mark, _erase, scoped=False)
+    step = plan["steps"][0]
+    assert step["action"] == "revert"
+    assert step["handed_back_px"] == step["mask_px"]

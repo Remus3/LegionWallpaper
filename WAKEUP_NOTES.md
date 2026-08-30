@@ -11,7 +11,53 @@
 
 ---
 
-## 2026-08-30 - the ring, then the damage under it
+## 2026-08-30 (second session) - both framings were wrong
+
+One commit plus this doc sync. Suite **2408 passed / 18 skipped, exit 0** on a
+fresh full run (128s, nothing deselected); baseline was 2400/18 and I added 8
+tests. ruff clean repo-wide, drift_guard 0 breaches. Detail:
+`docs/CLEAN_CREDITLINE_EDGES_2026-08-30.md`, LEDGER 140.
+
+- **Built the rebuild harness first and it is exact:** every one of the 39
+  recorded masks reproduces from its recorded box at `reach=0`, 39 of 39. That
+  is the pre-`escaped_ink` lane, so the recorded outputs are stale by one fix -
+  worth knowing before reading any of them.
+- **The right edge truncates on 4 of 39, not 2.** viego-the-ruined-king (52px
+  short), 261f (117), aidraw-...-watercolornessie (56), 266f (152). And
+  `syndra-dlsfckr`, named in the hand-off as a right-edge case, is NOT one - its
+  `.COM` is fully covered.
+- **The right-edge WALK is FALSIFIED. Do not retry it.** Five rule families,
+  60+ configurations: the `left_extent` mirror, band-calibrated, walk-only ink at
+  lower beta, a leading-row guard, a geodesic `escaped_ink` strip, an
+  edge-adjacency gate. Nothing reaches 4 of 4 without moving over half the 35
+  controls; nothing reaches 3 of 4 for under a control p90 of 57px of mask growth
+  into artwork. `easyocr` re-run before any filtering returns NO read right of
+  the box on any of the four, and `local_ink` cannot see the tails at all.
+  **The ends are not mirrors:** left is the `(c)` ring, one compact object in the
+  leading; right is more of the same text in several glyphs, and the hops needed
+  to cross them are exactly what walks into art.
+- **The mid-line holes are the REVERT, not the mask.** Inside the mark's own row
+  band the shipped mask's gaps on syndra are max 3px, and `escaped_ink` reaches
+  0px inside the read box on 37 of 39. The `R` and `X` come back because the
+  scoped corridor hands back 1048 byte-identical pixels that sit exactly on those
+  glyphs. Known 1.80-percent handback; nobody had asked WHERE it lands.
+- **Shipped, moving no pixel:** `handed_back_px` per step and `handed_back` per
+  plan / lane record / summary / REVIEW.md, sorted above repaint width. Not the
+  same as `reverted_px` - a commit hands back whatever the filler returned
+  unchanged and `reverted_px` is 0 there. Queue total 18,835 px.
+- **Also falsified, recorded:** a `.COM` suffix predicate on the read text; glyph
+  pitch from the read length; and stroke contrast at the handed-back pixels as a
+  legibility gate (259f keeps 84.6 percent with a CLEAN output - the corridor
+  restored an art streak, not a mark).
+- **NEXT is an operator call, then a re-run.** Refusing a corridor that hands a
+  legible letter back falls through to a WHOLE revert today (28.13 percent
+  against 1.80); making refusal mean COMMIT is one line plus a lane re-run. And
+  the queue has still never been run under the shipping default - the 39 outputs
+  predate `88e1ac7`.
+
+---
+
+## 2026-08-30 (first session) - the ring, then the damage under it
 
 Five commits: 3c4e704, a469624, 47903a2, c8eb152, 88e1ac7, plus this doc sync.
 Suite 2400 passed / 18 skipped, exit 0, nothing deselected. ruff clean,
