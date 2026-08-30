@@ -138,6 +138,30 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   including both clear calls, but the other 34 are single-agent observations and
   are a priority ordering for the eye, not evidence. Disposition remains the
   operator's.
+  **The `(c)` ring case is FIXED 2026-08-30 (47903a2) - see LEDGER 138.** The
+  mask's left edge was `box_x0 - PAD` and the mark's true left extent is not a
+  constant (20-21px on small type, 35px on large, 43-44px at scale 1.2, 76-96px
+  where OCR also drops leading letters), so ring ink lay outside the mask on 22
+  of 39 - not the 10 the eye counted. `left_extent()` now MEASURES that edge, and
+  a second separable cause is fixed too: `glyph_mask`'s box-global p88 was set by
+  the brightest thing in the box, so an art highlight dropped the overlay's own
+  strokes (soraka kept 9 percent of its ring with the box fully covering it).
+  Ring ink outside the mask 6923 -> 1871 px, 17 slugs to zero, 0 worse, box px
+  median 1.044x. **The queue's 39 outputs predate the fix and need a re-run
+  before the disposition above means anything.**
+  **Do NOT redo:** the achromatic gate (105's ridge sits at saturation 5-8 and
+  270f's ring at 9-21 - it removes the mark before the artwork), `median + k*MAD`
+  for the glyph threshold (the failing slugs have BROAD box distributions and the
+  healthy controls narrow ones, so it bites the wrong slugs), keying the ink
+  floor off the in-box glyph median (0.3x no-op, 0.7x costs four slugs), or an
+  unbounded leftward walk (it CHAINS across artwork - 270f reached x=907 with its
+  mark starting at 981).
+  **STILL OPEN - the dropped-letter class.** syndra-dlsfcue is 62px short and
+  blood-moon 61px because easyocr swallowed `SMALL` / `AIAI` outright. No hop
+  count serves both classes (unlimited hops still left them 9px and 39px short
+  while paying 67px of over-reach elsewhere), so this wants its own rule - most
+  likely a right-to-left continuation keyed on the mark's own baseline rather
+  than on run termination.
 
 - **clean-chord-coverage - DONE 2026-08-29, and the lever the name implies was
   falsified on the way (d9861e9, 0184089, 30e98cd).** The rollback could only

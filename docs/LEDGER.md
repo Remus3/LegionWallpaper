@@ -27,6 +27,77 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+138. DONE **2026-08-30 (the (c) ring case: measure where the credit line
+   starts instead of assuming it; 47903a2).** The ring survived the clean on
+   most of the queue. **Root cause, verified independently before any code:**
+   the mask's left edge was `box_x0 - PAD` and nothing else
+   (`mask_from_hits`), and the mark's true left extent is NOT a constant -
+   20-21px behind the read box on small type (ring 17px, gap 3-4), which is why
+   `PAD = 20` looked fine and six slugs clean correctly; 35px on large type
+   (ring 28px, gap 8); 43-44px at scale 1.2; and 76-96px where easyocr ALSO
+   drops leading letters (124f reads `TAVERIUM DEVIANTART COM` for
+   SMALLTAVERN..., blood-moon reads `NIDA` for AIAIDA), which no pad rule can
+   predict. **Scope was an undercount:** ring ink lay outside the mask on 22 of
+   39 slugs, not the 10 the eye counted. **Partial coverage buys nothing** - the
+   fill regenerates the masked arc from the unmasked arc beside it, so 270f kept
+   80 percent of its in-mask ring contrast (|hp| 19.02 -> 15.28) and still read
+   as a complete ring. **TWO separable root causes, both fixed:** (1)
+   `left_extent()` walks left from the read box, crossing up to `LEFT_GAP`
+   columns of no mark-like ink to reach the next run that has it, taking that
+   run only if it ENDS before the cap - a run still going at the cap is artwork
+   and is REFUSED rather than truncated, which is the load-bearing part (270f's
+   ring is 26 columns then nothing; 105-cleanup's mountain ridge runs unbroken
+   past 90px and a truncating rule would drag that control's mask 120px across
+   the art); (2) `local_ink()` unioned into `glyph_mask()`, because
+   `percentile(hp[box], 88)` is set by whatever is brightest anywhere in the box,
+   so one art highlight raised the bar over the overlay's own strokes - soraka
+   kept 9 percent of its ring with the box FULLY covering it, akali 1 percent,
+   bayonetta-dm7iirw 1 percent. Unioned, never intersected, so no currently-kept
+   pixel is lost. **`LEFT_HOPS = 1` after a 1/2/3/unlimited sweep:** unlimited
+   CHAINS - 270f walked to x=907 when its mark starts at 981, putting 74px of
+   artwork in the mask on a frame already flagged for collateral damage (caught
+   by the merging session measuring the shipped module, not by the build's own
+   control check, because the controls are where chaining happens least).
+   `LEFT_STUB = 10` because on four slugs (281-cleanup, 286f, 221-cleanup,
+   queen-of-the-saltwind) the first run out of the box is a 5-7px speck and the
+   logo is the SECOND run; a run narrower than the smallest measured logo (17px)
+   is taken without spending the hop. **Operator-ratified trade:** `STUB = 0` is
+   the stricter column (over-reach capped at 15px) but leaves 652px of ring ink
+   standing, which fails the zero-residue bar the fix exists to serve; both
+   columns are documented at the constant. **FALSIFIED, recorded in the
+   docstrings so nobody retries them:** the achromatic gate (105's ridge sits at
+   saturation 5-8 and 270f's ring at 9-21 - it removes the MARK before the
+   artwork, the opposite of its premise), `median + k*MAD` for the threshold (the
+   three failing slugs have BROAD box distributions and the healthy controls
+   NARROW ones, so a robust ceiling bites exactly the wrong slugs), and keying
+   the ink floor off the in-box glyph median (0.3x a no-op, 0.7x costs four
+   slugs). **Wiring, found because the fix was otherwise inert:** `run_one`
+   passed no image to `mask_from_hits`, so none of this reached the production
+   lane; two sibling call sites were equally blind - `box_mask_from_plan`, where
+   round two would have rebuilt the old narrow edge and brought the mark back on
+   exactly the half-cleaned frames a second round exists for, and
+   `lw_clean_creditline_census.py:106`, which produces the 11.562 / 15.454 anchor
+   numbers and would have been reporting on a mask the lane no longer ships.
+   `mask_from_hits` keeps `img=None` meaning old behaviour, so every caller
+   without pixels is unchanged. **Measured on the shipped module, all 39:** ring
+   ink outside the mask 6923 -> 1871 px (73 percent removed), 17 slugs to zero, 4
+   reduced, 7 unchanged, 0 worse; over-reach past the registered mark start
+   median 1px / p90 8px, and on credible locates (ncc >= 0.6) max 5px with zero
+   slugs past 20px; box px ratio median 1.044 / p90 1.062 / max 1.095. Controls
+   move 12-22px and keep ring-out at 0 (105 +16, 107 +19, 123f +22,
+   syndra-dlsfckr +12, bayonetta-dm7iiug +22, viego-ruined +17), independently
+   re-measured by the merging session. **NOT fixed, stated rather than hidden:**
+   the dropped-letter class - syndra-dlsfcue is 62px short and blood-moon 61px,
+   and NO hop count serves both classes (even unlimited left them 9px and 39px
+   short while paying 67px of over-reach elsewhere). That wants its own rule.
+   **No backfill needed, as a determination not an oversight:** none of the 39
+   queue slugs are in `4.Cleaning Done` (the queue was never dispositioned) and
+   this lane only ever ran on those 39, so the bug corrupted no promoted image;
+   the 486 recent APPROVE_CLEAN entries came from the gate-driven 566
+   disposition, a different path. Suite 2395 passed / 18 skipped, exit 0,
+   observed on main AFTER the merge; ruff clean; 16 new tests, each failing
+   first for its stated reason.
+
 137. DONE **2026-08-29 (all 39 credit-line sheets looked at, flag-only; the
    reader is near-blind by an order of magnitude).** The queue's 39 sheets under
    the shipping default (`--scoped-revert` ON, `--stubs` off) had never been in
