@@ -119,6 +119,25 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   reasoning for each: `docs/CLEAN_CREDITLINE_QUEUE_2026-08-22.md`.
   **Chord COVERAGE is DONE 2026-08-29 (d9861e9, 0184089, 30e98cd) - see
   `clean-chord-coverage` below.**
+  **All 39 sheets have now been LOOKED at, flag-only, 2026-08-29: 37 flagged, 2
+  clear.** Ranked shortlist at `ops/runtime/clean/creditline/run_scoped/TRIAGE.md`
+  (gitignored, sits with the sheets); finding at
+  `docs/CLEAN_CREDITLINE_TRIAGE_2026-08-29.md`. **The reader is near-blind by an
+  order of magnitude: `still_reads` fires on 2 slugs, the eye reads a line on 28,
+  so 26 reader-silent slugs still read as text at 1:1** - the known one-step bias
+  is not a one-step bias, it is most of the queue. **A second failure mode the
+  credit-line reader never watched: 17 slugs carry OBVIOUS collateral damage**
+  (painted line cut where the mask crossed, flattened blocky patch, deformed
+  silhouette), independent of residue - 105-cleanup and 123f are residue NONE with
+  damage OBVIOUS. The two unflagged are `ashe-...-dlzcque-fullview` and
+  `bayonetta-...-dm7iiug-pre`. Named patterns to aim at: the `(c)` ring glyph
+  survives intact on at least 10 slugs while the letters after it clear; the mask
+  starts inboard of the mark on 124f and syndra-dlsfcue (`SMAL` left standing);
+  266f still erases the poster's own gold tagline. **This is a FLAG, not a
+  verdict** (ADR-008) - 5 of the 39 were independently re-read and all 5 agreed,
+  including both clear calls, but the other 34 are single-agent observations and
+  are a priority ordering for the eye, not evidence. Disposition remains the
+  operator's.
 
 - **clean-chord-coverage - DONE 2026-08-29, and the lever the name implies was
   falsified on the way (d9861e9, 0184089, 30e98cd).** The rollback could only

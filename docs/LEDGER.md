@@ -27,6 +27,58 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+137. DONE **2026-08-29 (all 39 credit-line sheets looked at, flag-only; the
+   reader is near-blind by an order of magnitude).** The queue's 39 sheets under
+   the shipping default (`--scoped-revert` ON, `--stubs` off) had never been in
+   front of an eye. Five read-only agents took 8 sheets apiece against one rubric
+   (locate the mark in the untouched panel, check those same positions in the
+   cleaned panel, then scan the whole cleaned panel for collateral damage),
+   returning per-slug `residue` NONE/TRACE/GHOST/LEGIBLE, `damage`
+   NONE/MINOR/OBVIOUS, a confidence and one line of what was seen and where;
+   merged against the measured facts already in `run_summary.json` into a ranked
+   `TRIAGE.md` beside the sheets (gitignored runtime). **Result: 37 of 39
+   flagged, 2 clear** (`ashe-...-dlzcque-fullview`,
+   `bayonetta-...-dm7iiug-pre`); residue LEGIBLE 28 / GHOST 7 / NONE 4; damage
+   OBVIOUS 17 / MINOR 16 / NONE 6; 21 slugs carrying `status: clean` in
+   `run_summary.json` are flagged. **The headline: the OCR reader finds a
+   surviving line on 2 slugs and the eye reads one on 28, so 26 reader-silent
+   slugs still read as text at 1:1.** Direction was already known and written
+   down - ROADMAP said reader-quiet overstates removal by about one step, and
+   `REVIEW.md` said a read proves failure while silence proves nothing - so the
+   NEW fact is magnitude: it is not a one-step bias on a few slugs, it is most of
+   the queue. **Second failure mode the credit-line reader never watched at all:
+   17 slugs carry OBVIOUS collateral damage** (a painted line cut where the mask
+   crossed it, a flattened blocky patch, a deformed silhouette), independent of
+   residue - `105-cleanup` and `123f` both come back residue NONE with damage
+   OBVIOUS, so a perfect removal score says nothing about whether the art
+   survived. Patterns named for whoever fixes them: the `(c)` ring glyph is left
+   fully intact on at least 10 slugs while the letters after it clear (it is a
+   compact isolated glyph, not a stroke in a word); the mask starts INBOARD of
+   the mark on `124f` and `syndra-...-dlsfcue-pre`, both leaving a readable
+   `SMAL` at the left edge; `266f` still erases the poster's own gold
+   `PRECISION IS PERFECTION` down to three orphan strokes under the shipping
+   default; and thin bright structure (hair strands, feather ribs, ember sparks,
+   a crescent horn's outline) is the fill's consistent casualty.
+   **VERIFICATION, stated exactly:** 5 of the 39 were independently re-read by
+   the merging session - `269f` (the full `(c) PEBANO1.DEVIANTART.COM` still
+   reads), `124f` (`SMAL` at the left edge), `xayah` (embossed line across the
+   full width), and BOTH consequential clear calls `ashe` and
+   `bayonetta-dm7iiug` (confirmed clean, no letterforms, gradients continuous).
+   All 5 agreed with the agent that reported them. **The other 34 are
+   single-agent observations and are NOT independently confirmed** - they are a
+   priority ordering for the operator's eye, not evidence, and the doc says so.
+   **AUTHORITY: this is a FLAG and never a verdict (ADR-008).** No slug was
+   approved or rejected, nothing moved in the pipeline, no file under `images\`
+   was touched, and no settled lane ruling is reopened - `--scoped-revert` stays
+   ON and `--stubs` stays opt-in (ADR-009 / LEDGER 133), since nothing here was
+   measured against an alternative configuration. It is a census of the shipping
+   default's output. Disposition remains the operator's, against the
+   zero-residue bar. Finding:
+   `docs/CLEAN_CREDITLINE_TRIAGE_2026-08-29.md`; ranked shortlist:
+   `ops/runtime/clean/creditline/run_scoped/TRIAGE.md`. Suite untouched by this
+   item (no production code changed); the 2379/18 green from earlier in the
+   session still stands.
+
 136. DONE **2026-08-29 (mask-excluded G1 FR for a cleaning candidate, and the
    tautology guard it needs; d13cdfc).** G1's FR compares a cleaning candidate
    against its `_cleaninitial`, which still carries the mark, so a successful
