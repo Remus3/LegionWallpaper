@@ -156,7 +156,55 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   floor off the in-box glyph median (0.3x no-op, 0.7x costs four slugs), or an
   unbounded leftward walk (it CHAINS across artwork - 270f reached x=907 with its
   mark starting at 981).
-  **STILL OPEN - the dropped-letter class.** syndra-dlsfcue is 62px short and
+  **The queue WAS re-run under the fix (run_ringfix, 39 slugs, exit 0) and all
+  39 sheets re-triaged 2026-08-30.** Ring GONE on 28, FAINT 3, INTACT 3 (the
+  three are aatrox plus the two dropped-letter slugs, exactly where the fix said
+  it would not reach), no ring in crop 5. Residue LEGIBLE 28 -> 19, NONE 4 -> 8.
+  Reader held/still-reads both went to 0. **Only ONE slug is unflagged outright:
+  `107-cleanup`.** Sheets: `ops/runtime/clean/creditline/run_ringfix/`.
+  **CAUTION on the damage counts: the two triages are NOT comparable on damage** -
+  the rubric changed between them (a ring field was added and damage scanning
+  emphasised) and different agents rated each, so the vision reading of 17 -> 27
+  OBVIOUS overstates it. The comparable evidence is pixel measurement:
+  painted-edge loss rose 1.065x under the wider mask, and invented-bright
+  artifacts stayed flat at 1.00x.
+  **Two MORE coverage modes the re-run exposed, both still open:** the mask
+  truncates on the RIGHT too (`viego-the-ruined-king` stops at x577 leaving the
+  trailing `COM` fully intact; `261f` stops at x499 leaving `ART.C` untreated),
+  and it leaves HOLES mid-line (`syndra-dlsfckr` keeps `R`, `X` and a partial `D`
+  inside the covered span). `left_extent` fixed one end of a three-ended problem;
+  a right-edge measurement is the obvious next lever and the machinery already
+  exists.
+
+- **clean-fill-damage - the fill destroys artwork because the MASK contains
+  artwork; FIRST CUT SHIPPED 2026-08-30 (88e1ac7, LEDGER 139), and the remainder
+  is an operator trade.** Measured over the 39-slug queue: the outside-mask
+  identity guarantee is INTACT (0 changed px outside), 75.2 percent of every
+  strong source edge inside a mask is destroyed, and **75.7 percent of flattened
+  px belong to structures with a limb 6+ px OUTSIDE the mask** - artwork passing
+  through. Thin bright ridges die at 89.2 percent. `escaped_ink()` now follows
+  ink back in from outside the read region and subtracts it: mask -13.2 percent,
+  strong edges in mask -17.0, ridges -16.7, with ZERO registered logo ink lost
+  and operator-brush ground truth at 99.3 / 94.7 percent.
+  **Do NOT redo:** whole-structure containment ratio (it eats the entire (c)
+  glyph on bayonetta-dm7iiug, where glyph and art merge into one 700px structure
+  at 337 in / 340 out - no ratio separates them - and costs 10 percent of the
+  operator's brush ink); morphological separation first (erosion fragments ink
+  into contained pieces, near no-op); a hybrid ratio-plus-reach (identical to
+  reach alone); ring registration below ncc ~0.5 as a mark anchor (it lands on
+  artwork); and "revert more" - reverting worst-first buys 80 percent of the art
+  for 72 percent of the mark, barely off the diagonal, with NO knee at any slug.
+  **The named open trade:** only 17 percent of the art damage is removable
+  without measured mark loss. `LIMB_REACH` 32 reaches 24 percent with still no
+  measured loss; the first mark loss is at 36. The rest of the damage is art
+  running THROUGH the OCR-verified box, and reaching it means overruling the only
+  evidence the module has. Raising the constant is one number plus the test that
+  pins it - an operator call, not an engineering one.
+  **Also open:** `266f` masks the poster's OWN gold typography with zero credit
+  line in that region (5.7 percent of queue damage) - a detection failure, not a
+  fill failure.
+
+- **STILL OPEN - the dropped-letter class.** syndra-dlsfcue is 62px short and
   blood-moon 61px because easyocr swallowed `SMALL` / `AIAI` outright. No hop
   count serves both classes (unlimited hops still left them 9px and 39px short
   while paying 67px of over-reach elsewhere), so this wants its own rule - most

@@ -373,6 +373,43 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-08-29 (second session) - the blind remainder, split and spent
+
+Five commits: dac7872, cb1475f, 827e688, d37be63, d61e382. Suite 2323/18, ruff
+clean, drift_guard 0 breaches, CI green.
+
+- **"116 blind" was a forecast. The run leaves 125, and they are TWO facts.**
+  54 steps (25,618 px) have no ring pixel clearing GRAD_MIN - flat art, agreed
+  by `gradient_behind` 0.59 vs 2.11, a measure that never reads the ring. No
+  line to lose, so the rollback there is unemployed, not blind. `hot_band()` +
+  a `surround` flat/lines field name it; no verdict moves.
+- **`STUB_REACH` 6 -> 10 shipped.** Self-check survival identical (91.6
+  percent), no-evidence 125 -> 119, held/committed unchanged, still_reads 13
+  with no slug moving, 105-cleanup 11.562 byte-identical.
+- **`STUB_LEN` swept and CLOSED - 12px WINS.** Longer rays break their own
+  straight-line assumption and the self-check drops them. Do not redo.
+- **The 65 remaining decomposed:** 36 no expectation obtainable, 15 mixed, 11
+  where the line enters the letter next door, 3 with no cluster. MAX_CROSSINGS
+  and the structure tensor drop NOTHING (measured, was asserted).
+- **Two levers killed:** a derived expectation from crossing strength (within
+  25 percent only 46.8 percent of the time) and reach 20 (its whole effect is
+  531 px of line put back, 334 on the frame the operator called nearly
+  perfect). Both refused on evidence.
+- **BIGGEST RESULT, unlooked-at: `--stubs --scoped-revert` together** (never run
+  as a pair before): held 37 -> 2, partial 0 -> 33, pixels given back 283,190 ->
+  25,553, reads 13 -> 2, 105 unchanged. NOT proof - ahri was reader-silent with
+  the mark standing and READS once the fill landed. Sheets:
+  `ops/runtime/clean/creditline/run_stubs_scoped/REVIEW.md`.
+- **NEXT: the operator's eye on that pair**, then whether `stubs` + `scoped`
+  default ON. No code lever remains on the ~35 real holes.
+- Also: `lw_ports.FORBIDDEN` + `owner_of()` carry the six-project registry.
+- **OPEN, carried forward: C: is FULL.** 185.6 GB in `%LOCALAPPDATA%\Temp\claude`,
+  and this session's file alone is 41 MB.
+
+---
+
+---
+
 ## 2026-08-22 - mask generation: the question was MIS-POSED
 
 Went after the standing open problem. The finding is not a tuning result.

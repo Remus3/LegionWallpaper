@@ -11,7 +11,51 @@
 
 ---
 
-## 2026-08-29 (latest) - the interrupted session's ledger, paid
+## 2026-08-30 - the ring, then the damage under it
+
+Five commits: 3c4e704, a469624, 47903a2, c8eb152, 88e1ac7, plus this doc sync.
+Suite 2400 passed / 18 skipped, exit 0, nothing deselected. ruff clean,
+drift_guard 0 breaches.
+
+- **Paid the ledger the interrupted session owed** (LEDGER 134-136 for 6fffd74 /
+  78a0521 / d13cdfc). `tools/lw_clean_fr.py` is NOT unwired despite nothing
+  importing it - it is a PRODUCER, `--out` writes the audit and `lw_pipeline
+  annotate --metrics @path` eats it. Do not "fix" the missing import.
+- **Looked at all 39 credit-line sheets, flag-only (LEDGER 137).** The reader is
+  near-blind: `still_reads` fired on 2, the eye read a line on 28. That
+  direction was already known; the magnitude was not.
+- **Fixed the (c) ring (LEDGER 138, 47903a2).** Root cause was NOT "OCR skips
+  the symbol" - the mask's left edge was `box_x0 - PAD` and the mark's true left
+  extent is not a constant (20-21px small type, 35 large, 43-44 at scale 1.2,
+  76-96 where OCR drops leading letters). `left_extent()` measures it.
+  Second separable cause fixed too: `glyph_mask`'s box-global p88 was set by the
+  brightest thing in the box. Ring ink outside the mask 6923 -> 1871 px.
+- **Re-ran the lane (run_ringfix) and re-triaged all 39.** Ring GONE on 28,
+  residue LEGIBLE 28 -> 19, NONE 4 -> 8, held and still_reads both to 0. Only
+  `107-cleanup` is unflagged outright.
+- **Then fixed the damage (LEDGER 139, 88e1ac7).** Three of my framings died to
+  measurement: lines are NOT cut at the seam (82.6 percent of damage is 5+ px
+  deep), the rollback has NO no-chord blind spot (it fired on the worst blobs
+  and bought 1.2-7.3 percent), and nothing leaks outside the mask (0 px on all
+  39). Real cause: `glyph_mask` takes the top 12 percent of high-pass inside the
+  box and on busy art that IS the art. `escaped_ink()` follows ink back in from
+  outside and subtracts it - mask -13.2 percent, strong edges -17.0, ridges
+  -16.7, ZERO registered logo ink lost.
+- **NEXT: the RIGHT edge and the mid-line holes.** The re-run exposed that
+  `left_extent` fixed one end of a three-ended problem - `viego-the-ruined-king`
+  stops at x577 leaving `COM` intact, `261f` stops at x499, `syndra-dlsfckr`
+  leaves holes mid-span. The machinery exists; mirror it.
+- **Do NOT redo** (all measured, all in ROADMAP + LEDGER): the achromatic gate,
+  median+k*MAD thresholding, unbounded leftward walk, whole-structure
+  containment ratio, morphological separation, and "revert more" - the revert
+  trade curve has no knee at any slug.
+- **One operator call waiting:** `LIMB_REACH` 24 removes 17 percent of the art
+  damage; 32 reaches 24 percent with still no measured mark loss; first loss at
+  36. One number, pinned by a test.
+
+---
+
+## 2026-08-29 - the interrupted session's ledger, paid
 
 Session was cut mid-wrap when the operator switched Claude accounts. The CODE
 had all landed: `git status` clean, `origin/main` level with `main`, three
@@ -81,40 +125,3 @@ Commits: f49102f + this one. Suite 2331 passed / 18 skipped, ruff clean.
   bytes** (restored from git, nothing lost). 118 of the 119 GB under
   `%LOCALAPPDATA%\Temp\claude` is `C--Clockspeed`, not LW. This is now a
   correctness risk, not just housekeeping.
-
----
-
-## 2026-08-29 (second session) - the blind remainder, split and spent
-
-Five commits: dac7872, cb1475f, 827e688, d37be63, d61e382. Suite 2323/18, ruff
-clean, drift_guard 0 breaches, CI green.
-
-- **"116 blind" was a forecast. The run leaves 125, and they are TWO facts.**
-  54 steps (25,618 px) have no ring pixel clearing GRAD_MIN - flat art, agreed
-  by `gradient_behind` 0.59 vs 2.11, a measure that never reads the ring. No
-  line to lose, so the rollback there is unemployed, not blind. `hot_band()` +
-  a `surround` flat/lines field name it; no verdict moves.
-- **`STUB_REACH` 6 -> 10 shipped.** Self-check survival identical (91.6
-  percent), no-evidence 125 -> 119, held/committed unchanged, still_reads 13
-  with no slug moving, 105-cleanup 11.562 byte-identical.
-- **`STUB_LEN` swept and CLOSED - 12px WINS.** Longer rays break their own
-  straight-line assumption and the self-check drops them. Do not redo.
-- **The 65 remaining decomposed:** 36 no expectation obtainable, 15 mixed, 11
-  where the line enters the letter next door, 3 with no cluster. MAX_CROSSINGS
-  and the structure tensor drop NOTHING (measured, was asserted).
-- **Two levers killed:** a derived expectation from crossing strength (within
-  25 percent only 46.8 percent of the time) and reach 20 (its whole effect is
-  531 px of line put back, 334 on the frame the operator called nearly
-  perfect). Both refused on evidence.
-- **BIGGEST RESULT, unlooked-at: `--stubs --scoped-revert` together** (never run
-  as a pair before): held 37 -> 2, partial 0 -> 33, pixels given back 283,190 ->
-  25,553, reads 13 -> 2, 105 unchanged. NOT proof - ahri was reader-silent with
-  the mark standing and READS once the fill landed. Sheets:
-  `ops/runtime/clean/creditline/run_stubs_scoped/REVIEW.md`.
-- **NEXT: the operator's eye on that pair**, then whether `stubs` + `scoped`
-  default ON. No code lever remains on the ~35 real holes.
-- Also: `lw_ports.FORBIDDEN` + `owner_of()` carry the six-project registry.
-- **OPEN, carried forward: C: is FULL.** 185.6 GB in `%LOCALAPPDATA%\Temp\claude`,
-  and this session's file alone is 41 MB.
-
----

@@ -27,6 +27,68 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+139. DONE **2026-08-30 (the fill was destroying artwork because the MASK
+   contained artwork; 88e1ac7, and the queue re-run 47903a2 that exposed it).**
+   After the ring fix, a flag-only vision pass over the re-run called collateral
+   damage the binding defect. **Premise CORRECTED three times by measurement,
+   all of it against my own framing:** (a) "painted lines are cut where the mask
+   crosses them" is FALSE - at the mask boundary the destruction rate is 6.5 per
+   1000 and **82.6 percent of damage sits 5+ px deep inside the fill**; lines
+   enter, are continued about 2px, then fade in the interior; (b) "the rollback
+   has a no-chord blind spot" is FALSE - it fired on 20 steps including 5 of the
+   top 10 damaged blobs and the destruction rate on those (79.0 percent) is
+   HIGHER than on committed steps (73.9), while no-chord blobs destroy at 72.9
+   against 77.8 with chords, so chord evidence does not predict damage at all;
+   (c) the outside-mask identity guarantee is INTACT on all 39 (0 changed px),
+   so every damaged pixel is one the lane chose to mask. **Root cause:**
+   `glyph_mask` takes the top ~12 percent of high-pass response inside the
+   verified box, and on busy art the art's own sharpest pixels ARE that top
+   slice - **75.7 percent of flattened px belong to structures with a limb 6+ px
+   OUTSIDE the mask**, i.e. artwork passing through. 75.2 percent of every strong
+   source edge inside a mask is destroyed; thin bright ridges (sparkles, strands,
+   filigree) die at 89.2 percent and a third of that is invisible to the
+   strong-edge metric. Damage scales with mask area (r=+0.909) and the 39 largest
+   blobs carry 77.9 percent of it. **There is no trade curve:** reverting
+   worst-first buys 80 percent of the art back for 72 percent of the mark, barely
+   off the diagonal, and on seraphine one blob is 97 percent of the mask and 99
+   percent of the damage - a single decision, no knee at any slug. So "revert
+   more" was measured dead before it was proposed. **Fix:** `escaped_ink()` seeds
+   on selected ink more than `LIMB_GAP` px outside the padded read region and
+   follows it back ALONG the ink for `LIMB_REACH` steps (8-connected geodesic),
+   subtracting what it reaches before the grow. The mask can only SHRINK - `after`
+   is a subset of `before`, asserted on all 39 and independently re-verified by
+   the merging session. **`LIMB_REACH = 24 = PAD + LIMB_GAP` and the equality is
+   the argument:** the pad is slack this module invented while the read box is
+   EVIDENCE (OCR spelled DEVIANTART off it), so at 24 the escape consumes exactly
+   the slack and on 37 of 39 slugs not one pixel inside the read box is
+   reachable. **Measured, all 39:** mask px 1092590 -> 948500 (-13.2 percent),
+   strong edges in mask 144102 -> 119587 (-17.0), thin bright ridges 34458 ->
+   28705 (-16.7); at the measured destruction rates that is ~108370 -> ~89900
+   flattened px. **Mark coverage held on three independent anchors:**
+   NCC-registered DA logo ink 5286 -> 5286 px, ZERO lost across all 20 slugs
+   registering at ncc >= 0.60; operator hand-edit ground truth (105/107) keeps
+   99.3 / 94.7 percent with the losses being mountain-ridge art and a tail the
+   operator repainted too; in-box bright ink -0.2 percent overall. Merging
+   session independently measured mask -13.6 / strong -14.0 / mark ink retained
+   99.85 percent on a 7-slug sample. Residue does not worsen. **FALSIFIED and
+   recorded:** whole-structure containment ratio (the obvious shape) takes ALL
+   159 px of the (c) glyph on bayonetta-dm7iiug where the glyph merges with a
+   dark art edge into one 700px structure at 337 in / 340 out - no ratio
+   separates them - and costs 10 percent of the operator's brush ink;
+   morphological separation first is a near no-op because erosion fragments ink
+   into contained pieces; a hybrid ratio-plus-reach is measurably identical to
+   reach alone; ring registration below ncc ~0.5 lands on artwork and is not a
+   mark anchor. **HONEST LIMIT:** 75.7 percent of damage is attributable to art
+   but only 17 percent is removable without measured mark loss (24 percent at
+   reach 32, first mark loss at 36) - the rest runs THROUGH the OCR-verified box
+   and reaching it means overruling the only evidence the module has. That trade
+   is the operator's, as one named number. Suite 2400 passed / 18 skipped, exit
+   0, nothing deselected, observed on main after the merge. A CUDA test
+   (`test_lw_usm_halo_probe`) failed transiently while the GPU was busy with the
+   LaMa re-run and was verified failing on a CLEAN main before passing again
+   after - environmental, never a regression. ruff clean, drift_guard 0
+   breaches, 5 new tests with 3 written failing first.
+
 138. DONE **2026-08-30 (the (c) ring case: measure where the credit line
    starts instead of assuming it; 47903a2).** The ring survived the clean on
    most of the queue. **Root cause, verified independently before any code:**
