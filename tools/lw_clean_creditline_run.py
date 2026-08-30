@@ -81,7 +81,7 @@ def run_one(img, hits, inpaint, pad=CL.PAD, box_shape=False, rollback=True,
                       min(r["box"][1] for r in hits),
                       max(r["box"][2] for r in hits),
                       max(r["box"][3] for r in hits)]
-        box |= CL.mask_from_hits(img.shape, hits, pad=pad)
+        box |= CL.mask_from_hits(img.shape, hits, pad=pad, img=img)
     if extra_box is not None:
         box |= np.asarray(extra_box, dtype=bool)
         ys, xs = np.nonzero(extra_box)
@@ -114,7 +114,7 @@ def source_for(slug, scratch, input_dir=None):
     return initial_of(scratch, slug)
 
 
-def box_mask_from_plan(plan, shape, pad=CL.PAD, band=CL.BAND):
+def box_mask_from_plan(plan, shape, pad=CL.PAD, band=CL.BAND, img=None):
     """Re-open the box a previous round recorded, whether or not it still reads.
 
     The reader is the only thing that puts a mask on the frame, and it only
@@ -122,11 +122,17 @@ def box_mask_from_plan(plan, shape, pad=CL.PAD, band=CL.BAND):
     its floor. A second round that re-detected would therefore walk past exactly
     the frames a first round half-cleaned. It works the recorded box instead and
     re-derives the glyphs from the frame as it now stands.
+
+    `img` is passed on for the same reason `run_one` passes it: the recorded box
+    is the READ box, so rebuilding it without pixels would hand round two the
+    `box_x0 - PAD` edge that round one had already measured past, and the mark's
+    left end would come back on exactly the frames a second round exists for.
     """
     box = (plan or {}).get("box")
     if not box:
         return None
-    return CL.mask_from_hits(shape, [{"box": list(box)}], pad=pad, band=band)
+    return CL.mask_from_hits(shape, [{"box": list(box)}], pad=pad, band=band,
+                             img=img)
 
 
 def review_order(rows):
@@ -245,7 +251,7 @@ def main(argv=None):
         t0 = time.time()
         img = R.load_rgb(path)
         hits = CL.detect(img, reader)
-        extra = box_mask_from_plan(prior, img.shape, pad=args.pad)
+        extra = box_mask_from_plan(prior, img.shape, pad=args.pad, img=img)
         if not hits and extra is None:
             continue
         out, rec = run_one(img, hits, fill, box_shape=args.box,

@@ -155,3 +155,52 @@ def test_the_old_scoped_revert_flag_is_still_accepted():
     args = RUN.build_parser().parse_args(["--scoped-revert"])
     assert args.scoped_revert is True
     assert args.no_scoped_revert is False
+
+
+def test_the_run_lane_hands_the_pixels_to_the_left_edge_measurement():
+    """The measured left extension is inert unless run_one passes `img`.
+
+    `mask_from_hits` only measures where the mark starts when it is given the
+    frame; with no pixels it falls back to `box_x0 - PAD`, which is the bug the
+    measurement exists to fix. This asserts the wiring rather than the maths -
+    a mark whose ink runs left of the read box must widen the mask, and the
+    only way run_one can know that is by handing the image down.
+    """
+    h, w = 400, 600
+    img = np.full((h, w, 3), 40, dtype=np.uint8)
+    y0, y1 = 250, 280
+    x0, x1 = 300, 420
+    # The read box holds the letters; a detached blob of the same ink sits to
+    # its left, past PAD, exactly as the (c) ring does on a real frame.
+    img[y0:y1, x0:x1] = 220
+    img[y0:y1, 240:270] = 220
+
+    _out, rec = RUN.run_one(img, [_hit(x0, y0, x1, y1)], lambda c, m: c)
+    ys, xs = np.nonzero(RUN.CL.mask_from_hits(img.shape,
+                                              [_hit(x0, y0, x1, y1)], img=img))
+    assert xs.min() < x0 - RUN.CL.PAD, "measurement itself is not reaching left"
+    assert rec["box_px"] > 0
+    lane = RUN.CL.mask_from_hits(img.shape, [_hit(x0, y0, x1, y1)], img=img)
+    assert rec["box_px"] >= int(lane.sum()), (
+        "run_one built a narrower box than the measured mask - it is not "
+        "passing img= down to mask_from_hits")
+
+
+def test_reopening_a_recorded_box_measures_its_left_edge_too():
+    """Round two must work the region round one worked, left end included.
+
+    The plan records the READ box, not the mask, so rebuilding it without
+    pixels would hand round two the `box_x0 - PAD` edge that round one had
+    already measured past - and the mark's left end would come back on exactly
+    the half-cleaned frames a second round exists for.
+    """
+    h, w = 400, 600
+    img = np.full((h, w, 3), 40, dtype=np.uint8)
+    img[250:280, 300:420] = 220
+    img[250:280, 240:270] = 220
+    plan = {"box": [300, 250, 420, 280]}
+
+    blind = RUN.box_mask_from_plan(plan, img.shape[:2], img=None)
+    seeing = RUN.box_mask_from_plan(plan, img.shape[:2], img=img)
+    assert np.nonzero(seeing)[1].min() < np.nonzero(blind)[1].min()
+    assert int(seeing.sum()) > int(blind.sum())

@@ -91,6 +91,74 @@ GLYPH_GROW = 4
 # the pixels that actually change.
 PAD = 20
 
+# Ink that stands out from its OWN neighbourhood.
+#
+# MEASURED 2026-08-29 over all 39 queue slugs. `percentile(hp[box], 88)` is set
+# by whatever is brightest anywhere inside the box, so one bright art highlight
+# raises the bar over the overlay's own strokes and the whole line survives -
+# soraka-...-givemenine keeps 9 percent of its ring ink with the box fully
+# covering the ring, akali-godly-deer 1 percent, bayonetta-...-dm7iirw 1
+# percent. A robust ceiling on the same distribution (median + k*MAD) does NOT
+# fix it and was tried first: those three slugs have BROAD box distributions
+# (k = (p88-med)/MAD of 3.26, 3.70, 3.43) while the healthy controls have
+# NARROW ones (105 4.51, 107 6.38, 123f 9.20), so the ceiling bites on exactly
+# the wrong slugs.
+#
+# What works is asking a LOCAL question - does this pixel stand out from the
+# |hp| level around it - which no single feature elsewhere in the box can
+# move. Swept over the 39 slugs at win 31/65/101 x beta 1.6/2.0/2.4/2.8:
+# win 65 beta 2.4 lifts median ring-ink keep from 0.48 to 0.77 for a median
+# mask growth of 1.07x (p90 1.17x, worst 1.46x). The floor is the noise guard -
+# the ratio test alone fires on sensor noise in a flat region - and 4.0 is free
+# (keep 0.77, identical walk coverage), where 6.0 already costs keep 0.59.
+LOCAL_WIN = 65
+LOCAL_BETA = 2.4
+LOCAL_FLOOR = 4.0
+
+# Walking left to where the mark actually starts.
+#
+# The mask's left edge used to be `box_x0 - PAD` and nothing else, and the
+# mark's true left extent is not a constant: 20-21px on small type (ring 17px
+# wide, 3-4px gap), 35px on large type (ring 28px, 8px gap), 43-44px at scale
+# 1.2 (akali, 281-cleanup), and 96px or more where easyocr drops leading
+# letters - 124f reads TAVERIUM DEVIANTART COM for SMALLTAVERN..., which no pad
+# rule can predict. Ring ink lay outside the mask on 22 of the 39 slugs.
+#
+# LEFT_GAP must clear the space between the logo and the first letter, measured
+# at 12 empty columns on 270f - hence 14, and 16 already walks a control 93px
+# into artwork. LEFT_MINROWS 4 is the smallest column ink count that keeps the
+# controls at 22px or less; 3 lets one of them run to 94px. LEFT_MAX 120 has
+# headroom over the largest credibly-located mark start in the queue (96px,
+# blood-moon-...-dmhckey) without being reachable by any control.
+LEFT_GAP = 14
+LEFT_MINROWS = 4
+LEFT_MAX = 120
+
+# How many mark components the walk may take, and what is too narrow to count
+# as one. LEFT_MAX bounds a single run and does NOT bound a CHAIN of them, and
+# the chain is the real failure: on 270f the walk took the ring, crossed a
+# 4-column gap onto a 5-column speck at 972..976, and kept stepping - 90px of
+# extension where the mark starts at 36px, i.e. 55px of artwork inside the mask
+# on a frame already flagged for collateral damage.
+#
+# MEASURED 2026-08-30 over all 39 slugs, over-reach past the NCC-registered
+# ring left edge (walk only, pad excluded):
+#   unlimited  median 2  p90 25  max 67   5 slugs past 20px   coverage 20/21
+#   hop <= 3   median 2  p90 19  max 55   4 slugs past 20px   coverage 20/21
+#   hop <= 2   median 2  p90 18  max 55   2 slugs past 20px   coverage 20/21
+#   hop <= 1   median 0  p90  5  max 15   0 slugs past 20px   coverage 17/21
+# Hop 1 alone costs four slugs their logo (286f, 221-cleanup,
+# queen-of-the-saltwind, 281-cleanup) because on those the FIRST run out of the
+# read box is a 5-7px speck and the logo is the second. A speck is not a mark
+# component - the logo measured 17-34px wide on every slug where it registered
+# - so a run narrower than LEFT_STUB is taken without spending the budget.
+# That recovers coverage to 20/21 at over-reach median 1 / p90 8 / max 39 with
+# 2 slugs past 20px, which beats the unbounded walk on every axis. Setting
+# LEFT_STUB to 0 buys the strictest column (hop 1 alone) if over-reach ever
+# needs to go to zero at the cost of those four logos.
+LEFT_HOPS = 1
+LEFT_STUB = 10
+
 
 def band_slice(height, band=BAND):
     return int(height * band[0]), int(height * band[1])
@@ -107,6 +175,85 @@ def _highpass(lum, win=HP_WIN):
     box = (cs[k:k + h, k:k + w] - cs[0:h, k:k + w]
            - cs[k:k + h, 0:w] + cs[0:h, 0:w]) / float(k * k)
     return lum - box
+
+
+def _boxmean(a, win):
+    """Local mean of `a` - the complement of the high-pass, so no new estimator."""
+    return a - _highpass(a, win=win)
+
+
+def local_ink(img, win=LOCAL_WIN, beta=LOCAL_BETA, floor=LOCAL_FLOOR):
+    """Pixels that stand out from THEIR OWN neighbourhood.
+
+    Deliberately not a percentile of anything: a percentile over a region is
+    decided by the region's brightest feature, which is the whole reason a
+    bright art highlight was dropping the credit line's strokes.
+    """
+    lum = np.asarray(img, dtype=np.float64).mean(axis=2)
+    ah = np.abs(_highpass(lum, win=HP_WIN))
+    loc = np.maximum(_boxmean(ah, win), 1e-6)
+    return (ah >= beta * loc) & (ah >= floor)
+
+
+def left_extent(img, box, gap=LEFT_GAP, minrows=LEFT_MINROWS, cap=LEFT_MAX,
+                ink=None, band=BAND, hops=LEFT_HOPS, stub=LEFT_STUB):
+    """Where the mark really starts, walking left from the read box.
+
+    Going left, cross up to `gap` columns carrying no mark-like ink to reach
+    the next run of columns that do, then take that whole run - but only if the
+    run ENDS before the cap. The mark is a bounded object; a run still going at
+    the cap is artwork, and it is refused outright rather than truncated there.
+    That distinction is one half of the fix: 270f's ring is 26 columns and then
+    nothing, while 105-cleanup's mountain ridge lines run unbroken past 90px,
+    and a walk that truncated at the cap would drag that control's mask 120px
+    across the artwork.
+
+    The other half is `hops`. Taking one run is finding the logo; taking run
+    after run is walking into the artwork one legal-looking step at a time, and
+    the cap cannot see it because the cap bounds a single run and not the
+    chain. The budget is spent only on runs at least `stub` wide, because the
+    speck that sits between the read box and the logo on several slugs is not a
+    mark component and must not cost the logo its hop.
+
+    An achromatic gate was measured here first, because the overlay is grey
+    where 266f's own tagline is gold, and it does NOT separate these two: the
+    105-cleanup ridge ink sits at saturation 5-8 while the 270f ring runs 9-21,
+    so gating on it removes the mark before the artwork. At satmax 30 the
+    queue's ring coverage falls from 14/15 to 11/15 and one control's
+    extension drops to nothing, with the control extensions otherwise
+    unchanged. It buys nothing and is not applied. Keying the ink on the
+    strength of the glyph ink inside the box was measured too - a floor at 0.3x
+    the in-box median is a no-op, 0.5x costs a slug, 0.7x costs four.
+    """
+    if ink is None:
+        ink = local_ink(img)
+    ink = np.asarray(ink, dtype=bool)
+    h, w = ink.shape[:2]
+    by0, by1 = band_slice(h, band)
+    y0 = max(by0, min(h, int(box[1])))
+    y1 = min(by1, max(y0, int(box[3])))
+    x0 = max(0, min(w, int(box[0])))
+    if y1 <= y0 or x0 <= 0:
+        return x0
+    lo = max(0, x0 - int(cap) - int(gap))
+    counts = ink[y0:y1, lo:x0].sum(axis=0)
+    left, taken = x0, 0
+    while hops <= 0 or taken < hops:
+        j, seen = left - 1, 0
+        while j >= lo and seen < gap and counts[j - lo] < minrows:
+            j -= 1
+            seen += 1
+        if j < lo or counts[j - lo] < minrows:
+            return left
+        k = j
+        while k - 1 >= lo and counts[k - 1 - lo] >= minrows:
+            k -= 1
+        if x0 - k > cap:
+            return left
+        if (j - k + 1) >= stub:
+            taken += 1
+        left = k
+    return left
 
 
 def enhancements(band_rgb):
@@ -247,27 +394,43 @@ def detect(img, reader, band=BAND, min_conf=0.0):
     return [ln for ln in group_lines(reads) if looks_like_credit(ln["text"])]
 
 
-def mask_from_hits(shape, hits, pad=PAD, band=BAND):
-    """Solid boxes around every read, padded, and clipped to the band."""
+def mask_from_hits(shape, hits, pad=PAD, band=BAND, img=None):
+    """Solid boxes around every read, padded, and clipped to the band.
+
+    Given `img`, the LEFT edge is measured instead of assumed - see
+    `left_extent`. The measurement can only move that edge further left, never
+    right, so a frame whose mark starts inside the pad is untouched and every
+    caller with no pixels to hand keeps the old behaviour exactly.
+    """
     h, w = int(shape[0]), int(shape[1])
     mask = np.zeros((h, w), dtype=bool)
     by0, by1 = band_slice(h, band)
+    ink = None if img is None else local_ink(img)
     for rec in hits:
         for x0, y0, x1, y1 in _credit_span(rec):
+            left = x0 if ink is None else left_extent(
+                img, [x0, y0, x1, y1], ink=ink, band=band)
             mask[max(by0, y0 - pad):min(by1, y1 + pad),
-                 max(0, x0 - pad):min(w, x1 + pad)] = True
+                 max(0, left - pad):min(w, x1 + pad)] = True
     return mask
 
 
 def glyph_mask(img, box_mask, pct=GLYPH_PCT, grow=GLYPH_GROW):
-    """Narrow a verified box down to the pixels the text actually lands on."""
+    """Narrow a verified box down to the pixels the text actually lands on.
+
+    The box percentile stays, unioned with the local ink test: the percentile
+    is the better estimator wherever the box is mostly credit line, and the
+    local test is what survives a bright art highlight sitting in the same box.
+    A union also means no currently-kept pixel is ever lost, so the slugs that
+    already clean correctly keep the mask they had.
+    """
     box_mask = np.asarray(box_mask, dtype=bool)
     if not box_mask.any():
         return box_mask.copy()
     lum = np.asarray(img, dtype=np.float64).mean(axis=2)
     hp = np.abs(_highpass(lum, win=HP_WIN))
     thr = float(np.percentile(hp[box_mask], pct))
-    g = box_mask & (hp >= thr)
+    g = box_mask & ((hp >= thr) | local_ink(img))
     for _ in range(int(grow)):
         g[1:, :] |= g[:-1, :]
         g[:-1, :] |= g[1:, :]
@@ -302,7 +465,7 @@ def main(argv=None):
     hits = detect(rgb, _reader(gpu=not args.cpu))
     rec = {"image": args.image, "hits": hits}
     if hits and args.mask_out:
-        mask = mask_from_hits(rgb.shape, hits, pad=args.pad)
+        mask = mask_from_hits(rgb.shape, hits, pad=args.pad, img=rgb)
         if not args.box:
             mask = glyph_mask(rgb, mask)
         rec["shape"] = "box" if args.box else "glyphs"

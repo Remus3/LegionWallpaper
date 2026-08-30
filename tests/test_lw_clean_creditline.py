@@ -310,3 +310,219 @@ def test_the_mask_covers_every_part_of_the_line():
     assert m[20:40, 200:260].all()
 
 
+# ------------------------------------------- the logo the read box never sees
+#
+# MEASURED 2026-08-29 over all 39 queue slugs: the mask's left edge was
+# `box_x0 - PAD` and nothing else, while the mark's true left extent varies -
+# 20px on small type, 35px on large type, 43px at scale 1.2, and 96px or more
+# where OCR drops leading letters (124f reads TAVERIUM for SMALLTAVERN...).
+# Ring ink lay outside the mask on 22 of the 39 slugs. A constant pad cannot
+# track a mark whose geometry scales with the type.
+LOGO = dict(cx=996, cy=995, r=13, thick=5)
+
+
+def _disc_ring(img, cx, cy, r, thick, level=215):
+    """A logo-shaped blob: a ring outline, like the DA mark left of the line."""
+    out = img.copy()
+    y0, y1 = cy - r - thick, cy + r + thick + 1
+    x0, x1 = cx - r - thick, cx + r + thick + 1
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    d = np.hypot(yy - cy, xx - cx)
+    out[y0:y1, x0:x1][(d >= r - thick / 2.0) & (d <= r + thick / 2.0)] = level
+    return out
+
+
+def _ridges(img, y0, y1, x0, x1, period=14, level=205):
+    """Artwork: diagonal ridge lines that never stop - 105-cleanup's mountains.
+
+    Measured on that frame, ink columns run unbroken from the read box back
+    past 90px. An ink walk has to refuse this and keep its pad.
+    """
+    out = img.copy()
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    out[y0:y1, x0:x1][((yy + xx) % period) < 3] = level
+    return out
+
+
+def _line_hit(x0=1017, y0=972, x1=1586, y1=1018):
+    return {"box": [x0, y0, x1, y1], "text": "XDEVIANTARTCOM", "conf": 0.7}
+
+
+def test_a_logo_left_of_the_read_box_is_masked_when_the_image_is_given():
+    """270f: the ring sits at 984..1009 and the read box starts at 1017."""
+    img = _disc_ring(_with_text(_frame(), 980, 1012, 1022, 1500, stride=11),
+                     **LOGO)
+    m = CL.mask_from_hits(img.shape, [_line_hit()], img=img)
+    ring = np.zeros(img.shape[:2], dtype=bool)
+    ring[LOGO["cy"] - LOGO["r"] - 2:LOGO["cy"] + LOGO["r"] + 3,
+         LOGO["cx"] - LOGO["r"] - 2:LOGO["cx"] + LOGO["r"] + 3] = True
+    assert (ring & ~m).sum() == 0, "the logo has to be inside the mask"
+
+
+def test_the_fixed_pad_alone_leaves_that_logo_outside_the_mask():
+    """The characterisation of the defect: no image, no measurement, no reach."""
+    img = _disc_ring(_with_text(_frame(), 980, 1012, 1022, 1500, stride=11),
+                     **LOGO)
+    m = CL.mask_from_hits(img.shape, [_line_hit()])
+    assert not m[:, LOGO["cx"] - LOGO["r"] - LOGO["thick"]].any()
+
+
+def test_the_walk_crosses_the_gap_between_the_logo_and_the_first_letter():
+    """Measured on 270f: 12 empty columns sit between ring and first letter."""
+    assert CL.LEFT_GAP > 12
+
+
+def test_ink_that_runs_on_past_the_cap_is_refused_not_followed():
+    """105-cleanup is a control and its artwork ink never stops.
+
+    The mark is a BOUNDED object, so a run still going at the cap is not part
+    of it. Refusing such a run outright - rather than truncating it at the cap
+    - is what keeps the walk off the ridge lines.
+    """
+    img = _ridges(_with_text(_frame(), 980, 1012, 1022, 1500, stride=11),
+                  960, 1030, 700, 1017)
+    m = CL.mask_from_hits(img.shape, [_line_hit()], img=img)
+    xs = np.nonzero(m.any(axis=0))[0]
+    assert int(xs.min()) == 1017 - CL.PAD
+
+
+def test_the_extension_never_reaches_past_the_hard_cap():
+    img = _ridges(_with_text(_frame(), 980, 1012, 1022, 1500, stride=11),
+                  960, 1030, 300, 1017, period=40)
+    m = CL.mask_from_hits(img.shape, [_line_hit()], img=img)
+    xs = np.nonzero(m.any(axis=0))[0]
+    assert int(xs.min()) >= 1017 - CL.PAD - CL.LEFT_MAX
+
+
+# ------------------------------------------------------------ the hop budget
+#
+# MEASURED 2026-08-30 over all 39 slugs, against the NCC-registered ring left
+# edge as the true mark start. An unbounded walk CHAINS: each hop is legal on
+# its own, and on 270f it takes the ring, then crosses a 4-column gap onto a
+# 5-column speck at 972..976, and keeps going - 90px of extension where the
+# mark starts 36px out, i.e. 55px of artwork pulled into the mask on a frame
+# already flagged for collateral damage. Over-reach past the true mark start,
+# whole queue: unlimited median 2 / p90 25 / max 67 with 5 slugs past 20px,
+# against hop<=1 median 0 / p90 5 / max 15 with none past 20px.
+def _bar(img, y0, y1, x0, x1, level=215):
+    """A bright bar. Narrower than HP_WIN, so every column of it reads as ink."""
+    out = img.copy()
+    out[y0:y1, x0:x1] = level
+    return out
+
+
+def test_the_walk_takes_one_mark_component_and_does_not_chain():
+    """270f in miniature: the logo, then a decoy 9 columns further left."""
+    img = _with_text(_frame(), 980, 1012, 1022, 1500, stride=11)
+    img = _disc_ring(img, cx=996, cy=995, r=10, thick=5)
+    img = _disc_ring(img, cx=960, cy=995, r=10, thick=5)
+    m = CL.mask_from_hits(img.shape, [_line_hit()], img=img)
+    assert m[985:1005, 983:1010].all(), "the logo itself must be masked"
+    assert not m[:, 947:960].any(), "the decoy past it must not be"
+
+
+def test_a_narrow_speck_does_not_spend_the_hop_budget():
+    """286f, 221-cleanup and queen-of-the-saltwind all put a 5-7px speck
+    between the read box and the logo. A speck is not a mark component - the
+    logo runs 17-34px wide everywhere it was registered - so it is taken
+    without costing the hop that the logo needs."""
+    img = _with_text(_frame(), 980, 1012, 1022, 1500, stride=11)
+    img = _bar(img, 985, 1005, 1006, 1012)
+    img = _disc_ring(img, cx=982, cy=995, r=10, thick=5)
+    m = CL.mask_from_hits(img.shape, [_line_hit()], img=img)
+    assert m[985:1005, 969:996].all(), "the logo past the speck must be masked"
+
+
+def test_the_hop_budget_and_the_speck_width_are_named_numbers():
+    """One number each, so the coverage/over-reach trade can be moved."""
+    assert CL.LEFT_HOPS == 1
+    assert 0 < CL.LEFT_STUB < 17
+
+
+def test_the_measured_extension_is_off_when_no_image_is_offered():
+    """mask_from_hits keeps working on a shape alone - the callers that have
+    no pixels to hand must not change behaviour."""
+    m = CL.mask_from_hits((1440, 2560), [_line_hit()])
+    xs = np.nonzero(m.any(axis=0))[0]
+    assert int(xs.min()) == 1017 - CL.PAD
+
+
+def test_the_walk_starts_from_the_leftmost_box_of_the_line():
+    img = _disc_ring(_with_text(_frame(), 980, 1012, 1022, 1500, stride=11),
+                     **LOGO)
+    assert CL.left_extent(img, [1017, 972, 1586, 1018]) <= 984
+
+
+# ------------------------------------- a bright highlight must not raise the bar
+#
+# MEASURED 2026-08-29: `thr = percentile(hp[box_mask], 88)` is set by whatever
+# is brightest anywhere INSIDE the box, so one bright art highlight drops the
+# overlay's own strokes. On soraka-...-givemenine the padded box covers the
+# ring completely and 305 of 508 ring pixels still fall below the threshold.
+def _faint_text(img, y0, y1, x0, x1, stride=16, delta=26):
+    out = img.astype(np.float64)
+    out[y0:y1, x0:x1:stride] += delta
+    out[y0:y1, x0 + 1:x1:stride] += delta
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def _highlight(img, y0, y1, x0, x1):
+    out = img.astype(np.float64)
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    patch = 128.0 + 120.0 * np.sin(xx / 2.0) * np.cos(yy / 3.0)
+    out[y0:y1, x0:x1] = np.dstack([patch] * 3)
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def _faint_case():
+    img = _faint_text(_frame(), 970, 1000, 950, 1400)
+    img = _highlight(img, 960, 1010, 1420, 1560)
+    box = np.zeros(img.shape[:2], dtype=bool)
+    box[960:1010, 900:1600] = True
+    strokes = np.zeros_like(box)
+    strokes[970:1000, 950:1400:16] = True
+    return img, box, strokes
+
+
+def test_a_bright_highlight_inside_the_box_does_not_hide_the_strokes():
+    img, box, strokes = _faint_case()
+    g = CL.glyph_mask(img, box)
+    assert (g & strokes).sum() > 0.5 * strokes.sum()
+
+
+def test_the_percentile_alone_is_what_loses_those_strokes():
+    """The characterisation: the box-global percentile lands in the highlight."""
+    img, box, strokes = _faint_case()
+    lum = np.asarray(img, dtype=np.float64).mean(axis=2)
+    hp = np.abs(CL._highpass(lum, win=CL.HP_WIN))
+    thr = float(np.percentile(hp[box], CL.GLYPH_PCT))
+    assert (box & (hp >= thr) & strokes).sum() < 0.1 * strokes.sum()
+
+
+def test_the_robust_threshold_only_ever_adds_to_the_percentile_rule():
+    """Currently-good slugs keep every pixel they had - the rule is a union."""
+    img = _with_text(_frame(), 970, 1000, 950, 1450)
+    box = np.zeros(img.shape[:2], dtype=bool)
+    box[960:1010, 900:1500] = True
+    lum = np.asarray(img, dtype=np.float64).mean(axis=2)
+    hp = np.abs(CL._highpass(lum, win=CL.HP_WIN))
+    thr = float(np.percentile(hp[box], CL.GLYPH_PCT))
+    old = box & (hp >= thr)
+    assert (old & ~CL.glyph_mask(img, box, grow=0)).sum() == 0
+
+
+def test_the_local_ink_test_is_not_a_global_percentile():
+    """A stroke on a quiet background reads as ink whether or not a much
+    brighter feature exists elsewhere in the frame.
+
+    Compared more than one LOCAL_WIN away from the highlight, since the test is
+    local and makes no claim about pixels the highlight is a neighbour of.
+    """
+    quiet = _faint_text(_frame(), 970, 1000, 950, 1400)
+    loud = _highlight(quiet.copy(), 960, 1010, 1420, 1560)
+    far = (slice(970, 1000), slice(950, 1420 - CL.LOCAL_WIN))
+    a = CL.local_ink(quiet)[far]
+    b = CL.local_ink(loud)[far]
+    assert int(a.sum()) > 0
+    assert np.array_equal(a, b)
+

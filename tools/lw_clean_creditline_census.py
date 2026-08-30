@@ -103,7 +103,7 @@ def main(argv=None):
         hits = CL.detect(img, reader)
         row = {"tag": tag, "hits": hits, "brush_px": int(brush.sum())}
         if hits:
-            m = CL.mask_from_hits(img.shape, hits)
+            m = CL.mask_from_hits(img.shape, hits, img=img)
             inter = int((m & brush).sum())
             row.update(mask_px=int(m.sum()),
                        precision=round(inter / max(1, int(m.sum())), 4),
