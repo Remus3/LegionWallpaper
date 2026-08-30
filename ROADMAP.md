@@ -193,15 +193,19 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
     several glyphs, and the repeated hops it needs are exactly what walks into
     art. Reading those tails needs a text-specific measure (stroke periodicity
     on the baseline, or a glyph model), not another threshold.
-  - **The mid-line HOLES are not a mask failure at all.** Inside the mark's own
-    measured row band the shipped mask's gaps on `syndra-dlsfckr` are median 2px,
-    **max 3px** - nothing to close - and `escaped_ink` reaches 0 px inside the
-    read box on 37 of 39 (the two exceptions are the documented band-clipped
-    pair). The `R`, `X` and partial `D` come back because the SCOPED REVERT hands
-    them back: 1048 mask pixels end byte-identical and they sit exactly on those
-    glyphs, where the corridor follows an art edge crossing the line. That is the
-    known 1.80-percent handback cost of the 2026-08-29 default; what was never
-    asked is WHERE it lands.
+  - **The mid-line HOLES are not a mask failure at all, and they are already
+    FIXED.** Inside the mark's own measured row band the shipped mask's gaps on
+    `syndra-dlsfckr` are median 2px, **max 3px** - nothing to close - and
+    `escaped_ink` reaches 0 px inside the read box on 37 of 39 (the two
+    exceptions are the documented band-clipped pair). The `R`, `X` and partial
+    `D` came back because the SCOPED REVERT handed them back: 1048 mask pixels
+    ended byte-identical, sitting exactly on those glyphs where the corridor
+    follows an art edge crossing the line. **The re-run settles it: under the
+    shipping default `syndra-dlsfckr` hands back 1048 -> 46 px and the whole
+    line, `R` and `X` included, is GONE at 1:1.** Removing the art limbs from
+    the mask changed the blob structure so the corridor no longer crosses the
+    glyphs. There was never a hole lever to build - `88e1ac7` had simply never
+    been run over the queue.
   - **Shipped instead (no pixel moves):** `handed_back_px` per step and
     `handed_back` per plan / lane record / run summary / `REVIEW.md`, sorted
     above the repaint width. It is NOT `reverted_px` - a commit hands back
@@ -215,6 +219,22 @@ _Now + Next only. Highest priority at the TOP. Full history in `docs/history_not
   - **The operator's call:** refusing a corridor that hands a legible letter back
     falls through to a WHOLE revert today (28.13 percent handed back against
     1.80). Making refusal mean COMMIT instead is one line plus a lane re-run.
+  - **THE QUEUE IS NOW RUN UNDER THE SHIPPING DEFAULT (2026-08-30):**
+    `ops/runtime/clean/creditline/run_shipdefault/`, 39 slugs, exit 0, the first
+    run under `88e1ac7`. `box_px` identical to `run_ringfix` (2,057,596), so it
+    is like for like: mask px **1,092,590 -> 948,500 (-13.2 percent, reproducing
+    LEDGER 139 on a live run)**, blobs 403 -> 430, committed 383 -> 415, partial
+    20 -> **15**, held 0, still_reads 0, mark handed back **17,171 px**.
+    **`handed_back` is the ONLY field ordering this review** - `held` and
+    `still_reads` are 0 on all 39, so both fields above it in `review_order` say
+    nothing. Top two checked at 1:1 and both are FAILS the old fields missed:
+    `anime-poster-of-soraka` (2641px) still reads `(c) .VE?ENINE` and a fully
+    legible `.COM`; `105-cleanup` (2037px) is clean on `DEVIANTART.COM` and
+    carries a faint `L ... WALL` ghost. Ranked correctly first try - evidence the
+    ordering is useful, n=2 by eye, still not a gate.
+  - **NEXT is the operator's eye over `run_shipdefault/REVIEW.md`, worst first.**
+    Approve what clears zero residue into `4.Cleaning Done`; send the rest to the
+    manual IOPaint lane. Per ADR-008 a vision pass may FLAG but never approve.
 
 - **clean-fill-damage - the fill destroys artwork because the MASK contains
   artwork; FIRST CUT SHIPPED 2026-08-30 (88e1ac7, LEDGER 139), and the remainder

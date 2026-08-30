@@ -136,7 +136,9 @@ legibility measure, and nothing in the module has one yet.**
 
 ## 4. What shipped
 
-Nothing that moves a pixel. The lane's output is byte-identical.
+Nothing that moves a pixel: the change below is a recorded field, so the lane
+produces byte-identical output with and without it. (Section 6's queue does
+differ from `run_ringfix`, but that is `88e1ac7` finally being run, not this.)
 
 `handed_back_px` per step and `handed_back` per plan, per lane record, in the
 run summary and in `REVIEW.md`, sorted on: mask pixels a step left BYTE-IDENTICAL
@@ -165,3 +167,57 @@ instead is a one-line policy change and a full lane re-run to validate.
 Note also that the 39 recorded outputs predate `88e1ac7`, so the queue has never
 been run under the shipping default. `handed_back` will only appear in plans
 written after this change.
+
+## 6. The queue re-run under the shipping default (same day, after the above)
+
+`ops/runtime/clean/creditline/run_shipdefault/`, 39 slugs, exit 0, plain
+defaults (`scoped=True`, stubs off, rollback on). This is the FIRST run of the
+queue under `88e1ac7`; every output before it predates the escape.
+
+`box_px` is identical between the two runs (2,057,596), so the read boxes did
+not move and the comparison is like for like.
+
+| | run_ringfix | run_shipdefault |
+|---|---|---|
+| mask px | 1,092,590 | **948,500** (-13.2 percent) |
+| blobs | 403 | 430 |
+| committed | 383 | 415 |
+| partial | 20 | **15** |
+| held | 0 | 0 |
+| still_reads | 0 | 0 |
+| mark handed back | 18,835 (measured on the outputs) | **17,171** (recorded) |
+
+The -13.2 percent reproduces LEDGER 139's mask figure exactly, on a live run
+rather than a rebuild.
+
+### The mid-line holes were already fixed, by 88e1ac7
+
+`syndra-...-dlsfckr` hands back **1048 -> 46 px**, and at 1:1 the whole line -
+the `R` and the `X` included - is gone. Removing the art limbs from the mask
+changed the blob structure (2 blobs, one `partial` at 967px becomes a 46px
+handback), so the corridor no longer crosses the glyphs. **There was never a
+hole lever to build**; the case named in the hand-off was fixed by a commit that
+had not yet been run over the queue. Section 3's root cause stands as the
+explanation of the old output, and its measurements of the mask (band gaps max
+3px, escape 0 px in-box on 37 of 39) stand unchanged.
+
+### handed_back is the only field ordering this review
+
+`held` and `still_reads` are **0 on all 39**, so both fields above it in
+`review_order` say nothing about this run and the queue is sorted entirely on
+the new one. The top two, checked at 1:1:
+
+- **`anime-poster-of-soraka-...` (2641 px)** - output still reads
+  `(c) .VE?ENINE` and a fully legible `.COM`. Clear zero-residue FAIL.
+- **`105-cleanup` (2037 px)** - `DEVIANTART.COM` is clean; a faint `L ... WALL`
+  ghost remains in the first half. Faint FAILS the bar too.
+
+Both ranked correctly on the first try, which is evidence the ordering is
+useful. It is n=2 by eye and does not make the field a gate - it stays a report,
+and a ship gate still needs a legibility measure.
+
+### What the right-edge four look like now
+
+`viego-the-ruined-king` 20px handed back, `261f` 25, `aidraw-...` 61, `266f`
+646. Their tails are still outside the mask and still untreated - section 2 is
+unaffected by the re-run.

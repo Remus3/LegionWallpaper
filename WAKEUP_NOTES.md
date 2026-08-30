@@ -49,11 +49,29 @@ tests. ruff clean repo-wide, drift_guard 0 breaches. Detail:
   pitch from the read length; and stroke contrast at the handed-back pixels as a
   legibility gate (259f keeps 84.6 percent with a CLEAN output - the corridor
   restored an art streak, not a mark).
-- **NEXT is an operator call, then a re-run.** Refusing a corridor that hands a
-  legible letter back falls through to a WHOLE revert today (28.13 percent
-  against 1.80); making refusal mean COMMIT is one line plus a lane re-run. And
-  the queue has still never been run under the shipping default - the 39 outputs
-  predate `88e1ac7`.
+- **Still an operator call:** refusing a corridor that hands a legible letter
+  back falls through to a WHOLE revert today (28.13 percent against 1.80);
+  making refusal mean COMMIT is one line plus a lane re-run.
+- **THEN RE-RAN THE QUEUE UNDER THE SHIPPING DEFAULT** (LEDGER 141):
+  `ops/runtime/clean/creditline/run_shipdefault/`, 39 slugs, exit 0, ~6 min,
+  plain defaults. First run ever under `88e1ac7`. `box_px` identical to
+  `run_ringfix` (2,057,596) so it is like for like: **mask 1,092,590 -> 948,500
+  (-13.2 percent, reproducing LEDGER 139 live)**, blobs 403 -> 430, committed
+  383 -> 415, partial 20 -> **15**, held 0, still_reads 0, handed back
+  **17,171 px**.
+- **The mid-line holes were ALREADY FIXED - there was no lever to build.**
+  `syndra-dlsfckr` hands back **1048 -> 46 px** and at 1:1 the whole line, `R`
+  and `X` included, is gone. The escape changed the blob structure so the
+  corridor no longer crosses the glyphs.
+- **`handed_back` is the ONLY field ordering this review** - `held` and
+  `still_reads` are 0 on all 39. Top two checked at 1:1, both zero-residue FAILS
+  that every older field called clean: `soraka` (2641px) reads `(c) .VE?ENINE`
+  and a legible `.COM`; `105-cleanup` (2037px) carries a faint `L ... WALL`
+  ghost. Correct first try. n=2 by eye - useful ordering, still not a gate.
+- **NEXT is NOT a code task:** the operator's eye over
+  `run_shipdefault/REVIEW.md`, worst first. Approve zero-residue frames into
+  `4.Cleaning Done`, route the rest to manual IOPaint. ADR-008: a vision pass may
+  FLAG, never approve. The right-edge four are unaffected and stay falsified.
 
 ---
 

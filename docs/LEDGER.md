@@ -27,6 +27,47 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+141. DONE **2026-08-30 (the queue re-run under the shipping default, and the
+   mid-line holes turn out to have been fixed already; runtime-only, no code).**
+   Ran `lw_clean_creditline_run.py` over `3.Cleaning Scratch` on plain defaults
+   (`scoped=True`, stubs off, rollback on) into
+   `ops/runtime/clean/creditline/run_shipdefault/`: 39 slugs, exit 0, ~6 min.
+   **This is the FIRST run of the queue under `88e1ac7`** - every prior output,
+   `run_ringfix` included, predates the escape, which is why the 39 sheets
+   nobody had looked at were stale. `box_px` is IDENTICAL between the two runs
+   (2,057,596), so the read boxes did not move and the comparison is like for
+   like: **mask px 1,092,590 -> 948,500 (-13.2 percent)**, which reproduces
+   LEDGER 139's headline figure on a live run rather than a rebuild; blobs 403 ->
+   430; committed 383 -> 415; **partial 20 -> 15**; held 0 -> 0; still_reads 0 ->
+   0; mark handed back **17,171 px** recorded (against 18,835 measured on the
+   `run_ringfix` outputs). **Premise CORRECTED, and it retires the second half of
+   the hand-off: `syndra-dlsfckr`'s mid-line holes are GONE.** It hands back
+   **1048 -> 46 px** and at 1:1 the whole line, the `R` and the `X` included, is
+   cleaned. Removing the art limbs from the mask changed the blob structure - a
+   `partial` reverting 967px becomes two blobs and a 46px handback - so the
+   corridor no longer crosses the glyphs. **There was never a hole lever to
+   build.** LEDGER 140's root cause stands as the explanation of the OLD output,
+   and its mask measurements (band gaps max 3px, escape 0 px in-box on 37 of 39)
+   are unchanged. **The new field earns its place immediately: `handed_back` is
+   the ONLY thing ordering this review.** `held` and `still_reads` are 0 on all
+   39, so the two fields above it in `review_order` say nothing about this run.
+   The top two were checked at 1:1 and both are zero-residue FAILS that every
+   pre-existing field called clean: `anime-poster-of-soraka-...` (2641 px) still
+   reads `(c) .VE?ENINE` plus a fully legible `.COM`, and `105-cleanup` (2037 px)
+   is clean on `DEVIANTART.COM` but carries a faint `L ... WALL` ghost. Ranked
+   correctly on the first try - evidence the ordering is useful; it is n=2 by eye
+   and does NOT promote the field to a gate, which still needs a legibility
+   measure. The right-edge four are unaffected (`viego-the-ruined-king` 20 px
+   handed back, `261f` 25, `aidraw-...` 61, `266f` 646; their tails are still
+   outside the mask), so LEDGER 140's falsification stands. Run outputs are under
+   `ops/runtime/` and therefore gitignored - no image bytes reach the public
+   repo. **NEXT is not a code task:** the operator's eye over
+   `run_shipdefault/REVIEW.md`, worst first, approving what clears zero residue
+   into `4.Cleaning Done` and routing the rest to manual IOPaint. Suite
+   re-verified 2408 passed / 18 skipped, exit 0; ruff clean; drift_guard 0
+   breaches; CI green on `a116989`. Detail:
+   `docs/CLEAN_CREDITLINE_EDGES_2026-08-30.md` section 6.
+
 140. DONE **2026-08-30 (the right edge is falsified and the mid-line holes
    were the revert, not the mask; docs + `handed_back` wiring).** The hand-off
    asked to mirror `left_extent` to the RIGHT edge and close the mid-line holes.
