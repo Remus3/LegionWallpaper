@@ -7,11 +7,43 @@
 > Archived to `docs/history_notes.md`: the two 2026-07-03 sessions (genesis +
 > product-defined, pruned 2026-07-04), 2026-07-04 QA Session 1 (pruned
 > 2026-07-05), 2026-07-04 QA Session 2 (pruned 2026-07-07), and the 2026-07-07
-> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12), and the 2026-08-12 QA-lane precision-census session (pruned 2026-08-12), and the 2026-08-12 veil-ring session (pruned 2026-08-13), and the 2026-08-12 clean-retry-degrades/one-engine session + the 2026-08-12 bare-pytest-wrong-tree session (both pruned 2026-08-16), and the 2026-08-23 queue-run/revert-lever session (pruned 2026-08-29) - keep the last 3.
+> first-pass-queue session + the lw-gen generator-sidecar/deep-research session (both pruned 2026-07-11), and the 2026-07-11 QA-floor calibration + recipe-v2 session (pruned 2026-07-11), and the 2026-07-11 GOLDEN DEFINITION session (pruned 2026-07-12), and the 2026-07-11 M0-foundations + M1-slices-1-2 session (pruned 2026-07-12), and the 2026-07-11 localizer-decision session (pruned 2026-07-12), and the 2026-07-12 M1-weapon-CLIP-gate session (pruned 2026-07-16), and the 2026-07-16 W4-M3 weapon-parked session (pruned 2026-07-16), and the 2026-07-16 Stage-2 cleaning-pipeline session (pruned 2026-07-18), and the 2026-07-27 loop-cycle-11 alpha-audit session (pruned 2026-07-29), and the 2026-08-01 three-repo-N=3 / hook-rule-correction session (pruned 2026-08-01), and the 2026-08-01 (evening) Stage-2-drain / L1 / dashboard-spine session (pruned 2026-08-01), and the 2026-08-01 (night) dashboard-spec-completion session (pruned 2026-08-01), and the 2026-08-01 (earlier) P3/P4/P5 + wiki-swap session and the 2026-08-01 (late) MCP-list/P1 session (both pruned 2026-08-02), and the 2026-08-02 all-five-recommendations/USM-flip/watchdog session (pruned 2026-08-09), and the 2026-08-10/11 intake/retry-degrades session + the 2026-08-11 detector-precision/recall session + the 2026-08-11 (evening) centre-overlay-inpaint session (all three pruned 2026-08-12), and the 2026-08-12 faint-mark REMOVAL lane session (pruned 2026-08-12), and the 2026-08-12 (later) overlay-registration-SCALE session (pruned 2026-08-12), and the 2026-08-12 QA-lane precision-census session (pruned 2026-08-12), and the 2026-08-12 veil-ring session (pruned 2026-08-13), and the 2026-08-12 clean-retry-degrades/one-engine session + the 2026-08-12 bare-pytest-wrong-tree session (both pruned 2026-08-16), and the 2026-08-23 queue-run/revert-lever session (pruned 2026-08-29), and the 2026-08-29 chord-coverage session (pruned 2026-08-29) - keep the last 3.
 
 ---
 
-## 2026-08-29 (latest) - a verdict per lane, and the control that was missing
+## 2026-08-29 (latest) - the interrupted session's ledger, paid
+
+Session was cut mid-wrap when the operator switched Claude accounts. The CODE
+had all landed: `git status` clean, `origin/main` level with `main`, three
+commits pushed (6fffd74, 78a0521, d13cdfc). What was missing was the /done
+ritual - no LEDGER entries, no wakeup block. Both now written.
+
+- **Suite re-verified fresh THIS session, not carried forward: 2379 passed / 18
+  skipped, exit 0** (107s). Matches what d13cdfc claimed, independently
+  measured.
+- **LEDGER 134 / 135 / 136 appended** for the three orphaned commits: the repo
+  junk audit, the global-filter flag at `save-working`, and the mask-excluded
+  G1 FR with its tautology guard.
+- **`tools/lw_clean_fr.py` is NOT unwired, despite nothing importing it.** It is
+  a PRODUCER: it writes its audit with `--out` and `lw_pipeline annotate
+  --metrics @path` consumes it. Two commands by contract, one JSON shape between
+  them. Do not "fix" the missing import.
+- **The disk alarm from the previous session has cleared: C: has 182.8 GB free**
+  (770.5 used). The 118-of-119-GB reading that truncated `lw_clean_spot.py` to 0
+  bytes does not reproduce. Nothing to clean up.
+- **NEXT is unchanged and is NOT a code task: the operator's eye over the queue
+  as it now ships.** Every lever is shipped or falsified and both lane defaults
+  are settled, so the move is a per-slug disposition, not another sweep. The run
+  under the shipping default already exists - `ops/runtime/clean/creditline/
+  run_scoped/REVIEW.md`, 39 slugs, 37 clean by the plan, 1 held
+  (`inkshadow-kai-sa`), 2 still reading (`akali`, `ahri`) - and nobody has looked
+  at those 39 sheets. Approve what clears zero-residue into `4.Cleaning Done`;
+  send the rest to the manual IOPaint lane. Per ADR-008 a vision pass may FLAG
+  and shortlist but can never approve, so this genuinely waits on the operator.
+
+---
+
+## 2026-08-29 (third session) - a verdict per lane, and the control that was missing
 
 Commits: f49102f + this one. Suite 2331 passed / 18 skipped, ruff clean.
 
@@ -86,35 +118,3 @@ clean, drift_guard 0 breaches, CI green.
   and this session's file alone is 41 MB.
 
 ---
-
-## 2026-08-29 - chord coverage, and two verdict bugs it exposed
-
-Three commits: d9861e9, 0184089, 30e98cd. Suite 2311/18, ruff clean,
-drift_guard 0 breaches.
-
-- **Measured the blind spot before touching anything.** 269 of 357 steps (75.4
-  percent) and 47.6 percent of repainted pixels commit on `no-evidence`. akali
-  carries 4 chords over 17 blobs.
-- **Both obvious levers falsified.** Perfect pairing recovers only 34 of 269.
-  **Lowering GRAD_MIN makes coverage WORSE** (239 at 3.0, 252 at 2.0 vs 235) -
-  the clustering merges crossings. DO NOT redo that sweep.
-- **Shipped `build_stubs()`.** A lone crossing predicts a RAY: 153 of 269 blind
-  steps reached, 4.5x the pairing ceiling. Self-proven against its own untouched
-  frame (stubs 1,024/1,103 at median 1.019; chords 95/102 at 1.082). 825 ship.
-- **Bug 1, found by the run:** `_verdict` pooled all evidence into one median,
-  so 825 stubs silenced NINE chord reverts including both of 259f's. Fixed:
-  pools judged separately, revert from either stands.
-- **Bug 2, found by the GOLD:** the broken-line ANY-rule let ONE stub revert
-  105-cleanup step 0, taking it from 11.562 back to 15.329 against 15.454
-  untouched - it blocked a fill measurably moving TOWARD the operator's result.
-  Fixed: stub pool keeps only the strength median (a consensus). No new knob.
-- **End state:** no-evidence 269 -> 125, held 21 -> 37, still_reads 13 -> 13
-  with NO slug moving either way, 105 back to 11.562 byte-identical to
-  stubs-off. 146 steps decided by a stub, 16 reverts.
-- **STILL OPT-IN.** The eye has not seen this lane. Sheets:
-  `ops/runtime/clean/creditline/run_stubs3/`.
-- **NEXT: the 116 steps carrying neither chord nor stub** - no line enters them
-  that the layer can see, so no pairing or threshold reaches them. Needs a
-  different mechanism; none proposed on this evidence.
-- **OPEN, carried forward: C: is FULL.** 185.6 GB in `%LOCALAPPDATA%\Temp\claude`.
-  Commands handed to the operator 2026-08-23, still not run.

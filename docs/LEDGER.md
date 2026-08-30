@@ -27,6 +27,103 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+136. DONE **2026-08-29 (mask-excluded G1 FR for a cleaning candidate, and the
+   tautology guard it needs; d13cdfc).** G1's FR compares a cleaning candidate
+   against its `_cleaninitial`, which still carries the mark, so a successful
+   cleaning was charged for the removal it was asked to make.
+   `tools/lw_clean_fr.py` neutralizes the detect-mask region (reference pixels
+   composited into the candidate) before FR runs, so only the region the
+   candidate was meant to PRESERVE is scored. **THE TRAP, found by spiking it
+   before building it:** a mask DERIVED from the candidate's own diff is a
+   tautology - neutralizing wherever a candidate differs makes it byte-identical
+   to the reference, and FR then returns ms_ssim 1.0000 / lpips 0.0001 for ANY
+   candidate, including one carrying a 10x global sharpen (measured on 259f:
+   both rebuilds scored exactly 1.0000 / 0.0001 against a box derived from their
+   own extent). Two guards, because the obvious one is not sufficient:
+   `MASK_MAX_PCT = 10.0`, calibrated from BOTH ends (largest real mask on record
+   6.363 percent, the tautology box 14.787 percent - an area ceiling ALONE would
+   not have caught that box); and `outside_changed_px` / `outside_max_delta` /
+   `scored`, which measure whether anything FR will score differs at all. Tool
+   output is byte-identical outside its mask by construction (259f verify.json:
+   outside_ssim 1.0, mad_outside 0.0), so there it is legitimately 0 and the
+   audit SAYS so instead of reporting a free 1.0 as though it were earned. The
+   module accepts a mask PATH only and never computes one from the pair.
+   **Scope CORRECTED, measured, against the earlier claim:** excluding the mask
+   is NOT most of the FR deficit on a hand-edited submission - over the 41
+   recorded masks the median covers 1.257 percent of the frame and the max
+   6.363, so exclusion moves ms_ssim about +0.003 on 259f (0.9536 -> 0.9566) and
+   roughly +0.02 at the corpus worst case. The dominant term was always the
+   global filter, which `halo_pct` catches with or without a mask; this is a
+   correctness fix, not a large one, and the docstring says so. `lap_ratio` is
+   recorded but never gated (cleaning does no upscale, so by the ADR-006
+   argument the softness floor reads as arbitrary pass/fail by source content,
+   and the over-sharpen direction is already owned by `halo_pct`). Output is
+   shaped for `lw_pipeline annotate --metrics` (gate/verdict/reasons/metrics) and
+   the two run as a PRODUCER plus a CONSUMER, by contract, not by import - the
+   module writes its audit with `--out` and `annotate --metrics @path` consumes
+   it, which is why nothing imports it. numpy + Pillow only at import; pyiqa and
+   torch sit behind an injectable `fr_fn` so the tests load no model. Verified
+   end to end with the real FR models on 259f: operator FINAL FAIL msssim 0.9566
+   lpips 0.1747 halo 0.3865 scored=true; rebuild s=0.70 PASS msssim 0.9867 lpips
+   0.0212 halo 0.0291 scored=true. A CLI bug surfaced during that run and is
+   fixed with two tests (a missing or undecodable file exited via traceback
+   instead of exit 2). Suite 2379 passed / 18 skipped (was 2354 + 18, +25 new),
+   ruff clean.
+
+135. DONE **2026-08-29 (a globally-filtered submission gets flagged at
+   save-working; 78a0521).** `save-working` ran NO image check at all, proven by
+   dry-run against slug 259f: an operator PNG measuring halo_pct 0.3897 /
+   lap_ratio 10.244 against its own `_cleaninitial` returned rc=0 and planned the
+   copy, having changed pixels by up to 196 levels OUTSIDE the edited region.
+   **Why nothing caught it:** every image check the cleaning stage owns is masked
+   or local (`outside_ssim`, `mad_outside`, `seam_ssim`, `change_ssim`), and a
+   global filter moves everything uniformly, so a masked identity test computed
+   against the submitted file cannot see it. The verification asymmetry ran
+   backwards from risk - the automated cleaner, masked by construction, got the
+   full G2 tripwire, while hand cleaning, the only route for the cases the
+   auto-cleaner fails (259f's own verify.json says text_residue FAIL), got
+   nothing. The detector already existed: `lw_g1_gate`'s numpy metrics separate
+   the two cases by 19x on halo (0.0206 clean vs 0.3897 filtered, flag 0.05) and
+   11x on lap_ratio. No GPU, no pyiqa, no new metric. Shape follows ADR-008 -
+   this FLAGS, it never REJECTS: the measurement lands in the transition audit, a
+   GLOBAL_FILTER line prints, and the file is still accepted, so the operator is
+   never refused. Details pinned by tests: `lap_ratio` is a CEILING here
+   (over-sharpen only; the soft direction stays with G1's FLOOR, since a band
+   would double-gate softness against a different reference); the ceiling 2.0
+   clears the settled USM census worst case of 1.1399 with room, so the shipped
+   `USM_DEFAULT` can never trip its own tripwire; a metric that cannot be
+   measured records None and is SKIPPED, never counted as a pass or a failure
+   (several existing suites submit a non-image payload as the working file, so
+   that must stay accepted); and the audit carries no `verdict` key on purpose,
+   because `_latest_gate_audit` keys on that and this is a submission
+   measurement rather than a gate result (a test asserts the approval record
+   still reads `no_audit`). numpy / PIL / `lw_g1_gate` are lazy-imported so
+   `lw_pipeline` stays stdlib-only at import time per its module docstring.
+   Verified end to end on the real files: the operator FINAL flags on both
+   reasons, the s=0.70 and s=1.00 rebuilds do not. Suite 2354 passed / 18 skipped
+   (was 2332 + 18, +22 new), ruff clean.
+
+134. DONE **2026-08-29 (repo junk audit - tracked scratch dumps dropped, a stray
+   log untracked; 6fffd74).** Removed only what nothing references:
+   `scratchpad/reddit-*.txt` (6 files, raw old.reddit scrape output from the
+   2026-08-01 MCP lift dive - zero references anywhere, the conclusions were
+   already written up in `docs/MCP_LIFT_DIVE_2026-08-01.md`, and the extractor
+   reads `reddit-*.html`, not these); and `ops/loop/ABORT.log` (a hand-written
+   2026-07-16 incident note about the AHK bridge failing its window-title
+   pre-check - zero references, the AHK channel is retired at `channel=sdk`, and
+   logs do not belong in git, so it is untracked and relocated verbatim to
+   `docs/_archive/`, the repo's own gitignored home for dated artifacts). KEPT on
+   inspection despite scratch-looking names, so nobody re-proposes deleting them:
+   `tools/lw_wiki_swap_oneoff.py` (imported by its test),
+   `tools/test_lw_clean_dekel.py` (a real test, in `tools/` on purpose for the
+   cv2 venv), the four `tools/_*_oneoff.py` (each cited by `docs/LEDGER.md` as run
+   evidence), `scratchpad/usm_fidelity_census.json` (the raw report behind a
+   settled ruling), and `scratchpad/weapon_calib.py` plus
+   `scratchpad/extract_reddit.py` (both cited in docs). Also swept off disk
+   (untracked, regenerable): `_verify_out.txt` and every `__pycache__` outside the
+   venvs - 66 of those `.pyc` were cpython-312, stale from an interpreter this
+   project no longer runs. Suite 2332 passed / 18 skipped.
+
 133. DONE **2026-08-29 (the two cleaning lanes get a verdict each: scoped ON,
    stubs opt-in; f49102f, 94db5d0).** Operator verdict, one per lane, on the two
    opt-in cleaning flags. **Premise CORRECTED before deciding:** the pair run
