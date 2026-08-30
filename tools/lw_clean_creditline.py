@@ -159,6 +159,59 @@ LEFT_MAX = 120
 LEFT_HOPS = 1
 LEFT_STUB = 10
 
+# Artwork that only PASSES THROUGH the region.
+#
+# MEASURED 2026-08-30 over all 39 queue slugs, rebuilding every mask from the
+# recorded box (the rebuild reproduces each recorded mask_px exactly): the fill
+# destroys 75.2 percent of every strong source edge that falls inside a mask,
+# and 75.7 percent of the flattened pixels belong to source structures with a
+# limb 6px or more OUTSIDE the mask. That is artwork crossing the band, not
+# credit-line stroke. The selection is a threshold, so on busy art the art's
+# own sharpest pixels ARE the selected ink: the mask recruits them, hands them
+# to the fill and the fill flattens them.
+#
+# The credit line's strokes are bounded by the text line and sit at least PAD
+# px inside the region; art crossing the band has limbs running out of it. So
+# ink further than LIMB_GAP outside the region is seeded and followed back
+# along the selection for LIMB_REACH steps, and what it reaches is refused.
+#
+# LIMB_REACH is the whole trade, and it is PAD + LIMB_GAP on purpose: the pad
+# is slack this module added around the read, while the read box itself is
+# EVIDENCE - OCR spelled DEVIANTART off it - so the escape may consume the
+# slack and must stop at the evidence. Measured over the queue against the
+# NCC-registered mark objects (20 slugs registering at ncc >= 0.60), strong
+# source edges inside the masks against the operator's own brush ink on the
+# two hand-cleaned captures:
+#   reach   strong px   cut   ridge px   cut   operator ink   logos losing ink
+#      0      144102     0%     34458     0%      100.0%             0
+#     20      124957    13%     29958    13%       97.6%             0
+#     24      119587    17%     28705    17%       96.6%             0
+#     32      110153    24%     26508    23%       94.1%             0
+#     36      106168    26%     25656    26%       93.3%             1
+#     40      102381    29%     24784    28%       92.3%             2
+#     96       82714    43%     20256    41%       81.2%             2
+# So there is measured headroom to 32 and the first mark loss is at 36; 24
+# keeps the promise that verified pixels are never dropped, which no larger
+# value can make. Raising it is this number and the test that pins it, and it
+# buys damage cut for mark risk.
+#
+# The promise has one exception and it is the BAND, not the reach: where the
+# band clips the pad the escape enters from the clipped side. Measured, that
+# is 2 of the 39 slugs - akali-godly-deer (line at the band's first row, so no
+# pad above it, 615 px of box-interior ink dropped) and 281-cleanup (3 px of
+# pad short at the bottom, 107 px) - and on both the dropped ink is artwork on
+# inspection: akali keeps 442 of 442 registered logo px and has the queue's
+# lowest in-box ink retention at 93.4 percent.
+#
+# Dropping the whole STRUCTURE instead - the first mechanism measured - cuts
+# 41 percent at ratio 0.10, but it takes the copyright glyph on
+# bayonetta-...-dm7iiug outright (0 of 159 px kept: the glyph sits ON a dark
+# art edge and merges with it into one structure) and costs 10 percent of the
+# operator's own brush ink. A ratio does not fix that - that structure is 337
+# px in and 340 px out - so the reach is what bounds the damage instead.
+LIMB_GAP = 4
+LIMB_REACH = 24
+
 
 def band_slice(height, band=BAND):
     return int(height * band[0]), int(height * band[1])
@@ -415,7 +468,69 @@ def mask_from_hits(shape, hits, pad=PAD, band=BAND, img=None):
     return mask
 
 
-def glyph_mask(img, box_mask, pct=GLYPH_PCT, grow=GLYPH_GROW):
+def _grow1(m):
+    """One 8-connected dilation step, in numpy shifts."""
+    out = m.copy()
+    out[1:, :] |= m[:-1, :]
+    out[:-1, :] |= m[1:, :]
+    out[:, 1:] |= m[:, :-1]
+    out[:, :-1] |= m[:, 1:]
+    out[1:, 1:] |= m[:-1, :-1]
+    out[1:, :-1] |= m[:-1, 1:]
+    out[:-1, 1:] |= m[1:, :-1]
+    out[:-1, :-1] |= m[1:, 1:]
+    return out
+
+
+def escaped_ink(sel, box_mask, gap=LIMB_GAP, reach=LIMB_REACH):
+    """Selected ink a structure carries IN from outside the credit-line region.
+
+    Seeded on the selection more than `gap` px outside the region and followed
+    back along the selection for `reach` steps. A structure that continues
+    well outside the region is artwork passing through it - see LIMB_REACH for
+    what that is measured to be worth - and the mark's own strokes sit behind
+    PAD px of slack that the default reach is sized never to cross, so on 37
+    of the 39 queue slugs not one pixel INSIDE the read box can be reached at
+    all. The other two are the ones whose band clips that slack.
+
+    Followed per PIXEL rather than per structure on purpose. The overlay's
+    strokes TOUCH art edges and merge with them into one component - measured
+    on bayonetta-...-dm7iiug, where the copyright glyph and a dark diagonal
+    edge are a single 700 px structure, 337 px of it inside the region and 340
+    outside - so a verdict on the whole structure takes the glyph with the
+    limb. A bounded reach takes the limb and stops before the glyph.
+
+    The work is done on a window around the region, which is exact: a path
+    that reaches the region within `reach` steps cannot leave it further than
+    that.
+    """
+    sel = np.asarray(sel, dtype=bool)
+    box_mask = np.asarray(box_mask, dtype=bool)
+    out = np.zeros_like(sel)
+    if int(reach) <= 0 or not box_mask.any():
+        return out
+    ys, xs = np.nonzero(box_mask)
+    pad = int(reach) + int(gap) + 2
+    y0 = max(0, int(ys.min()) - pad)
+    y1 = min(sel.shape[0], int(ys.max()) + 1 + pad)
+    x0 = max(0, int(xs.min()) - pad)
+    x1 = min(sel.shape[1], int(xs.max()) + 1 + pad)
+    s = sel[y0:y1, x0:x1]
+    near = box_mask[y0:y1, x0:x1]
+    for _ in range(int(gap)):
+        near = _grow1(near)
+    seeds = s & ~near
+    for _ in range(int(reach)):
+        nxt = _grow1(seeds) & s
+        if int(nxt.sum()) == int(seeds.sum()):
+            break
+        seeds = nxt
+    out[y0:y1, x0:x1] = seeds
+    return out
+
+
+def glyph_mask(img, box_mask, pct=GLYPH_PCT, grow=GLYPH_GROW, gap=LIMB_GAP,
+               reach=LIMB_REACH):
     """Narrow a verified box down to the pixels the text actually lands on.
 
     The box percentile stays, unioned with the local ink test: the percentile
@@ -423,6 +538,13 @@ def glyph_mask(img, box_mask, pct=GLYPH_PCT, grow=GLYPH_GROW):
     local test is what survives a bright art highlight sitting in the same box.
     A union also means no currently-kept pixel is ever lost, so the slugs that
     already clean correctly keep the mask they had.
+
+    What the union cannot tell apart is the art's own sharpest pixels, and
+    those are 75.7 percent of the damage the fill does, so the selection is
+    then asked one more question per structure: does this ink come in from
+    OUTSIDE the region - see `escaped_ink`. That is a narrowing WITHIN the
+    verified box, which is what this function has always done; it is not a
+    narrower read box, which was measured worse twice - see `_credit_span`.
     """
     box_mask = np.asarray(box_mask, dtype=bool)
     if not box_mask.any():
@@ -430,7 +552,8 @@ def glyph_mask(img, box_mask, pct=GLYPH_PCT, grow=GLYPH_GROW):
     lum = np.asarray(img, dtype=np.float64).mean(axis=2)
     hp = np.abs(_highpass(lum, win=HP_WIN))
     thr = float(np.percentile(hp[box_mask], pct))
-    g = box_mask & ((hp >= thr) | local_ink(img))
+    sel = (hp >= thr) | local_ink(img)
+    g = box_mask & sel & ~escaped_ink(sel, box_mask, gap=gap, reach=reach)
     for _ in range(int(grow)):
         g[1:, :] |= g[:-1, :]
         g[:-1, :] |= g[1:, :]

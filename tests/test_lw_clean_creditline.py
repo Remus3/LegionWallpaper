@@ -526,3 +526,95 @@ def test_the_local_ink_test_is_not_a_global_percentile():
     assert int(a.sum()) > 0
     assert np.array_equal(a, b)
 
+
+# ------------------------------------- artwork that only PASSES THROUGH
+#
+# MEASURED 2026-08-30 over all 39 queue slugs, rebuilding every mask from the
+# recorded box (the rebuild reproduces the recorded mask_px exactly): the fill
+# destroys 75.2 percent of every strong source edge that falls inside a mask,
+# and 75.7 percent of the flattened pixels belong to source structures with a
+# limb 6px or more OUTSIDE the mask. That is artwork crossing the band, not
+# credit-line stroke: the ink selection is a threshold, and on busy art the
+# art's own sharpest pixels ARE the selected ink, so the mask recruits them and
+# hands them to the fill.
+#
+# The credit line's own strokes are bounded by the text line and sit at least
+# PAD px inside the region; art crossing it has limbs running out of it. So a
+# selected structure is followed back from outside and the ink it reaches is
+# refused. How far it may be followed is the whole trade - see LIMB_REACH.
+def _crossing(img, y0=900, y1=1100, x0=1250, x1=1262):
+    """Artwork entering the band from outside it and leaving again."""
+    return _bar(img, y0, y1, x0, x1)
+
+
+def _crossing_case():
+    img = _crossing(_with_text(_frame(), 980, 1012, 1022, 1180, stride=11))
+    return img, CL.mask_from_hits(img.shape, [_line_hit()], img=img)
+
+
+def test_art_that_only_passes_through_the_region_is_not_handed_to_the_fill():
+    img, box = _crossing_case()
+    g = CL.glyph_mask(img, box)
+    top = int(np.nonzero(box.any(axis=1))[0].min())
+    depth = CL.LIMB_REACH - CL.LIMB_GAP - CL.GLYPH_GROW
+    assert box[top + 1, 1250:1262].all(), "the bar is inside the read region"
+    assert not g[top:top + depth, 1250:1262].any(), "art passing through"
+
+
+def test_the_escape_is_followed_no_further_than_the_pad_is_deep():
+    """PAD px of the region are slack the module added, not verified mark.
+
+    The read box itself is evidence - OCR read DEVIANTART off it - so the
+    escape may consume the pad and stops there. MEASURED over the 39 slugs
+    against the NCC-registered mark objects: no registered logo loses a single
+    pixel at a reach of 32, the first one loses ink at 36, and the whole-
+    component variant (drop the structure outright) loses one slug's entire
+    copyright glyph and 10 percent of the operator's own brush ink.
+    """
+    assert CL.LIMB_GAP > 0
+    assert CL.LIMB_REACH == CL.PAD + CL.LIMB_GAP
+    img, box = _crossing_case()
+    g = CL.glyph_mask(img, box)
+    assert g[996:1006, 1250:1262].any(), "inside the read box it is kept"
+
+
+def test_the_credit_line_strokes_are_not_touched_by_the_escape():
+    """The regression guard: excluding art must not cost mark stroke."""
+    img, box = _crossing_case()
+    g = CL.glyph_mask(img, box)
+    strokes = np.zeros(img.shape[:2], dtype=bool)
+    strokes[980:1012, 1022:1180:11] = True
+    assert (g & strokes).sum() > 0.9 * strokes.sum()
+
+
+def test_a_mark_that_touches_crossing_art_keeps_its_own_ink():
+    """bayonetta-...-dm7iiug in miniature, and why the reach is bounded.
+
+    On that frame the copyright glyph sits ON a dark diagonal art edge and
+    merges with it into ONE selected structure. Dropping the whole structure -
+    the first mechanism measured - takes all 159 px of the glyph with it. A
+    bounded reach takes the limb and leaves the glyph, which is further in than
+    the escape can follow.
+    """
+    img = _with_text(_frame(), 980, 1012, 1022, 1500, stride=11)
+    img = _disc_ring(img, **LOGO)
+    img = _bar(img, 900, 1100, 992, 1000)
+    box = CL.mask_from_hits(img.shape, [_line_hit()], img=img)
+    g = CL.glyph_mask(img, box)
+    cy, cx, r, t = LOGO["cy"], LOGO["cx"], LOGO["r"], LOGO["thick"]
+    yy, xx = np.mgrid[cy - r - t:cy + r + t + 1, cx - r - t:cx + r + t + 1]
+    d = np.hypot(yy - cy, xx - cx)
+    ring = np.zeros(img.shape[:2], dtype=bool)
+    ring[cy - r - t:cy + r + t + 1, cx - r - t:cx + r + t + 1] = (
+        (d >= r - t / 2.0) & (d <= r + t / 2.0))
+    assert (ring & g).sum() > 0.9 * int(ring.sum())
+
+
+def test_an_escape_filter_that_finds_nothing_changes_nothing():
+    """Every slug that already cleans correctly keeps the mask it had."""
+    img = _with_text(_frame(), 970, 1000, 950, 1450)
+    box = np.zeros(img.shape[:2], dtype=bool)
+    box[960:1010, 900:1500] = True
+    assert np.array_equal(CL.glyph_mask(img, box),
+                          CL.glyph_mask(img, box, reach=0))
+
