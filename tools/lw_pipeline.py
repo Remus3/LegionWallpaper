@@ -880,6 +880,84 @@ def assert_ladder_allowed(stage, man, tool, allow_ladder=False):
         code=3)
 
 
+# ---- global-filter tripwire on a submission (ADR-008 shape: FLAG, never REJECT)
+# Every image check the cleaning stage owns is masked or local - outside_ssim,
+# mad_outside, seam_ssim, change_ssim - so a submission carrying a GLOBAL filter
+# on top of its intended local edit is invisible to all of them. Measured on
+# slug 259f (2026-08-29): an operator PNG at halo_pct 0.3897 / lap_ratio 10.244
+# against its own _cleaninitial was accepted here with no image check at all,
+# changing pixels by up to 196 levels outside the edited region.
+#
+# This FLAGS: it records the measurement and warns. It never refuses - the
+# operator is never refused (ADR-008, ADR-009).
+GLOBAL_FILTER_HALO_FLAG = 0.05   # = lw_g1_gate DEFAULT_G1_THRESHOLDS halo_pct flag
+GLOBAL_FILTER_LAP_CEIL = 2.0     # legit cleaning ~1.0; settled USM census worst 1.1399
+
+
+def global_filter_verdict(halo_pct, lap_ratio,
+                          halo_flag=GLOBAL_FILTER_HALO_FLAG,
+                          lap_ceil=GLOBAL_FILTER_LAP_CEIL):
+    """Flag a submission that looks globally filtered. Pure: two numbers in.
+
+    A None metric means "could not measure": it is SKIPPED, never counted as a
+    pass and never as a failure. Comparisons are strictly-greater, so a value
+    sitting exactly on a threshold does not trip.
+
+    lap_ratio is a CEILING here (over-sharpen only). The soft direction is owned
+    by G1's lap_ratio FLOOR (fail 1.0) and is deliberately not re-gated - a
+    band here would double-gate softness against a different reference.
+    """
+    reasons = []
+    if halo_pct is not None and halo_pct > halo_flag:
+        reasons.append(f"halo_pct {halo_pct:g} > {halo_flag:g}")
+    if lap_ratio is not None and lap_ratio > lap_ceil:
+        reasons.append(f"lap_ratio {lap_ratio:g} > {lap_ceil:g}")
+    return {"flagged": bool(reasons), "reasons": reasons}
+
+
+def measure_global_filter(reference_path, submitted_path):
+    """halo_pct + lap_ratio of a submission against its stage _initial.
+
+    numpy / PIL / lw_g1_gate are imported lazily so this module stays stdlib-only
+    at import time (see the module docstring). Any failure to measure - missing
+    reference, undecodable bytes, a size mismatch - records None rather than
+    raising: save-working must stay usable on a non-image payload.
+    """
+    out = {"halo_pct": None, "lap_ratio": None,
+           "reference": Path(reference_path).name}
+    try:
+        tools_dir = str(Path(__file__).resolve().parent)
+        if tools_dir not in sys.path:
+            sys.path.insert(0, tools_dir)
+        import numpy as np
+        from PIL import Image
+
+        from lw_g1_gate import laplacian_ratio, overshoot_halo
+
+        with Image.open(reference_path) as ref_im:
+            ref = np.asarray(ref_im.convert("RGB"))
+        with Image.open(submitted_path) as sub_im:
+            sub = np.asarray(sub_im.convert("RGB"))
+        if ref.shape != sub.shape:
+            return out
+        out["halo_pct"] = round(float(overshoot_halo(ref, sub)["halo_pct"]), 6)
+        out["lap_ratio"] = round(float(laplacian_ratio(ref, sub)), 6)
+    except Exception:  # noqa: BLE001 - a measurement must never break save-working
+        return out
+    return out
+
+
+def _global_filter_audit(reference_path, submitted_path):
+    """measure + verdict, as one audit dict for the manifest transition.
+
+    Carries no "verdict" key on purpose: _latest_gate_audit keys on that, and
+    this is a submission measurement, not a gate result.
+    """
+    audit = measure_global_filter(reference_path, submitted_path)
+    audit.update(global_filter_verdict(audit["halo_pct"], audit["lap_ratio"]))
+    return audit
+
+
 def cmd_save_working(ctx, slug, from_path, adopt, tool, params_json,
                      allow_ladder=False):
     stage, folder = find_scratch(ctx, slug)
@@ -897,6 +975,7 @@ def cmd_save_working(ctx, slug, from_path, adopt, tool, params_json,
     try:
         n = (scratch_workings(folder, slug, stage) or [(0, None)])[-1][0] + 1
         target_name = milestone_name(slug, stage, "working", ver=n)
+        stage_initial = folder / milestone_name(slug, stage, "initial")
         if adopt:
             candidates = [
                 p for p in folder.iterdir()
@@ -909,13 +988,19 @@ def cmd_save_working(ctx, slug, from_path, adopt, tool, params_json,
                     code=2)
             src = max(candidates, key=lambda p: p.stat().st_mtime)
             sha = sha256_file(src)
+            gf = _global_filter_audit(stage_initial, src)
             ops.rename(src, folder / target_name)
         else:
             src = Path(from_path)
             if not src.is_file():
                 raise PipelineError(f"save-working: missing --from file {src}",
                                     code=2)
+            gf = _global_filter_audit(stage_initial, src)
             sha = ops.safe_copy(src, folder, target_name)
+        if gf["flagged"]:
+            print(f"GLOBAL_FILTER: {slug} {target_name} looks globally filtered "
+                  f"vs {gf['reference']} ({'; '.join(gf['reasons'])}) - "
+                  "recorded, not refused")
         man = load_manifest(folder)
         if man is not None:
             add_transition(
@@ -923,7 +1008,8 @@ def cmd_save_working(ctx, slug, from_path, adopt, tool, params_json,
                 actor=(f"tool:{tool}") if tool else "operator",
                 tool=tool, params=params, src=str(src),
                 dst=f"{SCRATCH_DIR[stage]}/{slug}/{target_name}",
-                sha_in=sha, sha_out=sha)
+                sha_in=sha, sha_out=sha,
+                audit={"global_filter": gf})
             ops.write_json(folder / "manifest.json", man)
         ctx.log(slug, "SAVE_WORKING", SCRATCH_DIR[stage], SCRATCH_DIR[stage],
                 sha[:12], actor=(f"tool:{tool}") if tool else "operator")
