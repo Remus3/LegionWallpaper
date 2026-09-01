@@ -106,6 +106,21 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    because the settled ruling puts that estimator at SNR ~1 with 40 percent
    movement when the frame set changes.
 
+   **The two held slugs closed the same way, and the session's real number is
+   the loss rate.** `cozy-fall-with-seraphine` (1024x512) and `leona-and-diana`
+   (900x600) were probed before spending any GPU: BOTH carry the two-part DA
+   watermark (leona's logo blatant, cozy-fall's line faint), BOTH read
+   `is_downloadable: false`, and BOTH sit under the 1280px G0 floor even before
+   their 11-16 percent crop. The crop cannot dodge the mark - cozy-fall is too
+   WIDE so the crop takes width, leona is too tall by only 94px, and both marks
+   sit mid-frame. Processing was therefore futile and the operator dropped both.
+   **FINAL TALLY for the 2026-09-01 intake: 15 shipped, 8 dropped, every one of
+   the 8 to the DA preview watermark - 35 percent of a 23-slug intake lost to the
+   fetch route.** That rate, not the individual slugs, is the thing to weigh
+   before the next intake. `1.First Pass Scratch` is down to
+   `1000040081-...-375w-2x` alone; `verify: ok (596 images checked)`,
+   anomalies 0.
+
    **Verified the 15 shipped are actually clean**, rather than trusting the
    zero-detection verdict: cropped the same y-band from all 15 and swept a
    full-frame contact sheet. No watermark anywhere. The detector was right; the

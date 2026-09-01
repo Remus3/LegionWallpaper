@@ -95,11 +95,20 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   because the settled ruling puts the veil estimator at SNR ~1 and 40 percent
   movement when the frame set changes.
 
-- **Still open, all operator-owned:** 3 slugs HELD over the 0.08 aspect-loss cap
-  needing a `--crop-overrides` side grant (`cozy-fall-with-seraphine` 1024x512
-  too wide; `sona-feathers-void` 1920x1280 and `leona-and-diana` 900x600 too
-  tall - and leona also fails G0 at 900px). `1000040081-...-375w-2x` stays
-  excluded: a 750x436 source under the 1280x720 G0 floor.
+- **The last 2 held slugs were checked, and they were the same story - dropped.**
+  `cozy-fall-with-seraphine` (1024x512) and `leona-and-diana` (900x600) BOTH
+  carry the two-part DA watermark (leona's logo is blatant), BOTH read
+  `is_downloadable: false`, and BOTH sit under the 1280px G0 floor even before
+  their 11-16 percent crop. The crop cannot dodge the mark either - cozy-fall is
+  too WIDE so the crop takes width, and leona is too tall by only 94px, while
+  both marks sit mid-frame. Processing them was futile, so they were GC'd on the
+  same ruling as the other six.
+- **FINAL TALLY for the 2026-09-01 intake: 15 shipped, 8 dropped, all 8 to the
+  DA preview watermark.** That is **35 percent of a 23-slug intake lost to the
+  fetch route**, which is the number to weigh before the next intake.
+  `1.First Pass Scratch` is down to `1000040081-...-375w-2x` alone - a 750x436
+  source under the G0 floor, pre-existing since 2026-08-17, untouched.
+  `verify: ok (596 images checked)`, anomalies 0.
 
 ---
 
