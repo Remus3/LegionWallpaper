@@ -11,7 +11,46 @@
 
 ---
 
-## 2026-09-01 - intake grew a perceptual gate, and the pipeline grew a reverse
+## 2026-09-01 (later) - twenty through first pass, and the watermark under the queue
+
+One commit (`ad99249`), pushed. Suite **2450 passed / 18 skipped** on a fresh
+full run (120s) - baseline 2449, +1 for the new regression test. ruff clean,
+`verify: ok (604 images checked)` zero mismatches, scan anomalies 0.
+Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
+
+- **15 slugs reached `4.Cleaning Done` at exactly 2560x1440.** All 20 that
+  entered the upscale scored G1 PASS - no FLAG, no FAIL. `clean_done` 492 ->
+  507, `clean_scratch` 100 -> 85 (5 new QA + the 80 pre-existing),
+  `first_scratch` 24 -> 4.
+- **One slug was lost to a quoting bug, not to quality.**
+  `deviantart_1375265414_Kai'Sa.jpg` - the apostrophe closed the `r'...'`
+  literal in the generated `python -c` snippet and the upscale subprocess died
+  on a SyntaxError. Both snippet sites now go through `_pylit()`
+  (`json.dumps`); `run_fr_metrics` had the identical pattern and would have
+  failed on the same file at the gate step, so it was fixed in the same slice.
+  RED-first test `ast.parse`s the snippet and asserts the paths round-trip.
+  kai-sa reran to PASS.
+- **The 5 QA-queued slugs all carry the DeviantArt preview watermark.** A
+  semi-transparent `(c) ARTIST.DEVIANTART.COM` band at y=971..1013 of 1440,
+  across three different artists. I cropped the detected boxes and looked - this
+  is confirmed, not inferred. It is an artifact of the quota-free
+  `intermediary=true` fetch route, so it will recur on every slug recovered that
+  way. The gate was RIGHT to refuse (`centre_overlay` x4, `not_border` x1): the
+  strip crosses the subject. Doctrine says recover, do not inpaint, when a clean
+  source exists - so these want a re-fetch at `original=true` (weekly quota),
+  NOT a 660px LaMa repaint through a face. Annotated into all 5 manifests.
+- **Checked the 15 shipped rather than trusting the zero-detection verdict.**
+  Cropped the same y-band from all 15 plus a full-frame contact sheet: clean.
+  The split is by artist - all 15 came from fudoyuseivn.
+- **Still open, all operator-owned:** 3 slugs HELD over the 0.08 aspect-loss cap
+  needing a `--crop-overrides` side grant (`cozy-fall-with-seraphine` 1024x512
+  too wide; `sona-feathers-void` 1920x1280 and `leona-and-diana` 900x600 too
+  tall - and leona also fails G0 at 900px). `1000040081-...-375w-2x` stays
+  excluded: a 750x436 source under the 1280x720 G0 floor.
+
+---
+
+## 2026-09-01 (earlier) - intake grew a perceptual gate, and the pipeline grew a reverse
 
 Four commits, all pushed, CI green on each. Suite **2449 passed / 18 skipped**
 on a fresh full run (118s); baseline was 2408 and I added 41 tests. ruff clean

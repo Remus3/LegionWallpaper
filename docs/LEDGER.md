@@ -27,6 +27,54 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+143. DONE **2026-09-01 (twenty of twenty-four through first pass, and the
+   apostrophe that ate a slug; `ad99249`).** Ran `/first-pass` then
+   `/cleaning-pass` over the 24 slugs sitting in `1.First Pass Scratch`.
+   Outcome: **15 slugs reached `4.Cleaning Done` at exactly 2560x1440**,
+   5 sit in the cleaning QA queue with a confirmed finding, 3 are HELD on an
+   aspect grant the operator owns, and 1 was excluded as a stale WIP whose
+   source fails G0. Suite **2450 passed / 18 skipped** (baseline 2449, +1 for
+   the new regression test), ruff clean, `verify: ok (604 images checked)`
+   with zero mismatches, scan anomalies 0.
+
+   **The bug.** The batch lost `kai-sa-by-pebano1-dmqspl2-fullview` to a
+   SyntaxError, not to image quality. `lw_first_pass` builds its `python -c`
+   snippets by interpolating paths into `r'...'` literals; the fetched source
+   was `deviantart_1375265414_Kai'Sa.jpg`, and the apostrophe closed the
+   literal early. Root cause is the hand-rolled interpolation, so both call
+   sites moved to `_pylit()` (`json.dumps`, which escapes backslashes, both
+   quote characters and non-ASCII, and emits a valid Python literal).
+   `run_fr_metrics` carried the identical pattern and would have died on the
+   same file one step later at the gate, so it was fixed in the same slice
+   rather than waiting for a second report. RED-first: the regression test
+   `ast.parse`s each generated snippet and asserts both paths round-trip as
+   string constants - it fails with SyntaxError against the old code. kai-sa
+   then reran to G1 PASS (lap_ratio 1.4486, msssim 0.9991, lpips 0.0096).
+
+   **The finding that mattered more.** All 5 QA-queued slugs carry a
+   semi-transparent `(c) ARTIST.DEVIANTART.COM` band across mid-frame at
+   y=971..1013 of 1440, spanning three different artists. Confirmed by cropping
+   the detected boxes and looking, not inferred: it is the **DeviantArt preview
+   watermark**, an artifact of the quota-free `intermediary=true` fetch route
+   (memory `reference-deviantart-recovery`), not artist art. The gate was right
+   to refuse it - `centre_overlay` x4, `not_border` x1 - because the strip
+   crosses the subject's body and face. Per the first-pass doctrine (recover, do
+   not inpaint, when a clean source exists) these 5 want a re-fetch at
+   `original=true` under the weekly quota, NOT a 660px LaMa repaint through a
+   face. The finding is annotated into each of the 5 manifests.
+
+   **Verified the 15 shipped are actually clean**, rather than trusting the
+   zero-detection verdict: cropped the same y-band from all 15 and swept a
+   full-frame contact sheet. No watermark anywhere. The detector was right; the
+   split is by artist, since every one of the 15 came from fudoyuseivn.
+
+   Held work, all operator-owned: `cozy-fall-with-seraphine` (1024x512, too
+   wide), `sona-feathers-void` (1920x1280, too tall) and `leona-and-diana`
+   (900x600, too tall) exceed the 0.08 aspect-loss cap and need a
+   `--crop-overrides` side grant; `leona-and-diana` additionally fails G0 at
+   900px wide. `1000040081-...-375w-2x` stays excluded - a 750x436 source, well
+   under the 1280x720 G0 floor, whose earlier attempt scored lap_ratio 0.912.
+
 142. DONE **2026-09-01 (the twin the byte hash could not see, and the reverse
    move the pipeline never had; `2fe8087` `3d81298` `b2c932f` `fa56adc`).**
    Began as `/intake` (24 intaken, 2 refused byte-identical, Tier-1 token decode
