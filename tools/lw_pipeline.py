@@ -66,6 +66,14 @@ EDITOR_SIDECAR_EXTS = {".psd", ".kra", ".xcf", ".bak", ".autosave"}
 
 MIN_AGE_SECONDS = 10.0     # intake gate: mtime must be at least this old
 PROBE_SECONDS = 2.0        # intake gate: size-stability probe interval
+
+# Perceptual near-duplicate gate on intake. Bands are SOURCE_RECOVERY section 4
+# (the same ones lw_recover.consensus_match already uses for Tier 0): BOTH
+# pHash and dHash Hamming <= ACCEPT is a refusal, <= REVIEW is an intake with a
+# flag, anything wider is clean. Consensus is the point - one hash agreeing is
+# not enough to call two images the same artwork.
+NEAR_DUP_ACCEPT = 8
+NEAR_DUP_REVIEW = 14
 STALE_PART_SECONDS = 86400.0
 STALE_LOCK_SECONDS = 3600.0
 
@@ -317,6 +325,9 @@ class Ctx:
 
     def state_path(self):
         return self.project_root / "ops" / "runtime" / "pipeline_state.json"
+
+    def phash_cache_path(self):
+        return self.project_root / "ops" / "runtime" / "intake_phash_cache.json"
 
     def rel(self, path):
         try:
@@ -676,6 +687,144 @@ def scratch_workings(folder, slug, stage):
     return sorted(out)
 
 
+# ------------------------------------------------- intake near-duplicate gate
+
+def _lw_recover():
+    """Import tools/lw_recover.py on demand (it is stdlib-clean at import)."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import lw_recover
+    return lw_recover
+
+
+def _image_hashes(path):
+    """64-bit pHash + dHash of one image, via tools/lw_recover.compute_hashes.
+
+    lw_pipeline is stdlib-only at import time by contract and imagehash is NOT
+    a CI dependency, so the hop into lw_recover happens per call, inside the
+    gate. There is deliberately no second hashing implementation here - the
+    Tier-0 recovery hashes and the intake gate must agree bit for bit or a
+    file could be a near-dup to one and a stranger to the other.
+
+    Raises ImportError when imagehash/PIL are absent; every caller degrades.
+    """
+    return _lw_recover().compute_hashes(str(path))
+
+
+def _backup_original(folder):
+    """The path of a backup slug's ORIGINAL file, or None.
+
+    Prefers the manifest's original_filename - that is the only field that
+    distinguishes the intake original from the per-stage _initial milestone
+    copies that accumulate in the same folder. Falls back to a lone image file
+    for a hand-made folder with no manifest.
+    """
+    man = load_manifest(folder)
+    if man and man.get("original_filename"):
+        p = folder / man["original_filename"]
+        if p.is_file():
+            return p
+    images = [p for p in folder.iterdir()
+              if p.is_file() and p.name not in SIDECAR_NAMES
+              and p.suffix.lower() in IMAGE_EXTS
+              and not parse_milestone(p.name)]
+    return images[0] if len(images) == 1 else None
+
+
+def load_phash_cache(ctx):
+    p = ctx.phash_cache_path()
+    if not p.is_file():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="ascii"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return {}
+    entries = data.get("entries")
+    return entries if isinstance(entries, dict) else {}
+
+
+def save_phash_cache(ctx, entries):
+    p = ctx.phash_cache_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps({"schema": 1, "entries": entries}, indent=1),
+                   encoding="ascii")
+    tmp.replace(p)
+
+
+def backup_hash_corpus(ctx, cache):
+    """pHash/dHash over every backed-up slug's original. Mutates `cache`.
+
+    Keyed on the path relative to the pipeline root and invalidated on
+    (mtime, size), so the 580+ slug corpus is hashed once and re-read on every
+    later intake. A file that cannot be hashed is skipped, never fatal - a
+    single unreadable backup must not block an unrelated intake.
+    """
+    corpus = []
+    base = ctx.root / BACKUP
+    if not base.is_dir():
+        return corpus
+    for folder in sorted(base.iterdir()):
+        if not folder.is_dir():
+            continue
+        src = _backup_original(folder)
+        if src is None:
+            continue
+        try:
+            st = src.stat()
+        except OSError:
+            continue
+        key = ctx.rel(src)
+        hit = cache.get(key)
+        if not (isinstance(hit, dict) and hit.get("size") == st.st_size
+                and hit.get("mtime") == int(st.st_mtime)):
+            try:
+                h = _image_hashes(src)
+            except ImportError:
+                raise
+            except Exception:  # noqa: BLE001 - one bad backup never blocks intake
+                continue
+            hit = {"size": st.st_size, "mtime": int(st.st_mtime),
+                   "phash": h["phash"], "dhash": h["dhash"]}
+            cache[key] = hit
+        corpus.append({"path": str(src), "slug": folder.name,
+                       "phash": hit["phash"], "dhash": hit["dhash"]})
+    return corpus
+
+
+def near_duplicate_verdict(src, corpus):
+    """Consensus pHash+dHash verdict for one incoming file against `corpus`.
+
+    Delegates the band logic to lw_recover.consensus_match so intake and Tier-0
+    recovery can never drift apart. Returns
+    {'decision': 'match'|'review'|'no_match'|'skipped', 'slug', 'evidence'}.
+    """
+    try:
+        h = _image_hashes(src)
+    except ImportError:
+        return {"decision": "skipped", "slug": None,
+                "evidence": {"reason": "imagehash not installed"}}
+    except Exception as exc:  # noqa: BLE001 - unreadable image never blocks intake
+        return {"decision": "skipped", "slug": None,
+                "evidence": {"reason": f"unhashable ({type(exc).__name__})"}}
+    rep = _lw_recover().consensus_match(
+        h, corpus, accept=NEAR_DUP_ACCEPT, review=NEAR_DUP_REVIEW)
+    slug = None
+    if rep.get("source"):
+        slug = next((c["slug"] for c in corpus if c["path"] == rep["source"]),
+                    None)
+    return {"decision": rep["decision"], "slug": slug,
+            "evidence": rep.get("evidence", {})}
+
+
+def _near_dup_summary(verdict):
+    ev = verdict.get("evidence") or {}
+    return "{} (phash {} / dhash {})".format(
+        verdict.get("slug") or "?", ev.get("phash_hamming"),
+        ev.get("dhash_hamming"))
+
+
 # ---------------------------------------------------------------- intake (T1)
 
 def eligibility_reason(path):
@@ -695,7 +844,7 @@ def eligibility_reason(path):
     return None
 
 
-def cmd_intake(ctx, files, do_all):
+def cmd_intake(ctx, files, do_all, allow_near_dup=False):
     orig_dir = ctx.root / ORIGINALS
     if do_all:
         targets = sorted(p for p in orig_dir.iterdir()
@@ -707,6 +856,25 @@ def cmd_intake(ctx, files, do_all):
             targets.append(p if p.is_absolute() else orig_dir / name)
     if not targets and not do_all:
         raise PipelineError("intake: no files given (use --all)", code=2)
+
+    # Perceptual corpus for the near-duplicate gate. Built once per run, and
+    # only when there is something to intake. An absent imagehash degrades the
+    # whole gate to a no-op with a printed note - intake must never hard-fail
+    # on an optional dependency.
+    cache = load_phash_cache(ctx)
+    corpus = []
+    gate_note = None
+    if targets:
+        try:
+            corpus = backup_hash_corpus(ctx, cache)
+        except ImportError:
+            gate_note = "imagehash not installed"
+        else:
+            if not ctx.dry:
+                save_phash_cache(ctx, cache)
+    if gate_note:
+        print(f"note: near-dup gate skipped ({gate_note}) - "
+              f"pip install imagehash to enable it")
 
     for src in targets:
         if not src.is_file():
@@ -722,6 +890,27 @@ def cmd_intake(ctx, files, do_all):
         except PipelineError as e:
             print(f"skip {src.name}: {e}")
             continue
+        # sha256 refusal (inside unique_slug) has already had its say; this
+        # catches the case it structurally cannot see - the same artwork
+        # re-encoded, or re-downloaded under an unrelated filename.
+        near = {"decision": "no_match"}
+        if corpus:
+            near = near_duplicate_verdict(src, corpus)
+        intake_note = None
+        if near["decision"] == "match":
+            summary = _near_dup_summary(near)
+            if not allow_near_dup:
+                print(f"skip {src.name}: near-duplicate of {summary} - "
+                      f"re-run with --allow-near-dup to intake anyway")
+                continue
+            intake_note = f"near-dup override: {summary}"
+            print(f"note: {src.name} near-dup override - {summary}")
+        elif near["decision"] == "review":
+            intake_note = f"near-dup review band: {_near_dup_summary(near)}"
+            print(f"note: {src.name} near-dup review - {_near_dup_summary(near)}")
+        elif near["decision"] == "skipped":
+            reason = (near.get("evidence") or {}).get("reason", "unavailable")
+            print(f"note: near-dup gate skipped for {src.name} ({reason})")
         ops = Ops(ctx.dry)
         scratch = ctx.root / SCRATCH_DIR["first"] / slug
         backup = ctx.root / BACKUP / slug
@@ -738,7 +927,11 @@ def cmd_intake(ctx, files, do_all):
                 man, "INTAKE",
                 src=f"{ORIGINALS}/{src.name}",
                 dst="{}/{}/{}".format(SCRATCH_DIR["first"], slug, initial),
-                sha_in=original_hash, sha_out=original_hash)
+                sha_in=original_hash, sha_out=original_hash,
+                note=intake_note,
+                audit=None if intake_note is None else {"near_dup": {
+                    "decision": near["decision"], "slug": near.get("slug"),
+                    "evidence": near.get("evidence", {})}})
             ops.write_json(scratch / "manifest.json", man)
             ops.write_json(backup / "manifest.json", man)
             ops.delete(src)
@@ -1711,6 +1904,9 @@ def build_parser():
     s.add_argument("files", nargs="*")
     s.add_argument("--all", action="store_true")
     s.add_argument("--dry-run", action="store_true")
+    s.add_argument("--allow-near-dup", action="store_true",
+                   help="intake even when the perceptual gate calls a file a "
+                        "duplicate of an existing slug (operator override)")
 
     s = sub.add_parser("start-stage", help="T2: Done N -> Scratch N+1")
     s.add_argument("slug", nargs="?")
@@ -1779,7 +1975,7 @@ def main(argv=None):
         if args.cmd == "status":
             return cmd_status(ctx, args.slug, args.json)
         if args.cmd == "intake":
-            return cmd_intake(ctx, args.files, args.all)
+            return cmd_intake(ctx, args.files, args.all, args.allow_near_dup)
         if args.cmd == "start-stage":
             if not args.slug and not args.next:
                 raise PipelineError("start-stage: give a slug or --next", code=2)
