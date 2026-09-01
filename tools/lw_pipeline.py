@@ -1007,6 +1007,149 @@ def cmd_remove(ctx, slug, yes, keep_backup):
     return 0
 
 
+# ---------------------------------------------------------------- reopen
+
+def _stale_after(folder, slug, target_stage):
+    """Milestone files in `folder` that a reopen to `target_stage` invalidates.
+
+    Everything except the target stage's own `_initial`: the workings, the
+    `_done`, and every later stage's carried-forward copy were all derived from
+    the source being replaced, so keeping them would leave the folder asserting
+    a chain that no longer holds.
+    """
+    keep = {"initial": target_stage}
+    stale = []
+    for p in sorted(folder.iterdir()):
+        if not p.is_file():
+            continue
+        m = parse_milestone(p.name)
+        if not m:
+            continue
+        if m["phase"] == "initial" and m["stage"] == keep["initial"]:
+            continue
+        stale.append(p)
+    return stale
+
+
+def cmd_reopen(ctx, slug, to_stage, source, source_url, yes):
+    """Send a slug back to an earlier scratch stage to be reworked.
+
+    The reverse move the pipeline never had. The guard that matters: reopening
+    DROPS the stale downstream milestones, so every durable one (`_initial` /
+    `_done`; `_working` is transient by design) must already be hash-preserved
+    in 9.Image Backup or the whole operation refuses. A stale folder is cheap,
+    a lost milestone is not.
+
+    With --source the new file lands as the target stage's `_initial` and the
+    swap is recorded as a REPLACE_SOURCE transition - never by rewriting the
+    INTAKE hash, for the reason record_replace_source documents.
+    """
+    if to_stage not in STAGES:
+        raise PipelineError(
+            f"reopen: unknown stage {to_stage} (pick one of {', '.join(STAGES)})",
+            code=2)
+    stage, folder = find_done(ctx, slug)
+    if folder is None:
+        stage, folder = find_scratch(ctx, slug)
+    if folder is None:
+        raise PipelineError(f"reopen: {slug} not found in any stage", code=2)
+    if STAGES.index(stage) < STAGES.index(to_stage):
+        raise PipelineError(
+            f"reopen: {slug} is at stage '{stage}', which is already earlier "
+            f"than '{to_stage}' - reopen only moves backwards", code=2)
+    if (folder / ".lw.lock").exists():
+        raise PipelineError(
+            f"reopen: {slug} has a stage lock held at {ctx.rel(folder)} - "
+            f"resolve that first", code=2)
+    dest = ctx.root / SCRATCH_DIR[to_stage] / slug
+    if dest.exists():
+        raise PipelineError(
+            f"reopen: {ctx.rel(dest)} already exists", code=2)
+    if not yes and not ctx.dry:
+        raise PipelineError(
+            "reopen: destructive (drops stale milestones) - pass --yes to "
+            "confirm (or --dry-run to see the plan)", code=2)
+
+    stale = _stale_after(folder, slug, to_stage)
+    backup = ctx.root / BACKUP / slug
+    # Preservation is about BYTES, not filenames: a pass-through stage leaves
+    # `_cleandone` byte-identical to `_cleaninitial`, and the backup legitimately
+    # holds one copy under one name. Match on content so that counts.
+    preserved = set()
+    if backup.is_dir():
+        for p in backup.iterdir():
+            if p.is_file() and p.name not in SIDECAR_NAMES:
+                preserved.add(sha256_file(p))
+    unpreserved = []
+    for p in stale:
+        m = parse_milestone(p.name)
+        if m["phase"] == "working":
+            continue  # transient by design; never expected in the backup
+        if sha256_file(p) not in preserved:
+            unpreserved.append(p.name)
+    if unpreserved:
+        raise PipelineError(
+            "reopen: refusing - {} not preserved in {}: {}".format(
+                "milestone" if len(unpreserved) == 1 else "milestones",
+                BACKUP, ", ".join(unpreserved)), code=3)
+
+    src = None
+    if source is not None:
+        src = Path(source)
+        if not src.is_file():
+            raise PipelineError(f"reopen: --source {source} not found", code=2)
+    # The TARGET stage's _initial is the one file the move carries over and the
+    # one --source replaces; every other stage's _initial is already in `stale`.
+    # Captured before the move, since the folder is emptied by it.
+    carried = []
+    for p in sorted(folder.iterdir()):
+        m = parse_milestone(p.name) if p.is_file() else None
+        if m and m["phase"] == "initial" and m["stage"] == to_stage:
+            carried.append(p.name)
+
+    ops = Ops(ctx.dry)
+    ops.mkdir(dest)
+    for p in sorted(folder.iterdir()):
+        if p in stale:
+            ops.delete(p)
+        elif p.is_file():
+            ops.safe_copy(p, dest, p.name, delete_src=True)
+    ops.rmdir(folder)
+
+    initial = None
+    if src is not None:
+        # the replacement may carry a different extension; the old _initial
+        # must go, or the folder ends up with two of them.
+        initial = milestone_name(slug, to_stage, "initial",
+                                 ext=src.suffix.lower().lstrip("."))
+        # --source replaces the stage _initial, so the carried one always goes -
+        # including when the extension matches and the names are identical.
+        for name in carried:
+            ops.delete(dest / name)
+        ops.safe_copy(src, dest, initial)
+    if src is not None and not ctx.dry:
+        record_replace_source(dest, dest / initial, source_url=source_url,
+                              tool="reopen",
+                              note=f"reopened to {to_stage} with a new source")
+
+    if not ctx.dry:
+        man = load_manifest(dest)
+        if man:
+            if source_url:
+                man["source_url"] = source_url
+            add_transition(man, "REOPEN", tool="reopen",
+                           src=ctx.rel(folder), dst=ctx.rel(dest),
+                           note=f"{stage} -> {to_stage}; dropped "
+                                f"{len(stale)} stale milestone(s)")
+            Ops(dry=False).write_json(dest / "manifest.json", man)
+        ctx.log(slug, "REOPEN", DONE_DIR.get(stage, SCRATCH_DIR[stage]),
+                SCRATCH_DIR[to_stage], "0" * 12,
+                note=f"dropped {len(stale)} stale milestone(s)")
+    _emit(ctx, ops, f"reopen {slug} ({stage} -> {to_stage})")
+    refresh_state(ctx)
+    return 0
+
+
 # ---------------------------------------------------------------- start-stage (T2)
 
 def cmd_start_stage(ctx, slug, pick_next):
@@ -1979,6 +2122,16 @@ def build_parser():
                    help="clear the working stages but retain 9.Image Backup")
     s.add_argument("--dry-run", action="store_true")
 
+    s = sub.add_parser("reopen", help="send a slug back to an earlier scratch")
+    s.add_argument("slug")
+    s.add_argument("--to", default="first",
+                   help=f"target scratch stage ({', '.join(STAGES)})")
+    s.add_argument("--source", help="replacement file for the stage _initial")
+    s.add_argument("--source-url", help="provenance URL for --source")
+    s.add_argument("--yes", action="store_true",
+                   help="confirm (a reopen drops stale milestones)")
+    s.add_argument("--dry-run", action="store_true")
+
     s = sub.add_parser("start-stage", help="T2: Done N -> Scratch N+1")
     s.add_argument("slug", nargs="?")
     s.add_argument("--next", action="store_true")
@@ -2047,6 +2200,9 @@ def main(argv=None):
             return cmd_status(ctx, args.slug, args.json)
         if args.cmd == "intake":
             return cmd_intake(ctx, args.files, args.all, args.allow_near_dup)
+        if args.cmd == "reopen":
+            return cmd_reopen(ctx, args.slug, args.to, args.source,
+                              args.source_url, args.yes)
         if args.cmd == "remove":
             return cmd_remove(ctx, args.slug, args.yes, args.keep_backup)
         if args.cmd == "start-stage":
