@@ -106,6 +106,18 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    because the settled ruling puts that estimator at SNR ~1 with 40 percent
    movement when the frame set changes.
 
+   **The two pending-intake files were GC'd as proven-redundant.** They sat in
+   `0.Originals` because the intake gate refused them as `hash-equal original`
+   duplicates. Verified independently rather than on the CLI's word: each is
+   BYTE-IDENTICAL by sha256 AND size to the archived original already in
+   `9.Image Backup/<slug>/`, and both parent slugs
+   (`battle-cat-jinx-...-dlokdgx-pre`, `pulsefire-fiora-...-dlrpczo-pre`) are
+   already `CLEAN_DONE`, so the delete lost no bytes and no provenance. Loose
+   files in `0.Originals` are not pipeline state - nothing in
+   `pipeline_state.json` or any manifest references them - so removing them is
+   not a single-writer violation. `pending_intake` 2 -> 0 and `0.Originals` is
+   empty but for `.gitkeep`, closing a GC call WAKEUP had carried as open.
+
    **The two held slugs closed the same way, and the session's real number is
    the loss rate.** `cozy-fall-with-seraphine` (1024x512) and `leona-and-diana`
    (900x600) were probed before spending any GPU: BOTH carry the two-part DA

@@ -103,6 +103,16 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   too WIDE so the crop takes width, and leona is too tall by only 94px, while
   both marks sit mid-frame. Processing them was futile, so they were GC'd on the
   same ruling as the other six.
+- **The 2 pending-intake files were GC'd - they were proven redundant, not new.**
+  `battle_cat_jinx_...dlokdgx-pre.jpg` and `pulsefire_fiora_...dlrpczo-pre.jpg`
+  sat in `0.Originals` because the intake gate refused them as `hash-equal
+  original` duplicates. Verified independently rather than on the CLI's word:
+  each is BYTE-IDENTICAL by sha256 and size to the archived original already in
+  `9.Image Backup/<slug>/`, and both parent slugs are already `CLEAN_DONE`. So
+  deleting them lost no bytes and no provenance. `0.Originals` is now empty but
+  for `.gitkeep`; `pending_intake` 2 -> 0. This closes the GC call that
+  WAKEUP had been carrying as open.
+
 - **FINAL TALLY for the 2026-09-01 intake: 15 shipped, 8 dropped, all 8 to the
   DA preview watermark.** That is **35 percent of a 23-slug intake lost to the
   fetch route**, which is the number to weigh before the next intake.
