@@ -944,6 +944,69 @@ def cmd_intake(ctx, files, do_all, allow_near_dup=False):
     return 0
 
 
+# ---------------------------------------------------------------- remove (GC)
+
+def slug_folders(ctx, slug, include_backup=True):
+    """Every folder holding `slug`, in delete order (stages first, backup last).
+
+    Exact-name only. A prefix match here would take `-pre` out with `-pre-2`,
+    which is precisely the pair this command was written to separate.
+    """
+    folders = []
+    for stage in STAGES:
+        for base in (SCRATCH_DIR[stage], DONE_DIR[stage]):
+            d = ctx.root / base / slug
+            if d.is_dir():
+                folders.append(d)
+    if include_backup:
+        d = ctx.root / BACKUP / slug
+        if d.is_dir():
+            folders.append(d)
+    return folders
+
+
+def cmd_remove(ctx, slug, yes, keep_backup):
+    """GC one slug out of the pipeline. Destructive, hence deliberately stiff.
+
+    ADR-003 makes GC an operator ruling, so this refuses to fire without an
+    explicit --yes and refuses while any target folder holds a stage lock (a
+    lock means some other writer is mid-operation; a stale one is removed by
+    hand once it is understood, not silently bulldozed here).
+
+    The slug's history is NOT edited out of PIPELINE_LOG.md - the log is
+    append-only, so removal appends a REMOVE line and the prior transitions
+    stay readable. --keep-backup clears the working stages but retains
+    9.Image Backup as a safety net, which also keeps the slug name reserved.
+    """
+    folders = slug_folders(ctx, slug, include_backup=not keep_backup)
+    if not folders:
+        raise PipelineError(f"remove: {slug} not found in any stage/backup",
+                            code=2)
+    for folder in folders:
+        if (folder / ".lw.lock").exists():
+            raise PipelineError(
+                f"remove: {slug} has a stage lock held at {ctx.rel(folder)} - "
+                f"resolve that first", code=2)
+    if not yes and not ctx.dry:
+        raise PipelineError(
+            "remove: destructive - pass --yes to confirm "
+            "(or --dry-run to see the plan)", code=2)
+
+    ops = Ops(ctx.dry)
+    for folder in folders:
+        for p in sorted(folder.iterdir()):
+            if p.is_file():
+                ops.delete(p)
+        ops.rmdir(folder)
+    if not ctx.dry:
+        ctx.log(slug, "REMOVE", ",".join(ctx.rel(f) for f in folders),
+                "-", "0" * 12,
+                note="keep-backup" if keep_backup else "full GC")
+    _emit(ctx, ops, f"remove {slug} ({len(folders)} folder(s))")
+    refresh_state(ctx)
+    return 0
+
+
 # ---------------------------------------------------------------- start-stage (T2)
 
 def cmd_start_stage(ctx, slug, pick_next):
@@ -1908,6 +1971,14 @@ def build_parser():
                    help="intake even when the perceptual gate calls a file a "
                         "duplicate of an existing slug (operator override)")
 
+    s = sub.add_parser("remove", help="GC: delete one slug from the pipeline")
+    s.add_argument("slug")
+    s.add_argument("--yes", action="store_true",
+                   help="confirm the destructive removal (required)")
+    s.add_argument("--keep-backup", action="store_true",
+                   help="clear the working stages but retain 9.Image Backup")
+    s.add_argument("--dry-run", action="store_true")
+
     s = sub.add_parser("start-stage", help="T2: Done N -> Scratch N+1")
     s.add_argument("slug", nargs="?")
     s.add_argument("--next", action="store_true")
@@ -1976,6 +2047,8 @@ def main(argv=None):
             return cmd_status(ctx, args.slug, args.json)
         if args.cmd == "intake":
             return cmd_intake(ctx, args.files, args.all, args.allow_near_dup)
+        if args.cmd == "remove":
+            return cmd_remove(ctx, args.slug, args.yes, args.keep_backup)
         if args.cmd == "start-stage":
             if not args.slug and not args.next:
                 raise PipelineError("start-stage: give a slug or --next", code=2)
