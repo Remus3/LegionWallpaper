@@ -78,6 +78,30 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    `oembed_liveness` returns preview dims, so neither answers the size question.
    All 6 manifests carry the finding. Do not retry this route.
 
+   **Operator ruling on the 6, and what the hand-clean actually reached.**
+   `akali`, `kai-sa` and `xayah` were dropped via `lw_pipeline remove --yes`
+   (full GC of the scratch folder AND the `9.Image Backup` entry, matching the
+   existing `note=full GC` precedent); `clean_scratch` 86 -> 83. The other three
+   were hand-cleaned, and the attempt found that **the DA mark is two objects,
+   not one**. The credit line comes off cleanly - a strip mask over the measured
+   glyph rows (45/39/62px bands, 0.9-1.2 percent of frame) plus one simple-lama
+   pass, outside-mask MAD exactly 0.000000, verified at 2x on the busiest
+   crossings. The first attempt used the full 58-62px visual strip and smeared
+   neon-jinx's braid; tightening to the measured rows preserved braid, zipper and
+   hair. The second object is a large faint LOGO veil mid-frame, and it defeats
+   the existing assets: `overlay_prepass` made all three worse because the cached
+   `overlay_matte_wide` encodes a DIFFERENT render's credit line
+   (`(c) SMALLTAVERNX.DEVIANTART.COM`), mis-registering (sona shift [43,-35]),
+   leaving the veil and streaking sona's face - those candidates were deleted. A
+   clean-frame control (two fudoyuseivn `_cleandone` frames, same coordinates,
+   2.4x contrast) shows no block edge, so the veil is real. **Nothing shipped:**
+   zero-residue is the bar and the veil fails it. Partial candidates live at
+   `ops/runtime/clean/<slug>/<slug>_handclean_cand.png`; all 3 manifests carry
+   the attempt. Unblock is a re-estimated template+matte for THIS render via
+   `estimate_template` / `estimate_veil`, deliberately NOT fitted on these three
+   because the settled ruling puts that estimator at SNR ~1 with 40 percent
+   movement when the frame set changes.
+
    **Verified the 15 shipped are actually clean**, rather than trusting the
    zero-detection verdict: cropped the same y-band from all 15 and swept a
    full-frame contact sheet. No watermark anywhere. The detector was right; the

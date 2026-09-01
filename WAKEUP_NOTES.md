@@ -64,6 +64,35 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   `gallery-dl -j <url>` for `is_downloadable` BEFORE spending anything, since
   the check is free. **Do not retry this route.**
 
+- **Dropped 3, attempted the hand-clean on 3 - and the hand-clean is a PARTIAL,
+  so nothing shipped.** `akali`, `kai-sa` and `xayah` were GC'd via
+  `lw_pipeline remove --yes` (full GC, both the scratch folder and the
+  `9.Image Backup` entry, matching the `note=full GC` precedent);
+  `clean_scratch` 86 -> 83.
+- **The DA mark is TWO objects, and only one of them came off.** The credit
+  line `(c) ARTIST.DEVIANTART.COM` removes cleanly: a strip mask over the
+  measured glyph rows (45px / 39px / 62px bands, 0.9-1.2 percent of frame) plus
+  one simple-lama pass, outside-mask MAD exactly 0.000000. Verified at 2x on the
+  busiest crossings - the first attempt used the full 58-62px strip and smeared
+  neon-jinx's braid, so the band was tightened to the measured glyph rows and
+  the braid, zipper and hair now survive.
+- **The second object is a big faint LOGO veil mid-frame, and it defeats the
+  existing assets.** `overlay_prepass` made all three WORSE: the cached
+  `overlay_matte_wide` encodes a DIFFERENT render's credit line
+  (`(c) SMALLTAVERNX.DEVIANTART.COM`), so it mis-registers (sona shift
+  [43,-35]), leaves the veil and paints red streaks across sona's face. Those
+  candidates were deleted. A clean-frame control (two fudoyuseivn `_cleandone`
+  frames at the same coordinates, 2.4x contrast) shows no such block edge, so
+  the veil is real and not a measurement artifact.
+- **Held, not shipped.** Zero-residue is the bar and the veil fails it. The
+  partial candidates stay at `ops/runtime/clean/<slug>/<slug>_handclean_cand.png`
+  and all 3 manifests carry the attempt. **Unblock:** re-estimate template+matte
+  for THIS render via `lw_clean_overlay.estimate_template` / `estimate_veil` once
+  a larger same-render frame set exists - deliberately NOT fitted on these 3,
+  because the settled ruling puts the veil estimator at SNR ~1 and 40 percent
+  movement when the frame set changes. Every future DA-intermediary intake adds
+  frames to that set.
+
 - **Still open, all operator-owned:** 3 slugs HELD over the 0.08 aspect-loss cap
   needing a `--crop-overrides` side grant (`cozy-fall-with-seraphine` 1024x512
   too wide; `sona-feathers-void` 1920x1280 and `leona-and-diana` 900x600 too
