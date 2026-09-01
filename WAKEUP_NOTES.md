@@ -52,6 +52,18 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   (900px) stay held: both sit under the 1280px G0 floor, so they queue for
   source recovery rather than a thin ~2.8x upscale.
 
+- **Re-fetched the 6 at `original=true` as asked; DeviantArt refuses at source.**
+  A control fetch on `akali` came back **byte-identical** to the intermediary we
+  already had (same sha256, same 717037 bytes, same 1280x718). The reason is not
+  quota and not the missing refresh-token: `gallery-dl -j` reports
+  **`is_downloadable: false` on all 6**, across all 4 artists - the artists
+  disabled downloads, so DA serves only the watermarked intermediary and no
+  OAuth would change it. Worth noting `content.filesize` runs to 28 MB behind a
+  1280px served frame, so the clean original exists, it is just withheld. All 6
+  manifests carry the finding; the memory now says check
+  `gallery-dl -j <url>` for `is_downloadable` BEFORE spending anything, since
+  the check is free. **Do not retry this route.**
+
 - **Still open, all operator-owned:** 3 slugs HELD over the 0.08 aspect-loss cap
   needing a `--crop-overrides` side grant (`cozy-fall-with-seraphine` 1024x512
   too wide; `sona-feathers-void` 1920x1280 and `leona-and-diana` 900x600 too

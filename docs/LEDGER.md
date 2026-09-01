@@ -63,6 +63,21 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    `original=true` under the weekly quota, NOT a 660px LaMa repaint through a
    face. The finding is annotated into each of the 5 manifests.
 
+   **The re-fetch the operator asked for was run, and DeviantArt refuses at
+   source.** A control `-o original=true` fetch on `akali` returned a
+   BYTE-IDENTICAL file to the intermediary already on disk (same sha256, 717037
+   bytes, 1280x718). The blocker is neither the weekly quota nor the missing
+   refresh-token in `%APPDATA%\gallery-dl\config.json`: `gallery-dl -j` reports
+   **`is_downloadable: false` on all 6**, across all 4 artists. The artists
+   disabled downloads, so DA serves only the watermarked intermediary and OAuth
+   user auth would not change it. `content.filesize` runs to 28 MB behind a
+   1280px served frame, so the clean original exists and is simply withheld.
+   Free check for next time, recorded in memory: `gallery-dl -j <deviation-url>`
+   dumps `is_downloadable` with no download. The API v1 `deviation/{id}`
+   endpoint 404s on the numeric d-token (it wants the UUID), and
+   `oembed_liveness` returns preview dims, so neither answers the size question.
+   All 6 manifests carry the finding. Do not retry this route.
+
    **Verified the 15 shipped are actually clean**, rather than trusting the
    zero-detection verdict: cropped the same y-band from all 15 and swept a
    full-frame contact sheet. No watermark anywhere. The detector was right; the
