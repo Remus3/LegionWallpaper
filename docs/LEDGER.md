@@ -31,9 +31,9 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    apostrophe that ate a slug; `ad99249`).** Ran `/first-pass` then
    `/cleaning-pass` over the 24 slugs sitting in `1.First Pass Scratch`.
    Outcome: **15 slugs reached `4.Cleaning Done` at exactly 2560x1440**,
-   6 sit in the cleaning QA queue with a confirmed finding, 2 are HELD under
-   the G0 source floor, and 1 was excluded as a stale WIP whose source fails
-   G0 too. Suite **2450 passed / 18 skipped** (baseline 2449, +1 for
+   6 were DROPPED on an operator GC ruling after the DeviantArt preview
+   watermark proved unremovable, 2 are HELD under the G0 source floor, and 1 was
+   excluded as a stale WIP whose source fails G0 too. Suite **2450 passed / 18 skipped** (baseline 2449, +1 for
    the new regression test), ruff clean, `verify: ok (604 images checked)`
    with zero mismatches, scan anomalies 0.
 
@@ -94,11 +94,15 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    (`(c) SMALLTAVERNX.DEVIANTART.COM`), mis-registering (sona shift [43,-35]),
    leaving the veil and streaking sona's face - those candidates were deleted. A
    clean-frame control (two fudoyuseivn `_cleandone` frames, same coordinates,
-   2.4x contrast) shows no block edge, so the veil is real. **Nothing shipped:**
-   zero-residue is the bar and the veil fails it. Partial candidates live at
-   `ops/runtime/clean/<slug>/<slug>_handclean_cand.png`; all 3 manifests carry
-   the attempt. Unblock is a re-estimated template+matte for THIS render via
-   `estimate_template` / `estimate_veil`, deliberately NOT fitted on these three
+   2.4x contrast) shows no block edge, so the veil is real. **Nothing shipped, and the operator
+   then dropped all six.** Zero-residue is the bar, the veil failed it, and the
+   remaining three were GC'd on the same ruling: 6 of 6 removed via
+   `lw_pipeline remove --yes` (full GC, scratch + `9.Image Backup`), their
+   `ops/runtime/clean/<slug>/` side-files cleared, `clean_scratch` 100 -> 80
+   (back to the pre-existing WIP), `verify: ok (598 images checked)`,
+   anomalies 0. If the route is ever re-opened the unblock is a re-estimated
+   template+matte for THIS render via `estimate_template` / `estimate_veil` on a
+   LARGER same-render frame set - deliberately NOT fitted on those three,
    because the settled ruling puts that estimator at SNR ~1 with 40 percent
    movement when the frame set changes.
 

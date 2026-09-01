@@ -84,14 +84,16 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   candidates were deleted. A clean-frame control (two fudoyuseivn `_cleandone`
   frames at the same coordinates, 2.4x contrast) shows no such block edge, so
   the veil is real and not a measurement artifact.
-- **Held, not shipped.** Zero-residue is the bar and the veil fails it. The
-  partial candidates stay at `ops/runtime/clean/<slug>/<slug>_handclean_cand.png`
-  and all 3 manifests carry the attempt. **Unblock:** re-estimate template+matte
-  for THIS render via `lw_clean_overlay.estimate_template` / `estimate_veil` once
-  a larger same-render frame set exists - deliberately NOT fitted on these 3,
+- **Operator ruling: drop all six.** Zero-residue is the bar, the veil failed
+  it, and the remaining three were GC'd on the same ruling as the first three.
+  All 6 gone via `lw_pipeline remove --yes` (full GC, scratch + `9.Image Backup`);
+  their `ops/runtime/clean/<slug>/` side-files were cleared too. `clean_scratch`
+  100 -> 80 (back to the pre-existing WIP), `verify: ok (598 images checked)`,
+  anomalies 0. **If the route is ever re-opened:** re-estimate template+matte for
+  THIS render via `lw_clean_overlay.estimate_template` / `estimate_veil` on a
+  LARGER same-render frame set - it was deliberately NOT fitted on those 3,
   because the settled ruling puts the veil estimator at SNR ~1 and 40 percent
-  movement when the frame set changes. Every future DA-intermediary intake adds
-  frames to that set.
+  movement when the frame set changes.
 
 - **Still open, all operator-owned:** 3 slugs HELD over the 0.08 aspect-loss cap
   needing a `--crop-overrides` side grant (`cozy-fall-with-seraphine` 1024x512
