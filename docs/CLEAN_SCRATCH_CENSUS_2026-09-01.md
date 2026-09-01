@@ -35,6 +35,29 @@ gate, per the 2026-08-12 ruling.
 | `dgfkw05-0dca21c7-cf08-4dee-9a8e-4045dc98c451` | 0.040 | not_border | opaque artist banner (NAMAKX / NAMAKXIN P&M) |
 | `brand-by-michalivan-d5rvdrt-pre` | 0.036 | not_border | studio logo (PUPPETWORKS ANIMATION STUDIO) |
 
+
+## CLEANED AND SHIPPED - the 7 non-DA marks (2026-09-01)
+
+These were never the DA overlay. Each is an opaque or script mark that masked
+LaMa removes cleanly, per ADR-005. Mask = a rect over the mark, extent read off
+a coordinate grid and verified at 1:1 BEFORE and AFTER; outside-mask MAD is
+0.000000 on all seven by construction. Two boxes under-covered on the first
+pass (`PUPPETWORKS` lost 'ANIMATION STUDIO', `NAMAKXIN` lost its final N, which
+survived as a hooked stroke) and were widened - the same under-cover lesson the
+credit-line strips taught.
+
+| slug | mark | mask | mask area |
+|---|---|---|---|
+| `209-cleanup` | artist signature (CHENBO 12.29.2024) | 123x76 | 0.2536% |
+| `mordekaiser-by-michalivan-d5s9q6h-pre` | studio logo (PUPPETWORKS) | 200x112 | 0.6076% |
+| `brand-by-michalivan-d5rvdrt-pre` | studio logo (PUPPETWORKS) | 194x110 | 0.5789% |
+| `aurora-fanart-by-lulalakill-dlgo81i-pre` | script watermark (@lulalakill 2025) | 800x148 | 3.2118% |
+| `p2402-kda-evelynn-by-namakx-dgykw2q-pre` | artist banner (NAMAKXIN P&M2402) | 646x150 | 2.6286% |
+| `dgk8f92-bc10d7a7-f520-4b4f-ad86-ac70f6d50293` | artist banner (NAMAKXIN P&M2312) | 636x150 | 2.5879% |
+| `dgfkw05-0dca21c7-cf08-4dee-9a8e-4045dc98c451` | artist banner (NAMAKXIN P&M2311) | 678x138 | 2.5381% |
+
+All seven reached `4.Cleaning Done` at exactly 2560x1440.
+
 ## Full ranked list
 
 | slug | score | reason |

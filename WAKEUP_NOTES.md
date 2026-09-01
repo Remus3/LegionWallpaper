@@ -113,6 +113,36 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   for `.gitkeep`; `pending_intake` 2 -> 0. This closes the GC call that
   WAKEUP had been carrying as open.
 
+- **Drained the `3.Cleaning Scratch` backlog: 80 triaged, 10 shipped, and the
+  rest is one decision.** Ran `lw_clean_pass` over the 76 fresh slugs - **not one
+  auto-cleaned** (41 at `overlay_score >= 0.15`, 19 in the 0.10-0.15 defer band,
+  15 below 0.10). Sampling 12 across the reason codes showed why: the backlog is
+  the SAME DA preview overlay, with `SLIMSHADYWALLPAPER`, `SMALLTAVERNX`,
+  `GIVEMEHINTEI` and `PEBANO1` credit lines legible at 1:1.
+- **Closed the "would a matching matte work" question - it would not.** Slug
+  `122` is a SMALLTAVERNX frame, the exact render the cached matte was estimated
+  from. The overlay lane STILL failed on it: line ghosts, the logo gains a hard
+  bright block, the lip is damaged, and registration reported `scale=1.12`, so
+  even same-artist frames carry the overlay at different scales. Do not re-open
+  this on matte-matching grounds.
+- **Shipped 10.** Three (`128-cleanup`, `138-cleanup`, `18-cleanup`) were
+  faint-mark FALSE POSITIVES whose boxes verify at 1:1 as smoke, bamboo leaves
+  and a bottom edge strip - clean-scanned through. Seven carried non-DA marks
+  that masked LaMa removes cleanly per ADR-005: a `CHENBO` signature, two
+  `PUPPETWORKS` studio logos, a `@lulalakill` script watermark and three
+  `NAMAKXIN P&M` banners. Outside-mask MAD 0.000000 on all seven, all at exactly
+  2560x1440. Two masks under-covered on the first pass (`PUPPETWORKS` lost
+  "ANIMATION STUDIO"; `NAMAKXIN` lost its final N, which survived as a hooked
+  stroke) - the same under-cover lesson the credit-line strips taught, so
+  ALWAYS re-verify the mark extent at 1:1 after inpainting.
+- **4 excluded, not re-run:** `aatrox`, `aidraw-2662100118`, `the-ruined-king-viego`
+  and `viego-the-king` already climbed lama -> sdxl-animagine -> iopaint with
+  every rung rejected. They ARE part of the evidence base ADR-009 rests on.
+- **What remains: ~63 DA-overlay slugs in `3.Cleaning Scratch`, one drop-or-keep
+  call.** Per-slug census with scores and reasons:
+  `docs/CLEAN_SCRATCH_CENSUS_2026-09-01.md`. `clean_done` 507 -> 517,
+  `clean_scratch` 80 -> 70.
+
 - **FINAL TALLY for the 2026-09-01 intake: 15 shipped, 8 dropped, all 8 to the
   DA preview watermark.** That is **35 percent of a 23-slug intake lost to the
   fetch route**, which is the number to weigh before the next intake.
