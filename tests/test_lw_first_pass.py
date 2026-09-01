@@ -18,6 +18,7 @@ implementation existed.
 """
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
@@ -467,6 +468,34 @@ def test_fr_metrics_subprocess_uses_venv_metrics_python(monkeypatch):
     assert fr["ms_ssim"] == 0.99
     assert seen["py"] == fp.MET_PY  # .venv-metrics python
     assert "fr_metrics" in seen["snippet"]
+
+
+def test_snippets_survive_quote_chars_in_paths(monkeypatch):
+    """Regression (2026-09-01 batch): a source filename carrying an apostrophe
+    - deviantart_1375265414_Kai'Sa.jpg - terminated the r'...' literal in the
+    generated `python -c` snippet, so the upscale subprocess died on a
+    SyntaxError. Every interpolated path must be a properly escaped literal.
+    """
+    seen = {}
+
+    def fake_run_json(py, snippet, tag):
+        seen[tag] = snippet
+        return {}
+
+    monkeypatch.setattr(fp, "_run_json", fake_run_json)
+    src = (r"C:\LegionWallpaper\data\recovery\fetched\kai-sa"
+           r"\deviantart_1375265414_Kai'Sa.jpg")
+    out = r"C:\Temp\lw_first_pass_ab12\kai-sa_firstpass_up.png"
+
+    fp.run_upscale(src, out)
+    fp.run_fr_metrics(out, src)
+
+    for tag in ("upscale", "fr_metrics"):
+        tree = ast.parse(seen[tag])  # SyntaxError before the fix
+        lits = {n.value for n in ast.walk(tree)
+                if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+        assert src in lits, f"{tag}: source path did not round-trip"
+        assert out in lits, f"{tag}: output path did not round-trip"
 
 
 # ---------------------------------------------------------------------------

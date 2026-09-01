@@ -398,13 +398,26 @@ def _run_json(python_exe, snippet, tag):
     return _last_json_line(proc.stdout)
 
 
+def _pylit(value):
+    """Embed a path in a generated `python -c` snippet as a safe literal.
+
+    json.dumps escapes backslashes, both quote characters and non-ASCII, and
+    its output is a valid Python string literal - so a fetched filename
+    carrying an apostrophe (deviantart_1375265414_Kai'Sa.jpg) can no longer
+    terminate the literal early and kill the subprocess on a SyntaxError
+    (2026-09-01 batch). Never interpolate a path into a snippet by hand.
+    """
+    return json.dumps(str(value))
+
+
 def run_upscale(src_path, out_path, model_path=MODEL_PATH):
     """Shell to .venv-upscale python: lw_upscale.first_pass -> audit dict."""
     snippet = (
-        f"import sys,json;sys.path.insert(0,r'{TOOLS}');"
+        f"import sys,json;sys.path.insert(0,{_pylit(TOOLS)});"
         "from lw_upscale import first_pass;"
-        f"a=first_pass(src_path=r'{src_path}',out_path=r'{out_path}',"
-        f"backend='spandrel',model_path=r'{model_path}');"
+        f"a=first_pass(src_path={_pylit(src_path)},"
+        f"out_path={_pylit(out_path)},"
+        f"backend='spandrel',model_path={_pylit(model_path)});"
         "print(json.dumps(a))"
     )
     return _run_json(UP_PY, snippet, "upscale")
@@ -416,10 +429,11 @@ def run_fr_metrics(out_path, source_path):
     ref == source == the conditioned source (self-comparison at common scale).
     """
     snippet = (
-        f"import sys,json;sys.path.insert(0,r'{TOOLS}');"
+        f"import sys,json;sys.path.insert(0,{_pylit(TOOLS)});"
         "from lw_g1_gate import fr_metrics;"
-        f"print(json.dumps(fr_metrics(r'{out_path}',r'{source_path}',"
-        f"r'{source_path}',names=('ssim','ms_ssim','lpips','dists'))))"
+        f"print(json.dumps(fr_metrics({_pylit(out_path)},"
+        f"{_pylit(source_path)},{_pylit(source_path)},"
+        f"names=('ssim','ms_ssim','lpips','dists'))))"
     )
     return _run_json(MET_PY, snippet, "fr_metrics")
 
