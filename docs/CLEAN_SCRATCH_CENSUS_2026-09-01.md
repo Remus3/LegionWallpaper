@@ -8,6 +8,14 @@ why, per slug, so the backlog is a decision and not a mystery.
 of these are) and is used here ONLY for detection - never as a removal-quality
 gate, per the 2026-08-12 ruling.
 
+
+## DISPOSITION (operator ruling, 2026-09-01)
+
+The ~63 DA-overlay frames are **NOT for deletion**. They go to a hand-clean lane
+and their before/after pairs become the ground truth for an automated emulation.
+Worklist and rationale: `docs/HANDCLEAN_WORKLIST_2026-09-01.md`. Extraction tool:
+`tools/lw_overlay_from_pair.py`.
+
 ## Bands
 
 | band | n | reading |

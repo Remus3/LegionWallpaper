@@ -143,6 +143,38 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   `docs/CLEAN_SCRATCH_CENSUS_2026-09-01.md`. `clean_done` 507 -> 517,
   `clean_scratch` 80 -> 70.
 
+- **OPERATOR RULING, and it reverses my recommendation: the 63 are NOT dropped.**
+  I had enumerated them exactly and was verifying the mid band when the operator
+  stopped it. The plan instead is to HAND-CORRECT them, then study the
+  before/after pairs and build an automated emulation from what the hand work
+  reveals - the same route that turned manual IOPaint into `lw_clean_iopaint`.
+  **Nothing was deleted.** All 63 remain in `3.Cleaning Scratch`.
+- **Why this is the stronger plan, stated so it is not re-argued later.** Blind
+  matte estimation on these frames sits at SNR ~1 because it must separate mark
+  from art with NEITHER known - the reason the settled ruling says not to refit
+  that estimator on a small frame set. A hand-cleaned frame supplies the art, so
+  the overlay follows in CLOSED FORM from the compositing model
+  (`alpha = (obs - orig) / (W - orig)`). Hand work is therefore not just cleaning
+  one image; it manufactures the ground truth the automation never had.
+- **Built `tools/lw_overlay_from_pair.py` (TDD, 8 tests) to cash that in.** It
+  measures the matte and the mark colour from a pair and reports `residual_mae`,
+  which is the honest diagnostic: how far the measured matte is from reproducing
+  the watermarked frame when composited back. Validated twice - synthetic
+  composites with a known alpha, and a REAL frame carrying a known synthetic
+  mark, where it recovered mark colour 248.0 exactly, the 0.06 veil and the 0.30
+  line, at residual 0.0 and mean alpha error 1e-6. The 16 px of 123,500 that miss
+  are the documented singular case where the art already sits at the mark colour.
+- **Worklist: `docs/HANDCLEAN_WORKLIST_2026-09-01.md`.** All 63 ranked by detail
+  in the overlay band, ascending - a smooth background under the mark is both the
+  easiest hand-clean and the cleanest matte extraction, since less art texture
+  contaminates the recovered alpha. `123f` is the best first subject: the
+  strongest overlay signal in the set (0.634) over its smoothest background
+  (detail 2.25). Adopt finished files with
+  `lw_pipeline save-working <slug> --adopt`, which still runs the G2 outside-mask
+  assertion.
+- **NEXT: the emulation must be judged on frames its matte was NOT fitted on.**
+  A matte that reproduces the frame it came from proves nothing.
+
 - **FINAL TALLY for the 2026-09-01 intake: 15 shipped, 8 dropped, all 8 to the
   DA preview watermark.** That is **35 percent of a 23-slug intake lost to the
   fetch route**, which is the number to weigh before the next intake.
