@@ -1031,6 +1031,40 @@ def _stale_after(folder, slug, target_stage):
     return stale
 
 
+def next_archive_slot(backup_dir, name):
+    """The next free `<stem>.<n><ext>` beside `name`, numbered like backup_put."""
+    stem, ext = os.path.splitext(name)
+    i = 2
+    while (backup_dir / f"{stem}.{i}{ext}").exists():
+        i += 1
+    return backup_dir / f"{stem}.{i}{ext}"
+
+
+def rotate_backup_generation(ops, backup_dir, name, superseded_hash):
+    """Move a superseded backup copy out of the CANONICAL milestone name.
+
+    Ops.backup_put numbers by arrival - the first write wins the canonical slot
+    and later ones become `.N`. That is right for a genuine collision and wrong
+    for a supersede: `verify` resolves one expected hash per milestone key (see
+    _expected_hashes, latest by timestamp), so it can only ever agree with a
+    backup whose canonical name holds the NEWEST generation.
+
+    Rotating here, at the moment the generation is superseded, leaves the slot
+    free for the rebuild to land in. The archived `.N` copy no longer parses as
+    a milestone, so verify stops asserting anything about it - which is correct
+    for an explicitly superseded generation, and is not the failure mode
+    _milestone_key warns about (a file still in the CURRENT chain going quiet).
+
+    No-op unless the canonical copy is exactly the superseded content.
+    """
+    target = backup_dir / name
+    if not target.is_file() or sha256_file(target) != superseded_hash:
+        return None
+    dest = next_archive_slot(backup_dir, name)
+    ops.rename(target, dest)
+    return dest
+
+
 def cmd_reopen(ctx, slug, to_stage, source, source_url, yes):
     """Send a slug back to an earlier scratch stage to be reworked.
 
@@ -1108,6 +1142,13 @@ def cmd_reopen(ctx, slug, to_stage, source, source_url, yes):
             carried.append(p.name)
 
     ops = Ops(ctx.dry)
+    # Free the canonical backup slot for each generation this reopen supersedes,
+    # so the rebuild's backup_put lands there instead of beside it as `.N`.
+    if not ctx.dry:
+        for p in stale:
+            m = parse_milestone(p.name)
+            if m["phase"] != "working":
+                rotate_backup_generation(ops, backup, p.name, sha256_file(p))
     ops.mkdir(dest)
     for p in sorted(folder.iterdir()):
         if p in stale:
