@@ -31,9 +31,9 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    apostrophe that ate a slug; `ad99249`).** Ran `/first-pass` then
    `/cleaning-pass` over the 24 slugs sitting in `1.First Pass Scratch`.
    Outcome: **15 slugs reached `4.Cleaning Done` at exactly 2560x1440**,
-   5 sit in the cleaning QA queue with a confirmed finding, 3 are HELD on an
-   aspect grant the operator owns, and 1 was excluded as a stale WIP whose
-   source fails G0. Suite **2450 passed / 18 skipped** (baseline 2449, +1 for
+   6 sit in the cleaning QA queue with a confirmed finding, 2 are HELD under
+   the G0 source floor, and 1 was excluded as a stale WIP whose source fails
+   G0 too. Suite **2450 passed / 18 skipped** (baseline 2449, +1 for
    the new regression test), ruff clean, `verify: ok (604 images checked)`
    with zero mismatches, scan anomalies 0.
 
@@ -51,7 +51,7 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    string constants - it fails with SyntaxError against the old code. kai-sa
    then reran to G1 PASS (lap_ratio 1.4486, msssim 0.9991, lpips 0.0096).
 
-   **The finding that mattered more.** All 5 QA-queued slugs carry a
+   **The finding that mattered more.** Every QA-queued slug carries a
    semi-transparent `(c) ARTIST.DEVIANTART.COM` band across mid-frame at
    y=971..1013 of 1440, spanning three different artists. Confirmed by cropping
    the detected boxes and looking, not inferred: it is the **DeviantArt preview
@@ -68,11 +68,15 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
    full-frame contact sheet. No watermark anywhere. The detector was right; the
    split is by artist, since every one of the 15 came from fudoyuseivn.
 
-   Held work, all operator-owned: `cozy-fall-with-seraphine` (1024x512, too
-   wide), `sona-feathers-void` (1920x1280, too tall) and `leona-and-diana`
-   (900x600, too tall) exceed the 0.08 aspect-loss cap and need a
-   `--crop-overrides` side grant; `leona-and-diana` additionally fails G0 at
-   900px wide. `1000040081-...-375w-2x` stays excluded - a 750x436 source, well
+   **Operator granted one of the three held crops, and it confirmed the
+   pattern.** `sona-feathers-void` (1920x1280) center-cropped top+bottom to
+   1920x1080 and scored G1 PASS (lap_ratio 1.3576, halo 0.0239, msssim 0.9990,
+   lpips 0.0059) - then the cleaning scan routed it to QA on `faint_mark`, and
+   the crop shows the same `(c) ARTIST.DEVIANTART.COM` band, caught by the
+   faint-mark lane at conf 0.12 rather than by a yolo box. The recovery bucket
+   is therefore **6**, not 5. `cozy-fall-with-seraphine` (910px wide after its
+   crop) and `leona-and-diana` (900px) stay held: both fall under the 1280px G0
+   floor, so they queue for source recovery rather than a thin ~2.8x upscale. `1000040081-...-375w-2x` stays excluded - a 750x436 source, well
    under the 1280x720 G0 floor, whose earlier attempt scored lap_ratio 0.912.
 
 142. DONE **2026-09-01 (the twin the byte hash could not see, and the reverse

@@ -30,7 +30,7 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   failed on the same file at the gate step, so it was fixed in the same slice.
   RED-first test `ast.parse`s the snippet and asserts the paths round-trip.
   kai-sa reran to PASS.
-- **The 5 QA-queued slugs all carry the DeviantArt preview watermark.** A
+- **The QA-queued slugs all carry the DeviantArt preview watermark.** A
   semi-transparent `(c) ARTIST.DEVIANTART.COM` band at y=971..1013 of 1440,
   across three different artists. I cropped the detected boxes and looked - this
   is confirmed, not inferred. It is an artifact of the quota-free
@@ -42,6 +42,16 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
 - **Checked the 15 shipped rather than trusting the zero-detection verdict.**
   Cropped the same y-band from all 15 plus a full-frame contact sheet: clean.
   The split is by artist - all 15 came from fudoyuseivn.
+- **Operator granted the sona crop; it landed in the same watermark queue.**
+  `sona-feathers-void` (1920x1280) center-cropped top+bottom to 1920x1080 and
+  scored G1 **PASS** (lap_ratio 1.3576, halo 0.0239, msssim 0.9990, lpips
+  0.0059), then the cleaning scan routed it to QA on `faint_mark` - and the crop
+  shows the SAME `(c) ARTIST.DEVIANTART.COM` band, caught by the faint-mark lane
+  at conf 0.12 instead of by a yolo box. So the recovery bucket is **6**, not 5.
+  `cozy-fall-with-seraphine` (910px wide after crop) and `leona-and-diana`
+  (900px) stay held: both sit under the 1280px G0 floor, so they queue for
+  source recovery rather than a thin ~2.8x upscale.
+
 - **Still open, all operator-owned:** 3 slugs HELD over the 0.08 aspect-loss cap
   needing a `--crop-overrides` side grant (`cozy-fall-with-seraphine` 1024x512
   too wide; `sona-feathers-void` 1920x1280 and `leona-and-diana` 900x600 too
