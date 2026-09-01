@@ -27,6 +27,84 @@ Pointers: open work -> `ROADMAP.md` + `BACKLOG.md`; recent sessions ->
 
 ---
 
+142. DONE **2026-09-01 (the twin the byte hash could not see, and the reverse
+   move the pipeline never had; `2fe8087` `3d81298` `b2c932f` `fa56adc`).**
+   Began as `/intake` (24 intaken, 2 refused byte-identical, Tier-1 token decode
+   24/24 with 24/24 fetched) and became four fixes that intake exposed. Read the
+   recovery honestly: 20 of 24 gained ~x1.2, 4 were already at cap, and the
+   ceiling is 1280px wide - the quota-free `intermediary` cap, NOT artist
+   originals.
+   **Premise verified before building:** the trigger was a real measurement, not
+   a hunch - `academy_ahri_..._dlj1ng3-pre.jpg` re-downloaded at 146064 bytes
+   against 144582 already in `9.Image Backup`, pHash AND dHash Hamming 0 at an
+   identical 1163x687, twin already through cleaning.
+   **(1) Near-dup gate (`2fe8087`).** Root cause was wider than the one case:
+   `unique_slug` compared BYTES, and only against the ONE colliding candidate
+   slug, so a re-download under an unrelated filename was compared to nothing at
+   all. Now compared against all 605 backup originals with band logic delegated
+   to `lw_recover.consensus_match` (both hashes <=8 refuse, <=14 flag into the
+   INTAKE transition, wider clean) so intake and Tier-0 recovery cannot drift.
+   `lw_pipeline` stays stdlib-only at import (per-call imagehash hop, absent ->
+   noted no-op); `--allow-near-dup` overrides so the operator is never refused;
+   corpus cached in `ops/runtime/intake_phash_cache.json` on (mtime, size).
+   **Data half done, not just the guard (CLAUDE.md "Data Fixes"):** swept all
+   605 backup originals pairwise - exactly ONE match-band pair. The 4
+   review-band pairs sit at Hamming 12-14 between visibly different champions:
+   noise floor, not pollution.
+   **Fixture honesty:** the real-pixel test failed first at pHash 12 and the
+   cause was the FIXTURE, not the gate. Measured three shapes rather than
+   loosening the threshold to fit a pathological one - high-frequency pattern 12
+   (JPEG quantization shreds it), linear ramp 20 (no stable structure for the
+   median split), sinusoidal blobs 0/0, matching what the real pair measures on
+   disk. Blobs shipped.
+   **(2) `remove` (`3d81298`) and (3) `reopen` (`b2c932f`).** No delete path and
+   no reverse move existed, and the documented workaround moved stage folders by
+   hand - the one thing the single-writer rule forbids. Both are deliberately
+   stiff (refuse without `--yes`, refuse on a held `.lw.lock`, `--dry-run`
+   plans, exact slug match so `-pre` never goes out with `-pre-2`). `reopen`
+   carries the manifest, drops the milestones a swap invalidates and records
+   REPLACE_SOURCE + REOPEN rather than rewriting the INTAKE hash. Its guard
+   matches preservation by CONTENT, not filename - a pass-through cleaning stage
+   leaves `_cleandone` byte-identical to `_cleaninitial` and the backup holds one
+   copy, so a name-only check would refuse a provably safe reopen. Two dry-run
+   defects caught before they mattered: the plan hid the source swap entirely,
+   and claimed to delete a milestone out of the destination.
+   **academy-ahri twin rebuilt from the recovered 1280x756.** Verified the source
+   carried REAL detail rather than assuming a bigger render is better: identical
+   artwork (pHash/dHash 0), identical crop (PSNR 29.4 dB on a common grid), but
+   Laplacian variance 919.4 native against 645.4 for the old preview upscaled to
+   the same grid - 42 percent more high-frequency energy at 7.2x the bytes. G1
+   improved on every axis that moved: lap_ratio 1.1263 -> 1.3491 (floor 1.0),
+   band_delta -0.0968 -> +0.0183, msssim 0.99693 -> 0.999494, lpips 0.01981 ->
+   0.003643, halo 0.0031 -> 0.0047 (ceiling 0.05). Cleaning re-triaged
+   `no_detections`, so the original pass-through was correct behavior and not a
+   silent failure.
+   **(4) Verify residue fixed, not documented away (`fa56adc`).** Root cause:
+   `Ops.backup_put` numbers by ARRIVAL - first write wins the canonical slot,
+   later ones become `.N`. Right for a collision, wrong for a supersede, which is
+   what a reopen produces; `verify` resolves one expected hash per milestone key
+   so it can only agree with a backup whose canonical name is the newest
+   generation. REJECTED the tempting fix of renaming the stale copy so it stops
+   parsing as a milestone and goes quiet - `_milestone_key` already settled that
+   trade ("the mismatch is noise, the silence reads as a pass").
+   `rotate_backup_generation()` now fires at reopen time so the rebuild lands
+   canonical, and `tools/lw_backfill_backup_generation.py` recovered the row
+   already on disk (renames only, never deletes, acts only when a `.N` sibling
+   carries exactly the expected hash, reports anything else as unexplained
+   rather than guessing; dry-run default, idempotent). Applied: 1 promoted, 0
+   unexplained, both generations intact. This also cleared the residue LEDGER
+   77/78 left behind.
+   **Verified:** 41 new tests across four files (`test_lw_pipeline_near_dup.py`
+   10, `_remove.py` 9, `_reopen.py` 12, `_backup_generation.py` 10), all RED
+   before implementation. Fresh full suite **2449 passed / 18 skipped** (118s,
+   baseline 2408), ruff clean repo-wide, drift_guard 0 breaches, `verify: ok
+   (604 image(s) checked)` with ZERO mismatches repo-wide, CI green on all four
+   SHAs. Memory `project-reprocess-done-slug` rewritten: its "the pipeline has
+   NO reverse command" claim is now false.
+   **Left deliberately:** the 2 byte-identical dupes remain in `0.Originals`
+   (`pending_intake=2` on every scan) pending an operator GC ruling per ADR-003;
+   `data/recovery/fetched/...-pre-2/` staging retained after use.
+
 141. DONE **2026-08-30 (the queue re-run under the shipping default, and the
    mid-line holes turn out to have been fixed already; runtime-only, no code).**
    Ran `lw_clean_creditline_run.py` over `3.Cleaning Scratch` on plain defaults

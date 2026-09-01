@@ -373,6 +373,79 @@ LongPathsEnabled (deferred).
 
 ---
 
+## 2026-08-29 - the interrupted session's ledger, paid
+
+Session was cut mid-wrap when the operator switched Claude accounts. The CODE
+had all landed: `git status` clean, `origin/main` level with `main`, three
+commits pushed (6fffd74, 78a0521, d13cdfc). What was missing was the /done
+ritual - no LEDGER entries, no wakeup block. Both now written.
+
+- **Suite re-verified fresh THIS session, not carried forward: 2379 passed / 18
+  skipped, exit 0** (107s). Matches what d13cdfc claimed, independently
+  measured.
+- **LEDGER 134 / 135 / 136 appended** for the three orphaned commits: the repo
+  junk audit, the global-filter flag at `save-working`, and the mask-excluded
+  G1 FR with its tautology guard.
+- **`tools/lw_clean_fr.py` is NOT unwired, despite nothing importing it.** It is
+  a PRODUCER: it writes its audit with `--out` and `lw_pipeline annotate
+  --metrics @path` consumes it. Two commands by contract, one JSON shape between
+  them. Do not "fix" the missing import.
+- **The disk alarm from the previous session has cleared: C: has 182.8 GB free**
+  (770.5 used). The 118-of-119-GB reading that truncated `lw_clean_spot.py` to 0
+  bytes does not reproduce. Nothing to clean up.
+- **NEXT is unchanged and is NOT a code task: the operator's eye over the queue
+  as it now ships.** Every lever is shipped or falsified and both lane defaults
+  are settled, so the move is a per-slug disposition, not another sweep. The run
+  under the shipping default already exists - `ops/runtime/clean/creditline/
+  run_scoped/REVIEW.md`, 39 slugs, 37 clean by the plan, 1 held
+  (`inkshadow-kai-sa`), 2 still reading (`akali`, `ahri`) - and nobody has looked
+  at those 39 sheets. Approve what clears zero-residue into `4.Cleaning Done`;
+  send the rest to the manual IOPaint lane. Per ADR-008 a vision pass may FLAG
+  and shortlist but can never approve, so this genuinely waits on the operator.
+
+---
+
+## 2026-08-29 (third session) - a verdict per lane, and the control that was missing
+
+Commits: f49102f + this one. Suite 2331 passed / 18 skipped, ruff clean.
+
+- **The pair was measured against the wrong control.** `--scoped-revert` ALONE
+  had never been run over the queue - the 2x2 had three cells - so the pair was
+  being credited with everything scoped does by itself. Ran the fourth cell:
+  `ops/runtime/clean/creditline/run_scoped/`.
+- **Measure that decides a default: the mark HANDED BACK** (mask px ending
+  byte-identical to untouched, which is what a revert restores). Whole revert
+  272,893 px (28.13 percent) / stubs 285,870 (29.47) / **scoped 17,508 (1.80)**
+  / both 29,474 (3.04). Held blobs 21 / 37 / **1** / 2. Still reading 13 / 13 /
+  **2** / 2.
+- **OPERATOR VERDICT: `--scoped-revert` DEFAULTS ON, `--stubs` STAYS OPT-IN.**
+  Scoped is no worse than the whole revert on any of the 39 and cannot be.
+  Stubs improves none and regresses four; `107-cleanup` goes clean -> legible
+  `(c) SMALL`.
+- **The akali blocker is dead.** All 17 blobs commit, 0 held / 0 partial, output
+  byte-identical across all four configurations. The strap smear is the FILL's
+  and ships in today's default; the objection came from the p40/p80 sweep cells.
+- **105-cleanup 11.562 against 15.454 untouched under all four** - one sha,
+  re-measured live off the 82-mask capture.
+- Shipped `scoped=True`, `--no-scoped-revert` (with `--scoped-revert` still
+  accepted), and `tools/lw_clean_lane_compare.py` - every configuration in one
+  column at 1:1, cropped to what differs. Strips:
+  `ops/runtime/clean/creditline/lanes/REVIEW.md`.
+- **NEXT: the operator's eye over the queue AS IT NOW SHIPS.** No code lever
+  is left - every one is shipped or falsified and both defaults are settled -
+  so the next move is a per-slug disposition, not another sweep. The run under
+  the shipping default already exists: `run_scoped/REVIEW.md`, 37 clean by the
+  plan, 1 held (`inkshadow-kai-sa`), 2 still reading (`akali`, `ahri`), and
+  nobody has looked at those 39 sheets. Approve what clears zero-residue into
+  `4.Cleaning Done`; send the rest to the manual IOPaint lane. The ~35
+  genuinely blind steps need a measurement the probe cannot take.
+- **C: HIT 100 PERCENT MID-SESSION and truncated `tools/lw_clean_spot.py` to 0
+  bytes** (restored from git, nothing lost). 118 of the 119 GB under
+  `%LOCALAPPDATA%\Temp\claude` is `C--Clockspeed`, not LW. This is now a
+  correctness risk, not just housekeeping.
+
+---
+
 ## 2026-08-29 (second session) - the blind remainder, split and spent
 
 Five commits: dac7872, cb1475f, 827e688, d37be63, d61e382. Suite 2323/18, ruff
@@ -405,57 +478,6 @@ clean, drift_guard 0 breaches, CI green.
 - Also: `lw_ports.FORBIDDEN` + `owner_of()` carry the six-project registry.
 - **OPEN, carried forward: C: is FULL.** 185.6 GB in `%LOCALAPPDATA%\Temp\claude`,
   and this session's file alone is 41 MB.
-
----
-
----
-
-## 2026-08-22 - mask generation: the question was MIS-POSED
-
-Went after the standing open problem. The finding is not a tuning result.
-
-- **The template was never failing at what it does.** It scored recall 0.405 /
-  0.086 against the two gold brush masks, and every fix made things worse -
-  four alpha thresholds x three dilations all landed at or below "do nothing",
-  and a coherence pass was worse still, with BIGGER masks scoring worse. That is
-  impossible for a mask that is merely too small, so it had to be misplaced.
-  Rendering it over the frame settled it in one look: **the template finds the
-  DA LOGO, the operator cleans the CREDIT LINE.** Different marks, different
-  places. Every recall number was scoring a logo detector against a credit-line
-  gold standard, and the hand-clean captures are PARTIAL gold - 105's capture
-  leaves a real, correctly-detected logo untouched.
-- **Why the template cannot find the line:** it is a median over 19 frames from
-  mixed uploaders and the line carries the uploader's name, so the text averages
-  out of the stack while the logo survives. Frames DO group by uploader (top
-  correlation pairs are same-uploader; 37 of 81 slugs carry `-by-<uploader>-`)
-  but leave-one-out neighbour templates at group sizes 3-7 do NOT beat the
-  global one - too few frames to cancel the art.
-- **Shipped `tools/lw_clean_creditline.py`.** The line is text, so read it.
-  easyocr was already in the stack and found nothing at full-frame scale; shown
-  the layout BAND, enhanced two ways and unioned, with reads joined into LINES
-  before verification and approximate substring matching, it reads both:
-  `SLMSHADYWAALPAPERDEVIANTAR` 0.725 and `SMALLTAVERNWALLPAPERDEVIAN`+`ARTGOM`
-  0.745, and correctly nothing on the painted signature. **The hit verifies
-  itself** - the string contains DEVIANTART - which is what makes it different
-  in kind from the falsified residue detectors.
-- **Measured:** covers **0.9995** of the operator's brush on 105; **39 of 80**
-  queued slugs carry a readable line; **1 of 119** approved-clean frames fired
-  (`230-cleanup`, reading `SMALLTANERNXDEVIANTART CAM` twice - looks like a real
-  credit line on a frame approved as clean, so it is a question for the eye).
-- **The box is the right PLACE and the wrong SHAPE:** handed the solid box the
-  fill broke a line and track C's rollback reverted the step (15.45 = untouched).
-  Narrowed to the GLYPHS inside the verified box - which is not the falsified
-  global residue, because that measure had to decide IF a mark was there and
-  this one already knows - it lands at **11.56 against 15.45 untouched and the
-  operator's own 8.08**, committed, 0 of 7 spots held. The two glyph constants
-  are ONE slug picking one of nine cells and are labelled as such.
-- **Corrected anchor worth more than the tool:** the operator's brush is only
-  **1.05 to 1.65x** the pixels their clean actually changed, on all four
-  captures. Replaces the falsified 8x margin and `CONTEXT_RATIO = 5.0`.
-- **Still open:** 107-class AREA marks (best 22.3 vs 23.5 untouched), the logo
-  itself, and the 41 slugs with no readable line.
-- **Verified:** 22 new tests, full suite **2265 passed / 18 skipped**, ruff
-  clean. Doc: `docs/CLEAN_MASKGEN_2026-08-22.md`.
 
 ---
 
@@ -3243,6 +3265,57 @@ lane runs the operator's local py3.11 iopaint 1.6.0 install, WAKEUP
 > 8. API keys to project root (gitignored `API-Key-*.txt` convention):
 >    `API-Key-SauceNAO.txt`, `API-Key-DeviantArt.txt` (client-id/secret +
 >    refresh-token via `gallery-dl oauth:deviantart`).
+
+---
+
+---
+
+## 2026-08-22 - mask generation: the question was MIS-POSED
+
+Went after the standing open problem. The finding is not a tuning result.
+
+- **The template was never failing at what it does.** It scored recall 0.405 /
+  0.086 against the two gold brush masks, and every fix made things worse -
+  four alpha thresholds x three dilations all landed at or below "do nothing",
+  and a coherence pass was worse still, with BIGGER masks scoring worse. That is
+  impossible for a mask that is merely too small, so it had to be misplaced.
+  Rendering it over the frame settled it in one look: **the template finds the
+  DA LOGO, the operator cleans the CREDIT LINE.** Different marks, different
+  places. Every recall number was scoring a logo detector against a credit-line
+  gold standard, and the hand-clean captures are PARTIAL gold - 105's capture
+  leaves a real, correctly-detected logo untouched.
+- **Why the template cannot find the line:** it is a median over 19 frames from
+  mixed uploaders and the line carries the uploader's name, so the text averages
+  out of the stack while the logo survives. Frames DO group by uploader (top
+  correlation pairs are same-uploader; 37 of 81 slugs carry `-by-<uploader>-`)
+  but leave-one-out neighbour templates at group sizes 3-7 do NOT beat the
+  global one - too few frames to cancel the art.
+- **Shipped `tools/lw_clean_creditline.py`.** The line is text, so read it.
+  easyocr was already in the stack and found nothing at full-frame scale; shown
+  the layout BAND, enhanced two ways and unioned, with reads joined into LINES
+  before verification and approximate substring matching, it reads both:
+  `SLMSHADYWAALPAPERDEVIANTAR` 0.725 and `SMALLTAVERNWALLPAPERDEVIAN`+`ARTGOM`
+  0.745, and correctly nothing on the painted signature. **The hit verifies
+  itself** - the string contains DEVIANTART - which is what makes it different
+  in kind from the falsified residue detectors.
+- **Measured:** covers **0.9995** of the operator's brush on 105; **39 of 80**
+  queued slugs carry a readable line; **1 of 119** approved-clean frames fired
+  (`230-cleanup`, reading `SMALLTANERNXDEVIANTART CAM` twice - looks like a real
+  credit line on a frame approved as clean, so it is a question for the eye).
+- **The box is the right PLACE and the wrong SHAPE:** handed the solid box the
+  fill broke a line and track C's rollback reverted the step (15.45 = untouched).
+  Narrowed to the GLYPHS inside the verified box - which is not the falsified
+  global residue, because that measure had to decide IF a mark was there and
+  this one already knows - it lands at **11.56 against 15.45 untouched and the
+  operator's own 8.08**, committed, 0 of 7 spots held. The two glyph constants
+  are ONE slug picking one of nine cells and are labelled as such.
+- **Corrected anchor worth more than the tool:** the operator's brush is only
+  **1.05 to 1.65x** the pixels their clean actually changed, on all four
+  captures. Replaces the falsified 8x margin and `CONTEXT_RATIO = 5.0`.
+- **Still open:** 107-class AREA marks (best 22.3 vs 23.5 untouched), the logo
+  itself, and the 41 slugs with no readable line.
+- **Verified:** 22 new tests, full suite **2265 passed / 18 skipped**, ruff
+  clean. Doc: `docs/CLEAN_MASKGEN_2026-08-22.md`.
 
 ---
 

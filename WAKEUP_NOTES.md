@@ -11,6 +11,53 @@
 
 ---
 
+## 2026-09-01 - intake grew a perceptual gate, and the pipeline grew a reverse
+
+Four commits, all pushed, CI green on each. Suite **2449 passed / 18 skipped**
+on a fresh full run (118s); baseline was 2408 and I added 41 tests. ruff clean
+repo-wide, drift_guard 0 breaches, `verify: ok (604 images checked)` with ZERO
+mismatches. Started as `/intake`, became four fixes the intake exposed.
+
+- **/intake ran: 24 intaken, 2 refused as byte-identical.** Tier-1 token decode
+  hit 24/24 and fetched 24/24. Read the gain honestly: 20 gained ~x1.2, 4 were
+  already at cap, and the ceiling is **1280px wide** - the quota-free
+  `intermediary` cap, NOT true originals. First pass upscales from ~1280, not
+  from an artist file.
+- **The byte-hash dedup had a hole and it is closed (`2fe8087`).** `unique_slug`
+  compared bytes, and only against the ONE colliding candidate slug - a
+  re-download under an unrelated filename was compared to NOTHING. Now every
+  incoming file is compared against all 605 backup originals, bands delegated to
+  `lw_recover.consensus_match` so intake and Tier-0 recovery cannot drift.
+  `--allow-near-dup` overrides; imagehash absent degrades to a noted no-op.
+- **Swept all 605 for rows the gap let through: exactly ONE** (academy-ahri).
+  The 4 review-band pairs sit at Hamming 12-14 between different champions -
+  noise floor, not pollution. Do not re-sweep.
+- **`remove` and `reopen` exist now (`3d81298`, `b2c932f`).** There was no
+  delete path and no reverse move, and the documented workaround moved folders
+  by hand - the one thing the single-writer rule forbids. Memory
+  `project-reprocess-done-slug` said "the pipeline has NO reverse command";
+  that is FALSE now and the memory is rewritten.
+- **academy-ahri twin rebuilt from the 1280x756.** Verified the source carried
+  REAL detail first (Lap variance 919.4 native vs 645.4 for the preview upscaled
+  to the same grid) rather than assuming a bigger render is a better one. G1
+  improved on every axis that moved: lap_ratio 1.1263 -> 1.3491, lpips 0.01981
+  -> 0.003643, msssim 0.99693 -> 0.999494. Cleaning re-triaged `no_detections`,
+  so the original pass-through was correct behavior, not a silent failure.
+- **The verify residue is fixed, not documented away (`fa56adc`).** Root cause:
+  `backup_put` numbers by ARRIVAL, so a supersede left the CANONICAL name
+  holding the old generation. Rejected the tempting fix (rename it so it stops
+  parsing and goes quiet) - `_milestone_key` already settled that: "the mismatch
+  is noise, the silence reads as a pass". Rotation now happens at reopen time;
+  `tools/lw_backfill_backup_generation.py` recovered the row already on disk.
+  This also cleared the LEDGER 77/78 residue - hence 604/604 clean.
+- **Do NOT redo:** the 605-slug near-dup sweep, the academy-ahri rebuild, the
+  backup-generation backfill (idempotent, 0 unexplained). All shipped.
+- **Still open, deliberately:** the 2 byte-identical dupes sit in `0.Originals`
+  and will report `pending_intake=2` on every scan until GC'd - operator call.
+  `data/recovery/fetched/...-pre-2/` staging kept after use.
+
+---
+
 ## 2026-08-30 (second session) - both framings were wrong
 
 One commit plus this doc sync. Suite **2408 passed / 18 skipped, exit 0** on a
@@ -116,76 +163,3 @@ drift_guard 0 breaches.
 - **One operator call waiting:** `LIMB_REACH` 24 removes 17 percent of the art
   damage; 32 reaches 24 percent with still no measured mark loss; first loss at
   36. One number, pinned by a test.
-
----
-
-## 2026-08-29 - the interrupted session's ledger, paid
-
-Session was cut mid-wrap when the operator switched Claude accounts. The CODE
-had all landed: `git status` clean, `origin/main` level with `main`, three
-commits pushed (6fffd74, 78a0521, d13cdfc). What was missing was the /done
-ritual - no LEDGER entries, no wakeup block. Both now written.
-
-- **Suite re-verified fresh THIS session, not carried forward: 2379 passed / 18
-  skipped, exit 0** (107s). Matches what d13cdfc claimed, independently
-  measured.
-- **LEDGER 134 / 135 / 136 appended** for the three orphaned commits: the repo
-  junk audit, the global-filter flag at `save-working`, and the mask-excluded
-  G1 FR with its tautology guard.
-- **`tools/lw_clean_fr.py` is NOT unwired, despite nothing importing it.** It is
-  a PRODUCER: it writes its audit with `--out` and `lw_pipeline annotate
-  --metrics @path` consumes it. Two commands by contract, one JSON shape between
-  them. Do not "fix" the missing import.
-- **The disk alarm from the previous session has cleared: C: has 182.8 GB free**
-  (770.5 used). The 118-of-119-GB reading that truncated `lw_clean_spot.py` to 0
-  bytes does not reproduce. Nothing to clean up.
-- **NEXT is unchanged and is NOT a code task: the operator's eye over the queue
-  as it now ships.** Every lever is shipped or falsified and both lane defaults
-  are settled, so the move is a per-slug disposition, not another sweep. The run
-  under the shipping default already exists - `ops/runtime/clean/creditline/
-  run_scoped/REVIEW.md`, 39 slugs, 37 clean by the plan, 1 held
-  (`inkshadow-kai-sa`), 2 still reading (`akali`, `ahri`) - and nobody has looked
-  at those 39 sheets. Approve what clears zero-residue into `4.Cleaning Done`;
-  send the rest to the manual IOPaint lane. Per ADR-008 a vision pass may FLAG
-  and shortlist but can never approve, so this genuinely waits on the operator.
-
----
-
-## 2026-08-29 (third session) - a verdict per lane, and the control that was missing
-
-Commits: f49102f + this one. Suite 2331 passed / 18 skipped, ruff clean.
-
-- **The pair was measured against the wrong control.** `--scoped-revert` ALONE
-  had never been run over the queue - the 2x2 had three cells - so the pair was
-  being credited with everything scoped does by itself. Ran the fourth cell:
-  `ops/runtime/clean/creditline/run_scoped/`.
-- **Measure that decides a default: the mark HANDED BACK** (mask px ending
-  byte-identical to untouched, which is what a revert restores). Whole revert
-  272,893 px (28.13 percent) / stubs 285,870 (29.47) / **scoped 17,508 (1.80)**
-  / both 29,474 (3.04). Held blobs 21 / 37 / **1** / 2. Still reading 13 / 13 /
-  **2** / 2.
-- **OPERATOR VERDICT: `--scoped-revert` DEFAULTS ON, `--stubs` STAYS OPT-IN.**
-  Scoped is no worse than the whole revert on any of the 39 and cannot be.
-  Stubs improves none and regresses four; `107-cleanup` goes clean -> legible
-  `(c) SMALL`.
-- **The akali blocker is dead.** All 17 blobs commit, 0 held / 0 partial, output
-  byte-identical across all four configurations. The strap smear is the FILL's
-  and ships in today's default; the objection came from the p40/p80 sweep cells.
-- **105-cleanup 11.562 against 15.454 untouched under all four** - one sha,
-  re-measured live off the 82-mask capture.
-- Shipped `scoped=True`, `--no-scoped-revert` (with `--scoped-revert` still
-  accepted), and `tools/lw_clean_lane_compare.py` - every configuration in one
-  column at 1:1, cropped to what differs. Strips:
-  `ops/runtime/clean/creditline/lanes/REVIEW.md`.
-- **NEXT: the operator's eye over the queue AS IT NOW SHIPS.** No code lever
-  is left - every one is shipped or falsified and both defaults are settled -
-  so the next move is a per-slug disposition, not another sweep. The run under
-  the shipping default already exists: `run_scoped/REVIEW.md`, 37 clean by the
-  plan, 1 held (`inkshadow-kai-sa`), 2 still reading (`akali`, `ahri`), and
-  nobody has looked at those 39 sheets. Approve what clears zero-residue into
-  `4.Cleaning Done`; send the rest to the manual IOPaint lane. The ~35
-  genuinely blind steps need a measurement the probe cannot take.
-- **C: HIT 100 PERCENT MID-SESSION and truncated `tools/lw_clean_spot.py` to 0
-  bytes** (restored from git, nothing lost). 118 of the 119 GB under
-  `%LOCALAPPDATA%\Temp\claude` is `C--Clockspeed`, not LW. This is now a
-  correctness risk, not just housekeeping.

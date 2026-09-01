@@ -1396,3 +1396,11 @@ Sources of truth:
   (the v1 softness bug, structurally banned by ADR-002).
 - **Never touch `images/` content in tests or git** - tests use tmp_path;
   `images/**` gitignored except the .gitkeep skeleton.
+- **The "reopen dance" is a COMMAND now, not a manual procedure (2026-09-01,
+  `b2c932f`).** Every mention of it above predates
+  `lw_pipeline reopen <slug> --to <stage> --yes [--source PATH]`, which moves a
+  slug back, carries the manifest, drops the milestones the swap invalidates
+  (refusing unless each is hash-preserved in `9.Image Backup`, matched by
+  CONTENT not filename) and records REPLACE_SOURCE + REOPEN. Removal is
+  `lw_pipeline remove <slug> --yes`. Do NOT move stage folders by hand - the
+  single-writer rule has no exceptions.
