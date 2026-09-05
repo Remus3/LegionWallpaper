@@ -66,3 +66,48 @@ Two consequences for planning:
    encodes the operator's heal/clone reconstruction rather than the watermark
    (measured separately: the hand-finished line fits the alpha model no better
    than the known-invented LaMa layer, 7.00 vs 6.12 median levels of error).
+
+## Follow-up: analysis-by-synthesis (operator's proposal), 2026-09-05
+
+The operator proposed inverting the approach: instead of scraping a residue out
+of watermarked frames, SYNTHESISE the mark onto clean art and fit until it
+matches. That is the better formulation - DA's overlay is machine-generated, so
+the model has ~a dozen parameters, and a dozen parameters cannot absorb a hand
+reconstruction the way a free per-pixel alpha does.
+
+**What it needs is a matched pair, and none exists.** Checked and ruled out:
+
+* **No clean/watermarked duplicate in the corpus.** All 63 watermarked frames
+  matched against all 517 `4.Cleaning Done` images on the repo's own consensus
+  pHash+dHash: closest consensus distance **18**, against an accept threshold of
+  8 and a recorded noise floor of 12-14 between DIFFERENT champions. 45 no_match,
+  18 review, 0 match.
+* **DA watermarks every render size.** `content` 1600x897, `preview` 1194x669 and
+  even the 300px thumb all carry it, and it scales with the render, so no size
+  comes back clean.
+* **Two sizes do not separate it either.** Downscaling `content` onto `preview`
+  leaves the logo outline visible in the residual - so the mark's geometry does
+  differ between renders - but art edges survive just as strongly because each
+  render is independently JPEG'd. Resampling noise dominates.
+
+**What the attempt did produce.** Shape and amplitude can be separated: the
+pooled template gives a clean logo SHAPE (one component, 605x365, aspect 1.66,
+filled to 81,881 px), and the amplitude can be measured per frame as the
+luminance step across that known boundary, `alpha = step / (255 - L_outside)`.
+Pooled over 62 frames (123f held out): **alpha = 0.0578 +- 0.0046 (SE)**, a
+12.6-sigma result that independently lands on the ~0.06 figure LEDGER already
+recorded. Applying it to held-out 123f damaged nothing - no dark edges, no
+smearing, unlike every earlier attempt.
+
+**But it cannot be validated per frame, which is the blocker.** The same ring
+measurement on a SINGLE frame is noise-dominated: across 62 frames the per-frame
+alpha has std 0.036 against mean 0.050, and **6 frames (10 percent) come out
+NEGATIVE**, which is physically impossible for a white overlay. 123f's own
+pre-correction boundary step is -1.33 levels, so applying the pooled 0.0578 to
+it over-corrected to -3.67. Shape is solid; amplitude is a population average we
+cannot check against the frame in front of us.
+
+**Standing conclusion.** The hand lane remains the shipping route. Every
+automated estimate here is unverifiable per-frame for want of one clean/
+watermarked pair, and the search above establishes that no such pair is
+obtainable from the corpus or from DeviantArt.
