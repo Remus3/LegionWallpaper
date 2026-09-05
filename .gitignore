@@ -178,3 +178,9 @@ _verify_*.txt
 # cross-repo sync channel with Riot Commander (never committed on either side)
 moon_sync_inbox/
 moon_sync_outbox/
+
+# Canonical LoL wiki reference set (pose / coloring / structure / face refs for
+# lw-gen). Third-party art fetched from wiki.leagueoflegends.com - same public-repo
+# boundary as images/** and data/recovery/fetched/: the PROCESS is the deliverable,
+# the bytes are never tracked. Provenance JSON lives beside it and is also ignored.
+data/reference/
