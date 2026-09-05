@@ -143,6 +143,33 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   `docs/CLEAN_SCRATCH_CENSUS_2026-09-01.md`. `clean_done` 507 -> 517,
   `clean_scratch` 80 -> 70.
 
+- **SIDE MISSION: pulled a canonical LoL wiki reference set for lw-gen
+  (`60461ae`).** The operator-supplied gallery (deviantart.com/savage-shapes) was
+  a dead end and it was PROVEN so, not eyeballed: `anthro` returns 39,792 of its
+  39,795 deviations while `league of legends`, `ahri`, `jinx`, `runeterra`,
+  `card`, `splash art` and `human` all return 0. The anthro/fox counts are the
+  control, so the search works and those zeroes are real - it is a furry gallery.
+- **Pulled from the wiki.gg Action API instead (LEDGER 72 route):
+  173 champions x 2 axes, 346/346 files, 0 missing, 1.2 GB.** `render` (isolated
+  figure, anatomy/silhouette/proportion) + `splash` HD original (median 6000px,
+  up to 10000x5626) for pose-in-composition, colour register and face detail.
+  Lands in `data/reference/wiki/{render,splash}/`, gitignored - verified with
+  `git check-ignore` BEFORE a byte was fetched, since the repo is public and the
+  art is third-party. Provenance records the sha256 of what arrived (spot-checked
+  6/6 against disk), never the API-declared sha1 that no host serves.
+  **9 champions have no HD upload** and stay at 1215x717: Amumu, Briar, Corki,
+  Karthus, Kayle, Lulu, Morgana, Nunu, Pyke.
+- **The champion universe is the `OriginalSkin` file, NOT the render category,
+  and both reasons were measured.** `Category:Champion renders` is INCOMPLETE -
+  `Kayle Render.png` exists but is not in it, so a render-derived universe lost
+  Kayle outright while still carrying four of her forms as champions. It is also
+  ambiguous: `Aatrox Winged`, `Kayle Aflame`, `Nunu & Willump` and `Dr. Mundo`
+  are all multi-token and indistinguishable by name shape. My first filter
+  dropped any name whose prefix also had a render and got `Nunu & Willump`
+  exactly backwards, keeping legacy `Nunu`. The `OriginalSkin` suffix is fixed so
+  the prefix is the whole name, and no variant, form or placeholder has one:
+  172 champions / 20 unresolved -> 173 / 346 of 346. 29 tests, all offline.
+
 - **OPERATOR RULING, and it reverses my recommendation: the 63 are NOT dropped.**
   I had enumerated them exactly and was verifying the mid band when the operator
   stopped it. The plan instead is to HAND-CORRECT them, then study the
