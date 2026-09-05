@@ -143,6 +143,34 @@ Ran `/first-pass` then `/cleaning-pass` over the 24 slugs in scratch.
   `docs/CLEAN_SCRATCH_CENSUS_2026-09-01.md`. `clean_done` 507 -> 517,
   `clean_scratch` 80 -> 70.
 
+- **Tried the 62-frame pooled veil estimate (123f held out). IT DID NOT WORK,
+  and the mechanism is now known - see `docs/POOLED_VEIL_RESULT_2026-09-05.md`.**
+  What DID work: registration is NOT the problem (all 26 sampled frames at
+  scale 1.00, shift within +-3 px, correlation 0.35-0.58 - so the `scale=1.12`
+  reading on slug 122 does not generalise), and pooling cancels the art cleanly
+  (median high-pass leaves the logo outline crisp, 29,492 support px).
+  What failed: the pooled matte recovers the mark's EDGES, not its flat FILL,
+  because `estimate_template`/`estimate_matte` are built on `highpass`, which by
+  construction discards the DC band the veil lives in. Applied to held-out 123f
+  it DARKENED the logo outline and left the interior. `estimate_veil`, the one
+  component meant to catch a flat region, returned 693 px at alpha 0.021.
+  **Do not retry with more frames or looser thresholds - the blindness is in the
+  transform, not the sample size.**
+- **The credit line can never be pooled: it is artist-specific.** The pooled
+  matte carried PEBANO1's glyphs (that artist dominates the set) and subtracting
+  them from a SMALLTAVERNX frame produced a dark smeared double plus new jaw
+  artifacts.
+- **A live re-demonstration of the settled ruling: `overlay_score` fell
+  0.5492 -> 0.2085 (62 percent) on an output that is visibly WORSE.** Disbelieve
+  any future success claimed on that metric without looking at pixels.
+- **Correction to an earlier claim in this session.** I read a whole-frame
+  `residual_mae` of 0.028 as proving the operator's hand-clean inverted rather
+  than reconstructed. That was dilution - only 0.39 percent of pixels were
+  touched. Measured on touched pixels the hand-finished line fits the alpha
+  model NO BETTER than the known-invented LaMa layer (7.00 vs 6.12 median
+  levels, 94.0 vs 94.3 percent unexplained). So hand-cleans are the ACCEPTANCE
+  TARGET, never fitting data.
+
 - **SIDE MISSION: pulled a canonical LoL wiki reference set for lw-gen
   (`60461ae`).** The operator-supplied gallery (deviantart.com/savage-shapes) was
   a dead end and it was PROVEN so, not eyeballed: `anthro` returns 39,792 of its
